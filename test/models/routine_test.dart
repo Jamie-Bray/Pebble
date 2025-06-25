@@ -33,6 +33,14 @@ void main() {
 
     test('JSON serialization', () {
       final json = task.toJson();
+      expect(json, {
+        'id': '1',
+        'label': 'Test Task',
+        'category': 'Morning',
+        'photoRequired': true,
+        'notes': 'Some notes',
+        'order': 1,
+      });
       final fromJson = Task.fromJson(json);
       expect(fromJson, equals(task));
     });
@@ -75,6 +83,23 @@ void main() {
 
     test('JSON serialization', () {
       final json = routine.toJson();
+      expect(json, {
+        'id': 'r1',
+        'title': 'Morning Routine',
+        'description': 'Start your day right',
+        'categories': ['Morning'],
+        'tasks': [
+          {
+            'id': '1',
+            'label': 'Test Task',
+            'category': 'Morning',
+            'photoRequired': true,
+            'notes': 'Some notes',
+            'order': 1,
+          }
+        ],
+        'isPinned': false,
+      });
       final fromJson = Routine.fromJson(json);
       expect(fromJson, equals(routine));
     });

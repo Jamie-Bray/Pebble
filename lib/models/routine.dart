@@ -70,6 +70,31 @@ class Routine {
       categories.hashCode ^
       tasks.hashCode;
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'description': description,
+      'categories': categories,
+      'tasks': tasks.map((task) => task.toJson()).toList(),
+      'isPinned': isPinned,
+    };
+  }
+
+  factory Routine.fromJson(Map<String, dynamic> json) {
+    return Routine(
+      id: json['id'] as String,
+      title: json['title'] as String,
+      description: json['description'] as String? ?? '',
+      categories:
+          (json['categories'] as List<dynamic>? ?? []).cast<String>(),
+      tasks: (json['tasks'] as List<dynamic>? ?? [])
+          .map((e) => Task.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList(),
+      isPinned: json['isPinned'] as bool? ?? false,
+    );
+  }
 }
 
 @HiveType(typeId: 1)
@@ -141,4 +166,26 @@ class Task {
       notes.hashCode ^
       order.hashCode;
   }
-} 
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'label': label,
+      'category': category,
+      'photoRequired': photoRequired,
+      'notes': notes,
+      'order': order,
+    };
+  }
+
+  factory Task.fromJson(Map<String, dynamic> json) {
+    return Task(
+      id: json['id'] as String,
+      label: json['label'] as String,
+      category: json['category'] as String?,
+      photoRequired: json['photoRequired'] as bool? ?? false,
+      notes: json['notes'] as String?,
+      order: json['order'] as int,
+    );
+  }
+}
