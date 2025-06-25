@@ -1,0 +1,34 @@
+# Cursor Project Rules for "Before You Go"
+
+## 🧱 Architecture
+- Use Flutter + Dart.
+- Use Provider or Riverpod for state management.
+- Use Hive for local data storage.
+- Use Modular widgets (e.g., TaskCard, RoutineCard).
+- Structure app with screens, widgets, models, and services folders.
+
+## 🎨 UI/UX
+- Support both light and dark themes (use ThemeMode.system).
+- Use Material 3 design guidelines.
+- Bottom sheets should be used for editing routines and tasks.
+- Routine player should be full-screen with progress tracking.
+- All text must use UK English spelling.
+
+## 📸 Media Handling
+- Use `image_picker` for photo capture.
+- Use `path_provider` for storing images locally.
+- Tasks can include optional photo confirmation.
+
+## 🧪 Testing
+- Generate tests for each model and major widget.
+- Use test-driven prompts when building new logic or UI.
+- All new code must pass `flutter analyze` and basic widget tests.
+
+## 📄 PRD Alignment
+- Reference PRD located at /docs/BeforeYouGo_PRD_v1.md.
+- Ensure all features align with PRD structure and priority.
+
+## 💡 Additional Notes
+- No Firebase or sync in MVP; local-only.
+- Accessibility and reassurance for neurodiverse users is a key priority.
+- Minimize visual clutter and favor calm design (soft colors, minimal distractions).
