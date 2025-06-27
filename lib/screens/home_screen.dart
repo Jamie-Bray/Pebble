@@ -30,12 +30,16 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 
   int _selectedTab = 0;
+  String _sortOption = 'Favourite';
 
   void _onTabTapped(int index) {
     setState(() {
       _selectedTab = index;
     });
-    // TODO: Implement navigation for History and Settings
+    // Implement navigation for History and Settings
+    if (index == 2) {
+      Navigator.of(context).pushNamed('/settings');
+    }
   }
 
   void _openRoutineDetails(Routine routine) {
@@ -182,150 +186,173 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     }
     final routines = routineService.routines;
     final accent = Theme.of(context).colorScheme.primary;
-    final themeBg = () {
-      switch (themeService.currentThemeMode) {
-        case AppThemeMode.blush:
-          return 'assets/themes/pink_dawn.jpg';
-        case AppThemeMode.night:
-          return 'assets/themes/blue_mountains.jpg';
-        case AppThemeMode.jungle:
-          return 'assets/themes/green_forest.jpg';
-        case AppThemeMode.blushNight:
-          return 'assets/themes/yellow_sunset.jpg';
-        default:
-          return 'assets/themes/yellow_sunset.jpg';
-      }
-    }();
+    final themeBg = themeService.currentThemeMeta.headerImageAsset;
+
+    // Ensure _sortOption is always valid for the dropdown
+    final validSortOptions = ['Favourite', 'A-Z', 'Z-A', 'Recent'];
+    if (!validSortOptions.contains(_sortOption)) {
+      _sortOption = 'Favourite';
+    }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFDF8F3),
-      body: Stack(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: Column(
         children: [
-          // Themed illustrated background
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 600),
-              child: Image.asset(
-                themeBg,
-                key: ValueKey(themeBg),
-                fit: BoxFit.cover,
-                height: MediaQuery.of(context).size.height * 0.32,
+          // HEADER: Illustrated background, greeting, search
+          Stack(
+            children: [
+              Container(
                 width: double.infinity,
-                alignment: Alignment.topCenter,
-                color: Colors.white.withOpacity(0.08),
-                colorBlendMode: BlendMode.srcOver,
+                height: 260,
+                decoration: BoxDecoration(
+                  image: DecorationImage(
+                    image: AssetImage(themeBg),
+                    fit: BoxFit.cover,
+                  ),
+                ),
               ),
-            ),
-          ),
-          SafeArea(
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Hello Jamie',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black.withOpacity(0.85),
-                      ),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.04),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: TextField(
-                      enabled: false,
-                      decoration: InputDecoration(
-                        hintText: 'Search routines',
-                        prefixIcon: const Icon(Icons.search),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      style: Theme.of(context).textTheme.bodyLarge,
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'My Routines',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      Material(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        elevation: 2,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(24),
-                          onTap: _createNewRoutine,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-                            child: Row(
-                              children: [
-                                Icon(Icons.add, color: accent, size: 20),
-                                const SizedBox(width: 6),
-                                Text('New', style: TextStyle(color: accent, fontWeight: FontWeight.w600)),
-                              ],
-                            ),
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 24,
+                            backgroundColor: accent.withOpacity(0.15),
+                            child: Text('J', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24, color: accent)),
                           ),
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Hello', style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white, fontWeight: FontWeight.w400)),
+                              Text('Jamie', style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      const SizedBox(height: 16),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.85),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: TextField(
+                          enabled: false,
+                          decoration: const InputDecoration(
+                            hintText: 'Search routines',
+                            prefixIcon: Icon(Icons.search),
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(vertical: 16),
+                          ),
+                          style: Theme.of(context).textTheme.bodyLarge,
                         ),
                       ),
+                      const SizedBox(height: 18),
                     ],
                   ),
                 ),
-                Expanded(
-                  child: routines.isEmpty
-                      ? _buildEmptyState()
-                      : ListView.builder(
-                          padding: const EdgeInsets.only(bottom: 24),
-                          itemCount: routines.length,
-                          itemBuilder: (context, index) {
-                            final routine = routines[index];
-                            final animation = Tween<Offset>(
-                              begin: const Offset(0, 0.08),
-                              end: Offset.zero,
-                            ).animate(CurvedAnimation(
-                              parent: _controller,
-                              curve: Interval(
-                                (index * 0.05).clamp(0.0, 1.0),
-                                1.0,
-                                curve: Curves.easeOut,
-                              ),
-                            ));
-                            return FadeTransition(
-                              opacity: _controller,
-                              child: SlideTransition(
-                                position: animation,
-                                child: _buildModernRoutineCard(context, routine, accent, index),
-                              ),
-                            );
-                          },
-                        ),
+              ),
+            ],
+          ),
+          // MAIN CONTENT: My Routines section
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(32),
+                  topRight: Radius.circular(32),
                 ),
-              ],
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.only(top: 24, left: 0, right: 0, bottom: 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'My Routines',
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                          // Sorting dropdown
+                          DropdownButton<String>(
+                            value: _sortOption,
+                            underline: SizedBox.shrink(),
+                            icon: Icon(Icons.sort, color: Theme.of(context).colorScheme.primary),
+                            items: [
+                              DropdownMenuItem(value: 'Favourite', child: Text('Favourite First')),
+                              DropdownMenuItem(value: 'A-Z', child: Text('A-Z')),
+                              DropdownMenuItem(value: 'Z-A', child: Text('Z-A')),
+                              DropdownMenuItem(value: 'Recent', child: Text('Recent')),
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                _sortOption = value!;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    Expanded(
+                      child: routines.isEmpty
+                          ? _buildEmptyState()
+                          : ListView.builder(
+                              padding: const EdgeInsets.only(bottom: 24, left: 12, right: 12),
+                              itemCount: _sortedRoutines.length,
+                              itemBuilder: (context, index) {
+                                final routine = _sortedRoutines[index];
+                                final animation = Tween<Offset>(
+                                  begin: const Offset(0, 0.08),
+                                  end: Offset.zero,
+                                ).animate(CurvedAnimation(
+                                  parent: _controller,
+                                  curve: Interval(
+                                    (index * 0.05).clamp(0.0, 1.0),
+                                    1.0,
+                                    curve: Curves.easeOut,
+                                  ),
+                                ));
+                                return FadeTransition(
+                                  opacity: _controller,
+                                  child: SlideTransition(
+                                    position: animation,
+                                    child: _buildModernRoutineCard(context, routine, accent, index),
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _createNewRoutine,
+        tooltip: 'Add new routine',
+        child: const Icon(Icons.add),
+        elevation: 4,
       ),
       bottomNavigationBar: _buildBottomNavBar(context, accent),
     );
@@ -336,149 +363,114 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     final iconBg = accent.withOpacity(0.12);
     final icon = Icons.list_alt_rounded;
     final taskCount = routine.tasks.length;
-    final completed = 0; // TODO: Replace with real completion logic
-    final total = taskCount;
-    final hasTasks = total > 0;
-    final progress = hasTasks ? completed / total : 0.0;
-    final isInProgress = false; // TODO: Add real in-progress logic
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: accent.withOpacity(0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: iconBg,
-                    borderRadius: BorderRadius.circular(16),
+    final categoryCount = routine.categories.length;
+    return InkWell(
+      onTap: () => _startRoutine(routine),
+      borderRadius: BorderRadius.circular(16),
+      child: Card(
+        elevation: 2,
+        margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Stack(
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: iconBg,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(icon, color: accent, size: 26),
                   ),
-                  child: Icon(icon, color: accent, size: 28),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              routine.title,
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          if (isInProgress)
-                            Container(
-                              margin: const EdgeInsets.only(left: 8),
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: accent.withOpacity(0.13),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text('In progress', style: TextStyle(color: accent, fontWeight: FontWeight.w600, fontSize: 12)),
-                            ),
-                        ],
-                      ),
-                      if (routine.description.isNotEmpty) ...[
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          routine.title,
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                        ),
                         const SizedBox(height: 4),
                         Text(
-                          routine.description,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.black54),
+                          '$categoryCount categories • $taskCount tasks',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                              ),
                         ),
                       ],
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          if (hasTasks)
-                            Text('$completed/$total tasks complete', style: Theme.of(context).textTheme.bodySmall)
-                          else
-                            Text('${routine.categories.length} categories • $taskCount tasks', style: Theme.of(context).textTheme.bodySmall),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: hasTasks ? progress : 0.0,
-                          minHeight: 5,
-                          backgroundColor: accent.withOpacity(0.08),
-                          valueColor: AlwaysStoppedAnimation<Color>(accent.withOpacity(0.35)),
+                    ),
+                  ),
+                  // Vertically center star and 3-dots menu
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      GestureDetector(
+                        onTap: () async {
+                          final routineService = Provider.of<RoutineService>(context, listen: false);
+                          if (routine.isPinned) {
+                            await routineService.unpinRoutine(routine.id);
+                          } else {
+                            await routineService.pinRoutine(routine.id);
+                          }
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 8.0),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: routine.isPinned
+                                  ? Colors.amber.withOpacity(0.15)
+                                  : Colors.grey.withOpacity(0.10),
+                              shape: BoxShape.circle,
+                            ),
+                            padding: const EdgeInsets.all(6),
+                            child: Icon(
+                              Icons.star,
+                              color: routine.isPinned ? Colors.amber : Colors.grey.withOpacity(0.3),
+                              size: 20,
+                            ),
+                          ),
                         ),
                       ),
                     ],
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _editRoutine(routine),
-                    icon: const Icon(Icons.edit, size: 16),
-                    label: const Text('Edit'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      side: BorderSide(color: accent.withOpacity(0.18)),
-                      foregroundColor: accent,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: GestureDetector(
-                    onTapDown: (details) {
-                      // Animate shrink
-                    },
-                    onTapUp: (details) {
-                      // Animate back
-                      _startRoutine(routine);
-                    },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 100),
-                      curve: Curves.easeInOut,
-                      decoration: BoxDecoration(
-                        color: accent.withOpacity(0.13),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: accent.withOpacity(0.10),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      PopupMenuButton<String>(
+                        icon: const Icon(Icons.more_vert),
+                        onSelected: (value) {
+                          switch (value) {
+                            case 'Edit':
+                              _editRoutine(routine);
+                              break;
+                            case 'Duplicate':
+                              _duplicateRoutine(routine);
+                              break;
+                            case 'Delete':
+                              _showDeleteConfirmation(routine);
+                              break;
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(value: 'Edit', child: Text('Edit')),
+                          const PopupMenuItem(value: 'Duplicate', child: Text('Duplicate')),
+                          const PopupMenuItem(value: 'Delete', child: Text('Delete')),
                         ],
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      child: Center(
-                        child: Text('Start', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: accent, fontWeight: FontWeight.bold)),
-                      ),
-                    ),
+                    ],
                   ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -593,5 +585,28 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         ),
       ),
     );
+  }
+
+  List<Routine> get _sortedRoutines {
+    final routineService = Provider.of<RoutineService>(context, listen: false);
+    List<Routine> sorted = List.from(routineService.routines);
+    switch (_sortOption) {
+      case 'A-Z':
+        sorted.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+        break;
+      case 'Z-A':
+        sorted.sort((a, b) => b.title.toLowerCase().compareTo(a.title.toLowerCase()));
+        break;
+      case 'Recent':
+        // If you have a date field, sort by it; otherwise, leave as is
+        break;
+      case 'Favourite':
+      default:
+        sorted.sort((a, b) {
+          if (a.isPinned == b.isPinned) return 0;
+          return a.isPinned ? -1 : 1;
+        });
+    }
+    return sorted;
   }
 } 

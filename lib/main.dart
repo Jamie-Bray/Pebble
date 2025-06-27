@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:pebble/screens/home_screen.dart';
-import 'package:pebble/screens/edit_routine_screen.dart';
-import 'package:pebble/services/theme_service.dart';
-import 'package:pebble/services/routine_service.dart';
-import 'package:pebble/theme.dart';
-import 'package:pebble/models/routine.dart';
+import 'screens/home_screen.dart';
+import 'screens/edit_routine_screen.dart';
+import 'screens/settings_screen.dart';
+import 'screens/routine_player_screen.dart';
+import 'services/theme_service.dart';
+import 'services/routine_service.dart';
+import 'theme.dart';
+import 'models/routine.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 void main() async {
@@ -38,6 +40,17 @@ class MyApp extends StatelessWidget {
                 final routine = settings.arguments as Routine?;
                 return MaterialPageRoute(
                   builder: (context) => EditRoutineScreen(routine: routine),
+                );
+              }
+              if (settings.name == '/settings') {
+                return MaterialPageRoute(
+                  builder: (context) => const SettingsScreen(),
+                );
+              }
+              if (settings.name == '/player') {
+                final routine = settings.arguments as Routine;
+                return MaterialPageRoute(
+                  builder: (context) => RoutinePlayerScreen(routine: routine),
                 );
               }
               // Add other routes here as needed

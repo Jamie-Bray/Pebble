@@ -233,4 +233,69 @@ class AppTheme {
       ),
     );
   }
-} 
+}
+
+class ThemeMeta {
+  final String name;
+  final String key;
+  final Color accent;
+  final Color background;
+  final Color cardBackground;
+  final Color primaryText;
+  final String headerImageAsset;
+  final String description;
+
+  const ThemeMeta({
+    required this.name,
+    required this.key,
+    required this.accent,
+    required this.background,
+    required this.cardBackground,
+    required this.primaryText,
+    required this.headerImageAsset,
+    required this.description,
+  });
+}
+
+final List<ThemeMeta> themes = [
+  ThemeMeta(
+    name: 'Solis',
+    key: 'solis',
+    accent: Color(0xFFFF8552), // Soft tangerine
+    background: Color(0xFFFFF5ED), // Creamy peach base
+    cardBackground: Color(0xFFFFFFFF),
+    primaryText: Color(0xFF3B302A), // Rich cocoa-brown
+    headerImageAsset: 'assets/themes/yellow_sunset.jpg',
+    description: 'Uplifting and bright, Solis brings the energy of a warm sunrise to your day.',
+  ),
+  ThemeMeta(
+    name: 'Blush',
+    key: 'blush',
+    accent: Color(0xFFF47C91), // Watermelon pink
+    background: Color(0xFFFFF0F3), // Very light rose
+    cardBackground: Color(0xFFFFE9EF), // Blush tint
+    primaryText: Color(0xFF583C42), // Warm plum
+    headerImageAsset: 'assets/themes/pink_dawn.jpg',
+    description: 'Soft and expressive, Blush is perfect for gentle routines and personal moments.',
+  ),
+  ThemeMeta(
+    name: 'Verdant',
+    key: 'verdant',
+    accent: Color(0xFF6FBF73), // Balanced fern green
+    background: Color(0xFFF2FAF2), // Misty mint base
+    cardBackground: Color(0xFFE8F5E8),
+    primaryText: Color(0xFF2D4A2D), // Deep spruce
+    headerImageAsset: 'assets/themes/green_forest.jpg',
+    description: 'Natural and steady, Verdant connects you to grounded focus and calm.',
+  ),
+  ThemeMeta(
+    name: 'Aether',
+    key: 'aether',
+    accent: Color(0xFF6B9AC4), // Mist blue
+    background: Color(0xFFF4F8FB), // Frosted sky
+    cardBackground: Color(0xFFE8F0F8),
+    primaryText: Color(0xFF2C3E50), // Muted midnight
+    headerImageAsset: 'assets/themes/blue_mountains.jpg',
+    description: 'Cool and serene, Aether helps you breathe deeper and clear your thoughts.',
+  ),
+]; 

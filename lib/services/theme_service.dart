@@ -2,70 +2,70 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../theme.dart';
 
-enum AppThemeMode {
-  day,
-  night,
-  blush,
-  blushNight,
-  jungle,
-  sky,
-}
-
 class ThemeService extends ChangeNotifier {
   static const String _theme_key = 'app_theme';
-  late AppThemeMode _currentThemeMode;
+  ThemeMeta _currentThemeMeta = themes.first;
   bool _isInitialized = false;
 
   ThemeService() {
-    print('DEBUG: ThemeService constructor called');
-    _currentThemeMode = AppThemeMode.day;
     _isInitialized = true;
-    print('DEBUG: ThemeService initialized synchronously');
     notifyListeners();
   }
 
   ThemeData get currentTheme {
-    switch (_currentThemeMode) {
-      case AppThemeMode.day:
-        return AppTheme.dayTheme;
-      case AppThemeMode.night:
-        return AppTheme.nightTheme;
-      case AppThemeMode.blush:
-        return AppTheme.blushTheme;
-      case AppThemeMode.blushNight:
-        return AppTheme.blushNightTheme;
-      case AppThemeMode.jungle:
-        return AppTheme.jungleTheme;
-      case AppThemeMode.sky:
-        return AppTheme.skyTheme;
-    }
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.light,
+      scaffoldBackgroundColor: _currentThemeMeta.background,
+      cardColor: _currentThemeMeta.cardBackground,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: _currentThemeMeta.accent,
+        background: _currentThemeMeta.background,
+        primary: _currentThemeMeta.accent,
+        onPrimary: Colors.white,
+        surface: _currentThemeMeta.cardBackground,
+        onSurface: _currentThemeMeta.primaryText,
+        brightness: Brightness.light,
+      ),
+      textTheme: Typography.material2021().black.apply(
+        bodyColor: _currentThemeMeta.primaryText,
+        displayColor: _currentThemeMeta.primaryText,
+      ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: _currentThemeMeta.accent,
+        foregroundColor: Colors.white,
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+      ),
+    );
   }
-  
-  AppThemeMode get currentThemeMode => _currentThemeMode;
+
+  ThemeMeta get currentThemeMeta => _currentThemeMeta;
   bool get isInitialized => _isInitialized;
 
-  Future<void> setTheme(AppThemeMode themeMode) async {
-    if (_currentThemeMode == themeMode) return;
-
-    _currentThemeMode = themeMode;
+  Future<void> setThemeByKey(String key) async {
+    final found = themes.firstWhere((t) => t.key == key, orElse: () => themes.first);
+    if (_currentThemeMeta.key == found.key) return;
+    _currentThemeMeta = found;
     notifyListeners();
-
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_theme_key, themeMode.name);
+    await prefs.setString(_theme_key, key);
   }
 
-  ThemeData getThemeByKey(String? key) {
-    switch (key) {
-      case 'green_forest':
-        return AppTheme.jungleTheme;
-      case 'yellow_sunset':
-        return AppTheme.blushTheme;
-      case 'blue_mountains':
-        return AppTheme.nightTheme;
-      case 'pink_dawn':
-        return AppTheme.skyTheme;
-      default:
-        return currentTheme;
+  Future<void> setTheme(ThemeMeta theme) async {
+    await setThemeByKey(theme.key);
+  }
+
+  Future<void> loadTheme() async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = prefs.getString(_theme_key);
+    if (key != null) {
+      await setThemeByKey(key);
     }
   }
 } 
