@@ -1,0 +1,415 @@
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:pebble_routines/core/database/local_db.dart';
+import 'package:pebble_routines/core/database/routine_step.dart';
+import 'package:pebble_routines/data/repositories/routine_repository.dart';
+import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
+import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
+import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
+import 'package:pebble_routines/features/templates/data/models/template.dart';
+import 'package:pebble_routines/features/templates/domain/usecases/use_template_usecase.dart';
+import 'package:pebble_routines/features/templates/ui/template_detail_screen.dart';
+import 'package:pebble_routines/features/templates/ui/templates_gallery_screen.dart';
+import 'package:pebble_routines/features/templates/ui/templates_providers.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  group('template browse data', () {
+    test('loads a reduced launch catalog from assets', () async {
+      final templates = await TemplateRepository().loadTemplates();
+
+      expect(templates, hasLength(12));
+      expect(
+        templates.map((Template template) => template.category).toSet(),
+        equals(<String>{
+          'Leaving & Locking Up',
+          'Daily Care',
+          'Travel & Handovers',
+        }),
+      );
+      expect(
+        templates.map((Template template) => template.title).toList(),
+        containsAll(<String>[
+          'The Anxiety-Free Departure',
+          'The Deep Sleep Bedtime Scan',
+          'Car Security & Parking Peace',
+          'The Big Trip Home Shutdown',
+          'The “Did I take it?” Med Check',
+          'Morning Pet Routine',
+          'Essential School Morning Run',
+          'The Toddler “Survival” Bag',
+          'The “No Item Left Behind” Hotel Checkout',
+          'The Office/Workspace “Switch-Off”',
+          'Gym & Sports Prep',
+          'The “House Sitter” Handover',
+        ]),
+      );
+      expect(
+        templates.where((Template template) => template.isFeatured),
+        isEmpty,
+      );
+
+      final stepCounts = templates
+          .map((Template template) => template.stepCount)
+          .toSet();
+      expect(stepCounts, equals(<int>{8, 9, 10}));
+    });
+
+    test('groups templates in the plain browse order', () {
+      final grouped = groupTemplatesByCategory(
+        sortTemplatesForBrowse(_sampleTemplates),
+      );
+
+      expect(
+        grouped.keys,
+        orderedEquals(<String>[
+          'Leaving & Locking Up',
+          'Daily Care',
+          'Travel & Handovers',
+        ]),
+      );
+      expect(
+        grouped['Daily Care']!.map((Template template) => template.title),
+        orderedEquals(<String>['Morning Pet Routine']),
+      );
+    });
+
+    test(
+      'use-template use case creates a real routine from a template',
+      () async {
+        final repository = _FakeRoutineRepository();
+        final template = _sampleTemplates.first;
+
+        final routine = await UseTemplateUseCase(repository).call(template);
+
+        expect(repository.savedRoutines, hasLength(1));
+        expect(routine.title, template.title);
+        expect(routine.id, isNot(0));
+
+        final decodedSteps = (jsonDecode(routine.stepsJson) as List<dynamic>)
+            .map(
+              (dynamic item) =>
+                  RoutineStep.fromJson(Map<String, dynamic>.from(item as Map)),
+            )
+            .toList(growable: false);
+        expect(decodedSteps.map(_stepLabel), orderedEquals(template.steps));
+      },
+    );
+
+    test('photo markers are parsed into proof requirements', () async {
+      final repository = _FakeRoutineRepository();
+      final template = _sampleTemplates.first.copyWith(
+        steps: <String>[
+          'Lock the door and test the handle. (Take a photo of the lock)',
+          'Check the hob and oven are off.',
+        ],
+      );
+
+      expect(template.photoRequiredCount, 1);
+      expect(Template.stepRequiresPhoto(template.steps.first), isTrue);
+      expect(
+        Template.cleanStepLabel(template.steps.first),
+        'Lock the door and test the handle.',
+      );
+
+      final routine = await UseTemplateUseCase(repository).call(template);
+      final decodedSteps = (jsonDecode(routine.stepsJson) as List<dynamic>)
+          .map(
+            (dynamic item) =>
+                RoutineStep.fromJson(Map<String, dynamic>.from(item as Map)),
+          )
+          .toList(growable: false);
+
+      expect(
+        _stepLabel(decodedSteps.first),
+        'Lock the door and test the handle.',
+      );
+      expect(_stepRequiresPhoto(decodedSteps.first), isTrue);
+      expect(_stepRequiresPhoto(decodedSteps.last), isFalse);
+    });
+  });
+
+  group('template browse widgets', () {
+    testWidgets('gallery is a grouped list without catalogue chrome', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: <Override>[
+            templateRepositoryProvider.overrideWithValue(
+              _FakeTemplateRepository(_sampleTemplates),
+            ),
+          ],
+          child: MaterialApp(
+            theme: ThemeData(
+              colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
+              useMaterial3: true,
+            ),
+            home: const TemplatesGalleryScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('Templates'), findsOneWidget);
+      expect(
+        find.text(
+          'Calm starting points for the moments you come back to again and again.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('LEAVING & LOCKING UP'), findsOneWidget);
+      expect(find.text('DAILY CARE'), findsOneWidget);
+      expect(find.text('TRAVEL & HANDOVERS'), findsOneWidget);
+      expect(find.text('The Anxiety-Free Departure'), findsOneWidget);
+      expect(find.text('5 checks'), findsNothing);
+      expect(find.text('5'), findsNWidgets(3));
+      expect(find.text('Featured'), findsNothing);
+      expect(find.textContaining('Search'), findsNothing);
+      expect(find.textContaining('Preview first'), findsNothing);
+      expect(find.textContaining('Then customize'), findsNothing);
+    });
+
+    testWidgets('detail screen previews steps and hands off to Home', (
+      WidgetTester tester,
+    ) async {
+      final routineRepository = _FakeRoutineRepository();
+
+      final router = GoRouter(
+        initialLocation: '/templates/tpl_anxiety_free_departure',
+        routes: <RouteBase>[
+          GoRoute(
+            path: '/',
+            builder: (BuildContext context, GoRouterState state) {
+              return Consumer(
+                builder: (context, ref, child) {
+                  final highlight = ref.watch(homeRoutineHighlightProvider);
+                  return Scaffold(body: Text(highlight?.message ?? 'Home'));
+                },
+              );
+            },
+          ),
+          GoRoute(
+            path: '/templates/:id',
+            builder: (BuildContext context, GoRouterState state) {
+              return TemplateDetailScreen(
+                templateId: state.pathParameters['id']!,
+              );
+            },
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: <Override>[
+            templateRepositoryProvider.overrideWithValue(
+              _FakeTemplateRepository(_sampleTemplates),
+            ),
+            routineRepositoryProvider.overrideWithValue(routineRepository),
+            routineListProvider.overrideWith(
+              (ref) => Stream<List<Routine>>.value(const <Routine>[]),
+            ),
+            subscriptionProvider.overrideWithValue(UserTier.personalPremium),
+          ],
+          child: MaterialApp.router(
+            theme: ThemeData(
+              colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
+              useMaterial3: true,
+            ),
+            routerConfig: router,
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('The Anxiety-Free Departure'), findsOneWidget);
+      expect(
+        find.text(
+          'A final sweep before you leave and start wondering about the door.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Good for'), findsNothing);
+      expect(find.textContaining('Preview first'), findsNothing);
+      expect(find.text('5 steps'), findsOneWidget);
+      expect(find.text('Use this template'), findsOneWidget);
+      expect(
+        find.text('You can edit any step to make it yours'),
+        findsOneWidget,
+      );
+      expect(find.text('Check the hob and oven are off.'), findsOneWidget);
+
+      await tester.tap(find.text('Use this template'));
+      await tester.pumpAndSettle();
+
+      expect(routineRepository.savedRoutines, hasLength(1));
+      expect(
+        routineRepository.savedRoutines.single.title,
+        'The Anxiety-Free Departure',
+      );
+      expect(find.text('The Anxiety-Free Departure is ready'), findsOneWidget);
+    });
+  });
+}
+
+String _stepLabel(RoutineStep step) {
+  return step.maybeWhen(
+    check:
+        (
+          String label,
+          bool requiresPhoto,
+          int photoCount,
+          String? photoPrompt,
+          bool allowSkip,
+          bool allowGallery,
+          StepGuidanceAudio? guidanceAudio,
+        ) => label,
+    orElse: () => '',
+  );
+}
+
+bool _stepRequiresPhoto(RoutineStep step) {
+  return step.maybeWhen(
+    check:
+        (
+          String label,
+          bool requiresPhoto,
+          int photoCount,
+          String? photoPrompt,
+          bool allowSkip,
+          bool allowGallery,
+          StepGuidanceAudio? guidanceAudio,
+        ) => requiresPhoto,
+    orElse: () => false,
+  );
+}
+
+class _FakeTemplateRepository extends TemplateRepository {
+  _FakeTemplateRepository(this.templates);
+
+  final List<Template> templates;
+
+  @override
+  Future<List<Template>> loadTemplates() async {
+    return sortTemplatesForBrowse(templates);
+  }
+}
+
+class _FakeRoutineRepository implements RoutineRepository {
+  final List<Routine> savedRoutines = <Routine>[];
+
+  @override
+  Stream<List<Routine>> watchRoutines() =>
+      Stream<List<Routine>>.value(savedRoutines);
+
+  @override
+  Future<void> saveRoutine(Routine routine) async {
+    savedRoutines.add(routine);
+  }
+
+  @override
+  Future<void> deleteRoutine(int id) async {}
+
+  @override
+  Future<Routine> duplicateRoutine(int id) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Routine?> getRoutineById(int id) async {
+    for (final routine in savedRoutines) {
+      if (routine.id == id) {
+        return routine;
+      }
+    }
+    return null;
+  }
+
+  @override
+  Future<(int?, String?)> getRoutineReminder(int id) async => (null, null);
+
+  @override
+  Future<void> updateRoutineAppearance({
+    required int id,
+    String? iconKey,
+    int? colorHex,
+  }) async {}
+
+  @override
+  Future<void> updateRoutinePinned(int id, bool isPinned) async {}
+
+  @override
+  Future<bool> moveRoutine(int id, RoutineMoveDirection direction) async {
+    return true;
+  }
+
+  @override
+  Future<void> updateRoutineReminder({
+    required int id,
+    int? reminderDay,
+    String? reminderTime,
+  }) async {}
+
+  @override
+  Stream<RoutineRun?> watchLatestRunForRoutine(int routineId) {
+    return Stream<RoutineRun?>.value(null);
+  }
+}
+
+const List<Template> _sampleTemplates = <Template>[
+  Template(
+    id: 'tpl_anxiety_free_departure',
+    title: 'The Anxiety-Free Departure',
+    description:
+        'A final sweep before you leave and start wondering about the door.',
+    category: 'Leaving & Locking Up',
+    goodFor:
+        'A final sweep before you leave and start wondering about the door.',
+    searchTerms: <String>['lock up', 'windows'],
+    steps: <String>[
+      'Check the hob and oven are off.',
+      'Close the windows you opened today.',
+      'Turn off the lights you do not want left on.',
+      'Pick up keys, phone, and wallet.',
+      'Lock the door and test the handle.',
+    ],
+  ),
+  Template(
+    id: 'tpl_hotel_checkout',
+    title: 'The “No Item Left Behind” Hotel Checkout',
+    description: 'Confirm the essentials before the journey starts moving.',
+    category: 'Travel & Handovers',
+    goodFor: 'Confirm the essentials before the journey starts moving.',
+    searchTerms: <String>['airport', 'passport'],
+    steps: <String>[
+      'Check passport or ID is with you.',
+      'Check wallet, phone, and charger are packed.',
+      'Make boarding pass or booking details easy to reach.',
+      'Zip and count your bags.',
+      'Lock the door and put keys in their travel place.',
+    ],
+  ),
+  Template(
+    id: 'tpl_morning_pet_routine',
+    title: 'Morning Pet Routine',
+    description: 'Make home feel settled before your pet is there without you.',
+    category: 'Daily Care',
+    goodFor: 'Make home feel settled before your pet is there without you.',
+    searchTerms: <String>['pet', 'dog', 'cat'],
+    steps: <String>[
+      'Refresh the water bowl.',
+      'Put out the next meal or confirm when it will be given.',
+      'Give a toilet break if needed.',
+      'Leave bed, toy, or comfort item ready.',
+      'Close doors, gates, or bins your pet should not reach.',
+    ],
+  ),
+];

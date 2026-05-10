@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Delete Your Account | Pebble Routines</title>
+    <link rel="stylesheet" href="legal.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="hero">
+        <p class="eyebrow">Account Deletion</p>
+        <h1>How to delete your Pebble account.</h1>
+        <p class="lede">
+          This page explains how to delete your Pebble Routines account and what
+          happens to your account, cloud backup data, local device data, and
+          app-store subscription.
+        </p>
+        <p class="meta">
+          Contact: <strong>support@pebbleroutines.app</strong><br />
+          <a href="mailto:support@pebbleroutines.app">support@pebbleroutines.app</a>
+        </p>
+      </header>
+
+      <div class="content" style="margin-top: 24px;">
+        <section>
+          <h2>Delete your account in the app</h2>
+          <p>
+            If you can still access Pebble, the fastest method is to delete
+            your account in the app:
+          </p>
+          <ol>
+            <li>Open <strong>Account Hub</strong> in Pebble.</li>
+            <li>Scroll to the account section.</li>
+            <li>Tap <strong>Delete Account</strong>.</li>
+            <li>Confirm the deletion request.</li>
+          </ol>
+        </section>
+
+        <section>
+          <h2>Delete your account without the app</h2>
+          <p>
+            If you cannot access Pebble, you can request deletion with this
+            form or by emailing <strong>support@pebbleroutines.app</strong>.
+          </p>
+          <form
+            id="deletion-request-form"
+            class="legal-form"
+            data-endpoint="/functions/v1/request-account-deletion"
+          >
+            <label for="account-email">Email address linked to your Pebble account</label>
+            <input
+              id="account-email"
+              name="email"
+              type="email"
+              autocomplete="email"
+              required
+              placeholder="you@example.com"
+            />
+
+            <label for="deletion-message">Optional message</label>
+            <textarea
+              id="deletion-message"
+              name="message"
+              rows="4"
+              maxlength="2000"
+              placeholder="Anything that helps us identify the account"
+            ></textarea>
+
+            <label class="checkbox-row">
+              <input id="confirm-delete" name="confirmed" type="checkbox" required />
+              <span>
+                I understand this requests deletion of cloud account data and
+                cloud backup data associated with this Pebble account.
+              </span>
+            </label>
+
+            <button type="submit">Submit deletion request</button>
+            <p id="deletion-form-status" class="form-status" role="status"></p>
+          </form>
+          <p>
+            To help us process the request safely, send the request from the
+            email address associated with your Pebble account if possible, and
+            include:
+          </p>
+          <ul>
+            <li>the subject line <code>Pebble account deletion request</code></li>
+            <li>the email address linked to the account</li>
+            <li>any details that help us identify the account</li>
+          </ul>
+          <p>
+            Email link:
+            <a href="mailto:support@pebbleroutines.app?subject=Pebble%20account%20deletion%20request">support@pebbleroutines.app</a>
+          </p>
+        </section>
+
+        <section>
+          <h2>What we delete</h2>
+          <p>
+            When your Pebble account is deleted, we will delete or irreversibly
+            de-identify the cloud account data and cloud backup data associated
+            with that account, except where limited retention is required for
+            legal, security, fraud-prevention, tax, accounting, dispute, or
+            backup-retention reasons.
+          </p>
+          <p>
+            Active cloud account data is normally deleted within 30 days.
+            Backup copies may remain for up to 90 days before automatic expiry,
+            unless longer retention is required by law, security, fraud
+            prevention, accounting, or dispute handling.
+          </p>
+        </section>
+
+        <section>
+          <h2>What may remain on your device</h2>
+          <p>
+            Pebble is local-first. Deleting your account does not necessarily
+            remove routines, history, proof photos, guidance audio, drafts,
+            settings, or other app data already saved locally on your device.
+            You may need to delete that data manually, clear app data, or
+            uninstall the app if you want local device data removed as well.
+          </p>
+        </section>
+
+        <section>
+          <h2>Subscription cancellation</h2>
+          <p>
+            Deleting your Pebble account, uninstalling the app, or signing out
+            does not automatically cancel a subscription billed through an app
+            store. To stop future renewals, you must cancel through the relevant
+            app-store subscription settings.
+          </p>
+        </section>
+
+        <section>
+          <h2>Questions</h2>
+          <p>
+            If you need help with deletion or privacy requests, contact
+            <a href="mailto:privacy@pebbleroutines.app">privacy@pebbleroutines.app</a>
+            or
+            <a href="mailto:support@pebbleroutines.app">support@pebbleroutines.app</a>.
+          </p>
+        </section>
+      </div>
+
+      <p class="footer">
+        Also see <a href="privacy.html">Privacy Policy</a> and
+        <a href="terms.html">Terms and Conditions</a>.
+      </p>
+    </main>
+    <script>
+      const form = document.getElementById('deletion-request-form');
+      const statusEl = document.getElementById('deletion-form-status');
+
+      form?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        statusEl.textContent = 'Submitting request...';
+        statusEl.className = 'form-status';
+
+        const endpoint = form.dataset.endpoint || '/functions/v1/request-account-deletion';
+        const data = new FormData(form);
+        const payload = {
+          email: String(data.get('email') || ''),
+          message: String(data.get('message') || ''),
+          confirmed: data.get('confirmed') === 'on',
+        };
+
+        try {
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const body = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(body.error || 'Could not submit the deletion request.');
+          }
+          form.reset();
+          statusEl.textContent =
+            'Request received. We will verify the account and follow up by email.';
+          statusEl.className = 'form-status success';
+        } catch (error) {
+          statusEl.textContent =
+            `${error.message} You can also email support@pebbleroutines.app.`;
+          statusEl.className = 'form-status error';
+        }
+      });
+    </script>
+  </body>
+</html>

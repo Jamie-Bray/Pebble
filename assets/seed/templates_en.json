@@ -1,0 +1,236 @@
+[
+  {
+    "id": "tpl_anxiety_free_departure",
+    "title": "The Anxiety-Free Departure",
+    "description": "Designed specifically for the \"Did I leave the stove on?\" brain-loop. Capture proof so you can breathe.",
+    "category": "Leaving & Locking Up",
+    "goodFor": "Capture proof so you can look at your history on the bus and breathe.",
+    "searchTerms": ["stove", "straighteners", "iron", "lock", "departure", "anxiety"],
+    "steps": [
+      "Hair Tools: Physically unplug the straighteners or curling iron and move them to a heat-safe surface. (Take a photo)",
+      "The Kitchen Hub: Check that every single dial on the stove and oven is pointing to 'Off.' (Take a photo)",
+      "The Toaster: Is it unplugged or clear of any crumbs/towels?",
+      "Kitchen Sink: Turn the taps tight until there’s no dripping, then check the area for standing water.",
+      "Space Heaters: Make sure any portable heaters are unplugged, not just turned off. (Take a photo)",
+      "Windows: Walk through every room and physically touch the window latches to ensure they are shut.",
+      "The Iron: If you used it, confirm it’s unplugged and standing upright.",
+      "Lights: Do a quick sweep of the house and flick off the unnecessary switches.",
+      "The Exit: Grab your keys, wallet, and phone. Do you have your bag?",
+      "The Final Lock: Lock the front door, turn the handle to test it, and take a photo of the locked deadbolt. (Take a photo)"
+    ]
+  },
+  {
+    "id": "tpl_deep_sleep_bedtime_scan",
+    "title": "The Deep Sleep Bedtime Scan",
+    "description": "For when you're in bed and suddenly wonder if the back door is open. Do this once and stay in bed.",
+    "category": "Leaving & Locking Up",
+    "goodFor": "A comprehensive house check to ensure you can sleep soundly.",
+    "searchTerms": ["night", "doors", "alarm", "windows", "bedtime", "safety"],
+    "steps": [
+      "Back Door/Patio: Check the sliding door or back latch. Is it fully engaged? (Take a photo)",
+      "Ground Floor Windows: Ensure the \"forgotten\" windows (like the bathroom or laundry room) are snapped shut.",
+      "Kitchen Safety: Clear any tea towels away from the stovetop and check the gas/electric is off.",
+      "Front Door: Bolt the door and put the chain on.",
+      "Pet Check: Does the dog/cat have a full water bowl for the night?",
+      "Alarms: Set your house alarm or proximity sensors if you have them.",
+      "Phone Charge: Plug your phone in and confirm you see the charging icon.",
+      "Coffee Prep: Set the timer or prep the machine so you don't have to think in the morning.",
+      "Final Tap Check: Listen for any running water in the bathroom or kitchen.",
+      "The \"I'm Safe\" Moment: Take a photo of your locked front door from the inside so you know you’re secure. (Take a photo)"
+    ]
+  },
+  {
+    "id": "tpl_med_check",
+    "title": "The “Did I take it?” Med Check",
+    "description": "Perfect for anyone where \"autopilot\" makes you forget if you actually swallowed the pill.",
+    "category": "Daily Care",
+    "goodFor": "Ensuring strict adherence to medication regimens without second-guessing.",
+    "searchTerms": ["medication", "pill", "health", "ADHD", "prescription"],
+    "steps": [
+      "Location: Go to the spot where you keep your medication.",
+      "Water: Fill a full glass of water.",
+      "The Dose: Count out exactly what you need for right now.",
+      "Verification: Hold the pills in your hand and take a quick snap. (Take a photo)",
+      "Action: Swallow the medication with the water.",
+      "The Bottle: Close the lid tightly (listen for the click).",
+      "Refill Check: Do you have enough for tomorrow, or do you need to add \"order more\" to your list?",
+      "The Log: Mark this step as done immediately so the timestamp is accurate."
+    ]
+  },
+  {
+    "id": "tpl_hotel_checkout",
+    "title": "The “No Item Left Behind” Hotel Checkout",
+    "description": "The ultimate sweep to ensure you don't leave a charger or your passport in a dark drawer.",
+    "category": "Travel & Handovers",
+    "goodFor": "Systematic sweep of hotel rooms to avoid leaving valuables behind.",
+    "searchTerms": ["hotel", "checkout", "travel", "passport", "charger", "sweep"],
+    "steps": [
+      "The Safe: Open it wide and physically feel inside for passports, cash, or jewelry. (Take a photo of the empty safe)",
+      "The Shower: Check the ledge for shampoo, rings, or razors.",
+      "The \"Wall Sweep\": Check every single power outlet for phone or laptop chargers.",
+      "Under the Bed: Use your phone torch to look for stray socks or shoes that kicked under there.",
+      "The Closet: Slide every hanger across to make sure nothing is hiding in the back.",
+      "The Nightstand: Open the drawer and check the very back corner.",
+      "Towels: Gather used towels into a pile so you can see the floor clearly.",
+      "Toiletries: Check the bathroom sink and the medicine cabinet.",
+      "The \"Big Three\": Physically touch your Passport, Wallet, and Phone.",
+      "The Key: Take a photo of the room key on the table or as you drop it in the box. (Take a photo)"
+    ]
+  },
+  {
+    "id": "tpl_school_morning_run",
+    "title": "Essential School Morning Run",
+    "description": "To stop that \"I forgot the PE kit\" panic 10 minutes into the drive.",
+    "category": "Daily Care",
+    "goodFor": "Morning essentials check to ensure everyone is ready for school.",
+    "searchTerms": ["school", "bag", "lunch", "PE kit", "homework", "morning"],
+    "steps": [
+      "The Bag: Confirm the main school bag is packed and by the door.",
+      "Lunch & Hydration: Is the lunchbox in the bag? Is the water bottle filled and sealed?",
+      "The \"Extra\" Bag: Check the calendar—is it PE day? Swimming? Library book day?",
+      "Forms & Folders: Check for any signed permission slips or homework folders.",
+      "The Tech: If they use a tablet or laptop for school, is it in the bag and charged?",
+      "Weather Check: Do they have a coat or an umbrella if it looks grey outside?",
+      "Shoes: Are both shoes found and actually on their feet?",
+      "Your Essentials: Do you have your own work bag, keys, and phone?",
+      "Pet Exit: If the dog is staying home, is the crate secure or the gate closed?",
+      "The Departure: Lock the door and take a photo of the house as you walk away. (Take a photo)"
+    ]
+  },
+  {
+    "id": "tpl_house_sitter_handover",
+    "title": "The “House Sitter” Handover",
+    "description": "Evidence that you left the house in a specific state with clear instructions for the sitter.",
+    "category": "Travel & Handovers",
+    "goodFor": "Leaving clear care details and proof of house state for a house sitter.",
+    "searchTerms": ["house sitter", "handover", "instructions", "emergency", "pets"],
+    "steps": [
+      "Emergency Contacts: Leave a note with the vet’s number and your neighbor’s contact. (Take a photo)",
+      "Thermostat: Set the heating/cooling to the \"away\" temperature.",
+      "Plants: Give them a final water or group them together for the sitter.",
+      "Trash: Empty the kitchen bin so it doesn't smell while you're gone.",
+      "The Fridge: Toss out anything that will expire before you get back.",
+      "Mail: Tell the sitter where the mailbox key is or where to pile the mail.",
+      "Pet Food: Show exactly where the food and bowls are kept. (Take a photo)",
+      "Spare Key: Confirm the sitter has their copy and knows how the lock works.",
+      "Appliance Check: Unplug non-essential electronics (TVs, blenders, etc.).",
+      "The \"Final State\": Take a wide photo of the living room so you remember how you left it. (Take a photo)"
+    ]
+  },
+  {
+    "id": "tpl_car_security",
+    "title": "Car Security & Parking Peace",
+    "description": "For that \"Did I actually lock the car?\" panic. Visual proof that you're secure.",
+    "category": "Leaving & Locking Up",
+    "goodFor": "Confidence that your car is locked and your spot is remembered.",
+    "searchTerms": ["car", "lock", "parking", "garage", "travel", "security"],
+    "steps": [
+      "Windows Up: Do a quick visual check that all windows are fully rolled up.",
+      "The Handbrake: Pull it up or engage the electronic brake.",
+      "Lights: Ensure the internal lights are off and the headlight dial is set to auto/off.",
+      "No Valuables: Make sure no bags or phones are visible on the seats.",
+      "The \"Look Back\": Lock the car using your fob and listen for the \"clack\" or see the lights flash.",
+      "Parking Spot: Take a photo of the car in its spot, making sure a pillar number or a nearby shop is in the frame. (Take a photo)",
+      "Keys: Drop your keys into your designated \"safe pocket\" in your bag or coat.",
+      "Personal Items: Check the passenger seat one last time for your sunglasses or water bottle.",
+      "The Exit: Head toward the exit with the confidence that you know exactly where you are."
+    ]
+  },
+  {
+    "id": "tpl_big_trip_shutdown",
+    "title": "The Big Trip Home Shutdown",
+    "description": "When you’re leaving for a week or more. Prevent a \"stale\" or \"unsafe\" house.",
+    "category": "Leaving & Locking Up",
+    "goodFor": "Peace of mind for long-term absences from the home.",
+    "searchTerms": ["vacation", "holiday", "shutdown", "fridge", "trash", "power"],
+    "steps": [
+      "The Fridge Sweep: Throw away the milk and any open perishables that will rot.",
+      "Bins: Empty every bin in the house and take the bags outside to the main trash. (Take a photo)",
+      "Dishwasher: Run it now or make sure it's empty—don't leave dirty plates for a week.",
+      "Water Main: If you usually turn it off, do it now. If not, just double-check the garden hose isn't running.",
+      "Thermostat: Set the house to \"Away\" mode or turn the heating/AC down to a safe minimum.",
+      "Electronics: Physically unplug the TV, toaster, and microwave to save energy and prevent surges. (Take a photo)",
+      "Plants: Give everyone a big drink or group them together for the person watering them.",
+      "Curtains/Blinds: Set them to your preferred \"away\" position so the house looks occupied but private.",
+      "Final Door Check: Lock the back door and any side gates.",
+      "The Departure: Take a photo of your keys in your travel bag as you close the front door. (Take a photo)"
+    ]
+  },
+  {
+    "id": "tpl_morning_pet_routine",
+    "title": "Morning Pet Routine",
+    "description": "Because \"Did I feed the dog?\" shouldn't be a source of guilt at your 9 AM meeting.",
+    "category": "Daily Care",
+    "goodFor": "Consistent care for your pets with visual evidence of food and water.",
+    "searchTerms": ["pet", "dog", "cat", "feeding", "water", "morning", "meds"],
+    "steps": [
+      "Clean Bowl: Rinse the food bowl so it's fresh for the day.",
+      "The Meal: Scoop the food and place it down.",
+      "Fresh Water: Empty the water bowl and refill it to the brim. (Take a photo)",
+      "Medication: If your pet takes meds, give them now and check the box.",
+      "Garden/Toilet: Let them out for a final \"bathroom break\" before you head out.",
+      "Treat/Toy: Leave a \"safe\" toy or a puzzle treat to keep them occupied.",
+      "Gates & Doors: Make sure the \"forbidden\" rooms (like the nursery or pantry) are snapped shut.",
+      "The Goodbye: Check that their collar is on and secure.",
+      "The Evidence: Take a photo of the full water bowl and the empty food dish. (Take a photo)"
+    ]
+  },
+  {
+    "id": "tpl_office_switch_off",
+    "title": "The Office/Workspace “Switch-Off”",
+    "description": "Leave work at work. Transition from \"Office Mode\" to \"Home Mode\" without worry.",
+    "category": "Travel & Handovers",
+    "goodFor": "Closing out the workday and ensuring office equipment is safe.",
+    "searchTerms": ["office", "work", "desk", "heater", "papers", "lock", "switch off"],
+    "steps": [
+      "Monitor: Power down your screens.",
+      "The \"Desk Heater\": If you have a space heater under your desk, physically unplug it. (Take a photo)",
+      "Sensitive Papers: Clear your desk and put any private documents in a locked drawer.",
+      "Personal Items: Do you have your laptop charger, glasses, and keys?",
+      "Windows: If you opened a window in your office, make sure it's latched.",
+      "Mug Check: Take your coffee mug to the kitchen/breakroom—don't leave it to grow mold!",
+      "The \"To-Do\" List: Write down the very first task for tomorrow morning so you can stop thinking about it.",
+      "Lights: Switch off your desk lamp or the main office lights.",
+      "The Exit: Lock your office door or pedestal drawer. (Take a photo of the key or the locked door)"
+    ]
+  },
+  {
+    "id": "tpl_toddler_survival_bag",
+    "title": "The Toddler “Survival” Bag",
+    "description": "Ensures you have the \"emergency\" items that stop a meltdown.",
+    "category": "Daily Care",
+    "goodFor": "Complete preparation for outings with a toddler.",
+    "searchTerms": ["toddler", "baby", "bag", "nappies", "snacks", "toys", "packing"],
+    "steps": [
+      "Nappies/Wipes: Count them out. Do you have at least four?",
+      "Spare Outfit: Pack a full change of clothes (including socks!) for the inevitable spill.",
+      "Snack Stash: Pack two different types of snacks and a full spill-proof water cup.",
+      "The \"Safety\" Toy: Does the bag have the specific toy or blanket they can't live without? (Take a photo)",
+      "Changing Mat: Make sure the portable mat is tucked into the side pocket.",
+      "Diaper Disposal: Add a few small plastic bags for \"incidents\" while you're out.",
+      "Seasonal Gear: Sunscreen and a hat, or a warm coat and mittens.",
+      "Your Needs: Did you put your keys and wallet in the diaper bag too?",
+      "The Buggy: Is the rain cover or sunshade attached?",
+      "Ready to Roll: Take a photo of the packed bag sitting by the door. (Take a photo)"
+    ]
+  },
+  {
+    "id": "tpl_gym_prep",
+    "title": "Gym & Sports Prep",
+    "description": "Avoid getting to the gym only to realize you forgot your trainers or towel.",
+    "category": "Travel & Handovers",
+    "goodFor": "Ensuring all essential gym gear is packed and ready.",
+    "searchTerms": ["gym", "sports", "workout", "trainers", "towel", "lock", "packing"],
+    "steps": [
+      "The Shoes: Physically check that your trainers are in the bag.",
+      "Fresh Kit: Pack a clean shirt, shorts/leggings, and—critically—fresh socks.",
+      "The Towel: Do you have a sweat towel or a shower towel?",
+      "Tech & Sound: Are your headphones in the case and charged?",
+      "The Lock: Do you have your padlock for the locker? (Take a photo)",
+      "Hydration: Fill your water bottle and make sure the lid is on tight.",
+      "Gym Pass: Is your membership card or phone app ready?",
+      "Post-Workout: Pack a deodorant and any toiletries you need for after the session.",
+      "The \"Quick Snap\": Take a photo of the open bag with the shoes and towel visible. (Take a photo)"
+    ]
+  }
+]
