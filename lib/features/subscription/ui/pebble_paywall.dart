@@ -332,7 +332,7 @@ class _SimplePaywallHeader extends StatelessWidget {
     };
     final body = switch (entrySource) {
       PremiumEntrySource.routineLimit =>
-        'Pebble is free to use with no login and no ads. Free includes 3 routines; unlimited routines are part of Pebble Plus.',
+        'Pebble is free to use with no login and no ads. Free includes 2 routines; unlimited routines are part of Pebble Plus.',
       _ =>
         'Unlimited routines, proof photo backup, shared reminders, and every premium theme.',
     };
