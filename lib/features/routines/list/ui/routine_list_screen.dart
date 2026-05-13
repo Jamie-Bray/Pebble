@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
+import 'package:pebble_routines/features/routines/creator/ui/routine_creation_choice_sheet.dart';
 import 'package:pebble_routines/features/routines/creator/ui/routine_style_picker_sheet.dart';
 import 'package:pebble_routines/features/routines/creator/ui/reorder_steps_screen.dart';
 import 'package:pebble_routines/core/ui/zen_error_view.dart';
@@ -862,7 +863,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
     final boundedHeight = availableHeight.clamp(280.0, 560.0);
     final textScale = MediaQuery.textScalerOf(context).scale(1);
     final largeText = textScale >= 1.35;
-    final compactHero = largeText || boundedHeight < 380;
+    final compactHero = largeText || boundedHeight < 340;
     final hideSecondaryActions = largeText || boundedHeight < 430;
     final heroTextScale = textScale.clamp(1.0, 1.35);
     final labelGapBase = compactHero
@@ -908,17 +909,11 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
         SizedBox(height: titleGapBase),
         Padding(
           padding: const EdgeInsets.only(right: 20),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _buildHeroMetaPill(steps, routine),
-              if (!hideSecondaryActions) ...[
-                _buildHeroEditButton(themeData, routine),
-                _buildHeroRemindersButton(themeData, routine),
-                _buildHeroEmailButton(themeData, routine),
-              ],
-            ],
+          child: _buildHeroActionGrid(
+            themeData,
+            routine,
+            steps,
+            hideSecondaryActions: hideSecondaryActions,
           ),
         ),
       ],
@@ -1040,26 +1035,26 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
     if (compact) {
       if (length <= 10) {
         return const _HeroTitleSpec(
-          fontSize: 56,
+          fontSize: 60,
           maxLines: 2,
           lineHeight: 0.95,
         );
       }
       if (length <= 22) {
         return const _HeroTitleSpec(
-          fontSize: 48,
+          fontSize: 52,
           maxLines: 2,
           lineHeight: 0.98,
         );
       }
       if (length <= 34) {
         return const _HeroTitleSpec(
-          fontSize: 40,
+          fontSize: 44,
           maxLines: 2,
           lineHeight: 1.02,
         );
       }
-      return const _HeroTitleSpec(fontSize: 34, maxLines: 3, lineHeight: 1.04);
+      return const _HeroTitleSpec(fontSize: 38, maxLines: 3, lineHeight: 1.04);
     }
     if (length <= 10) {
       return const _HeroTitleSpec(fontSize: 64, maxLines: 2, lineHeight: 0.95);
@@ -1073,149 +1068,125 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
     return const _HeroTitleSpec(fontSize: 40, maxLines: 3, lineHeight: 1.04);
   }
 
-  Widget _buildHeroEditButton(ThemeData themeData, Routine routine) {
-    final foundation = context.darkFoundation;
-    return Transform.translate(
-      offset: const Offset(0, 3),
-      child: GestureDetector(
-        onTap: () {
-          HapticsService().lightImpact();
-          _showContextMenu(context, routine, themeData);
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-          decoration: BoxDecoration(
-            color: foundation.surfaceLow.withValues(alpha: 0.72),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: foundation.borderSubtle),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(LucideIcons.settings, size: 13, color: foundation.textMuted),
-              const SizedBox(width: 6),
-              Text(
-                'Settings',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: foundation.textSecondary,
-                ),
+  Widget _buildHeroActionGrid(
+    ThemeData themeData,
+    Routine routine,
+    int steps, {
+    required bool hideSecondaryActions,
+  }) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final useGrid = !hideSecondaryActions && constraints.maxWidth >= 250;
+        final itemWidth = useGrid
+            ? (constraints.maxWidth - 8) / 2
+            : constraints.maxWidth;
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            SizedBox(
+              width: itemWidth,
+              child: _buildHeroMetaPill(steps, routine),
+            ),
+            if (!hideSecondaryActions) ...[
+              SizedBox(
+                width: itemWidth,
+                child: _buildHeroEditButton(themeData, routine),
+              ),
+              SizedBox(
+                width: itemWidth,
+                child: _buildHeroRemindersButton(themeData, routine),
+              ),
+              SizedBox(
+                width: itemWidth,
+                child: _buildHeroEmailButton(themeData, routine),
               ),
             ],
-          ),
-        ),
-      ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildHeroEditButton(ThemeData themeData, Routine routine) {
+    return _buildHeroActionChip(
+      icon: LucideIcons.settings,
+      label: 'Settings',
+      onTap: () {
+        HapticsService().lightImpact();
+        _showContextMenu(context, routine, themeData);
+      },
     );
   }
 
   Widget _buildHeroRemindersButton(ThemeData themeData, Routine routine) {
-    final foundation = context.darkFoundation;
-    return Transform.translate(
-      offset: const Offset(0, 3),
-      child: GestureDetector(
-        onTap: () {
-          HapticsService().lightImpact();
-          _openRoutineReminders(routine);
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-          decoration: BoxDecoration(
-            color: foundation.surfaceLow.withValues(alpha: 0.72),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: foundation.borderSubtle),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(LucideIcons.bell, size: 13, color: foundation.textMuted),
-              const SizedBox(width: 6),
-              Text(
-                'Reminders',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: foundation.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return _buildHeroActionChip(
+      icon: LucideIcons.bell,
+      label: 'Reminders',
+      onTap: () {
+        HapticsService().lightImpact();
+        _openRoutineReminders(routine);
+      },
     );
   }
 
   Widget _buildHeroEmailButton(ThemeData themeData, Routine routine) {
-    final foundation = context.darkFoundation;
-    return Transform.translate(
-      offset: const Offset(0, 3),
-      child: GestureDetector(
-        onTap: () {
-          HapticsService().lightImpact();
-          _openRoutineEmail(routine);
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-          decoration: BoxDecoration(
-            color: foundation.surfaceLow.withValues(alpha: 0.72),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: foundation.borderSubtle),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(LucideIcons.mail, size: 13, color: foundation.textMuted),
-              const SizedBox(width: 6),
-              Text(
-                'Email',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: foundation.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return _buildHeroActionChip(
+      icon: LucideIcons.mail,
+      label: 'Email',
+      onTap: () {
+        HapticsService().lightImpact();
+        _openRoutineEmail(routine);
+      },
     );
   }
 
   Widget _buildHeroMetaPill(int steps, Routine routine) {
+    return _buildHeroActionChip(
+      icon: LucideIcons.listChecks,
+      label: '$steps ${steps == 1 ? 'step' : 'steps'}',
+      onTap: () {
+        HapticsService().lightImpact();
+        _showStepsPreview(context, routine);
+      },
+    );
+  }
+
+  Widget _buildHeroActionChip({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
     final foundation = context.darkFoundation;
-    return Transform.translate(
-      offset: const Offset(0, 3),
-      child: GestureDetector(
-        onTap: () {
-          HapticsService().lightImpact();
-          _showStepsPreview(context, routine);
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-          decoration: BoxDecoration(
-            color: foundation.surfaceLow.withValues(alpha: 0.72),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: foundation.borderSubtle),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                LucideIcons.listChecks,
-                size: 13,
-                color: foundation.textMuted,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                '$steps ${steps == 1 ? 'step' : 'steps'}',
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 32),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+        decoration: BoxDecoration(
+          color: foundation.surfaceLow.withValues(alpha: 0.72),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: foundation.borderSubtle),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.max,
+          children: [
+            Icon(icon, size: 13, color: foundation.textMuted),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: foundation.textSecondary,
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -1740,16 +1711,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
   }
 
   void _openNewRoutine() {
-    final currentRoutineCount =
-        ref.read(routineListProvider).valueOrNull?.length ?? 0;
-    if (!SubscriptionGuard.canCreateRoutine(
-      context,
-      ref,
-      currentRoutineCount,
-    )) {
-      return;
-    }
-    context.push('/creator');
+    openRoutineCreationChoice(context, ref);
   }
 
   void _onPlayRoutine(Routine routine) {

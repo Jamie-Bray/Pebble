@@ -36,9 +36,8 @@ class ReminderSheet extends ConsumerStatefulWidget {
 
 class _ReminderSheetState extends ConsumerState<ReminderSheet>
     with TickerProviderStateMixin {
-  int? _day;
+  Set<int> _selectedDays = <int>{};
   TimeOfDay? _time;
-  bool _everyDay = false;
   bool _isLoading = true;
   bool _isSaving = false;
   bool _isSuccess = false;
@@ -96,7 +95,9 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
     }
     if (!mounted) return;
     setState(() {
-      _day = targetReminder?.dayOfWeek;
+      _selectedDays = {
+        if (targetReminder?.dayOfWeek != null) targetReminder!.dayOfWeek,
+      };
       _time = _parseTime(targetReminder?.time);
       _hasExistingReminders = reminders.isNotEmpty;
       _isLoading = false;
@@ -106,7 +107,7 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final hasSelection = (_day != null || _everyDay) && _time != null;
+    final hasSelection = _selectedDays.isNotEmpty && _time != null;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.75,
@@ -205,8 +206,8 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
               const SizedBox(height: 4),
               Text(
                 widget.reminderToEdit == null
-                    ? 'Choose a day and time, or set it for every day.'
-                    : 'Update the weekly day and time.',
+                    ? 'Choose a time and the days you want Pebble to remind you.'
+                    : 'Update the time and selected days.',
                 style: TextStyle(
                   fontSize: 14,
                   color: cs.onSurface.withValues(alpha: 0.6),
@@ -331,7 +332,7 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Day of the week',
+          'Repeat days',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
@@ -339,74 +340,30 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
           ),
         ),
         const SizedBox(height: 12),
-        if (widget.reminderToEdit == null) ...[
-          InkWell(
-            onTap: () {
-              HapticFeedback.selectionClick();
-              setState(() {
-                _everyDay = true;
-                _day = null;
-              });
-            },
-            borderRadius: BorderRadius.circular(16),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeOutCubic,
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-              decoration: BoxDecoration(
-                gradient: _everyDay
-                    ? LinearGradient(
-                        colors: [cs.primary, cs.primary.withValues(alpha: 0.8)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      )
-                    : null,
-                color: !_everyDay ? cs.surfaceContainerHighest : null,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: _everyDay
-                      ? cs.primary
-                      : cs.onSurface.withValues(alpha: 0.1),
-                  width: _everyDay ? 2 : 1,
-                ),
-                boxShadow: _everyDay
-                    ? [
-                        BoxShadow(
-                          color: cs.primary.withValues(alpha: 0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    LucideIcons.repeat,
-                    size: 16,
-                    color: _everyDay
-                        ? cs.onPrimary
-                        : cs.onSurface.withValues(alpha: 0.6),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Every day',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: _everyDay
-                          ? cs.onPrimary
-                          : cs.onSurface.withValues(alpha: 0.7),
-                    ),
-                  ),
-                ],
+        Row(
+          children: [
+            Expanded(
+              child: _buildDayPresetButton(
+                cs,
+                label: 'Every day',
+                icon: LucideIcons.repeat,
+                selected: _selectedDays.length == 7,
+                onTap: () => _setSelectedDays(List.generate(7, (i) => i + 1)),
               ),
             ),
-          ),
-          const SizedBox(height: 12),
-        ],
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildDayPresetButton(
+                cs,
+                label: 'Weekdays',
+                icon: LucideIcons.calendarDays,
+                selected: _isWeekdaysOnly,
+                onTap: () => _setSelectedDays(const [1, 2, 3, 4, 5]),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: List.generate(7, (i) => i + 1).map((d) {
@@ -420,7 +377,7 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
               'Sat',
               'Sun',
             ];
-            final selected = _day == d;
+            final selected = _selectedDays.contains(d);
             return Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 3),
@@ -428,8 +385,13 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
                   onTap: () {
                     HapticFeedback.selectionClick();
                     setState(() {
-                      _everyDay = false;
-                      _day = d;
+                      final next = Set<int>.from(_selectedDays);
+                      if (selected) {
+                        next.remove(d);
+                      } else {
+                        next.add(d);
+                      }
+                      _selectedDays = next;
                     });
                   },
                   borderRadius: BorderRadius.circular(16),
@@ -497,7 +459,79 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
             );
           }).toList(),
         ),
+        const SizedBox(height: 10),
+        Text(
+          'Date-specific one-off reminders are not available yet. Pebble repeats reminders on the days you choose.',
+          style: TextStyle(
+            fontSize: 12,
+            height: 1.35,
+            color: cs.onSurface.withValues(alpha: 0.56),
+          ),
+        ),
       ],
+    );
+  }
+
+  Widget _buildDayPresetButton(
+    ColorScheme cs, {
+    required String label,
+    required IconData icon,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        onTap();
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+        decoration: BoxDecoration(
+          gradient: selected
+              ? LinearGradient(
+                  colors: [cs.primary, cs.primary.withValues(alpha: 0.8)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: !selected ? cs.surfaceContainerHighest : null,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected ? cs.primary : cs.onSurface.withValues(alpha: 0.1),
+            width: selected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: selected
+                  ? cs.onPrimary
+                  : cs.onSurface.withValues(alpha: 0.6),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: selected
+                      ? cs.onPrimary
+                      : cs.onSurface.withValues(alpha: 0.7),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -540,9 +574,9 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _everyDay
-                      ? 'Next reminder, then daily'
-                      : 'Next reminder, then weekly',
+                  _selectedDays.length == 1
+                      ? 'Next reminder, then weekly'
+                      : 'Next reminder, then selected days',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -552,9 +586,7 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _everyDay
-                      ? 'Every day at ${_formatTime(_time!)}'
-                      : 'Every ${_weekdayLabel(_day!)} at ${_formatTime(_time!)}',
+                  '${_selectedDaysSummary()} at ${_formatTime(_time!)}',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
@@ -580,7 +612,7 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
   }
 
   Widget _buildActionButtons(ColorScheme cs) {
-    final canSave = (_day != null || _everyDay) && _time != null;
+    final canSave = _selectedDays.isNotEmpty && _time != null;
 
     return Row(
       children: [
@@ -634,11 +666,9 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        _everyDay
-                            ? 'Save daily reminders'
-                            : widget.reminderToEdit == null
-                            ? 'Save weekly reminder'
-                            : 'Update weekly reminder',
+                        widget.reminderToEdit == null
+                            ? 'Save reminder'
+                            : 'Update reminder',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -841,11 +871,9 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
           ),
           const SizedBox(height: 12),
           Text(
-            _everyDay
-                ? 'Reminders saved. They will repeat every day.'
-                : widget.reminderToEdit == null
-                ? 'Reminder saved. It will repeat every ${_weekdayLabel(_day!)}.'
-                : 'Reminder updated. It will repeat every ${_weekdayLabel(_day!)}.',
+            widget.reminderToEdit == null
+                ? 'Reminder saved. It will repeat on ${_selectedDaysSummary().toLowerCase()}.'
+                : 'Reminder updated. It will repeat on ${_selectedDaysSummary().toLowerCase()}.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 16,
@@ -866,14 +894,16 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
               children: [
                 Icon(LucideIcons.calendar, size: 18, color: cs.primary),
                 const SizedBox(width: 12),
-                Text(
-                  _everyDay
-                      ? 'Every day · ${_formatTime(_time!)}'
-                      : 'Every ${_weekdayLabel(_day!)} · ${_formatTime(_time!)}',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: cs.onSurface,
+                Flexible(
+                  child: Text(
+                    '${_selectedDaysSummary()} - ${_formatTime(_time!)}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: cs.onSurface,
+                    ),
                   ),
                 ),
               ],
@@ -933,7 +963,7 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
   }
 
   Future<void> _save() async {
-    if ((_day == null && !_everyDay) || _time == null) return;
+    if (_selectedDays.isEmpty || _time == null) return;
 
     setState(() => _isSaving = true);
     HapticFeedback.mediumImpact();
@@ -954,12 +984,15 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
 
       final db = ref.read(localDbProvider);
       final editingReminder = widget.reminderToEdit;
+      final selectedDays = _selectedDays.toList()..sort();
       if (editingReminder != null) {
+        final firstDay = selectedDays.first;
         final updatedReminder = editingReminder.copyWith(
-          dayOfWeek: _day!,
+          dayOfWeek: firstDay,
           time: _formatTime(_time!),
         );
         await db.routineReminderDao.updateReminder(updatedReminder);
+        final insertedReminderIds = <int>[];
         try {
           if (updatedReminder.isEnabled) {
             await NotificationService().scheduleRoutineReminder(
@@ -975,14 +1008,41 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
               reminderId: updatedReminder.id,
             );
           }
+          for (final day in selectedDays.skip(1)) {
+            final reminderId = await db.routineReminderDao.addReminder(
+              RoutineRemindersCompanion(
+                routineId: drift.Value(widget.routine.id),
+                dayOfWeek: drift.Value(day),
+                time: drift.Value(_formatTime(_time!)),
+                isEnabled: drift.Value(updatedReminder.isEnabled),
+              ),
+            );
+            insertedReminderIds.add(reminderId);
+            if (updatedReminder.isEnabled) {
+              await NotificationService().scheduleRoutineReminder(
+                routineId: widget.routine.id,
+                title: widget.routine.title,
+                dayOfWeek: day,
+                time: _time!,
+                reminderId: reminderId,
+              );
+            }
+          }
         } catch (e) {
+          for (final reminderId in insertedReminderIds) {
+            await db.routineReminderDao.deleteReminder(reminderId);
+            await NotificationService().cancelRoutineReminder(
+              widget.routine.id,
+              reminderId: reminderId,
+            );
+          }
           await db.routineReminderDao.updateReminder(editingReminder);
           rethrow;
         }
-      } else if (_everyDay) {
+      } else {
         final insertedReminderIds = <int>[];
         try {
-          for (final day in List.generate(7, (index) => index + 1)) {
+          for (final day in selectedDays) {
             final reminderId = await db.routineReminderDao.addReminder(
               RoutineRemindersCompanion(
                 routineId: drift.Value(widget.routine.id),
@@ -1009,31 +1069,6 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
               reminderId: reminderId,
             );
           }
-          rethrow;
-        }
-      } else {
-        final reminderId = await db.routineReminderDao.addReminder(
-          RoutineRemindersCompanion(
-            routineId: drift.Value(widget.routine.id),
-            dayOfWeek: drift.Value(_day!),
-            time: drift.Value(_formatTime(_time!)),
-            isEnabled: const drift.Value(true),
-          ),
-        );
-
-        try {
-          // Schedule using the reminder row ID so each reminder has its own
-          // notification slot and cannot overwrite siblings.
-          await NotificationService().scheduleRoutineReminder(
-            routineId: widget.routine.id,
-            title: widget.routine.title,
-            dayOfWeek: _day!,
-            time: _time!,
-            reminderId: reminderId,
-          );
-        } catch (e) {
-          // Roll back DB insert if OS scheduling fails.
-          await db.routineReminderDao.deleteReminder(reminderId);
           rethrow;
         }
       }
@@ -1226,7 +1261,7 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
   }
 
   DateTime _calculateNextReminder() {
-    if ((_day == null && !_everyDay) || _time == null) return DateTime.now();
+    if (_selectedDays.isEmpty || _time == null) return DateTime.now();
 
     final now = DateTime.now();
     DateTime scheduled = DateTime(
@@ -1241,14 +1276,26 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
       scheduled = scheduled.add(const Duration(days: 1));
     }
 
-    if (_everyDay) {
-      return scheduled;
-    }
-
-    while (scheduled.weekday != _day) {
+    while (!_selectedDays.contains(scheduled.weekday)) {
       scheduled = scheduled.add(const Duration(days: 1));
     }
     return scheduled;
+  }
+
+  bool get _isWeekdaysOnly =>
+      _selectedDays.length == 5 &&
+      _selectedDays.containsAll(const [1, 2, 3, 4, 5]);
+
+  void _setSelectedDays(List<int> days) {
+    setState(() => _selectedDays = days.toSet());
+  }
+
+  String _selectedDaysSummary() {
+    final days = _selectedDays.toList()..sort();
+    if (days.length == 7) return 'Every day';
+    if (_isWeekdaysOnly) return 'Monday to Friday';
+    if (days.length == 1) return 'Every ${_weekdayLabel(days.single)}';
+    return days.map(_shortWeekdayLabel).join(', ');
   }
 
   String _formatTime(TimeOfDay time) {
@@ -1276,6 +1323,19 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
       5: 'Friday',
       6: 'Saturday',
       7: 'Sunday',
+    };
+    return labels[day] ?? 'Day $day';
+  }
+
+  String _shortWeekdayLabel(int day) {
+    const labels = {
+      1: 'Mon',
+      2: 'Tue',
+      3: 'Wed',
+      4: 'Thu',
+      5: 'Fri',
+      6: 'Sat',
+      7: 'Sun',
     };
     return labels[day] ?? 'Day $day';
   }

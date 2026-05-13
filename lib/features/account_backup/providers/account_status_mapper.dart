@@ -199,7 +199,7 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
       return AccountStatusPresentation(
         title: 'Stored on this device',
         body:
-            'Pebble works without an account. Free keeps your recent history on this device.',
+            'Pebble works without an account. Free keeps your recent history for 48 hours on this device.',
         statusLabel: 'Stored on this device',
         historyLabel: 'Stored on this device',
         primaryAction: purchase.isPurchaseAvailable
@@ -259,7 +259,8 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
     case PersonalCloudAccessStatus.syncing:
       return AccountStatusPresentation(
         title: 'Backup is on',
-        body: 'Pebble is keeping your recent history backed up.',
+        body:
+            'Premium keeps your history backed up, so it is safer if you change phone or reinstall Pebble.',
         statusLabel: 'Backup is on',
         historyLabel: 'Backup is on',
         primaryAction: AccountStatusAction.none,

@@ -17,7 +17,7 @@ class SubscriptionGuard {
     final currentTier = ref.read(subscriptionProvider);
     final routineLimit = currentTier.maxRoutineCount;
     if (routineLimit != null && currentRoutineCount >= routineLimit) {
-      _routeToPremium(context, PremiumEntrySource.routineLimit);
+      _showRoutineLimitExplanation(context, routineLimit);
       return false;
     }
     final stepLimit = currentTier.maxStepCount;
@@ -45,5 +45,70 @@ class SubscriptionGuard {
   static void _routeToPremium(BuildContext context, PremiumEntrySource source) {
     HapticFeedback.mediumImpact();
     GoRouter.of(context).push(premiumRoute(source: source));
+  }
+
+  static void _showRoutineLimitExplanation(BuildContext context, int limit) {
+    HapticFeedback.mediumImpact();
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: cs.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 18, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: cs.outline.withValues(alpha: 0.22),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 22),
+              Text(
+                'You have reached the free routine limit',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: cs.onSurface,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Pebble is free to use with no login and no ads. Free includes $limit routines; unlimited routines are part of Pebble Plus.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  height: 1.45,
+                  color: cs.onSurface.withValues(alpha: 0.72),
+                ),
+              ),
+              const SizedBox(height: 24),
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(sheetContext).pop();
+                  GoRouter.of(
+                    context,
+                  ).push(premiumRoute(source: PremiumEntrySource.routineLimit));
+                },
+                child: const Text('View Pebble Plus'),
+              ),
+              const SizedBox(height: 10),
+              TextButton(
+                onPressed: () => Navigator.of(sheetContext).pop(),
+                child: const Text('Maybe later'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -165,18 +165,18 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
   @override
   Widget build(BuildContext context) {
     final parentTheme = Theme.of(context);
+    final foundation = context.darkFoundation;
+    final cs = parentTheme.colorScheme;
     final cinemaTheme = parentTheme.copyWith(
-      brightness: Brightness.dark,
-      scaffoldBackgroundColor: _CinemaColors.ink,
+      scaffoldBackgroundColor: foundation.bgBase,
       colorScheme: parentTheme.colorScheme.copyWith(
-        brightness: Brightness.dark,
-        primary: _CinemaColors.blue,
-        surface: _CinemaColors.ink,
-        onSurface: Colors.white,
+        surface: foundation.bgBase,
+        onSurface: foundation.textPrimary,
       ),
-      textTheme: GoogleFonts.figtreeTextTheme(
-        parentTheme.textTheme,
-      ).apply(bodyColor: Colors.white, displayColor: Colors.white),
+      textTheme: GoogleFonts.figtreeTextTheme(parentTheme.textTheme).apply(
+        bodyColor: foundation.textPrimary,
+        displayColor: foundation.textPrimary,
+      ),
     );
 
     return Theme(
@@ -193,12 +193,14 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
               selectedProduct.isPurchasable;
 
           return Scaffold(
-            backgroundColor: _CinemaColors.ink,
+            backgroundColor: foundation.bgBase,
             body: Stack(
               children: [
-                const Positioned.fill(child: _AmbientGlows()),
-                const Positioned.fill(
-                  child: CustomPaint(painter: _CinemaGrainPainter()),
+                Positioned.fill(child: _AmbientGlows(accent: cs.primary)),
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: _CinemaGrainPainter(baseColor: foundation.bgBase),
+                  ),
                 ),
 
                 SafeArea(
@@ -268,8 +270,8 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
                   top: MediaQuery.paddingOf(context).top + 10,
                   left: 20,
                   child: const PebbleBackButton(
-                    backgroundColor: Colors.white10,
-                    iconColor: Colors.white70,
+                    backgroundColor: Colors.transparent,
+                    iconColor: null,
                   ),
                 ),
               ],
@@ -282,28 +284,31 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
 }
 
 class _AmbientGlows extends StatelessWidget {
-  const _AmbientGlows();
+  const _AmbientGlows({required this.accent});
+
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
-    return const Stack(
+    final cs = Theme.of(context).colorScheme;
+    return Stack(
       children: [
         _AmbientGlow(
-          color: _CinemaColors.blue,
+          color: accent,
           size: 320,
           top: -100,
           left: -80,
           opacity: 0.08,
         ),
         _AmbientGlow(
-          color: _CinemaColors.purple,
+          color: cs.secondary,
           size: 320,
           top: 300,
           right: -100,
           opacity: 0.06,
         ),
         _AmbientGlow(
-          color: _CinemaColors.green,
+          color: cs.tertiary,
           size: 280,
           bottom: -100,
           left: -60,
@@ -320,6 +325,17 @@ class _SimplePaywallHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+    final title = switch (entrySource) {
+      PremiumEntrySource.routineLimit => 'You have reached the free limit.',
+      _ => 'More of\nPebble.',
+    };
+    final body = switch (entrySource) {
+      PremiumEntrySource.routineLimit =>
+        'Pebble is free to use with no login and no ads. Free includes 3 routines; unlimited routines are part of Pebble Plus.',
+      _ =>
+        'Unlimited routines, proof photo backup, shared reminders, and every premium theme.',
+    };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -327,17 +343,14 @@ class _SimplePaywallHeader extends StatelessWidget {
         const SizedBox(height: 52),
         const _Eyebrow('UNLOCK EVERYTHING'),
         const SizedBox(height: 14),
-        Text(
-          'More of\nPebble.',
-          style: _serifStyle(context, fontSize: 56, height: 0.95),
-        ),
+        Text(title, style: _serifStyle(context, fontSize: 56, height: 0.95)),
         const SizedBox(height: 24),
         Text(
-          'Unlimited routines, proof photo backup, shared reminders, and every premium theme.',
+          body,
           style: TextStyle(
             fontSize: 16,
             height: 1.5,
-            color: Colors.white.withValues(alpha: 0.4),
+            color: foundation.textSecondary,
           ),
         ),
       ],
@@ -528,12 +541,13 @@ class _PremiumActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return FilledButton(
       onPressed: busy || !enabled ? null : onPressed,
       style: FilledButton.styleFrom(
         minimumSize: const Size.fromHeight(64),
-        backgroundColor: _CinemaColors.blue,
-        foregroundColor: Colors.white,
+        backgroundColor: cs.primary,
+        foregroundColor: cs.onPrimary,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
       ),
@@ -811,11 +825,13 @@ class _Eyebrow extends StatelessWidget {
 }
 
 class _CinemaGrainPainter extends CustomPainter {
-  const _CinemaGrainPainter();
+  const _CinemaGrainPainter({required this.baseColor});
+
+  final Color baseColor;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final base = Paint()..color = _CinemaColors.ink;
+    final base = Paint()..color = baseColor;
     canvas.drawRect(Offset.zero & size, base);
 
     final paint = Paint()..color = Colors.white.withValues(alpha: 0.018);
@@ -832,7 +848,8 @@ class _CinemaGrainPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _CinemaGrainPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _CinemaGrainPainter oldDelegate) =>
+      oldDelegate.baseColor != baseColor;
 }
 
 enum _PremiumTint { amber, blue, green, purple }
@@ -845,7 +862,6 @@ class _TintColors {
 }
 
 class _CinemaColors {
-  static const ink = Color(0xFF07080A);
   static const amber = Color(0xFFFF8C42);
   static const blue = Color(0xFF7C9EFF);
   static const green = Color(0xFF4ADE80);
@@ -858,8 +874,9 @@ TextStyle _serifStyle(
   required double fontSize,
   double height = 1.0,
 }) {
+  final foundation = context.darkFoundation;
   return GoogleFonts.cormorantGaramond(
-    color: Colors.white,
+    color: foundation.textPrimary,
     fontSize: fontSize,
     fontStyle: FontStyle.italic,
     fontWeight: FontWeight.w600,

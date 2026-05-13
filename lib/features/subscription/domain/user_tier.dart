@@ -33,7 +33,7 @@ extension UserTierExtension on UserTier {
       this == UserTier.growth ||
       this == UserTier.enterprise;
 
-  int? get maxRoutineCount => isFree ? 2 : null;
+  int? get maxRoutineCount => isFree ? 3 : null;
   int? get maxStepCount => isFree ? 10 : null;
   Duration? get historyRetentionDuration =>
       isFree ? const Duration(hours: 48) : null;

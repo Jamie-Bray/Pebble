@@ -5,14 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pebble_routines/features/routines/list/ui/routine_list_screen.dart';
 import 'package:pebble_routines/features/history/ui/styled_history_screen.dart';
 import 'package:pebble_routines/core/ui/zen_components.dart';
+import 'package:pebble_routines/features/routines/creator/ui/routine_creation_choice_sheet.dart';
 import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
-import 'package:pebble_routines/features/subscription/ui/subscription_guard.dart';
 import 'package:pebble_routines/core/ui/background_pattern.dart';
 import 'package:pebble_routines/features/settings/data/wallpaper_provider.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:go_router/go_router.dart';
 
 final navIndexProvider = StateProvider<int>((ref) => 0);
 
@@ -177,16 +176,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   Widget _buildCreateAnchor() {
     return ZenBounceButton(
       onTap: () {
-        final currentRoutineCount =
-            ref.read(routineListProvider).valueOrNull?.length ?? 0;
-        if (!SubscriptionGuard.canCreateRoutine(
-          context,
-          ref,
-          currentRoutineCount,
-        )) {
-          return;
-        }
-        context.push('/creator');
+        openRoutineCreationChoice(context, ref);
       },
       child: SizedBox(
         width: 68,

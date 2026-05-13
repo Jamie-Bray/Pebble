@@ -206,7 +206,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
             ),
             IconButton(
               tooltip: 'Delete all history',
-              onPressed: () => _showDeleteAllDialog(context, ref),
+              onPressed: () => _showDeleteAllDialog(context, ref, backupStatus),
               icon: Icon(
                 LucideIcons.trash2,
                 color: foundation.textSecondary,
@@ -592,6 +592,12 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
     required AccountStatusPresentation backupStatus,
   }) {
     final noun = count == 1 ? 'routine run' : 'routine runs';
+    if (backupStatus.showRunSyncState) {
+      return '$count $noun saved - backed up with Premium';
+    }
+    if (backupStatus.showPremiumNote) {
+      return '$count $noun saved - free keeps 48 hours on this device';
+    }
     return '$count $noun saved - ${backupStatus.historyLabel}';
   }
 
@@ -690,12 +696,18 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
     );
   }
 
-  Future<void> _showDeleteAllDialog(BuildContext context, WidgetRef ref) async {
+  Future<void> _showDeleteAllDialog(
+    BuildContext context,
+    WidgetRef ref,
+    AccountStatusPresentation backupStatus,
+  ) async {
+    final body = backupStatus.showRunSyncState
+        ? 'This will delete your history and stored photos from this device and your Pebble cloud backup. This action cannot be undone.'
+        : 'This will delete the history and photos currently stored on this device. This action cannot be undone.';
     final confirmed = await showPebbleConfirmationSheet(
       context: context,
       title: 'Delete all history?',
-      body:
-          'This will permanently erase your entire history including all stored vault photos. This action cannot be undone.',
+      body: body,
       confirmLabel: 'Delete all history',
       isDestructive: true,
     );
@@ -1314,7 +1326,7 @@ class _HistoryBackupFooter extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Premium can back up recent history.',
+                  'Pebble keeps your recent history for 48 hours on this device. Premium keeps history backed up, so it is safer if you change phone or reinstall Pebble.',
                   style: TextStyle(
                     fontSize: 13,
                     height: 1.25,

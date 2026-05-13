@@ -261,13 +261,18 @@ class _TemplateCard extends StatelessWidget {
                             height: 1.32,
                           ),
                         ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${template.stepCount}',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: tokens.templatesTextSecondary,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
                       ],
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
-                _PlainStepCount(count: template.stepCount),
-                const SizedBox(width: 8),
                 Icon(
                   LucideIcons.chevronRight,
                   size: 18,
@@ -303,26 +308,6 @@ class _TemplateIconAnchor extends StatelessWidget {
         border: Border.all(color: accent.withValues(alpha: 0.16)),
       ),
       child: Icon(icon, size: 18, color: accent),
-    );
-  }
-}
-
-class _PlainStepCount extends StatelessWidget {
-  const _PlainStepCount({required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final tokens = _templateTokensFor(context);
-
-    return Text(
-      '$count',
-      style: theme.textTheme.labelLarge?.copyWith(
-        color: tokens.templatesTextSecondary,
-        fontWeight: FontWeight.w700,
-      ),
     );
   }
 }

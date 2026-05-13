@@ -193,7 +193,7 @@ final accountBackupStatusSummaryProvider = Provider<AccountBackupStatusSummary>(
         kind: AccountBackupStatusKind.localOnly,
         label: 'Stored on this device',
         detail:
-            'Pebble is local-first. Sign in is only needed for cloud backup and account recovery.',
+            'Pebble is local-first. Free keeps recent history for 48 hours on this device. Sign in is only needed for cloud backup and account recovery.',
         historyLabel: 'Stored on this device',
         showRunSyncState: false,
       );
