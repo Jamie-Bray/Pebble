@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:drift/drift.dart' as drift;
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -50,6 +51,9 @@ class _FakeProofStorage implements RoutineSessionProofStorage {
 
   @override
   Future<void> deleteStoredProof(String storedPath) async {}
+
+  @override
+  Future<void> deleteProofAsset(RoutineSessionProofAsset asset) async {}
 
   @override
   Future<RoutineSessionProofAsset> persistCapturedProof({
@@ -160,7 +164,7 @@ _UiHarness _buildUiContainer({
   );
 }
 
-Routine _buildRoutine() {
+Routine _buildRoutine({String? ownerUserId}) {
   return Routine(
     id: 1,
     title: 'Close down',
@@ -175,7 +179,7 @@ Routine _buildRoutine() {
     version: 1,
     updatedAt: DateTime(2026, 1, 1),
     cloudId: null,
-    ownerUserId: null,
+    ownerUserId: ownerUserId,
     syncStatus: 'localOnly',
     lastSyncedAt: null,
   );
@@ -675,6 +679,7 @@ void main() {
               canQueuePersonalSync: true,
               workspaceCloudEnabled: false,
               isSignedIn: false,
+              isAccountSwitchBlocked: false,
             ),
           ),
           subscriptionAccountControllerProvider.overrideWith(
@@ -744,6 +749,7 @@ void main() {
               canQueuePersonalSync: false,
               workspaceCloudEnabled: false,
               isSignedIn: true,
+              isAccountSwitchBlocked: false,
             ),
           ),
           subscriptionAccountControllerProvider.overrideWith(
@@ -811,6 +817,7 @@ void main() {
                 canQueuePersonalSync: true,
                 workspaceCloudEnabled: false,
                 isSignedIn: true,
+                isAccountSwitchBlocked: false,
               ),
             ),
             subscriptionAccountControllerProvider.overrideWith(
@@ -851,7 +858,9 @@ void main() {
           Namespace.url.value,
           'vix.pebble/routine/1',
         );
-        await database.routineDao.insertOrUpdateRoutine(_buildRoutine());
+        await database.routineDao.insertOrUpdateRoutine(
+          _buildRoutine(ownerUserId: ownerUserId),
+        );
 
         final outbox = SyncOutboxRepositoryImpl(database);
         final container = ProviderContainer(
@@ -883,6 +892,7 @@ void main() {
                 canQueuePersonalSync: true,
                 workspaceCloudEnabled: false,
                 isSignedIn: true,
+                isAccountSwitchBlocked: false,
               ),
             ),
             subscriptionAccountControllerProvider.overrideWith(
@@ -935,7 +945,9 @@ void main() {
       'offline manual sync reports offline instead of a generic failure',
       () async {
         final outbox = SyncOutboxRepositoryImpl(database);
-        await database.routineDao.insertOrUpdateRoutine(_buildRoutine());
+        await database.routineDao.insertOrUpdateRoutine(
+          _buildRoutine(ownerUserId: 'user-1'),
+        );
         await outbox.enqueue(
           entityType: SyncEntityType.routine,
           entityId: '1',
@@ -971,6 +983,7 @@ void main() {
                 canQueuePersonalSync: true,
                 workspaceCloudEnabled: false,
                 isSignedIn: true,
+                isAccountSwitchBlocked: false,
               ),
             ),
             subscriptionAccountControllerProvider.overrideWith(
@@ -1041,7 +1054,7 @@ void main() {
             version: 1,
             updatedAt: DateTime(2026, 1, 1),
             cloudId: legacyCloudId,
-            ownerUserId: null,
+            ownerUserId: ownerUserId,
             syncStatus: 'pendingUpload',
             lastSyncedAt: null,
           ),
@@ -1051,6 +1064,7 @@ void main() {
             routineId: 1,
             dayOfWeek: 1,
             time: '9:00 AM',
+            ownerUserId: const drift.Value(ownerUserId),
           ),
         );
         await database.syncOutboxDao.enqueue(
@@ -1112,6 +1126,7 @@ void main() {
                 canQueuePersonalSync: true,
                 workspaceCloudEnabled: false,
                 isSignedIn: true,
+                isAccountSwitchBlocked: false,
               ),
             ),
             subscriptionAccountControllerProvider.overrideWith(
@@ -1250,6 +1265,7 @@ void main() {
                 canQueuePersonalSync: true,
                 workspaceCloudEnabled: false,
                 isSignedIn: true,
+                isAccountSwitchBlocked: false,
               ),
             ),
             subscriptionAccountControllerProvider.overrideWith(
@@ -1362,6 +1378,7 @@ void main() {
                 canQueuePersonalSync: true,
                 workspaceCloudEnabled: false,
                 isSignedIn: true,
+                isAccountSwitchBlocked: false,
               ),
             ),
             subscriptionAccountControllerProvider.overrideWith(

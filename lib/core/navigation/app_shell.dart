@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pebble_routines/features/routines/list/ui/routine_list_screen.dart';
 import 'package:pebble_routines/features/history/ui/styled_history_screen.dart';
-import 'package:pebble_routines/features/routines/creator/ui/create_routine_hub_sheet.dart';
+import 'package:pebble_routines/core/ui/zen_components.dart';
 import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
@@ -12,6 +12,7 @@ import 'package:pebble_routines/features/subscription/ui/subscription_guard.dart
 import 'package:pebble_routines/core/ui/background_pattern.dart';
 import 'package:pebble_routines/features/settings/data/wallpaper_provider.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:go_router/go_router.dart';
 
 final navIndexProvider = StateProvider<int>((ref) => 0);
 
@@ -185,7 +186,7 @@ class _AppShellState extends ConsumerState<AppShell> {
         )) {
           return;
         }
-        CreateHubSheet.show(context);
+        context.push('/creator');
       },
       child: SizedBox(
         width: 68,

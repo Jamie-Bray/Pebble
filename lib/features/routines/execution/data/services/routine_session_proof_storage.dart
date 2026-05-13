@@ -27,6 +27,7 @@ abstract class RoutineSessionProofStorage {
     required String entityId,
   });
   Future<void> deleteStoredProof(String storedPath);
+  Future<void> deleteProofAsset(RoutineSessionProofAsset asset);
   Future<void> deleteSessionProofs(String sessionId);
   Future<void> enforceRetentionPolicy({required bool isPremium});
 }
@@ -212,6 +213,15 @@ class LocalRoutineSessionProofStorage implements RoutineSessionProofStorage {
   }
 
   @override
+  Future<void> deleteProofAsset(RoutineSessionProofAsset asset) async {
+    await deleteStoredProof(asset.localRelativePath);
+    final remoteObjectKey = asset.remoteObjectKey;
+    if (remoteObjectKey != null && remoteObjectKey.isNotEmpty) {
+      await _remote.deleteObject(remoteObjectKey);
+    }
+  }
+
+  @override
   Future<void> deleteSessionProofs(String sessionId) async {
     final root = await _rootDirectory();
     final sessionDirectory = Directory(p.join(root.path, sessionId));
@@ -222,6 +232,9 @@ class LocalRoutineSessionProofStorage implements RoutineSessionProofStorage {
 
   @override
   Future<void> enforceRetentionPolicy({required bool isPremium}) async {
+    if (isPremium) {
+      return;
+    }
     const localRetention = ProofMediaFairUsePolicy.localRetentionDuration;
 
     final root = await _rootDirectory();

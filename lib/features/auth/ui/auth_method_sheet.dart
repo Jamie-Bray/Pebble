@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 void showAuthMethodSheet(BuildContext context) {
   final colorScheme = Theme.of(context).colorScheme;
 
@@ -31,10 +32,7 @@ void showAuthMethodSheet(BuildContext context) {
               const SizedBox(height: 22),
               const Text(
                 'Why sign in?',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 10),
               Text(
@@ -92,10 +90,7 @@ class _AuthMethodFact extends StatelessWidget {
           children: [
             Text(
               title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-              ),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 4),
             Text(

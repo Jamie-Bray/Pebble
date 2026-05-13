@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -166,6 +165,11 @@ class RoutineSessionRepositoryImpl implements RoutineSessionRepository {
       );
     });
     await _enqueueSessionSync(discarded, SyncOperation.upsert);
+    for (final stepState in session.stepStates) {
+      for (final proofAsset in stepState.proofAssets) {
+        await _proofStorage.deleteProofAsset(proofAsset);
+      }
+    }
     await _proofStorage.deleteSessionProofs(sessionId);
   }
 
@@ -281,7 +285,7 @@ class RoutineSessionRepositoryImpl implements RoutineSessionRepository {
       }
       return run;
     });
-    _scheduleCloudSync();
+    await _scheduleCloudSync();
     return run;
   }
 
@@ -488,8 +492,8 @@ class RoutineSessionRepositoryImpl implements RoutineSessionRepository {
         );
   }
 
-  void _scheduleCloudSync() {
-    unawaited(_ref.read(cloudSyncCoordinatorProvider).kick());
+  Future<void> _scheduleCloudSync() async {
+    await _ref.read(cloudSyncCoordinatorProvider).kick();
   }
 }
 

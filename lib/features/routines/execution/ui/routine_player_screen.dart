@@ -15,7 +15,7 @@ import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/features/history/ui/routine_run_detail_screen.dart';
-import 'package:pebble_routines/features/routines/data/shared_alert_preferences_repository.dart';
+import 'package:pebble_routines/features/routines/data/shared_reminder_preferences_repository.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
 import 'package:pebble_routines/features/routines/execution/providers/player_state_provider.dart';
@@ -35,7 +35,7 @@ class RoutinePlayerScreen extends ConsumerStatefulWidget {
 class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
     with WidgetsBindingObserver {
   final ImagePicker _picker = ImagePicker();
-  String? _lastAlertedRunId;
+  String? _lastReminderSentRunId;
   String? _completionEmailRecipient;
 
   @override
@@ -288,6 +288,11 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
         controller.cancelPhotoCapture();
         return;
       }
+      final acceptedPrompt = await _showPhotoPermissionRationale(source);
+      if (!acceptedPrompt) {
+        controller.cancelPhotoCapture();
+        return;
+      }
 
       final picked = await _picker.pickImage(
         source: source,
@@ -371,15 +376,44 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
     );
   }
 
+  Future<bool> _showPhotoPermissionRationale(ImageSource source) async {
+    if (!mounted) return false;
+    final isCamera = source == ImageSource.camera;
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(isCamera ? 'Use camera?' : 'Choose from Photos?'),
+          content: Text(
+            isCamera
+                ? 'Pebble uses the camera only when you choose to capture a proof photo for this routine step.'
+                : 'Pebble opens Photos only when you choose an existing image as a proof photo.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Continue'),
+            ),
+          ],
+        );
+      },
+    );
+    return result == true;
+  }
+
   Future<void> _handlePostCompletion(RoutineRun? run) async {
     if (run == null) {
       return;
     }
-    await _enqueueSharedAlertIfNeeded(run);
+    await _enqueueSharedReminderIfNeeded(run);
   }
 
-  Future<void> _enqueueSharedAlertIfNeeded(RoutineRun run) async {
-    if (_lastAlertedRunId == run.id) {
+  Future<void> _enqueueSharedReminderIfNeeded(RoutineRun run) async {
+    if (_lastReminderSentRunId == run.id) {
       return;
     }
     final playerState = ref.read(routinePlayerProvider(widget.sessionId));
@@ -387,13 +421,15 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
     if (session == null) {
       return;
     }
-    final sharedAlerts = ref.read(sharedAlertPreferencesRepositoryProvider);
+    final sharedReminders = ref.read(
+      sharedReminderPreferencesRepositoryProvider,
+    );
     try {
       final routine = await ref
           .read(localDbProvider)
           .routineDao
           .getRoutineById(session.routineId);
-      final result = await sharedAlerts.sendCompletionAlert(
+      final result = await sharedReminders.sendCompletionReminder(
         routineId: session.routineId,
         routineCloudId: routine?.cloudId,
         routineTitle: session.routineTitleSnapshot,
@@ -413,7 +449,7 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
     } catch (_) {
       // Shared emails should never make a completed routine feel unfinished.
     } finally {
-      _lastAlertedRunId = run.id;
+      _lastReminderSentRunId = run.id;
     }
   }
 

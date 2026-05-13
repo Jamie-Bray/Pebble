@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
+import 'package:pebble_routines/data/remote/supabase_client_provider.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
 import 'package:pebble_routines/features/auth/ui/auth_method_sheet.dart';
 import 'package:pebble_routines/features/auth/ui/email_otp_sheet.dart';
@@ -66,7 +67,10 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     final authState = ref.watch(authControllerProvider);
     final accountState = ref.watch(subscriptionAccountControllerProvider);
     final cloudAccess = ref.watch(personalCloudAccessProvider);
+    final supabaseConfig = ref.watch(supabaseRuntimeConfigProvider);
     final authController = ref.read(authControllerProvider.notifier);
+    final canUseGoogleSignIn =
+        supabaseConfig.googleWebClientId?.isNotEmpty == true;
     final isBusy =
         authState.status == AuthStatus.authenticating ||
         cloudAccess.status == PersonalCloudAccessStatus.syncing;
@@ -108,18 +112,21 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                           ),
                         )
                       else ...[
-                        _SignInButton(
-                          icon: LucideIcons.badgeCheck,
-                          label: 'Continue with Google',
-                          filled: true,
-                          onTap: isBusy
-                              ? null
-                              : authController.signInWithGoogle,
-                        ),
-                        const SizedBox(height: 12),
+                        if (canUseGoogleSignIn) ...[
+                          _SignInButton(
+                            icon: LucideIcons.badgeCheck,
+                            label: 'Continue with Google',
+                            filled: true,
+                            onTap: isBusy
+                                ? null
+                                : authController.signInWithGoogle,
+                          ),
+                          const SizedBox(height: 12),
+                        ],
                         _SignInButton(
                           icon: LucideIcons.mail,
                           label: 'Use email instead',
+                          filled: !canUseGoogleSignIn,
                           onTap: isBusy
                               ? null
                               : () => showEmailOtpSheet(context, ref),
@@ -178,6 +185,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       case PersonalCloudAccessStatus.offFree:
       case PersonalCloudAccessStatus.offSignedInNoEntitlement:
       case PersonalCloudAccessStatus.pausedSignedOut:
+      case PersonalCloudAccessStatus.expiredGrace:
+      case PersonalCloudAccessStatus.accountSwitchBlocked:
         return 'Getting everything ready...';
     }
   }

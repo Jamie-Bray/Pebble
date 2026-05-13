@@ -30,7 +30,7 @@
             your account in the app:
           </p>
           <ol>
-            <li>Open <strong>Account Hub</strong> in Pebble.</li>
+            <li>Open <strong>Your account</strong> in Pebble.</li>
             <li>Scroll to the account section.</li>
             <li>Tap <strong>Delete Account</strong>.</li>
             <li>Confirm the deletion request.</li>
@@ -46,7 +46,7 @@
           <form
             id="deletion-request-form"
             class="legal-form"
-            data-endpoint="/functions/v1/request-account-deletion"
+            data-endpoint="https://yncgjqbjjzbinqkpukug.functions.supabase.co/request-account-deletion"
           >
             <label for="account-email">Email address linked to your Pebble account</label>
             <input
@@ -104,6 +104,11 @@
             backup-retention reasons.
           </p>
           <p>
+            Pebble proof-photo backup is designed around a short rolling
+            retention window. Premium cloud proof-photo copies are normally kept
+            for up to 21 days unless you delete them earlier.
+          </p>
+          <p>
             Active cloud account data is normally deleted within 30 days.
             Backup copies may remain for up to 90 days before automatic expiry,
             unless longer retention is required by law, security, fraud
@@ -119,6 +124,10 @@
             settings, or other app data already saved locally on your device.
             You may need to delete that data manually, clear app data, or
             uninstall the app if you want local device data removed as well.
+          </p>
+          <p>
+            Pebble only deletes its own private app copies. It does not delete
+            photos from your camera roll or photo library.
           </p>
         </section>
 

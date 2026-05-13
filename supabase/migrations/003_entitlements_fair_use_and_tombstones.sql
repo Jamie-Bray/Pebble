@@ -108,7 +108,7 @@ create table if not exists public.proof_asset_usage (
   byte_size integer not null check (byte_size >= 0),
   content_type text not null,
   captured_at timestamptz null,
-  expires_at timestamptz not null default (now() + interval '30 days'),
+  expires_at timestamptz not null default (now() + interval '21 days'),
   deleted_at timestamptz null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

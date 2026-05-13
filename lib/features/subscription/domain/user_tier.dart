@@ -36,7 +36,7 @@ extension UserTierExtension on UserTier {
   int? get maxRoutineCount => isFree ? 2 : null;
   int? get maxStepCount => isFree ? 10 : null;
   Duration? get historyRetentionDuration =>
-      isFree ? const Duration(hours: 72) : null;
+      isFree ? const Duration(hours: 48) : null;
 
   int? get maxUsers {
     switch (this) {

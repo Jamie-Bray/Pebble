@@ -29,11 +29,11 @@ store.
 
 ### High-risk product items to keep aligned
 
-- Personal Premium proof-photo retention: 30 days.
-- Pebble Household proof-photo retention: 14 days.
-- Pebble Workspace proof-photo retention: 60 days, but only with separate business terms.
-- Growth/Enterprise retention: plan or order-form specific.
-- Cloud Vault must mean short-term reassurance backup, not permanent archive or evidence storage.
+- Free proof-photo and history retention: 48 hours on this device.
+- Personal Premium proof-photo and history retention: rolling 21-day window.
+- Pebble must only delete its own private proof-photo copies, never the user's camera roll or photo library.
+- Household, Workspace, Growth, and Enterprise plans are not launch products. Do not describe them in public launch copy unless separate terms and implementation are ready.
+- Cloud backup must mean short-term reassurance backup, not permanent archive storage, legal evidence storage, or workplace compliance storage.
 - Location triggers are not in the current Android build. If launched later, update the permission flow, privacy policy, and store privacy forms before release.
 - Biometric app lock is not in the current dependency set. If launched later, update the policy and app-store disclosures before release.
 - Business Workspace/Growth/Enterprise should not launch on the consumer Terms alone. Create Business Terms and a Data Processing Addendum first.

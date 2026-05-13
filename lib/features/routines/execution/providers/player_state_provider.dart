@@ -659,7 +659,7 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
             .toList(),
       );
 
-      await _proofStorage.deleteStoredProof(asset.localRelativePath);
+      await _proofStorage.deleteProofAsset(asset);
       await _persistSession(session.copyWith(stepStates: updatedStates));
     } catch (_) {
       state = state.copyWith(

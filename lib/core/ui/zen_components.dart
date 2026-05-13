@@ -158,3 +158,60 @@ class AmbientParticlesPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
+
+class ZenBounceButton extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+  final double scale;
+
+  const ZenBounceButton({
+    super.key,
+    required this.child,
+    required this.onTap,
+    this.scale = 0.94,
+  });
+
+  @override
+  State<ZenBounceButton> createState() => _ZenBounceButtonState();
+}
+
+class _ZenBounceButtonState extends State<ZenBounceButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+    );
+    _animation = Tween<double>(
+      begin: 1.0,
+      end: widget.scale,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) {
+        HapticFeedback.selectionClick();
+        _controller.forward();
+      },
+      onTapUp: (_) {
+        _controller.reverse();
+        widget.onTap();
+      },
+      onTapCancel: () => _controller.reverse(),
+      child: ScaleTransition(scale: _animation, child: widget.child),
+    );
+  }
+}

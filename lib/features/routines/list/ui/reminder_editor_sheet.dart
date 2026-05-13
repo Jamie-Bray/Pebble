@@ -939,6 +939,19 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
     HapticFeedback.mediumImpact();
 
     try {
+      final needsNotificationPermission =
+          widget.reminderToEdit?.isEnabled ?? true;
+      if (needsNotificationPermission &&
+          !await NotificationService().hasNotificationPermission()) {
+        final accepted = await _showNotificationPermissionRationale();
+        if (!accepted) {
+          if (mounted) {
+            setState(() => _isSaving = false);
+          }
+          return;
+        }
+      }
+
       final db = ref.read(localDbProvider);
       final editingReminder = widget.reminderToEdit;
       if (editingReminder != null) {
@@ -1081,6 +1094,32 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
         );
       }
     }
+  }
+
+  Future<bool> _showNotificationPermissionRationale() async {
+    if (!mounted) return false;
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Enable reminders?'),
+          content: const Text(
+            'Pebble uses notifications only for routine reminders you turn on.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Continue'),
+            ),
+          ],
+        );
+      },
+    );
+    return result == true;
   }
 
   Future<void> _remove() async {

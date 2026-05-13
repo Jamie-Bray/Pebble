@@ -32,7 +32,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('Theme & colours'), findsOneWidget);
-    expect(find.text('Account Hub'), findsOneWidget);
+    expect(find.text('Your account'), findsOneWidget);
     expect(find.text('About Pebble'), findsOneWidget);
     expect(find.text('Reminders'), findsOneWidget);
 

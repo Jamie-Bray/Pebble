@@ -1,6 +1,6 @@
 # Pebble Copy-Risk Scan
 
-Last scanned: May 4, 2026
+Last scanned: May 12, 2026
 
 The main copy risk is overpromising around safety, health, proof, backup, and
 workplace compliance. Public store copy, onboarding, paywalls, screenshots, and
@@ -41,8 +41,9 @@ storage.
 - "Proof photo" remains as a feature label because the app captures optional
   routine proof photos. Do not describe proof photos as legal evidence,
   workplace compliance evidence, or guaranteed safety evidence.
-- "Cloud Vault" may remain only if nearby copy says it means short-term
-  reassurance backup, not permanent archive storage or evidence storage.
+- Avoid "Cloud Vault" in launch copy. Prefer "backup" or "recent backup" and
+  keep nearby copy clear that Pebble is not permanent archive storage or
+  evidence storage.
 - Template content may reference anxiety-adjacent routines because users may
   create those routines, but marketing should not claim diagnosis, treatment,
   prevention, monitoring, or clinical benefit.

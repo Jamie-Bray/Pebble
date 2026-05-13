@@ -865,10 +865,26 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
     final compactHero = largeText || boundedHeight < 380;
     final hideSecondaryActions = largeText || boundedHeight < 430;
     final heroTextScale = textScale.clamp(1.0, 1.35);
-    final labelGapBase = compactHero ? 10.0 : boundedHeight < 430 ? 18.0 : 24.0;
-    final titleGapBase = compactHero ? 16.0 : boundedHeight < 430 ? 32.0 : 50.0;
-    final ctaGapBase = compactHero ? 14.0 : boundedHeight < 460 ? 22.0 : 30.0;
-    final bottomInsetBase = compactHero ? 14.0 : boundedHeight < 430 ? 24.0 : 31.0;
+    final labelGapBase = compactHero
+        ? 10.0
+        : boundedHeight < 430
+        ? 18.0
+        : 24.0;
+    final titleGapBase = compactHero
+        ? 16.0
+        : boundedHeight < 430
+        ? 32.0
+        : 50.0;
+    final ctaGapBase = compactHero
+        ? 14.0
+        : boundedHeight < 460
+        ? 22.0
+        : 30.0;
+    final bottomInsetBase = compactHero
+        ? 14.0
+        : boundedHeight < 430
+        ? 24.0
+        : 31.0;
     final topContent = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -949,7 +965,11 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SizedBox(
-                  height: compactHero ? 20 : boundedHeight < 430 ? 26 : 32,
+                  height: compactHero
+                      ? 20
+                      : boundedHeight < 430
+                      ? 26
+                      : 32,
                 ),
                 Flexible(
                   fit: FlexFit.loose,
@@ -971,9 +991,9 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
     );
 
     return MediaQuery(
-      data: MediaQuery.of(context).copyWith(
-        textScaler: TextScaler.linear(heroTextScale),
-      ),
+      data: MediaQuery.of(
+        context,
+      ).copyWith(textScaler: TextScaler.linear(heroTextScale)),
       child: hero,
     );
   }
@@ -1019,13 +1039,25 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
     final length = title.trim().length;
     if (compact) {
       if (length <= 10) {
-        return const _HeroTitleSpec(fontSize: 56, maxLines: 2, lineHeight: 0.95);
+        return const _HeroTitleSpec(
+          fontSize: 56,
+          maxLines: 2,
+          lineHeight: 0.95,
+        );
       }
       if (length <= 22) {
-        return const _HeroTitleSpec(fontSize: 48, maxLines: 2, lineHeight: 0.98);
+        return const _HeroTitleSpec(
+          fontSize: 48,
+          maxLines: 2,
+          lineHeight: 0.98,
+        );
       }
       if (length <= 34) {
-        return const _HeroTitleSpec(fontSize: 40, maxLines: 2, lineHeight: 1.02);
+        return const _HeroTitleSpec(
+          fontSize: 40,
+          maxLines: 2,
+          lineHeight: 1.02,
+        );
       }
       return const _HeroTitleSpec(fontSize: 34, maxLines: 3, lineHeight: 1.04);
     }

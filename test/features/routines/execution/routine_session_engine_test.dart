@@ -31,6 +31,11 @@ class _FakeProofStorage implements RoutineSessionProofStorage {
   }
 
   @override
+  Future<void> deleteProofAsset(RoutineSessionProofAsset asset) async {
+    deletedProofs.add(asset.localRelativePath);
+  }
+
+  @override
   Future<RoutineSessionProofAsset> persistCapturedProof({
     required String sessionId,
     required String sourcePath,

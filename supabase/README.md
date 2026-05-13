@@ -42,5 +42,5 @@ powershell -ExecutionPolicy Bypass -File .\supabase\scripts\push-prod.ps1
 - Migration `005_cloud_backup_consent_and_deletion_requests.sql` adds the cloud-backup consent record and makes cloud writes require current consent as well as entitlement.
 - Migration `007_remove_pre_store_entitlement_bridge.sql` removes the old profile-tier bridge, so cloud writes can no longer be unlocked by `profiles.tier`.
 - Deploy `request-account-deletion` with the same Supabase env vars as `delete-account`; the public deletion page form depends on it.
-- Fair use is proof-media only: no camera-roll scanning, no video backup at launch, 1 GB active proof-photo storage, 500 proof-photo uploads per rolling 30 days, and 30-day cloud photo retention.
+- Fair use is proof-media only: no camera-roll scanning, no video backup at launch, 1 GB active proof-photo storage, 500 proof-photo uploads per rolling 30 days, and 21-day cloud photo retention.
 - Google Play launch wiring needs `GOOGLE_PLAY_PACKAGE_NAME`, `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, and `SUPABASE_SERVICE_ROLE_KEY` set on the Edge Function.

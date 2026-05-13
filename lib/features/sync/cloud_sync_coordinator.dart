@@ -17,12 +17,14 @@ import 'package:pebble_routines/features/routines/execution/data/services/routin
 import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
 import 'package:pebble_routines/features/subscription/providers/cloud_access_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
+import 'package:pebble_routines/features/sync/local_data_ownership_guard.dart';
 import 'package:pebble_routines/features/sync/sync_outbox_repository.dart';
 
 enum ManualSyncResultType {
   blockedSignedOut,
   blockedNoEntitlement,
   blockedConsentRequired,
+  blockedAccountSwitch,
   blockedOffline,
   noChanges,
   synced,
@@ -94,9 +96,9 @@ class CloudSyncCoordinator {
   );
 
   Future<void> kick() async {
-    final entitlement = _ref.read(entitlementStateProvider);
+    final lifecycle = _ref.read(subscriptionLifecycleProvider);
     await _proofStorage.enforceRetentionPolicy(
-      isPremium: entitlement.isPersonalPaid,
+      isPremium: lifecycle.hasPremiumRetention,
     );
     await _syncInternal(userInitiated: false);
   }
@@ -107,17 +109,8 @@ class CloudSyncCoordinator {
 
   Future<ManualSyncResult> _syncInternal({required bool userInitiated}) async {
     final auth = _ref.read(authSessionProvider);
-    final entitlement = _ref.read(entitlementStateProvider);
     final policy = _ref.read(cloudAccessPolicyProvider);
     final userId = policy.cachedOwnerUserId;
-
-    if (!entitlement.isPersonalPaid) {
-      _setRuntimeState(const CloudSyncRuntimeState.idle());
-      return const ManualSyncResult(
-        type: ManualSyncResultType.blockedNoEntitlement,
-        message: 'Upgrade to turn on backup and sync.',
-      );
-    }
 
     if (!auth.isSignedIn) {
       await _refreshRuntimeState();
@@ -144,9 +137,45 @@ class CloudSyncCoordinator {
           message: 'Review and enable cloud backup before Pebble uploads data.',
         );
       }
+      if (access.status == PersonalCloudAccessStatus.accountSwitchBlocked) {
+        return ManualSyncResult(
+          type: ManualSyncResultType.blockedAccountSwitch,
+          message:
+              access.detail ??
+              'Pebble will keep existing local data local until you choose how to handle this account.',
+        );
+      }
+      if (access.status == PersonalCloudAccessStatus.expiredGrace) {
+        return const ManualSyncResult(
+          type: ManualSyncResultType.blockedNoEntitlement,
+          message: 'Cloud uploads are paused during the Premium grace period.',
+        );
+      }
+      if (access.status == PersonalCloudAccessStatus.offFree ||
+          access.status == PersonalCloudAccessStatus.offSignedInNoEntitlement) {
+        return const ManualSyncResult(
+          type: ManualSyncResultType.blockedNoEntitlement,
+          message: 'Upgrade to turn on backup and sync.',
+        );
+      }
       return const ManualSyncResult(
         type: ManualSyncResultType.failed,
         message: 'Pebble couldn\'t finish syncing everything. Try again.',
+      );
+    }
+
+    final ownership = await LocalDataOwnershipGuard.inspect(
+      database: _database,
+      signedInUserId: userId,
+    );
+    if (ownership.blocksCloudSync) {
+      await _refreshRuntimeState();
+      await _ref
+          .read(subscriptionAccountControllerProvider.notifier)
+          .noteSyncFailure(ownership.userFacingMessage);
+      return ManualSyncResult(
+        type: ManualSyncResultType.blockedAccountSwitch,
+        message: ownership.userFacingMessage,
       );
     }
 

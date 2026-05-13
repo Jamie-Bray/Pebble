@@ -12,10 +12,9 @@ import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/ui/pebble_photo_gallery_viewer.dart';
+import 'package:pebble_routines/features/account_backup/providers/account_status_mapper.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
-import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
-import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
 
 class RoutineRunDetailScreen extends ConsumerWidget {
   final RoutineRun run;
@@ -24,11 +23,11 @@ class RoutineRunDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final proofStorage = ref.watch(routineSessionProofStorageProvider);
-    final userTier = ref.watch(subscriptionProvider);
+    final backupStatus = ref.watch(accountStatusPresentationProvider);
     return _buildTimelineScreen(
       context,
       proofStorage,
-      showSyncState: userTier.hasCloud,
+      showSyncState: backupStatus.showRunSyncState,
     );
   }
 
@@ -940,7 +939,7 @@ class _RunBackupLine extends StatelessWidget {
       ),
       _RunSyncState.pending => (
         LucideIcons.cloudUpload,
-        'Backup in progress',
+        'Queued for backup',
         const Color(0xFFD0A24F),
       ),
       _RunSyncState.failed => (

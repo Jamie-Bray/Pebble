@@ -197,8 +197,10 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
             body: Stack(
               children: [
                 const Positioned.fill(child: _AmbientGlows()),
-                const Positioned.fill(child: CustomPaint(painter: _CinemaGrainPainter())),
-                
+                const Positioned.fill(
+                  child: CustomPaint(painter: _CinemaGrainPainter()),
+                ),
+
                 SafeArea(
                   bottom: false,
                   child: SingleChildScrollView(
@@ -210,7 +212,7 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
                       children: [
                         _SimplePaywallHeader(entrySource: widget.entrySource),
                         const SizedBox(height: 32),
-                        
+
                         _PlanSelection(
                           products: products,
                           selectedPlan: _selectedPlan,
@@ -219,40 +221,49 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
                             setState(() => _selectedPlan = plan);
                           },
                         ),
-                        
+
                         const SizedBox(height: 24),
-                        
+
                         _PremiumActionButton(
                           busy: _busy,
                           enabled: purchasesEnabled,
                           label: _ctaLabel(selectedProduct),
                           onPressed: _startPremium,
                         ),
-                        
+
                         const SizedBox(height: 12),
                         const _CancelNote(),
                         if (purchaseUnavailableReason != null) ...[
                           const SizedBox(height: 12),
-                          _UnavailableNotice(message: purchaseUnavailableReason),
+                          _UnavailableNotice(
+                            message: purchaseUnavailableReason,
+                          ),
                         ],
                         const SizedBox(height: 48),
-                        
+
                         const _FeaturesList(),
-                        
+
                         const SizedBox(height: 40),
-                        
-                        _RestoreLink(onTap: _busy || !purchaseRepository.isPurchaseAvailable ? null : _restorePurchase),
-                        
+
+                        _RestoreLink(
+                          onTap:
+                              _busy || !purchaseRepository.isPurchaseAvailable
+                              ? null
+                              : _restorePurchase,
+                        ),
+
                         const SizedBox(height: 40),
                         const _DataSecurityNote(),
                         const SizedBox(height: 16),
                         const _FairUseNote(),
-                        SizedBox(height: MediaQuery.paddingOf(context).bottom + 20),
+                        SizedBox(
+                          height: MediaQuery.paddingOf(context).bottom + 20,
+                        ),
                       ],
                     ),
                   ),
                 ),
-                
+
                 Positioned(
                   top: MediaQuery.paddingOf(context).top + 10,
                   left: 20,
@@ -312,10 +323,7 @@ class _SimplePaywallHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Align(
-          alignment: Alignment.centerRight,
-          child: _PremiumBadge(),
-        ),
+        const Align(alignment: Alignment.centerRight, child: _PremiumBadge()),
         const SizedBox(height: 52),
         const _Eyebrow('UNLOCK EVERYTHING'),
         const SizedBox(height: 14),
@@ -351,7 +359,7 @@ class _PlanSelection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sorted = _sortedProducts(products);
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -392,7 +400,7 @@ class _CompactPlanCard extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // If we have 2 plans, each gets half minus spacing. 
+        // If we have 2 plans, each gets half minus spacing.
         // If more, they wrap naturally.
         final cardWidth = (constraints.maxWidth - 12) / 2;
 
@@ -403,10 +411,14 @@ class _CompactPlanCard extends StatelessWidget {
             width: cardWidth > 140 ? cardWidth : double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: selected ? color.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.05),
+              color: selected
+                  ? color.withValues(alpha: 0.1)
+                  : Colors.white.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: selected ? color.withValues(alpha: 0.6) : Colors.white.withValues(alpha: 0.1),
+                color: selected
+                    ? color.withValues(alpha: 0.6)
+                    : Colors.white.withValues(alpha: 0.1),
                 width: 2,
               ),
             ),
@@ -487,20 +499,14 @@ class _PlanRadio extends StatelessWidget {
       height: 20,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(
-          color: selected ? color : Colors.white24,
-          width: 2,
-        ),
+        border: Border.all(color: selected ? color : Colors.white24, width: 2),
       ),
       padding: const EdgeInsets.all(3),
       child: AnimatedScale(
         scale: selected ? 1.0 : 0.0,
         duration: const Duration(milliseconds: 200),
         child: Container(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: color,
-          ),
+          decoration: BoxDecoration(shape: BoxShape.circle, color: color),
         ),
       ),
     );
@@ -528,19 +534,17 @@ class _PremiumActionButton extends StatelessWidget {
         minimumSize: const Size.fromHeight(64),
         backgroundColor: _CinemaColors.blue,
         foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        textStyle: const TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w900,
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
       ),
       child: busy
           ? const SizedBox(
               width: 24,
               height: 24,
-              child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: Colors.white,
+              ),
             )
           : Text(label),
     );
@@ -554,10 +558,7 @@ class _CancelNote extends StatelessWidget {
     return const Text(
       'Cancel anytime. No commitment.',
       textAlign: TextAlign.center,
-      style: TextStyle(
-        fontSize: 14,
-        color: Colors.white38,
-      ),
+      style: TextStyle(fontSize: 14, color: Colors.white38),
     );
   }
 }
@@ -577,25 +578,29 @@ class _FeaturesList extends StatelessWidget {
           tint: _PremiumTint.amber,
           title: 'Proof photo backup',
           isExclusive: true,
-          body: 'Take a photo as proof you completed a step. Stored privately and backed up securely - for reassurance later. Your camera roll is never scanned.',
+          body:
+              'Take a photo as proof you completed a step. Stored privately and backed up securely - for reassurance later. Your camera roll is never scanned.',
         ),
         _FeatureListItem(
           icon: LucideIcons.infinity,
           tint: _PremiumTint.blue,
           title: 'Unlimited routines & steps',
-          body: 'Build every routine you actually need - not just the few you\'re allowed. No caps on routines, no caps on steps.',
+          body:
+              'Build every routine you actually need - not just the few you\'re allowed. No caps on routines, no caps on steps.',
         ),
         _FeatureListItem(
           icon: LucideIcons.bell,
           tint: _PremiumTint.green,
           title: 'Shared reminders',
-          body: 'Let a trusted person know when a routine is done or missed. Automatic, quiet, and entirely in your control.',
+          body:
+              'Let a trusted person know when a routine is done or missed. Automatic, quiet, and entirely in your control.',
         ),
         _FeatureListItem(
           icon: LucideIcons.palette,
           tint: _PremiumTint.purple,
           title: 'Premium themes & style',
-          body: 'Unlock Aurora, Ember, Ocean, and more. Every theme, icon set, and accent colour - make Pebble feel genuinely yours.',
+          body:
+              'Unlock Aurora, Ember, Ocean, and more. Every theme, icon set, and accent colour - make Pebble feel genuinely yours.',
         ),
       ],
     );
@@ -729,7 +734,11 @@ class _DataSecurityNote extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(LucideIcons.info, size: 16, color: Colors.white.withValues(alpha: 0.3)),
+        Icon(
+          LucideIcons.info,
+          size: 16,
+          color: Colors.white.withValues(alpha: 0.3),
+        ),
         const SizedBox(width: 12),
         Expanded(
           child: Text(

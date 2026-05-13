@@ -1,80 +1,63 @@
-# Pebble legal URL publishing plan
+# Pebble Legal URL Publishing Plan
 
-Google Play needs two public web links:
+Google Play needs public, stable HTTPS links for privacy and account deletion.
+Pebble uses the existing public site:
 
-- Privacy policy URL: a public, active, non-PDF page.
-- Account deletion URL: a public page where users can request deletion without reinstalling the app.
+- Privacy policy: `https://pebbleroutines.com/privacy`
+- Account deletion: `https://pebbleroutines.com/delete-account`
+- Terms: `https://pebbleroutines.com/terms`
+- Support: `https://pebbleroutines.com/support`
 
-This does not need to be a business website. It can be a tiny free static site.
+## Source Files
 
-## Recommended free setup
-
-Use a separate public GitHub repository, for example:
-
-`pebble-routines-legal`
-
-Publish only these files from this project:
+The source files for those pages live in `web/`:
 
 - `web/privacy.html`
 - `web/terms.html`
 - `web/delete-account.html`
+- `web/support.html`
 - `web/legal.css`
+- `web/site.js`
 - `web/favicon.png`
 
-Do not publish app source code, keystore files, Supabase files, or environment values.
+Publish those files to `pebbleroutines.com` whenever product, privacy, retention,
+account, backup, or subscription behaviour changes.
 
-Expected free URLs would look like:
+## Before Play Upload
 
-- `https://YOUR_GITHUB_USERNAME.github.io/pebble-routines-legal/privacy.html`
-- `https://YOUR_GITHUB_USERNAME.github.io/pebble-routines-legal/delete-account.html`
-- `https://YOUR_GITHUB_USERNAME.github.io/pebble-routines-legal/terms.html`
+1. Deploy the latest `web/` files to `pebbleroutines.com`.
+2. Open each public URL in a private/incognito browser window.
+3. Confirm the account deletion form posts successfully.
+4. Put `https://pebbleroutines.com/privacy` in the Play Console privacy policy field.
+5. Put `https://pebbleroutines.com/delete-account` in the Play Console account deletion field.
+6. Build the app with:
 
-These URLs are not pretty, but they are enough for Play submission if they stay live and load without sign-in.
+```powershell
+[Environment]::SetEnvironmentVariable(
+  "PEBBLE_ACCOUNT_DELETION_URL",
+  "https://pebbleroutines.com/delete-account",
+  "User"
+)
+.\build_production_aab.ps1
+```
 
-## GitHub Pages steps
+## Current Behaviour To Keep Aligned
 
-1. Create a new public GitHub repo named `pebble-routines-legal`.
-2. Add the five files listed above.
-3. In GitHub, open `Settings > Pages`.
-4. Set source to `Deploy from a branch`.
-5. Select branch `main` and folder `/root`.
-6. Save, then wait for GitHub to show the Pages URL.
-7. Open the privacy and deletion URLs in an incognito/private browser window.
-8. Put the privacy URL into the Google Play privacy policy field.
-9. Put the deletion URL into the Google Play Data safety account deletion field.
+- Pebble works without an account.
+- Free keeps recent local history and Pebble-owned proof-photo copies for 48 hours.
+- Premium backup requires paid subscription, sign-in, and explicit backup consent.
+- Premium recent history and proof-photo backup uses a rolling 21-day window.
+- Pebble deletes only its own private app copies, never the user's camera roll or photo library.
+- Signing out pauses backup without deleting local data.
+- Account switching must not silently upload, merge, or wipe local data.
 
-## Deletion form endpoint
-
-The deletion page currently posts to:
-
-`/functions/v1/request-account-deletion`
-
-That only works if the page is hosted on the same Supabase domain as the function.
-
-For GitHub Pages, update the page before publishing so it posts to the full Supabase function URL:
-
-`https://YOUR_PROJECT_REF.supabase.co/functions/v1/request-account-deletion`
-
-The `request-account-deletion` Supabase Edge Function must be deployed before submitting the URL to Google Play.
-
-## Lowest-friction fallback
-
-If the web form endpoint is not ready yet, keep the deletion page live with:
-
-- The deletion explanation.
-- The plain-text support email.
-- The in-app deletion path.
-
-However, the form should be wired before public release because it is more robust than relying on `mailto:` only.
-
-## What not to use
+## What Not To Use
 
 Avoid these for Play submission:
 
-- A PDF privacy policy.
-- A Google Doc that can look editable or require sign-in.
-- A page behind login.
-- A link that redirects through JavaScript only.
-- A temporary link that may expire.
-- A private repo file URL.
-
+- PDF privacy policy.
+- Google Doc or editable document.
+- Page behind login.
+- Temporary link.
+- Private repo file URL.
+- Public page that says different retention, account, or backup rules from the app.

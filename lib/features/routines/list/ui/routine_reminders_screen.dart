@@ -5,7 +5,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/notifications/notification_service.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
-import 'package:pebble_routines/features/routines/data/shared_alert_preferences_repository.dart';
+import 'package:pebble_routines/features/routines/data/shared_reminder_preferences_repository.dart';
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
 
@@ -34,7 +34,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
   Map<int, List<RoutineReminder>> _remindersByDay = {};
   List<RoutineReminder> _allReminders = [];
   Map<int, String> _routineTitles = {};
-  SharedAlertContact? _sharedContact;
+  SharedReminderContact? _sharedContact;
   String? _sharedContactError;
   bool _isSharedContactRefreshing = false;
   bool _isSharedContactSaving = false;
@@ -58,7 +58,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
 
   Future<void> _loadData() async {
     final db = ref.read(localDbProvider);
-    final alertRepo = ref.read(sharedAlertPreferencesRepositoryProvider);
+    final reminderRepo = ref.read(sharedReminderPreferencesRepositoryProvider);
 
     final routines = await db.routineDao.watchAllRoutines().first;
     final reminders = widget.routine != null
@@ -68,16 +68,16 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
       routineId: widget.routine?.id,
     );
 
-    SharedAlertContact? sharedContact;
+    SharedReminderContact? sharedContact;
     String? sharedContactError;
     if (widget.routine != null) {
       try {
-        sharedContact = await alertRepo.getForRoutine(
+        sharedContact = await reminderRepo.getForRoutine(
           routineId: widget.routine!.id,
           routineCloudId: widget.routine!.cloudId,
         );
       } catch (e) {
-        sharedContactError = _friendlySharedAlertError(e);
+        sharedContactError = _friendlySharedReminderError(e);
       }
     }
 
@@ -216,7 +216,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
 
   Widget _buildTrustedContactCardContent(
     ColorScheme cs, {
-    required SharedAlertContact? contact,
+    required SharedReminderContact? contact,
     required bool isLocked,
   }) {
     if (isLocked) {
@@ -276,13 +276,14 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
         const SizedBox(height: 14),
         _buildEmailAddressPanel(cs, contact),
         const SizedBox(height: 14),
-        if (contact.status == SharedAlertContactStatus.accepted) ...[
+        if (contact.status == SharedReminderContactStatus.accepted) ...[
           _buildCompletionEmailToggle(cs, contact),
           const SizedBox(height: 14),
         ],
         _buildInlineMessage(
           cs,
-          _sharedContactError ?? _sharedContactHelper(contact.status, contact),
+          _sharedContactError ??
+              _sharedReminderContactHelper(contact.status, contact),
           isError: _sharedContactError != null,
         ),
         const SizedBox(height: 18),
@@ -293,19 +294,19 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
 
   Widget _buildSharedContactStatusPill(
     ColorScheme cs,
-    SharedAlertContactStatus status,
+    SharedReminderContactStatus status,
   ) {
     final label = switch (status) {
-      SharedAlertContactStatus.pending => 'Pending',
-      SharedAlertContactStatus.accepted => 'Accepted',
-      SharedAlertContactStatus.declined => 'Declined',
-      SharedAlertContactStatus.blocked => 'Blocked',
-      SharedAlertContactStatus.disabled => 'Off',
+      SharedReminderContactStatus.pending => 'Pending',
+      SharedReminderContactStatus.accepted => 'Accepted',
+      SharedReminderContactStatus.declined => 'Declined',
+      SharedReminderContactStatus.blocked => 'Blocked',
+      SharedReminderContactStatus.disabled => 'Off',
     };
     final Color color = switch (status) {
-      SharedAlertContactStatus.accepted => cs.primary,
-      SharedAlertContactStatus.blocked => cs.error,
-      SharedAlertContactStatus.declined => cs.error,
+      SharedReminderContactStatus.accepted => cs.primary,
+      SharedReminderContactStatus.blocked => cs.error,
+      SharedReminderContactStatus.declined => cs.error,
       _ => cs.onSurface.withValues(alpha: 0.58),
     };
     return Container(
@@ -412,13 +413,16 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
     );
   }
 
-  Widget _buildContactStateHeader(ColorScheme cs, SharedAlertContact contact) {
+  Widget _buildContactStateHeader(
+    ColorScheme cs,
+    SharedReminderContact contact,
+  ) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
           child: Text(
-            _sharedContactTitle(contact),
+            _sharedReminderContactTitle(contact),
             style: TextStyle(
               fontSize: 20,
               height: 1.15,
@@ -433,7 +437,10 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
     );
   }
 
-  Widget _buildEmailAddressPanel(ColorScheme cs, SharedAlertContact contact) {
+  Widget _buildEmailAddressPanel(
+    ColorScheme cs,
+    SharedReminderContact contact,
+  ) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
@@ -470,7 +477,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
 
   Widget _buildCompletionEmailToggle(
     ColorScheme cs,
-    SharedAlertContact contact,
+    SharedReminderContact contact,
   ) {
     final isOn = contact.notifyWhenFinished;
     return Container(
@@ -540,13 +547,13 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
 
   Widget _buildTrustedContactActions(
     ColorScheme cs,
-    SharedAlertContact contact,
+    SharedReminderContact contact,
   ) {
     return Wrap(
       spacing: 10,
       runSpacing: 8,
       children: [
-        if (contact.status == SharedAlertContactStatus.pending)
+        if (contact.status == SharedReminderContactStatus.pending)
           OutlinedButton.icon(
             onPressed: _isSharedContactSaving
                 ? null
@@ -554,7 +561,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
             icon: const Icon(LucideIcons.send, size: 16),
             label: const Text('Resend invite'),
           )
-        else if (contact.status == SharedAlertContactStatus.blocked)
+        else if (contact.status == SharedReminderContactStatus.blocked)
           OutlinedButton.icon(
             onPressed: _isSharedContactSaving
                 ? null
@@ -569,7 +576,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
                 : () => _showTrustedContactSheet(clearEmail: true),
             icon: const Icon(Icons.alternate_email_rounded, size: 16),
             label: Text(
-              contact.status == SharedAlertContactStatus.accepted
+              contact.status == SharedReminderContactStatus.accepted
                   ? 'Change contact'
                   : 'Replace contact',
             ),
@@ -603,11 +610,11 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
   }
 
   Future<void> _setSharedContactToggle(
-    SharedAlertContact contact,
+    SharedReminderContact contact,
     bool enabled,
   ) async {
     if (_isSharedContactSaving) return;
-    final repo = ref.read(sharedAlertPreferencesRepositoryProvider);
+    final repo = ref.read(sharedReminderPreferencesRepositoryProvider);
     setState(() {
       _isSharedContactSaving = true;
       _sharedContactError = null;
@@ -621,10 +628,10 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
       setState(() => _sharedContact = updated);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _sharedContactError = _friendlySharedAlertError(e));
+      setState(() => _sharedContactError = _friendlySharedReminderError(e));
       ZenNotifications.showError(
         context,
-        message: _friendlySharedAlertError(e),
+        message: _friendlySharedReminderError(e),
         title: 'Update failed',
       );
     } finally {
@@ -642,7 +649,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
       _sharedContactError = null;
     });
     try {
-      final repo = ref.read(sharedAlertPreferencesRepositoryProvider);
+      final repo = ref.read(sharedReminderPreferencesRepositoryProvider);
       final contact = await repo.getForRoutine(
         routineId: routine.id,
         routineCloudId: routine.cloudId,
@@ -651,12 +658,12 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
       setState(() => _sharedContact = contact);
       ZenNotifications.showInfo(
         context,
-        message: _sharedContactStatusMessage(contact),
+        message: _sharedReminderContactStatusMessage(contact),
         title: 'Checked',
       );
     } catch (e) {
       if (!mounted) return;
-      final message = _friendlySharedAlertError(e);
+      final message = _friendlySharedReminderError(e);
       setState(() => _sharedContactError = message);
       ZenNotifications.showError(
         context,
@@ -685,9 +692,9 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
     var isSaving = false;
     final initialEmail = controller.text.trim().toLowerCase();
 
-    SharedAlertContact? contact;
+    SharedReminderContact? contact;
     try {
-      contact = await showModalBottomSheet<SharedAlertContact>(
+      contact = await showModalBottomSheet<SharedReminderContact>(
         context: context,
         isScrollControlled: true,
         backgroundColor: cs.surface,
@@ -825,7 +832,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
     }
     if (contact == null || !mounted) return;
     setState(() => _sharedContact = contact);
-    final isAccepted = contact.status == SharedAlertContactStatus.accepted;
+    final isAccepted = contact.status == SharedReminderContactStatus.accepted;
     if (isAccepted) {
       ZenNotifications.showSuccess(
         context,
@@ -838,7 +845,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
     await _showInviteSentSheet(contact);
   }
 
-  Future<void> _showInviteSentSheet(SharedAlertContact contact) {
+  Future<void> _showInviteSentSheet(SharedReminderContact contact) {
     final cs = Theme.of(context).colorScheme;
     return showModalBottomSheet<void>(
       context: context,
@@ -917,7 +924,9 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
     );
   }
 
-  Future<void> _confirmRemoveSharedContact(SharedAlertContact contact) async {
+  Future<void> _confirmRemoveSharedContact(
+    SharedReminderContact contact,
+  ) async {
     final cs = Theme.of(context).colorScheme;
     final shouldRemove = await showModalBottomSheet<bool>(
       context: context,
@@ -993,9 +1002,9 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
     }
   }
 
-  Future<void> _removeSharedContact(SharedAlertContact contact) async {
+  Future<void> _removeSharedContact(SharedReminderContact contact) async {
     if (_isSharedContactSaving) return;
-    final repo = ref.read(sharedAlertPreferencesRepositoryProvider);
+    final repo = ref.read(sharedReminderPreferencesRepositoryProvider);
     setState(() {
       _isSharedContactSaving = true;
       _sharedContactError = null;
@@ -1006,7 +1015,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
       setState(() => _sharedContact = null);
     } catch (e) {
       if (!mounted) return;
-      final message = _friendlySharedAlertError(e);
+      final message = _friendlySharedReminderError(e);
       setState(() => _sharedContactError = message);
       ZenNotifications.showError(
         context,
@@ -1021,109 +1030,89 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
   }
 
   Future<void> _submitTrustedContactSheet(
-    BuildContext sheetContext,
+    BuildContext ctx,
     Routine routine,
     TextEditingController controller,
     GlobalKey<FormState> formKey,
     StateSetter setSheetState,
-    bool Function() isSaving,
-    ValueChanged<bool> setSaving,
+    bool Function() getIsSaving,
+    void Function(bool) setIsSaving,
   ) async {
-    if (isSaving() || formKey.currentState?.validate() != true) return;
-    FocusScope.of(sheetContext).unfocus();
-    setSheetState(() => setSaving(true));
-    try {
-      final repo = ref.read(sharedAlertPreferencesRepositoryProvider);
-      final email = controller.text.trim();
-      final isResend =
-          email.toLowerCase() == _sharedContact?.recipientEmail.toLowerCase();
-      if (mounted) {
-        setState(() {
-          _isSharedContactSaving = true;
-          _sharedContactError = null;
-        });
-      }
-      final contact = await repo.requestContact(
-        routineId: routine.id,
-        routineCloudId: routine.cloudId,
-        recipientEmail: email,
-        resend: isResend,
-      );
-      if (sheetContext.mounted) {
-        Navigator.pop(sheetContext, contact);
-      }
-    } catch (e) {
-      if (!sheetContext.mounted) return;
-      setSheetState(() => setSaving(false));
-      if (mounted) {
-        setState(() => _sharedContactError = _friendlySharedAlertError(e));
-      }
-      ZenNotifications.showError(
-        sheetContext,
-        message: _friendlySharedAlertError(e),
-        title: 'Invitation failed',
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isSharedContactSaving = false);
+    if (getIsSaving()) return;
+    if (formKey.currentState?.validate() ?? false) {
+      setSheetState(() => setIsSaving(true));
+      try {
+        final repo = ref.read(sharedReminderPreferencesRepositoryProvider);
+        final contact = await repo.requestContact(
+          routineId: routine.id,
+          recipientEmail: controller.text.trim().toLowerCase(),
+          routineCloudId: routine.cloudId,
+        );
+        if (!ctx.mounted) return;
+        Navigator.of(ctx).pop(contact);
+      } catch (e) {
+        if (!ctx.mounted) return;
+        setSheetState(() => setIsSaving(false));
+        ZenNotifications.showError(
+          ctx,
+          message: _friendlySharedReminderError(e),
+          title: 'Invite failed',
+        );
       }
     }
   }
 
-  String _sharedContactTitle(SharedAlertContact contact) {
-    if (contact.status == SharedAlertContactStatus.accepted) {
-      return contact.notifyWhenFinished
-          ? 'Completion emails are on'
-          : 'Completion emails are paused';
+  String _sharedReminderContactTitle(SharedReminderContact contact) {
+    if (contact.status == SharedReminderContactStatus.accepted) {
+      return 'Completion emails are on';
     }
     return switch (contact.status) {
-      SharedAlertContactStatus.pending => 'Waiting for them to accept',
-      SharedAlertContactStatus.accepted => 'Completion emails are on',
-      SharedAlertContactStatus.declined => 'Invite declined',
-      SharedAlertContactStatus.blocked => 'Future invites blocked',
-      SharedAlertContactStatus.disabled => 'Trusted contact removed',
+      SharedReminderContactStatus.pending => 'Waiting for them to accept',
+      SharedReminderContactStatus.accepted => 'Completion emails are on',
+      SharedReminderContactStatus.declined => 'Invite declined',
+      SharedReminderContactStatus.blocked => 'Future invites blocked',
+      SharedReminderContactStatus.disabled => 'Trusted contact removed',
     };
   }
 
-  String _sharedContactHelper(
-    SharedAlertContactStatus status,
-    SharedAlertContact contact,
+  String _sharedReminderContactHelper(
+    SharedReminderContactStatus status,
+    SharedReminderContact contact,
   ) {
-    if (status == SharedAlertContactStatus.accepted) {
-      return contact.notifyWhenFinished
-          ? 'Pebble will email this contact when you complete this routine.'
-          : 'Completion emails are paused for this routine.';
+    if (status == SharedReminderContactStatus.accepted) {
+      return 'Pebble will email this contact when you complete this routine.';
     }
     return switch (status) {
-      SharedAlertContactStatus.pending =>
-        'They need to accept the invite before Pebble sends completion emails.',
-      SharedAlertContactStatus.accepted =>
+      SharedReminderContactStatus.pending =>
         'Pebble will email this contact when you complete this routine.',
-      SharedAlertContactStatus.declined =>
+      SharedReminderContactStatus.accepted =>
+        'Pebble will email this contact when you complete this routine.',
+      SharedReminderContactStatus.declined =>
         'They declined this invite. You can replace this contact with a different email address.',
-      SharedAlertContactStatus.blocked =>
+      SharedReminderContactStatus.blocked =>
         'They blocked future invites from this account. You can use a different email address.',
-      SharedAlertContactStatus.disabled =>
+      SharedReminderContactStatus.disabled =>
         'Add a trusted contact again when you are ready.',
     };
   }
 
-  String _sharedContactStatusMessage(SharedAlertContact? contact) {
+  String _sharedReminderContactStatusMessage(SharedReminderContact? contact) {
     if (contact == null) {
       return 'No trusted contact is set up for this routine.';
     }
     return switch (contact.status) {
-      SharedAlertContactStatus.pending => 'Still waiting for them to accept.',
-      SharedAlertContactStatus.accepted =>
+      SharedReminderContactStatus.pending =>
+        'Still waiting for them to accept.',
+      SharedReminderContactStatus.accepted =>
         'They have accepted. Pebble can now send completion emails for this routine.',
-      SharedAlertContactStatus.declined => 'They declined this invite.',
-      SharedAlertContactStatus.blocked => 'They blocked future invites.',
-      SharedAlertContactStatus.disabled =>
+      SharedReminderContactStatus.declined => 'They declined this invite.',
+      SharedReminderContactStatus.blocked => 'They blocked future invites.',
+      SharedReminderContactStatus.disabled =>
         'Completion emails are off for this routine.',
     };
   }
 
-  String _friendlySharedAlertError(Object error) {
+  String _friendlySharedReminderError(Object error) {
     final message = error.toString().replaceFirst('Exception: ', '').trim();
     return message.isEmpty ? 'Could not update shared notification.' : message;
   }

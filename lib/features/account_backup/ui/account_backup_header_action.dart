@@ -21,7 +21,7 @@ class AccountBackupHeaderAction extends ConsumerWidget {
       label: ringState.semanticsLabel,
       hint: ringState.semanticsHint,
       child: Tooltip(
-        message: 'Account Hub',
+        message: 'Your account',
         child: InkResponse(
           radius: 24,
           onTap: () {

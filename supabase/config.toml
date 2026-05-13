@@ -20,3 +20,9 @@ verify_jwt = false
 
 [functions.shared-alert-block]
 verify_jwt = false
+
+[functions.cleanup-proof-retention]
+verify_jwt = false
+
+[functions.request-account-deletion]
+verify_jwt = false

@@ -1,6 +1,6 @@
 # Pebble Processor and Data-Flow Map
 
-Last scanned: May 4, 2026
+Last scanned: May 12, 2026
 
 This map is generated from the current codebase and should be used when filling
 Google Play Data safety, Apple privacy declarations, and the public Privacy
@@ -49,9 +49,9 @@ Policy.
 - Email address and account/user ID for sign-in.
 - Purchase history, product ID, subscription status, and protected purchase
   verification records.
-- User content: routines, steps, reminders, history, proof-photo metadata, and
+- User content: routines, steps, reminders, history, proof-photo records, and
   proof photos when cloud backup is enabled.
-- Audio metadata when routines containing guidance-audio metadata are backed up.
+- Audio details when routines containing guidance-audio details are backed up.
   Guidance-audio files currently stay local unless a future build explicitly
   adds audio-file cloud backup.
 - Photos/media library access because users can choose existing proof photos.

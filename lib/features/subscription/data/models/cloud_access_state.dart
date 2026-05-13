@@ -22,8 +22,10 @@ class EntitlementState {
   final EntitlementStatus? status;
 
   bool get isPersonalPaid =>
-      personalTier == UserTier.personalPremium ||
-      personalTier == UserTier.pebbleHousehold;
+      (personalTier == UserTier.personalPremium &&
+          (status == null || status == EntitlementStatus.personalPremium)) ||
+      (personalTier == UserTier.pebbleHousehold &&
+          (status == null || status == EntitlementStatus.household));
 }
 
 enum PersonalCloudAccessStatus {
@@ -35,6 +37,8 @@ enum PersonalCloudAccessStatus {
   pausedSignedOut,
   offlinePending,
   error,
+  expiredGrace,
+  accountSwitchBlocked,
 }
 
 class PersonalCloudAccessState {
@@ -71,6 +75,7 @@ class CloudAccessPolicy {
     required this.canQueuePersonalSync,
     required this.workspaceCloudEnabled,
     required this.isSignedIn,
+    required this.isAccountSwitchBlocked,
   });
 
   final String? cachedOwnerUserId;
@@ -78,6 +83,7 @@ class CloudAccessPolicy {
   final bool canQueuePersonalSync;
   final bool workspaceCloudEnabled;
   final bool isSignedIn;
+  final bool isAccountSwitchBlocked;
 
   bool get canUploadCloudChanges =>
       (personalCloudEnabled || workspaceCloudEnabled) &&

@@ -3,10 +3,16 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:pebble_routines/data/remote/supabase_client_provider.dart';
 
-enum SharedAlertContactStatus { pending, accepted, declined, blocked, disabled }
+enum SharedReminderContactStatus {
+  pending,
+  accepted,
+  declined,
+  blocked,
+  disabled,
+}
 
-class SharedAlertContact {
-  const SharedAlertContact({
+class SharedReminderContact {
+  const SharedReminderContact({
     required this.id,
     required this.routineKey,
     required this.recipientEmail,
@@ -20,21 +26,21 @@ class SharedAlertContact {
   final String id;
   final String routineKey;
   final String recipientEmail;
-  final SharedAlertContactStatus status;
+  final SharedReminderContactStatus status;
   final bool notifyWhenFinished;
   final bool includeRoutineName;
   final bool includeStepCount;
   final DateTime updatedAt;
 
   bool get canSendCompletionEmail =>
-      status == SharedAlertContactStatus.accepted && notifyWhenFinished;
+      status == SharedReminderContactStatus.accepted && notifyWhenFinished;
 
-  SharedAlertContact copyWith({
-    SharedAlertContactStatus? status,
+  SharedReminderContact copyWith({
+    SharedReminderContactStatus? status,
     bool? notifyWhenFinished,
     DateTime? updatedAt,
   }) {
-    return SharedAlertContact(
+    return SharedReminderContact(
       id: id,
       routineKey: routineKey,
       recipientEmail: recipientEmail,
@@ -46,8 +52,8 @@ class SharedAlertContact {
     );
   }
 
-  factory SharedAlertContact.fromJson(Map<String, dynamic> json) {
-    return SharedAlertContact(
+  factory SharedReminderContact.fromJson(Map<String, dynamic> json) {
+    return SharedReminderContact(
       id: json['id']?.toString() ?? '',
       routineKey: json['routineKey']?.toString() ?? '',
       recipientEmail: json['recipientEmail']?.toString() ?? '',
@@ -62,8 +68,8 @@ class SharedAlertContact {
   }
 }
 
-class SharedAlertRepositoryException implements Exception {
-  SharedAlertRepositoryException(this.message);
+class SharedReminderRepositoryException implements Exception {
+  SharedReminderRepositoryException(this.message);
 
   final String message;
 
@@ -71,8 +77,8 @@ class SharedAlertRepositoryException implements Exception {
   String toString() => message;
 }
 
-class SharedAlertCompletionResult {
-  const SharedAlertCompletionResult({
+class SharedReminderCompletionResult {
+  const SharedReminderCompletionResult({
     required this.sent,
     this.recipientEmail,
     this.reason,
@@ -82,8 +88,8 @@ class SharedAlertCompletionResult {
   final String? recipientEmail;
   final String? reason;
 
-  factory SharedAlertCompletionResult.fromJson(Map<String, dynamic> json) {
-    return SharedAlertCompletionResult(
+  factory SharedReminderCompletionResult.fromJson(Map<String, dynamic> json) {
+    return SharedReminderCompletionResult(
       sent: json['sent'] == true,
       recipientEmail: json['recipientEmail']?.toString(),
       reason: json['reason']?.toString(),
@@ -91,8 +97,8 @@ class SharedAlertCompletionResult {
   }
 }
 
-class SharedAlertPreferencesRepository {
-  SharedAlertPreferencesRepository(this._client);
+class SharedReminderPreferencesRepository {
+  SharedReminderPreferencesRepository(this._client);
 
   final SupabaseClient? _client;
 
@@ -106,7 +112,7 @@ class SharedAlertPreferencesRepository {
     return 'local:$routineId';
   }
 
-  Future<SharedAlertContact?> getForRoutine({
+  Future<SharedReminderContact?> getForRoutine({
     required int routineId,
     String? routineCloudId,
   }) async {
@@ -125,7 +131,7 @@ class SharedAlertPreferencesRepository {
         .timeout(
           const Duration(seconds: 10),
           onTimeout: () {
-            throw SharedAlertRepositoryException(
+            throw SharedReminderRepositoryException(
               'Could not check trusted contact status. Please try again.',
             );
           },
@@ -133,14 +139,14 @@ class SharedAlertPreferencesRepository {
     _throwIfFailed(response);
     final data = response.data;
     if (data is Map && data['contact'] is Map) {
-      return SharedAlertContact.fromJson(
+      return SharedReminderContact.fromJson(
         Map<String, dynamic>.from(data['contact'] as Map),
       );
     }
     return null;
   }
 
-  Future<SharedAlertContact> requestContact({
+  Future<SharedReminderContact> requestContact({
     required int routineId,
     required String recipientEmail,
     String? routineCloudId,
@@ -164,7 +170,7 @@ class SharedAlertPreferencesRepository {
         .timeout(
           const Duration(seconds: 15),
           onTimeout: () {
-            throw SharedAlertRepositoryException(
+            throw SharedReminderRepositoryException(
               'The request timed out. Please check your internet connection.',
             );
           },
@@ -172,15 +178,17 @@ class SharedAlertPreferencesRepository {
     _throwIfFailed(response);
     final data = response.data;
     if (data is Map && data['contact'] is Map) {
-      return SharedAlertContact.fromJson(
+      return SharedReminderContact.fromJson(
         Map<String, dynamic>.from(data['contact'] as Map),
       );
     }
-    throw SharedAlertRepositoryException('Could not create shared alert.');
+    throw SharedReminderRepositoryException(
+      'Could not create shared reminder.',
+    );
   }
 
-  Future<SharedAlertContact> setNotifyWhenFinished({
-    required SharedAlertContact contact,
+  Future<SharedReminderContact> setNotifyWhenFinished({
+    required SharedReminderContact contact,
     required bool enabled,
   }) async {
     final client = await _clientWithSession();
@@ -193,15 +201,15 @@ class SharedAlertPreferencesRepository {
         .timeout(
           const Duration(seconds: 10),
           onTimeout: () {
-            throw SharedAlertRepositoryException(
-              'Could not update shared alert. Please try again.',
+            throw SharedReminderRepositoryException(
+              'Could not update shared reminder. Please try again.',
             );
           },
         );
     _throwIfFailed(response);
     final data = response.data;
     if (data is Map && data['contact'] is Map) {
-      return SharedAlertContact.fromJson(
+      return SharedReminderContact.fromJson(
         Map<String, dynamic>.from(data['contact'] as Map),
       );
     }
@@ -211,7 +219,7 @@ class SharedAlertPreferencesRepository {
     );
   }
 
-  Future<void> removeContact({required SharedAlertContact contact}) async {
+  Future<void> removeContact({required SharedReminderContact contact}) async {
     final client = await _clientWithSession();
     final response = await client.functions
         .invoke(
@@ -222,7 +230,7 @@ class SharedAlertPreferencesRepository {
         .timeout(
           const Duration(seconds: 10),
           onTimeout: () {
-            throw SharedAlertRepositoryException(
+            throw SharedReminderRepositoryException(
               'Could not remove trusted contact. Please try again.',
             );
           },
@@ -230,7 +238,7 @@ class SharedAlertPreferencesRepository {
     _throwIfFailed(response);
   }
 
-  Future<SharedAlertCompletionResult> sendCompletionAlert({
+  Future<SharedReminderCompletionResult> sendCompletionReminder({
     required int routineId,
     required String routineTitle,
     required String runId,
@@ -242,7 +250,10 @@ class SharedAlertPreferencesRepository {
   }) async {
     final client = _client;
     if (client == null) {
-      return const SharedAlertCompletionResult(sent: false, reason: 'offline');
+      return const SharedReminderCompletionResult(
+        sent: false,
+        reason: 'offline',
+      );
     }
     await _ensureSession(client);
     final response = await client.functions.invoke(
@@ -263,17 +274,17 @@ class SharedAlertPreferencesRepository {
     _throwIfFailed(response);
     final data = response.data;
     if (data is Map) {
-      return SharedAlertCompletionResult.fromJson(
+      return SharedReminderCompletionResult.fromJson(
         Map<String, dynamic>.from(data),
       );
     }
-    return const SharedAlertCompletionResult(sent: false);
+    return const SharedReminderCompletionResult(sent: false);
   }
 
   Future<SupabaseClient> _clientWithSession() async {
     final client = _client;
     if (client == null) {
-      throw SharedAlertRepositoryException(
+      throw SharedReminderRepositoryException(
         'Email setup is not available in this build.',
       );
     }
@@ -288,23 +299,23 @@ class SharedAlertPreferencesRepository {
         const Duration(seconds: 10),
       );
       if (response.session == null) {
-        throw SharedAlertRepositoryException(
+        throw SharedReminderRepositoryException(
           'Could not start email setup. Please try again.',
         );
       }
     } on AuthException catch (error) {
       if (error.code == 'anonymous_provider_disabled') {
-        throw SharedAlertRepositoryException(
+        throw SharedReminderRepositoryException(
           'Email setup needs anonymous access enabled in Supabase.',
         );
       }
-      throw SharedAlertRepositoryException(
+      throw SharedReminderRepositoryException(
         'Could not start email setup. Please try again.',
       );
-    } on SharedAlertRepositoryException {
+    } on SharedReminderRepositoryException {
       rethrow;
     } catch (_) {
-      throw SharedAlertRepositoryException(
+      throw SharedReminderRepositoryException(
         'Could not start email setup. Please try again.',
       );
     }
@@ -315,27 +326,27 @@ class SharedAlertPreferencesRepository {
     if (status >= 200 && status < 300) return;
     final data = response.data;
     if (data is Map && data['error'] != null) {
-      throw SharedAlertRepositoryException(data['error'].toString());
+      throw SharedReminderRepositoryException(data['error'].toString());
     }
-    throw SharedAlertRepositoryException(
-      'Shared alerts are not available right now.',
+    throw SharedReminderRepositoryException(
+      'Shared reminders are not available right now.',
     );
   }
 }
 
-SharedAlertContactStatus _contactStatusFromString(String? value) {
+SharedReminderContactStatus _contactStatusFromString(String? value) {
   return switch (value) {
-    'accepted' => SharedAlertContactStatus.accepted,
-    'declined' => SharedAlertContactStatus.declined,
-    'blocked' => SharedAlertContactStatus.blocked,
-    'disabled' => SharedAlertContactStatus.disabled,
-    _ => SharedAlertContactStatus.pending,
+    'accepted' => SharedReminderContactStatus.accepted,
+    'declined' => SharedReminderContactStatus.declined,
+    'blocked' => SharedReminderContactStatus.blocked,
+    'disabled' => SharedReminderContactStatus.disabled,
+    _ => SharedReminderContactStatus.pending,
   };
 }
 
-final sharedAlertPreferencesRepositoryProvider =
-    Provider<SharedAlertPreferencesRepository>((ref) {
-      return SharedAlertPreferencesRepository(
+final sharedReminderPreferencesRepositoryProvider =
+    Provider<SharedReminderPreferencesRepository>((ref) {
+      return SharedReminderPreferencesRepository(
         ref.watch(supabaseClientProvider),
       );
     });

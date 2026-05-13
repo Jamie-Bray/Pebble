@@ -263,9 +263,7 @@ void main() {
         child: MaterialApp(
           theme: AppTheme.fromId(ThemeId.highNoon),
           home: const MediaQuery(
-            data: MediaQueryData(
-              textScaler: TextScaler.linear(2.4),
-            ),
+            data: MediaQueryData(textScaler: TextScaler.linear(2.4)),
             child: RoutineListScreen(),
           ),
         ),

@@ -14,10 +14,10 @@ const cloudBackupConsentAppVersion = '1.0.0+1';
 const cloudBackupConsentPrivacyVersion = '2026-05-04';
 const cloudBackupConsentTermsVersion = '2026-05-04';
 const cloudBackupConsentText =
-    'I understand Pebble cloud backup may store routines, proof photos, '
-    'history, and metadata that could reveal sensitive information about my '
+    'I understand Pebble backup may save routines, proof photos, '
+    'history, and related details that could reveal sensitive information about my '
     'health, home, family, workplace, habits, or personal circumstances. '
-    'I want to enable cloud backup for this account.';
+    'I want to turn on backup for this account.';
 
 String get cloudBackupConsentTextHash =>
     sha256.convert(utf8.encode(cloudBackupConsentText)).toString();

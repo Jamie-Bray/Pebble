@@ -17,8 +17,9 @@ class ProofMediaFairUsePolicy {
   static const int monthlyUploadLimit = 500;
   static const int perFileLimitBytes = 8 * 1024 * 1024;
   static const double warningThreshold = 0.8;
-  static const int cloudRetentionDays = 30;
-  static const int localRetentionHours = 72;
+  static const int uploadRollingWindowDays = 30;
+  static const int cloudRetentionDays = 21;
+  static const int localRetentionHours = 48;
   static const Duration localRetentionDuration = Duration(
     hours: localRetentionHours,
   );
@@ -150,7 +151,7 @@ class LocalProofMediaFairUseStore implements ProofMediaFairUseStore {
     final periodStart = rawStart == null ? null : DateTime.tryParse(rawStart);
     if (periodStart != null &&
         now.difference(periodStart).inDays <
-            ProofMediaFairUsePolicy.cloudRetentionDays) {
+            ProofMediaFairUsePolicy.uploadRollingWindowDays) {
       return;
     }
     await _prefs.setString(_periodStartKey, now.toIso8601String());

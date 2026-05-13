@@ -140,7 +140,7 @@ class LegalAboutScreen extends StatelessWidget {
                   _LegalPage(
                     title: 'Deleting your account.',
                     intro:
-                        'If you sign in, you can delete your Pebble account from Account Hub. You can also contact support if you cannot access the app.',
+                        'If you sign in, you can delete your Pebble account from Your account. You can also contact support if you cannot access the app.',
                     sections: const [
                       _LegalSection(
                         icon: LucideIcons.trash2,
@@ -320,7 +320,7 @@ class _DeleteFooter extends StatelessWidget {
     return _FooterBox(
       title: 'Need help?',
       body:
-          'If you cannot access Account Hub, email support@pebbleroutines.app from the address linked to your Pebble account if possible.',
+          'If you cannot access Your account, email support@pebbleroutines.app from the address linked to your Pebble account if possible.',
       actions: [
         TextButton(onPressed: onSupport, child: const Text('Email support')),
       ],

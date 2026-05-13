@@ -405,6 +405,9 @@ class _FakeProofStorage implements RoutineSessionProofStorage {
   Future<void> deleteStoredProof(String storedPath) async {}
 
   @override
+  Future<void> deleteProofAsset(RoutineSessionProofAsset asset) async {}
+
+  @override
   Future<void> enforceRetentionPolicy({required bool isPremium}) async {}
 
   @override

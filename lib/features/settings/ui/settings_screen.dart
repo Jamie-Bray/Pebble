@@ -112,7 +112,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                       const _Hairline(),
                       _FlowTile(
                         icon: LucideIcons.userRound,
-                        title: 'Account Hub',
+                        title: 'Your account',
                         subtitle: 'Your Data Vault for Sync & Backup',
                         onTap: () {
                           HapticFeedback.selectionClick();

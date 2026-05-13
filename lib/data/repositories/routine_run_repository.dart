@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'routine_repository.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
-import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
 import 'package:pebble_routines/features/subscription/providers/cloud_access_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
 import 'package:pebble_routines/features/sync/cloud_sync_coordinator.dart';
@@ -117,10 +116,9 @@ class RoutineRunRepositoryImpl implements RoutineRunRepository {
   }
 
   Future<List<RoutineRun>> _pruneExpiredRuns(List<RoutineRun> runs) async {
-    final retention = _ref.read(subscriptionProvider).historyRetentionDuration;
-    if (retention == null) {
-      return runs;
-    }
+    final retention = _ref
+        .read(subscriptionLifecycleProvider)
+        .localHistoryRetention;
 
     final cutoff = DateTime.now().subtract(retention);
     final expiredRuns = runs
@@ -143,26 +141,31 @@ class RoutineRunRepositoryImpl implements RoutineRunRepository {
   }
 
   Future<void> _deleteProofsForRun(RoutineRun run) async {
-    for (final path in _proofPathsForRun(run)) {
+    final refs = _proofRefsForRun(run);
+    for (final asset in refs.assets) {
+      await _proofStorage.deleteProofAsset(asset);
+    }
+    for (final path in refs.legacyPaths) {
       await _proofStorage.deleteStoredProof(path);
     }
   }
 
-  Set<String> _proofPathsForRun(RoutineRun run) {
+  _RunProofRefs _proofRefsForRun(RoutineRun run) {
     final raw = run.stepCompletionData;
     if (raw == null || raw.isEmpty) {
-      return const <String>{};
+      return const _RunProofRefs();
     }
 
-    final paths = <String>{};
+    final assetsByLocalPath = <String, RoutineSessionProofAsset>{};
+    final legacyPaths = <String>{};
     try {
       final decoded = jsonDecode(raw);
       if (decoded is! Map) {
-        return paths;
+        return const _RunProofRefs();
       }
       final steps = decoded['steps'];
       if (steps is! List) {
-        return paths;
+        return const _RunProofRefs();
       }
 
       for (final rawStep in steps) {
@@ -180,7 +183,7 @@ class RoutineRunRepositoryImpl implements RoutineRunRepository {
               Map<String, dynamic>.from(rawAsset),
             );
             if (asset.localRelativePath.isNotEmpty) {
-              paths.add(asset.localRelativePath);
+              assetsByLocalPath[asset.localRelativePath] = asset;
             }
           }
         }
@@ -189,17 +192,33 @@ class RoutineRunRepositoryImpl implements RoutineRunRepository {
         if (legacyPhotos is List) {
           for (final rawPath in legacyPhotos) {
             final path = rawPath.toString();
-            if (path.isNotEmpty) {
-              paths.add(path);
+            if (path.isNotEmpty && !assetsByLocalPath.containsKey(path)) {
+              legacyPaths.add(path);
             }
           }
         }
       }
     } catch (_) {
-      return paths;
+      return _RunProofRefs(
+        assets: assetsByLocalPath.values.toList(growable: false),
+        legacyPaths: legacyPaths,
+      );
     }
-    return paths;
+    return _RunProofRefs(
+      assets: assetsByLocalPath.values.toList(growable: false),
+      legacyPaths: legacyPaths,
+    );
   }
+}
+
+class _RunProofRefs {
+  const _RunProofRefs({
+    this.assets = const <RoutineSessionProofAsset>[],
+    this.legacyPaths = const <String>{},
+  });
+
+  final List<RoutineSessionProofAsset> assets;
+  final Set<String> legacyPaths;
 }
 
 final routineRunRepositoryProvider = Provider<RoutineRunRepository>((ref) {

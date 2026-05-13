@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
 import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
 import 'package:pebble_routines/features/subscription/data/models/subscription_account_state.dart';
+import 'package:pebble_routines/features/subscription/domain/subscription_lifecycle.dart';
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
 import 'package:pebble_routines/features/subscription/providers/cloud_backup_consent_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
@@ -36,10 +37,10 @@ final workspaceAccessProvider = Provider<WorkspaceAccessState>((ref) {
 });
 
 final personalCloudAccessProvider = Provider<PersonalCloudAccessState>((ref) {
-  final entitlement = ref.watch(entitlementStateProvider);
   final auth = ref.watch(authSessionProvider);
   final account = ref.watch(subscriptionAccountControllerProvider);
-  final consent = auth.isSignedIn && entitlement.isPersonalPaid
+  final lifecycle = ref.watch(subscriptionLifecycleProvider);
+  final consent = auth.isSignedIn && lifecycle.canUploadCloudChanges
       ? ref.watch(cloudBackupConsentControllerProvider)
       : const CloudBackupConsentState(
           isLoading: false,
@@ -47,7 +48,16 @@ final personalCloudAccessProvider = Provider<PersonalCloudAccessState>((ref) {
           lastError: null,
         );
 
-  if (!entitlement.isPersonalPaid) {
+  if (lifecycle.phase == SubscriptionLifecyclePhase.expiredGrace) {
+    return const PersonalCloudAccessState(
+      status: PersonalCloudAccessStatus.expiredGrace,
+      label: 'Premium grace period',
+      detail:
+          'Cloud uploads are paused. Your extended history stays visible during the grace period.',
+    );
+  }
+
+  if (!lifecycle.canUploadCloudChanges) {
     return auth.isSignedIn
         ? const PersonalCloudAccessState(
             status: PersonalCloudAccessStatus.offSignedInNoEntitlement,
@@ -57,7 +67,8 @@ final personalCloudAccessProvider = Provider<PersonalCloudAccessState>((ref) {
         : const PersonalCloudAccessState(
             status: PersonalCloudAccessStatus.offFree,
             label: 'Cloud backup is off',
-            detail: 'Sign in and Personal Premium are both required for backup.',
+            detail:
+                'Sign in and Personal Premium are both required for backup.',
           );
   }
 
@@ -75,6 +86,17 @@ final personalCloudAccessProvider = Provider<PersonalCloudAccessState>((ref) {
       label: 'Review cloud backup',
       detail:
           'Before Pebble uploads supported routine data, confirm that cloud backup may include sensitive content.',
+    );
+  }
+
+  if (account.bootstrapStatus == BootstrapStatus.error &&
+      _looksAccountSwitchBlocked(account.lastSyncError)) {
+    return PersonalCloudAccessState(
+      status: PersonalCloudAccessStatus.accountSwitchBlocked,
+      label: 'Backup paused for safety',
+      detail:
+          account.lastSyncError ??
+          'Pebble will keep existing local data local until you choose how to handle this account.',
     );
   }
 
@@ -110,12 +132,15 @@ final personalCloudAccessProvider = Provider<PersonalCloudAccessState>((ref) {
 final cloudAccessPolicyProvider = Provider<CloudAccessPolicy>((ref) {
   final account = ref.watch(subscriptionAccountControllerProvider);
   final auth = ref.watch(authSessionProvider);
-  final entitlement = ref.watch(entitlementStateProvider);
+  final lifecycle = ref.watch(subscriptionLifecycleProvider);
   final workspace = ref.watch(workspaceAccessProvider);
   final cachedOwnerUserId = account.userId != null && account.userId!.isNotEmpty
       ? account.userId
       : null;
-  final consentAccepted = auth.isSignedIn && entitlement.isPersonalPaid
+  final accountSwitchBlocked =
+      account.bootstrapStatus == BootstrapStatus.error &&
+      _looksAccountSwitchBlocked(account.lastSyncError);
+  final consentAccepted = auth.isSignedIn && lifecycle.canUploadCloudChanges
       ? ref.watch(cloudBackupConsentControllerProvider).isAccepted
       : false;
 
@@ -123,15 +148,29 @@ final cloudAccessPolicyProvider = Provider<CloudAccessPolicy>((ref) {
     cachedOwnerUserId: cachedOwnerUserId,
     personalCloudEnabled:
         auth.isSignedIn &&
-        entitlement.isPersonalPaid &&
+        lifecycle.canUploadCloudChanges &&
         consentAccepted &&
+        !accountSwitchBlocked &&
         cachedOwnerUserId != null,
     canQueuePersonalSync:
         auth.isSignedIn &&
-        entitlement.isPersonalPaid &&
+        lifecycle.canUploadCloudChanges &&
         consentAccepted &&
+        !accountSwitchBlocked &&
         cachedOwnerUserId != null,
     workspaceCloudEnabled: auth.isSignedIn && workspace.isCloudEnabled,
     isSignedIn: auth.isSignedIn,
+    isAccountSwitchBlocked: accountSwitchBlocked,
   );
 });
+
+bool _looksAccountSwitchBlocked(String? message) {
+  if (message == null || message.isEmpty) {
+    return false;
+  }
+  final normalized = message.toLowerCase();
+  return normalized.contains('local data') ||
+      normalized.contains('another account') ||
+      normalized.contains('linked to this account') ||
+      normalized.contains('without your choice');
+}

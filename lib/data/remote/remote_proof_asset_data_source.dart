@@ -32,6 +32,11 @@ class RemoteProofAssetDataSource {
     if (_client == null) return null;
     return _client.storage.from(_bucket).download(objectKey);
   }
+
+  Future<void> deleteObject(String objectKey) async {
+    if (_client == null || objectKey.isEmpty) return;
+    await _client.storage.from(_bucket).remove([objectKey]);
+  }
 }
 
 final remoteProofAssetDataSourceProvider = Provider<RemoteProofAssetDataSource>(

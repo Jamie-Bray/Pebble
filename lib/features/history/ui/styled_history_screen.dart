@@ -12,6 +12,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/ui/pebble_confirmation_sheet.dart';
 import 'package:pebble_routines/core/ui/pebble_photo_gallery_viewer.dart';
+import 'package:pebble_routines/features/account_backup/providers/account_status_mapper.dart';
 import 'package:pebble_routines/features/history/ui/routine_run_detail_screen.dart';
 import 'package:pebble_routines/features/history/providers/routine_history_vm.dart';
 import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
@@ -91,6 +92,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
     final isSearchVisible = ref.watch(isSearchVisibleProvider);
     final proofStorage = ref.watch(routineSessionProofStorageProvider);
     final userTier = ref.watch(subscriptionProvider);
+    final backupStatus = ref.watch(accountStatusPresentationProvider);
 
     return runsAsync.when(
       loading: () => const _ThemeScaffold(
@@ -143,8 +145,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
                     ref,
                     isSearchVisible,
                     filtered.length,
-                    userTier,
-                    filtered,
+                    backupStatus,
                   ),
 
                   // Content
@@ -156,6 +157,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
                             collapsedSections,
                             proofStorage,
                             userTier,
+                            backupStatus,
                           )
                         : _buildVaultView(filtered, byId, proofStorage),
                   ),
@@ -173,8 +175,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
     WidgetRef ref,
     bool isSearchVisible,
     int count,
-    UserTier userTier,
-    List<RoutineRun> visibleRuns,
+    AccountStatusPresentation backupStatus,
   ) {
     final foundation = context.darkFoundation;
     return Column(
@@ -182,11 +183,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
       children: [
         ZenScreenHeader(
           title: 'History',
-          subtitle: _historySubtitle(
-            count: count,
-            userTier: userTier,
-            runs: visibleRuns,
-          ),
+          subtitle: _historySubtitle(count: count, backupStatus: backupStatus),
           actions: [
             IconButton(
               tooltip: 'Search',
@@ -282,6 +279,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
     Set<HistorySection> collapsedSections,
     RoutineSessionProofStorage proofStorage,
     UserTier userTier,
+    AccountStatusPresentation backupStatus,
   ) {
     if (filtered.isEmpty) return _buildEmptyState(context, userTier);
 
@@ -293,7 +291,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
       },
       child: ListView.builder(
         padding: const EdgeInsets.fromLTRB(20, 10, 20, 128),
-        itemCount: grouped.length + (userTier.hasCloud ? 0 : 1),
+        itemCount: grouped.length + (backupStatus.showRunSyncState ? 0 : 1),
         itemBuilder: (context, index) {
           if (index >= grouped.length) {
             return const _HistoryBackupFooter();
@@ -326,7 +324,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
                       run: run,
                       routine: byId[run.routineId],
                       proofStorage: proofStorage,
-                      showSyncState: userTier.hasCloud,
+                      showSyncState: backupStatus.showRunSyncState,
                       onManage: () {
                         HapticFeedback.mediumImpact();
                         _showManageRunSheet(context, ref, run, proofStorage);
@@ -347,7 +345,42 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
     Map<String, Routine> byId,
     RoutineSessionProofStorage proofStorage,
   ) {
-    // Extract all photos from runs
+    return FutureBuilder<List<_VaultPhoto>>(
+      future: _collectAvailableVaultPhotos(runs, byId, proofStorage),
+      builder: (context, snapshot) {
+        final allPhotos = snapshot.data ?? const <_VaultPhoto>[];
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (allPhotos.isEmpty) return _buildVaultEmptyState();
+
+        return GridView.builder(
+          padding: const EdgeInsets.all(24),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            childAspectRatio: 1,
+          ),
+          itemCount: allPhotos.length,
+          itemBuilder: (context, index) {
+            return _VaultGridItem(
+              photo: allPhotos[index],
+              photos: allPhotos,
+              photoIndex: index,
+              proofStorage: proofStorage,
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<List<_VaultPhoto>> _collectAvailableVaultPhotos(
+    List<RoutineRun> runs,
+    Map<String, Routine> byId,
+    RoutineSessionProofStorage proofStorage,
+  ) async {
     final allPhotos = <_VaultPhoto>[];
     for (final run in runs) {
       if (run.stepCompletionData == null) continue;
@@ -356,18 +389,15 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
         final steps = data['steps'] as List<dynamic>? ?? [];
         for (var i = 0; i < steps.length; i++) {
           final step = steps[i];
-          final photos = step['photos'] as List<dynamic>? ?? [];
           final completedAtStr = step['completedAt'] as String?;
           final completedAt = completedAtStr != null
               ? DateTime.parse(completedAtStr)
               : run.finishedAt;
 
-          // Try to get step label from completion data if available, otherwise from routine
-          String stepLabel = 'Step ${i + 1}';
+          var stepLabel = 'Step ${i + 1}';
           if (step['label'] != null && (step['label'] as String).isNotEmpty) {
             stepLabel = step['label'];
           } else {
-            // Fallback to title from the routine for this index
             final r = byId[run.routineId];
             if (r != null) {
               try {
@@ -386,7 +416,12 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
               final asset = RoutineSessionProofAsset.fromJson(
                 Map<String, dynamic>.from(rawAsset),
               );
-              if (asset.localRelativePath.isEmpty) {
+              if (asset.localRelativePath.isEmpty) continue;
+              if (!await _proofExists(
+                proofStorage,
+                asset.localRelativePath,
+                asset,
+              )) {
                 continue;
               }
               allPhotos.add(
@@ -402,10 +437,13 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
             continue;
           }
 
+          final photos = step['photos'] as List<dynamic>? ?? [];
           for (final photoPath in photos) {
+            final path = photoPath.toString();
+            if (!await _proofExists(proofStorage, path, null)) continue;
             allPhotos.add(
               _VaultPhoto(
-                path: photoPath as String,
+                path: path,
                 asset: null,
                 timestamp: completedAt,
                 label: stepLabel,
@@ -414,34 +452,24 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
             );
           }
         }
-      } catch (e) {
-        // Skip malformed data
+      } catch (_) {
+        // Skip malformed run data.
       }
     }
 
-    if (allPhotos.isEmpty) return _buildVaultEmptyState();
-
-    // Sort by timestamp newest first
     allPhotos.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    return allPhotos;
+  }
 
-    return GridView.builder(
-      padding: const EdgeInsets.all(24),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 1,
-      ),
-      itemCount: allPhotos.length,
-      itemBuilder: (context, index) {
-        return _VaultGridItem(
-          photo: allPhotos[index],
-          photos: allPhotos,
-          photoIndex: index,
-          proofStorage: proofStorage,
-        );
-      },
-    );
+  Future<bool> _proofExists(
+    RoutineSessionProofStorage proofStorage,
+    String storedPath,
+    RoutineSessionProofAsset? asset,
+  ) async {
+    final file = asset == null
+        ? await proofStorage.resolveStoredFile(storedPath)
+        : await proofStorage.resolveProofAssetFile(asset);
+    return file != null && file.existsSync();
   }
 
   Widget _buildVaultEmptyState() {
@@ -561,31 +589,10 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
 
   String _historySubtitle({
     required int count,
-    required UserTier userTier,
-    required List<RoutineRun> runs,
+    required AccountStatusPresentation backupStatus,
   }) {
     final noun = count == 1 ? 'routine run' : 'routine runs';
-    if (!userTier.hasCloud) {
-      return '$count $noun saved on this device';
-    }
-
-    final hasFailed = runs.any((run) {
-      final normalized = run.syncStatus.toLowerCase();
-      return normalized.contains('failed') || normalized.contains('error');
-    });
-    if (hasFailed) {
-      return '$count $noun saved - backup needs attention';
-    }
-
-    final hasPending = runs.any((run) {
-      final normalized = run.syncStatus.toLowerCase();
-      return normalized != 'synced' && normalized != 'localonly';
-    });
-    if (hasPending) {
-      return '$count $noun saved - backup in progress';
-    }
-
-    return '$count $noun backed up for supported restore';
+    return '$count $noun saved - ${backupStatus.historyLabel}';
   }
 
   Future<void> _showManageRunSheet(
@@ -719,8 +726,21 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
     RoutineRun run,
     RoutineSessionProofStorage proofStorage,
     List<_RunPhotoRef> photoRefs,
-  ) {
-    final galleryPhotos = photoRefs
+  ) async {
+    final availableRefs = <_RunPhotoRef>[];
+    for (final photo in photoRefs) {
+      final file = photo.asset == null
+          ? await proofStorage.resolveStoredFile(photo.path)
+          : await proofStorage.resolveProofAssetFile(photo.asset!);
+      if (file != null && file.existsSync()) {
+        availableRefs.add(photo);
+      }
+    }
+    if (availableRefs.isEmpty) {
+      return;
+    }
+
+    final galleryPhotos = availableRefs
         .map(
           (photo) => PebbleGalleryPhoto(
             id: photo.path,
@@ -731,13 +751,16 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
         )
         .toList();
 
+    if (!context.mounted) {
+      return;
+    }
     return PebblePhotoGalleryViewer.open(
       context,
       photos: galleryPhotos,
       initialIndex: 0,
       resolvePhotoFile: (storedPath) async {
         _RunPhotoRef? match;
-        for (final ref in photoRefs) {
+        for (final ref in availableRefs) {
           if (ref.path == storedPath) {
             match = ref;
             break;
@@ -1125,7 +1148,7 @@ class _HistorySyncPill extends StatelessWidget {
     return Tooltip(
       message: switch (state) {
         _HistorySyncState.synced => 'Backed up',
-        _HistorySyncState.pending => 'Backup in progress',
+        _HistorySyncState.pending => 'Queued for backup',
         _HistorySyncState.attention => 'Backup needs attention',
       },
       child: Container(
@@ -1291,7 +1314,7 @@ class _HistoryBackupFooter extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Premium can back up supported history for restore.',
+                  'Premium can back up recent history.',
                   style: TextStyle(
                     fontSize: 13,
                     height: 1.25,
@@ -1477,7 +1500,19 @@ class _VaultGridItem extends StatelessWidget {
       context,
       photos: galleryPhotos,
       initialIndex: photoIndex,
-      resolvePhotoFile: proofStorage.resolveStoredFile,
+      resolvePhotoFile: (storedPath) async {
+        _VaultPhoto? match;
+        for (final item in photos) {
+          if (item.path == storedPath) {
+            match = item;
+            break;
+          }
+        }
+        if (match?.asset != null) {
+          return proofStorage.resolveProofAssetFile(match!.asset!);
+        }
+        return proofStorage.resolveStoredFile(storedPath);
+      },
       bottomBuilder: (context, index) {
         final current = photos[index];
         return SizedBox(

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/features/auth/data/auth_repository.dart';
 import 'package:pebble_routines/features/subscription/data/purchase_repository.dart';
 import 'package:pebble_routines/features/subscription/data/models/subscription_account_state.dart';
@@ -10,6 +11,7 @@ import 'package:pebble_routines/features/subscription/providers/cloud_backup_con
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
 import 'package:pebble_routines/features/sync/cloud_restore_coordinator.dart';
 import 'package:pebble_routines/features/sync/cloud_sync_coordinator.dart';
+import 'package:pebble_routines/features/sync/local_data_ownership_guard.dart';
 
 enum AuthStatus {
   signedOut,
@@ -300,6 +302,17 @@ class AuthController extends StateNotifier<AuthState> {
       await _ref
           .read(subscriptionAccountControllerProvider.notifier)
           .updateBootstrapStatus(BootstrapStatus.idle, clearError: true);
+      return;
+    }
+
+    final ownership = await LocalDataOwnershipGuard.inspect(
+      database: _ref.read(localDbProvider),
+      signedInUserId: userId,
+    );
+    if (ownership.blocksCloudSync) {
+      await _ref
+          .read(subscriptionAccountControllerProvider.notifier)
+          .noteSyncFailure(ownership.userFacingMessage);
       return;
     }
 

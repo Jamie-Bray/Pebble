@@ -1,0 +1,58 @@
+param(
+  [switch]$DryRun
+)
+
+$ErrorActionPreference = "Stop"
+
+function Require-Env($Name) {
+  $value = [Environment]::GetEnvironmentVariable($Name, "User")
+  if ([string]::IsNullOrWhiteSpace($value)) {
+    $value = [Environment]::GetEnvironmentVariable($Name, "Process")
+  }
+  if ([string]::IsNullOrWhiteSpace($value)) {
+    throw "$Name is not set. Store it as a local environment variable; do not commit production values."
+  }
+  return $value
+}
+
+$supabaseUrl = Require-Env "PEBBLE_PROD_SUPABASE_URL"
+$supabaseAnonKey = Require-Env "PEBBLE_PROD_SUPABASE_ANON_KEY"
+$googleWebClientId = [Environment]::GetEnvironmentVariable(
+  "PEBBLE_PROD_GOOGLE_WEB_CLIENT_ID",
+  "User"
+)
+$accountDeletionUrl = [Environment]::GetEnvironmentVariable(
+  "PEBBLE_ACCOUNT_DELETION_URL",
+  "User"
+)
+
+$arguments = @(
+  "build",
+  "appbundle",
+  "--release",
+  "--dart-define=APP_ENV=production",
+  "--dart-define=SUPABASE_URL=$supabaseUrl",
+  "--dart-define=SUPABASE_ANON_KEY=$supabaseAnonKey"
+)
+
+if (-not [string]::IsNullOrWhiteSpace($googleWebClientId)) {
+  $arguments += "--dart-define=SUPABASE_GOOGLE_WEB_CLIENT_ID=$googleWebClientId"
+}
+
+if (-not [string]::IsNullOrWhiteSpace($accountDeletionUrl)) {
+  $arguments += "--dart-define=PEBBLE_ACCOUNT_DELETION_URL=$accountDeletionUrl"
+}
+
+if ($DryRun) {
+  Write-Output "Would build production Android App Bundle."
+  Write-Output "Required production env vars are present."
+  if ([string]::IsNullOrWhiteSpace($googleWebClientId)) {
+    Write-Output "PEBBLE_PROD_GOOGLE_WEB_CLIENT_ID is not set; Google sign-in will be unavailable in this build."
+  }
+  if ([string]::IsNullOrWhiteSpace($accountDeletionUrl)) {
+    Write-Output "PEBBLE_ACCOUNT_DELETION_URL is not set; the app will use its in-app deletion request path only."
+  }
+  exit 0
+}
+
+& flutter @arguments

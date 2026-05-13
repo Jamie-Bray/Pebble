@@ -10,6 +10,7 @@ import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/data/repositories/routine_run_repository.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
+import 'package:pebble_routines/features/subscription/domain/subscription_lifecycle.dart';
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
 
@@ -27,6 +28,19 @@ void main() {
           localDbProvider.overrideWithValue(database),
           routineSessionProofStorageProvider.overrideWithValue(proofStorage),
           subscriptionProvider.overrideWithValue(tier),
+          subscriptionLifecycleProvider.overrideWithValue(
+            tier == UserTier.personalPremium
+                ? const SubscriptionLifecycle(
+                    phase: SubscriptionLifecyclePhase.activePremium,
+                    expiredAt: null,
+                    graceEndsAt: null,
+                  )
+                : const SubscriptionLifecycle(
+                    phase: SubscriptionLifecyclePhase.free,
+                    expiredAt: null,
+                    graceEndsAt: null,
+                  ),
+          ),
         ],
       );
     }
@@ -36,20 +50,21 @@ void main() {
       await database.close();
     });
 
-    test('free history and proof photos are removed after 72 hours', () async {
+    test('free history and proof photos are removed after 48 hours', () async {
       await buildHarness(UserTier.personalFree);
       final now = DateTime.now();
       final expired = _run(
         id: 'expired',
-        finishedAt: now.subtract(const Duration(hours: 73)),
+        finishedAt: now.subtract(const Duration(hours: 49)),
         stepCompletionData: _completionData(
           proofPath: 'routine_session_proofs/session/proof.webp',
+          remoteObjectKey: 'users/user/runs/expired/proof.webp',
           legacyPath: 'legacy/photo.jpg',
         ),
       );
       final retained = _run(
         id: 'retained',
-        finishedAt: now.subtract(const Duration(hours: 71)),
+        finishedAt: now.subtract(const Duration(hours: 47)),
       );
       await database.routineRunDao.insertOrUpdateRun(expired);
       await database.routineRunDao.insertOrUpdateRun(retained);
@@ -68,6 +83,10 @@ void main() {
           'legacy/photo.jpg',
         ]),
       );
+      expect(
+        proofStorage.deletedRemoteProofs,
+        contains('users/user/runs/expired/proof.webp'),
+      );
     });
 
     test(
@@ -76,7 +95,7 @@ void main() {
         await buildHarness(UserTier.personalPremium);
         final run = _run(
           id: 'premium-old',
-          finishedAt: DateTime.now().subtract(const Duration(days: 30)),
+          finishedAt: DateTime.now().subtract(const Duration(days: 7)),
           stepCompletionData: _completionData(
             proofPath: 'routine_session_proofs/session/proof.webp',
           ),
@@ -114,12 +133,18 @@ RoutineRun _run({
   );
 }
 
-String _completionData({required String proofPath, String? legacyPath}) {
+String _completionData({
+  required String proofPath,
+  String? remoteObjectKey,
+  String? legacyPath,
+}) {
   final asset = RoutineSessionProofAsset(
     proofId: 'proof',
     localRelativePath: proofPath,
-    remoteObjectKey: null,
-    uploadStatus: ProofUploadStatus.localOnly,
+    remoteObjectKey: remoteObjectKey,
+    uploadStatus: remoteObjectKey == null
+        ? ProofUploadStatus.localOnly
+        : ProofUploadStatus.uploaded,
     capturedAt: DateTime.now(),
   );
   return jsonEncode({
@@ -134,6 +159,7 @@ String _completionData({required String proofPath, String? legacyPath}) {
 
 class _FakeProofStorage implements RoutineSessionProofStorage {
   final Set<String> deletedProofs = <String>{};
+  final Set<String> deletedRemoteProofs = <String>{};
 
   @override
   Future<void> enforceRetentionPolicy({required bool isPremium}) async {}
@@ -144,6 +170,15 @@ class _FakeProofStorage implements RoutineSessionProofStorage {
   @override
   Future<void> deleteStoredProof(String storedPath) async {
     deletedProofs.add(storedPath);
+  }
+
+  @override
+  Future<void> deleteProofAsset(RoutineSessionProofAsset asset) async {
+    deletedProofs.add(asset.localRelativePath);
+    final remoteObjectKey = asset.remoteObjectKey;
+    if (remoteObjectKey != null) {
+      deletedRemoteProofs.add(remoteObjectKey);
+    }
   }
 
   @override

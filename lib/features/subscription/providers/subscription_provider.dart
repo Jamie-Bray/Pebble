@@ -7,6 +7,7 @@ import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
 import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
 import 'package:pebble_routines/features/subscription/data/models/subscription_account_state.dart';
+import 'package:pebble_routines/features/subscription/domain/subscription_lifecycle.dart';
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
 
 final subscriptionAccountControllerProvider =
@@ -31,6 +32,12 @@ final subscriptionAccountControllerProvider =
 
 final subscriptionProvider = Provider<UserTier>((ref) {
   return ref.watch(subscriptionAccountControllerProvider).entitlementTier;
+});
+
+final subscriptionLifecycleProvider = Provider<SubscriptionLifecycle>((ref) {
+  return subscriptionLifecycleForAccount(
+    ref.watch(subscriptionAccountControllerProvider),
+  );
 });
 
 class SubscriptionAccountController

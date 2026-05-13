@@ -28,6 +28,8 @@
 	<string>Pebble uses the camera only when you choose to capture proof photos for routine steps.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Pebble uses your photo library only when you choose an existing proof photo for a routine step.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Pebble saves a copy to Photos only when you choose to export a retained proof photo.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
