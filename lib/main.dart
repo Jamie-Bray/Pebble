@@ -16,6 +16,7 @@ import 'package:pebble_routines/features/routines/composer/ui/routine_composer_s
 import 'package:pebble_routines/features/routines/list/ui/routine_reminders_screen.dart';
 import 'package:pebble_routines/features/account_backup/ui/account_hub_screen.dart';
 import 'package:pebble_routines/features/settings/ui/settings_screen.dart';
+import 'package:pebble_routines/features/onboarding/ui/onboarding_screen.dart';
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 import 'features/settings/data/player_settings_provider.dart';
 import 'core/notifications/notification_service.dart';
@@ -126,9 +127,22 @@ Future<void> _resyncEnabledReminderNotifications(LocalDb db) async {
 
 final _routerProvider = Provider<GoRouter>((ref) {
   final runtimeConfig = ref.watch(appRuntimeConfigProvider);
+  final prefs = ref.watch(sharedPreferencesProvider);
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
+    redirect: (context, state) {
+      final hasCompletedOnboarding = prefs.getBool('has_completed_onboarding') ?? false;
+      final isGoingToOnboarding = state.uri.path == '/onboarding';
+      if (!hasCompletedOnboarding && !isGoingToOnboarding) {
+        return '/onboarding';
+      }
+      return null;
+    },
     routes: [
+      GoRoute(
+        path: '/onboarding',
+        builder: (context, state) => const OnboardingScreen(),
+      ),
       GoRoute(
         path: '/',
         builder: (context, state) => const AppShell(),

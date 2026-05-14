@@ -174,6 +174,46 @@ void main() {
     });
 
     test(
+      'startOrResumeSession starts fresh when the routine snapshot changed',
+      () async {
+        const routing = SessionRoutingContext(
+          storageScope: SessionStorageScope.localOnly,
+        );
+
+        final first = await repository.startOrResumeSession(
+          routine: routine,
+          routingContext: routing,
+        );
+        final editedRoutine = routine.copyWith(
+          stepsJson: jsonEncode([
+            const RoutineStep.check(
+              label: 'Check the water bowl',
+              allowSkip: false,
+            ).toJson(),
+            const RoutineStep.check(label: 'Lock the door').toJson(),
+          ]),
+          updatedAt: DateTime(2026, 1, 1, 10),
+        );
+
+        final fresh = await repository.startOrResumeSession(
+          routine: editedRoutine,
+          routingContext: routing,
+        );
+        final oldSession = await repository.getSessionById(first.sessionId);
+
+        expect(fresh.sessionId, isNot(first.sessionId));
+        expect(
+          fresh.currentStep?.maybeWhen(
+            check: (label, _, _, _, _, _, _) => label,
+            orElse: () => null,
+          ),
+          'Check the water bowl',
+        );
+        expect(oldSession?.status, RoutineSessionStatus.discarded);
+      },
+    );
+
+    test(
       'completeSessionAndWriteRun writes history and clears active session',
       () async {
         final session = await repository.startOrResumeSession(
@@ -226,6 +266,56 @@ void main() {
         expect(runs.single.stepCompletionData, contains('proofAssets'));
         expect(runs.single.stepCompletionData, contains('effectiveSteps'));
         expect(runs.single.stepCompletionData, contains(session.sessionId));
+      },
+    );
+
+    test(
+      'history keeps the completed session step snapshot after edits',
+      () async {
+        final session = await repository.startOrResumeSession(
+          routine: routine,
+          routingContext: const SessionRoutingContext(
+            storageScope: SessionStorageScope.localOnly,
+          ),
+        );
+        final terminalSession = session.copyWith(
+          currentStepIndex: 1,
+          stepStates: [
+            session.stepStates[0].copyWith(
+              status: SessionStepStatus.completed,
+              completedAt: DateTime(2026, 1, 1, 9, 1),
+            ),
+            session.stepStates[1].copyWith(
+              status: SessionStepStatus.completed,
+              completedAt: DateTime(2026, 1, 1, 9, 5),
+            ),
+          ],
+        );
+
+        final run = await repository.completeSessionAndWriteRun(
+          terminalSession,
+        );
+        await database.routineDao.insertOrUpdateRoutine(
+          routine.copyWith(
+            stepsJson: jsonEncode([
+              const RoutineStep.check(label: 'Feed the cat').toJson(),
+            ]),
+            updatedAt: DateTime(2026, 1, 1, 10),
+          ),
+        );
+
+        final runData =
+            jsonDecode(run.stepCompletionData!) as Map<String, dynamic>;
+        final effectiveSteps = runData['effectiveSteps'] as List<dynamic>;
+        final completedSteps = runData['steps'] as List<dynamic>;
+
+        expect(effectiveSteps.toString(), contains('Lock the door'));
+        expect(effectiveSteps.toString(), isNot(contains('Feed the cat')));
+        expect(completedSteps.first.toString(), contains('Lock the door'));
+        expect(
+          completedSteps.first.toString(),
+          isNot(contains('Feed the cat')),
+        );
       },
     );
 

@@ -1,6 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pebble_routines/core/database/local_db.dart';
+import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/features/routines/composer/data/routine_composer_draft_repository.dart';
 import 'package:pebble_routines/features/routines/composer/models/routine_composer_seed_data.dart';
 import 'package:pebble_routines/features/routines/composer/models/routine_composer_step_draft.dart';
@@ -23,6 +27,11 @@ void main() {
         (widget.decoration?.hintText == 'Start with your first step' ||
             widget.decoration?.hintText == 'Step'),
   );
+  Finder findStepFieldWithText(String value, {bool skipOffstage = true}) =>
+      find.byWidgetPredicate(
+        (widget) => widget is TextField && widget.controller?.text == value,
+        skipOffstage: skipOffstage,
+      );
 
   testWidgets('blank routine auto-focuses the first step on open', (
     tester,
@@ -289,4 +298,113 @@ void main() {
     expect(find.text('Leaving Home'), findsOneWidget);
     expect(find.text('Lock the door'), findsOneWidget);
   });
+
+  testWidgets('edit mode focuses the requested initial step index', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repository = FakeRoutineComposerDraftRepository();
+    final routine = _routine(
+      id: 42,
+      title: 'Departure Check',
+      steps: List.generate(10, (index) => _step('Composer step ${index + 1}')),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          routineComposerDraftRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: MaterialApp(
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
+            useMaterial3: true,
+          ),
+          home: RoutineComposerScreen.edit(
+            routine: routine,
+            initialStepIndex: 7,
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 350));
+
+    final targetField = findStepFieldWithText('Composer step 8');
+    expect(targetField, findsOneWidget);
+    expect(tester.widget<TextField>(targetField).focusNode?.hasFocus, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('invalid initial step target falls back without crashing', (
+    tester,
+  ) async {
+    final repository = FakeRoutineComposerDraftRepository();
+    final routine = _routine(
+      id: 43,
+      title: 'Departure Check',
+      steps: [_step('Check windows'), _step('Pack wallet')],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          routineComposerDraftRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: MaterialApp(
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+            useMaterial3: true,
+          ),
+          home: RoutineComposerScreen.edit(
+            routine: routine,
+            initialStepIndex: 99,
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(find.text('Departure Check'), findsOneWidget);
+    expect(find.text('Check windows'), findsOneWidget);
+    expect(find.text('Pack wallet'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
+
+Routine _routine({
+  required int id,
+  required String title,
+  required List<RoutineStep> steps,
+}) {
+  final createdAt = DateTime(2026, 4, id % 28 + 1);
+  return Routine(
+    id: id,
+    title: title,
+    stepsJson: jsonEncode(steps.map((step) => step.toJson()).toList()),
+    createdAt: createdAt,
+    emoji: 'list-check',
+    colorHex: null,
+    isPinned: false,
+    pinnedAt: null,
+    reminderDay: null,
+    reminderTime: null,
+    version: 1,
+    updatedAt: createdAt,
+    cloudId: null,
+    ownerUserId: null,
+    syncStatus: 'localOnly',
+    lastSyncedAt: null,
+  );
+}
+
+RoutineStep _step(String label) => RoutineStep.check(label: label);

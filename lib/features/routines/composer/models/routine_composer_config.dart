@@ -8,28 +8,40 @@ class RoutineComposerConfig {
   final RoutineComposerSeedData? seedData;
   final RoutineComposerEntryPoint entryPoint;
   final bool forceNewDraft;
+  final String? initialStepId;
+  final int? initialStepIndex;
 
   const RoutineComposerConfig.newDraft({this.forceNewDraft = false})
     : routine = null,
       seedData = null,
-      entryPoint = RoutineComposerEntryPoint.newDraft;
+      entryPoint = RoutineComposerEntryPoint.newDraft,
+      initialStepId = null,
+      initialStepIndex = null;
 
   const RoutineComposerConfig.customizeTemplate({required this.seedData})
     : routine = null,
       entryPoint = RoutineComposerEntryPoint.customizeTemplate,
-      forceNewDraft = true;
+      forceNewDraft = true,
+      initialStepId = null,
+      initialStepIndex = null;
 
   const RoutineComposerConfig.create({
     this.seedData,
     this.forceNewDraft = false,
+    this.initialStepId,
+    this.initialStepIndex,
   }) : routine = null,
        entryPoint = seedData == null
            ? RoutineComposerEntryPoint.newDraft
            : RoutineComposerEntryPoint.customizeTemplate;
 
-  const RoutineComposerConfig.edit({required this.routine, this.seedData})
-    : entryPoint = RoutineComposerEntryPoint.editRoutine,
-      forceNewDraft = false;
+  const RoutineComposerConfig.edit({
+    required this.routine,
+    this.seedData,
+    this.initialStepId,
+    this.initialStepIndex,
+  }) : entryPoint = RoutineComposerEntryPoint.editRoutine,
+       forceNewDraft = false;
 
   bool get isEdit => routine != null;
   bool get isTemplateCustomization =>
@@ -43,7 +55,9 @@ class RoutineComposerConfig {
         other.routine?.updatedAt == routine?.updatedAt &&
         other.seedData == seedData &&
         other.entryPoint == entryPoint &&
-        other.forceNewDraft == forceNewDraft;
+        other.forceNewDraft == forceNewDraft &&
+        other.initialStepId == initialStepId &&
+        other.initialStepIndex == initialStepIndex;
   }
 
   @override
@@ -53,5 +67,7 @@ class RoutineComposerConfig {
     seedData,
     entryPoint,
     forceNewDraft,
+    initialStepId,
+    initialStepIndex,
   );
 }

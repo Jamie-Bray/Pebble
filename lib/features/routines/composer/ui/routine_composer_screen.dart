@@ -41,8 +41,14 @@ class RoutineComposerScreen extends ConsumerStatefulWidget {
   RoutineComposerScreen.edit({
     super.key,
     required Routine routine,
+    String? initialStepId,
+    int? initialStepIndex,
     this.onSaveComplete,
-  }) : config = RoutineComposerConfig.edit(routine: routine);
+  }) : config = RoutineComposerConfig.edit(
+         routine: routine,
+         initialStepId: initialStepId,
+         initialStepIndex: initialStepIndex,
+       );
 
   final RoutineComposerConfig config;
   final ValueChanged<Routine>? onSaveComplete;
@@ -77,6 +83,7 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
   bool _guidanceCancelAfterStart = false;
   bool _isClosing = false;
   bool _didAutofocusInitialStep = false;
+  bool _didApplyInitialStepTarget = false;
   StateSetter? _guidanceAudioSheetSetState;
 
   @override
@@ -136,6 +143,7 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
       routineComposerViewModelProvider(widget.config),
     );
     _syncEditingState(composerState);
+    _maybeFocusInitialStepTarget(composerState);
     _maybeAutofocusInitialStep(composerState);
 
     final cs = Theme.of(context).colorScheme;
@@ -659,12 +667,48 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
 
   void _maybeAutofocusInitialStep(RoutineComposerState state) {
     if (_didAutofocusInitialStep || !mounted) return;
+    if (_didApplyInitialStepTarget) return;
     final firstEmptyStep = _firstEmptyPrimaryStep(state);
     if (firstEmptyStep == null) return;
     if (_focusedStepId != null || _titleFocusNode.hasFocus) return;
 
     _didAutofocusInitialStep = true;
     _queueFocus(firstEmptyStep.id, adjustSelection: false);
+  }
+
+  void _maybeFocusInitialStepTarget(RoutineComposerState state) {
+    if (_didApplyInitialStepTarget || !mounted || state.isLoading) return;
+    if (widget.config.initialStepId == null &&
+        widget.config.initialStepIndex == null) {
+      return;
+    }
+
+    final targetId = _resolveInitialStepTarget(state);
+    if (targetId == null) {
+      _didApplyInitialStepTarget = true;
+      return;
+    }
+
+    _didApplyInitialStepTarget = true;
+    _queueFocus(targetId, adjustSelection: false);
+  }
+
+  String? _resolveInitialStepTarget(RoutineComposerState state) {
+    if (state.steps.isEmpty) return null;
+
+    final initialStepId = widget.config.initialStepId;
+    if (initialStepId != null &&
+        state.steps.any((step) => step.id == initialStepId)) {
+      return initialStepId;
+    }
+
+    final initialStepIndex = widget.config.initialStepIndex;
+    if (initialStepIndex == null ||
+        initialStepIndex < 0 ||
+        initialStepIndex >= state.steps.length) {
+      return null;
+    }
+    return state.steps[initialStepIndex].id;
   }
 
   void _handleStepTap(String stepId) {
@@ -1068,22 +1112,33 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
   void _queueFocus(String stepId, {bool adjustSelection = true}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final controller = _stepControllers[stepId];
-      final focusNode = _stepFocusNodes[stepId];
-      focusNode?.requestFocus();
       _viewModel.setExpandedStep(stepId);
-      _ensureStepVisible(stepId);
-      if (!adjustSelection || controller == null) return;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted ||
-            !(focusNode?.hasFocus ?? false) ||
-            controller.text.isEmpty) {
-          return;
-        }
-        _setControllerSelectionSafely(
-          controller,
-          moveCaretToEnd: controller.text.isNotEmpty,
-        );
+        if (!mounted) return;
+        _scrollToEstimatedStepOffset(stepId);
+        final controller = _stepControllers[stepId];
+        final focusNode = _stepFocusNodes[stepId];
+        focusNode?.requestFocus();
+        _ensureFocusedStepVisible(stepId, focusNode);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          final delayedFocusNode = _stepFocusNodes[stepId];
+          _scrollToEstimatedStepOffset(stepId);
+          delayedFocusNode?.requestFocus();
+          _ensureFocusedStepVisible(stepId, delayedFocusNode);
+        });
+        if (!adjustSelection || controller == null) return;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted ||
+              !(focusNode?.hasFocus ?? false) ||
+              controller.text.isEmpty) {
+            return;
+          }
+          _setControllerSelectionSafely(
+            controller,
+            moveCaretToEnd: controller.text.isNotEmpty,
+          );
+        });
       });
     });
   }
@@ -1092,7 +1147,10 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final rowContext = _rowKeys[stepId]?.currentContext;
-      if (rowContext == null) return;
+      if (rowContext == null) {
+        _scrollToEstimatedStepOffset(stepId);
+        return;
+      }
       Scrollable.ensureVisible(
         rowContext,
         duration: const Duration(milliseconds: 220),
@@ -1100,6 +1158,44 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
         alignment: 0.35,
       );
     });
+  }
+
+  void _ensureFocusedStepVisible(String stepId, FocusNode? focusNode) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final focusContext = focusNode?.context;
+      if (focusContext != null) {
+        if (!focusContext.mounted) return;
+        Scrollable.ensureVisible(
+          focusContext,
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          alignment: 0.35,
+        );
+        return;
+      }
+      _ensureStepVisible(stepId);
+    });
+  }
+
+  void _scrollToEstimatedStepOffset(String stepId) {
+    if (!_scrollController.hasClients) return;
+    final state = ref.read(routineComposerViewModelProvider(widget.config));
+    final index = state.steps.indexWhere((step) => step.id == stepId);
+    if (index == -1) return;
+
+    final maxScrollExtent = _scrollController.position.maxScrollExtent;
+    final targetOffset = math.min(
+      maxScrollExtent,
+      math.max(0, 112 + index * 92),
+    );
+    unawaited(
+      _scrollController.animateTo(
+        targetOffset.toDouble(),
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+      ),
+    );
   }
 
   void _syncEditingState(RoutineComposerState state) {

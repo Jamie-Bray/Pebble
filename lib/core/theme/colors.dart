@@ -22,6 +22,8 @@ enum ThemeId {
   warmSepia,
   reducedContrast,
   colourBlindSafe,
+  softPink,
+  sageMist,
 }
 
 enum ThemePickerCategory { included, premium, accessibility }
@@ -258,7 +260,30 @@ class MatchaThemeFactory {
   );
 }
 
-/// 5. Rose Quartz (Premium Spa)
+/// 5. Soft Pink (Free Soft Light)
+class SoftPinkThemeFactory {
+  static ThemeData build() => _BaseThemeFactory.build(
+    id: ThemeId.softPink,
+    bg: const Color(0xFFFBF2F4),
+    fg: const Color(0xFF4D363C),
+    accent: const Color(0xFFA36F7B),
+    secondary: const Color(0xFF7C8A70),
+  );
+}
+
+/// 6. Sage Mist (Free Soft Light -> now Dark Forest)
+class SageMistThemeFactory {
+  static ThemeData build() => _BaseThemeFactory.build(
+    id: ThemeId.sageMist,
+    bg: const Color(0xFF162119), // dark forest
+    fg: const Color(0xFFE2EBE5), // soft pale green
+    accent: const Color(0xFF6B8A72), // sage accent
+    secondary: const Color(0xFF8B9E8E), 
+    isDark: true,
+  );
+}
+
+/// 7. Rose Quartz (Premium Spa)
 class RoseQuartzThemeFactory {
   static ThemeData build() => _BaseThemeFactory.build(
     id: ThemeId.roseQuartz,
@@ -508,6 +533,10 @@ class AppTheme {
         return ReducedContrastThemeFactory.build();
       case ThemeId.colourBlindSafe:
         return ColourBlindSafeThemeFactory.build();
+      case ThemeId.softPink:
+        return SoftPinkThemeFactory.build();
+      case ThemeId.sageMist:
+        return SageMistThemeFactory.build();
     }
   }
 }
@@ -885,6 +914,24 @@ class ThemeMetadata {
       description: 'A warm dark surface with a rich amber glow.',
       category: ThemePickerCategory.included,
       sortOrder: 20,
+    ),
+    ThemeId.softPink: ThemeMetadata(
+      id: ThemeId.softPink,
+      name: 'Soft Pink',
+      icon: LucideIcons.heart,
+      subtitle: 'Included soft light',
+      description: 'A warm, grown-up pink surface with muted green balance.',
+      category: ThemePickerCategory.included,
+      sortOrder: 30,
+    ),
+    ThemeId.sageMist: ThemeMetadata(
+      id: ThemeId.sageMist,
+      name: 'Sage Mist',
+      icon: LucideIcons.leaf,
+      subtitle: 'Included forest dark',
+      description: 'A deep, lush forest green surface with a natural feel.',
+      category: ThemePickerCategory.included,
+      sortOrder: 40,
     ),
     ThemeId.terracotta: ThemeMetadata(
       id: ThemeId.terracotta,

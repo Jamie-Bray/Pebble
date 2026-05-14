@@ -6,6 +6,7 @@ import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
+import 'package:pebble_routines/features/routines/composer/data/routine_composer_draft_repository.dart';
 
 class ReorderStepsScreen extends ConsumerStatefulWidget {
   final Routine routine;
@@ -187,8 +188,14 @@ class _ReorderStepsScreenState extends ConsumerState<ReorderStepsScreen> {
 
   Future<void> _saveReorder() async {
     final repo = ref.read(routineRepositoryProvider);
-    final updated = widget.routine.copyWith(stepsJson: _encodeSteps(steps));
+    final updated = widget.routine.copyWith(
+      stepsJson: _encodeSteps(steps),
+      updatedAt: DateTime.now(),
+    );
     await repo.saveRoutine(updated);
+    await ref
+        .read(routineComposerDraftRepositoryProvider)
+        .clearEditDraftsForRoutine(widget.routine.id);
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,

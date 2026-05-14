@@ -178,10 +178,10 @@ class RoutineComposerStepRow extends StatelessWidget {
                 Expanded(
                   child: _StepOptionPill(
                     tooltip: step.requiresPhoto
-                        ? 'Photo required'
-                        : 'No photo required',
+                        ? 'Pebble will ask for a photo before this step can be marked complete.'
+                        : 'This step will not ask for a photo when the routine is run.',
                     icon: LucideIcons.camera,
-                    label: step.requiresPhoto ? 'Photo' : 'No photo',
+                    label: 'Require photo',
                     tone: _StepOptionTone.amber,
                     active: step.requiresPhoto,
                     onPressed: onToggleRequiresPhoto,
@@ -220,6 +220,33 @@ class RoutineComposerStepRow extends StatelessWidget {
               ],
             ),
           ),
+          if (step.requiresPhoto) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    LucideIcons.info,
+                    size: 13,
+                    color: cs.onSurface.withValues(alpha: 0.48),
+                  ),
+                  const SizedBox(width: 7),
+                  Expanded(
+                    child: Text(
+                      'Pebble will ask for a photo before this step can be marked complete.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.35,
+                        fontWeight: FontWeight.w500,
+                        color: cs.onSurface.withValues(alpha: 0.58),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -346,7 +373,7 @@ class _StepOptionPill extends StatelessWidget {
       message: tooltip,
       child: Semantics(
         button: true,
-        label: label,
+        label: tooltip,
         child: SizedBox(
           height: 36,
           child: OutlinedButton.icon(

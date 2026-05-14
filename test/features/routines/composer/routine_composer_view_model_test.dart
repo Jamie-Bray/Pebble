@@ -427,5 +427,83 @@ void main() {
 
       viewModel.dispose();
     });
+
+    test(
+      'clearing an edit draft lets reordered routine steps reload',
+      () async {
+        final repository = FakeRoutineComposerDraftRepository();
+        final originalRoutine = _routine(
+          id: 91,
+          title: 'Leaving',
+          steps: [_step('First'), _step('Second'), _step('Third')],
+        );
+        final originalViewModel = RoutineComposerViewModel(
+          repository,
+          RoutineComposerConfig.edit(routine: originalRoutine),
+        );
+
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        expect(originalViewModel.state.steps.map((step) => step.text), [
+          'First',
+          'Second',
+          'Third',
+        ]);
+        originalViewModel.dispose();
+
+        await repository.clearEditDraftsForRoutine(originalRoutine.id);
+
+        final reorderedRoutine = originalRoutine.copyWith(
+          stepsJson: jsonEncode([
+            _step('Third').toJson(),
+            _step('First').toJson(),
+            _step('Second').toJson(),
+          ]),
+          updatedAt: DateTime(2026, 4, 2),
+        );
+        final reorderedViewModel = RoutineComposerViewModel(
+          repository,
+          RoutineComposerConfig.edit(routine: reorderedRoutine),
+        );
+
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+
+        expect(reorderedViewModel.state.steps.map((step) => step.text), [
+          'Third',
+          'First',
+          'Second',
+        ]);
+        expect(repository.clearedEditDraftRoutineIds, [91]);
+
+        reorderedViewModel.dispose();
+      },
+    );
   });
 }
+
+Routine _routine({
+  required int id,
+  required String title,
+  required List<RoutineStep> steps,
+}) {
+  final createdAt = DateTime(2026, 4);
+  return Routine(
+    id: id,
+    title: title,
+    stepsJson: jsonEncode(steps.map((step) => step.toJson()).toList()),
+    createdAt: createdAt,
+    emoji: 'list-check',
+    colorHex: null,
+    isPinned: false,
+    pinnedAt: null,
+    reminderDay: null,
+    reminderTime: null,
+    version: 1,
+    updatedAt: createdAt,
+    cloudId: null,
+    ownerUserId: null,
+    syncStatus: 'localOnly',
+    lastSyncedAt: null,
+  );
+}
+
+RoutineStep _step(String label) => RoutineStep.check(label: label);

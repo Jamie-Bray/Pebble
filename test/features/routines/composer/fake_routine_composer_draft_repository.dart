@@ -21,6 +21,7 @@ class FakeRoutineComposerDraftRepository
   final List<Routine> publishedRoutines = [];
 
   int clearCreateDraftsCallCount = 0;
+  final List<int> clearedEditDraftRoutineIds = [];
   int saveDraftCallCount = 0;
   int publishDraftCallCount = 0;
 
@@ -63,6 +64,29 @@ class FakeRoutineComposerDraftRepository
       _draftsById.remove(draftId);
     }
     _draftsByLookup.remove('create:new');
+  }
+
+  @override
+  Future<void> clearEditDraftsForRoutine(int routineId) async {
+    clearedEditDraftRoutineIds.add(routineId);
+    final lookupKey = '${RoutineComposerMode.edit.storageValue}:$routineId';
+    final existing = _draftsByLookup.remove(lookupKey);
+    if (existing != null) {
+      _draftsById.remove(existing.draftId);
+      return;
+    }
+
+    final draftIds = _draftsById.values
+        .where(
+          (draft) =>
+              draft.mode == RoutineComposerMode.edit &&
+              draft.sourceRoutineId == routineId,
+        )
+        .map((draft) => draft.draftId)
+        .toList(growable: false);
+    for (final draftId in draftIds) {
+      _draftsById.remove(draftId);
+    }
   }
 
   @override

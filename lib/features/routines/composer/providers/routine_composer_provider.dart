@@ -95,6 +95,8 @@ class RoutineComposerViewModel extends StateNotifier<RoutineComposerState> {
       state = RoutineComposerState.fromSnapshot(
         snapshot,
         quickSuggestions: _quickSuggestions,
+        initialStepId: _config.initialStepId,
+        initialStepIndex: _config.initialStepIndex,
       );
     } catch (_) {
       if (!mounted) return;

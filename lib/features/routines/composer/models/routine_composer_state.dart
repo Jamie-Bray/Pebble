@@ -57,10 +57,14 @@ class RoutineComposerState {
   factory RoutineComposerState.fromSnapshot(
     RoutineComposerDraftSnapshot snapshot, {
     required List<String> quickSuggestions,
+    String? initialStepId,
+    int? initialStepIndex,
   }) {
-    final expandedStepId = snapshot.steps.isEmpty
-        ? null
-        : snapshot.steps.first.id;
+    final expandedStepId = _initialExpandedStepId(
+      snapshot,
+      initialStepId: initialStepId,
+      initialStepIndex: initialStepIndex,
+    );
     return RoutineComposerState(
       isLoading: false,
       draftId: snapshot.draftId,
@@ -76,6 +80,24 @@ class RoutineComposerState {
       quickSuggestions: List<String>.unmodifiable(quickSuggestions),
       errorMessage: null,
     );
+  }
+
+  static String? _initialExpandedStepId(
+    RoutineComposerDraftSnapshot snapshot, {
+    String? initialStepId,
+    int? initialStepIndex,
+  }) {
+    if (snapshot.steps.isEmpty) return null;
+    if (initialStepId != null &&
+        snapshot.steps.any((step) => step.id == initialStepId)) {
+      return initialStepId;
+    }
+    if (initialStepIndex != null &&
+        initialStepIndex >= 0 &&
+        initialStepIndex < snapshot.steps.length) {
+      return snapshot.steps[initialStepIndex].id;
+    }
+    return snapshot.steps.first.id;
   }
 
   RoutineComposerState copyWith({

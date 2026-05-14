@@ -60,4 +60,12 @@ class RoutineComposerDraftDao extends DatabaseAccessor<LocalDb>
         ))
         .go();
   }
+
+  Future<void> deleteEditDraftsForRoutine(int routineId) {
+    return (delete(routineComposerDrafts)..where(
+          (tbl) =>
+              tbl.mode.equals('edit') & tbl.sourceRoutineId.equals(routineId),
+        ))
+        .go();
+  }
 }

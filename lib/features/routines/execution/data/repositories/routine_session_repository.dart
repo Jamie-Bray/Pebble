@@ -59,6 +59,8 @@ class RoutineSessionRepositoryImpl implements RoutineSessionRepository {
       final existingSession = _mapRowToEntity(existing);
       if (_shouldAutoFinalize(existingSession)) {
         await completeSessionAndWriteRun(existingSession);
+      } else if (_isSessionSnapshotStaleForRoutine(existingSession, routine)) {
+        await discardSession(existingSession.sessionId);
       } else {
         return existingSession;
       }
@@ -457,6 +459,27 @@ class RoutineSessionRepositoryImpl implements RoutineSessionRepository {
         (session.currentStepState?.status == SessionStepStatus.completed ||
             session.currentStepState?.status == SessionStepStatus.skipped ||
             session.isTerminal);
+  }
+
+  bool _isSessionSnapshotStaleForRoutine(
+    RoutineSession session,
+    Routine routine,
+  ) {
+    if (session.routineTitleSnapshot != routine.title) {
+      return true;
+    }
+
+    final currentSteps = _parseSteps(routine.stepsJson);
+    if (currentSteps.length != session.routineSnapshotSteps.length) {
+      return true;
+    }
+
+    for (var index = 0; index < currentSteps.length; index += 1) {
+      if (currentSteps[index] != session.routineSnapshotSteps[index]) {
+        return true;
+      }
+    }
+    return false;
   }
 
   Future<List<RoutineSessionResumeSummary>> _normalizeActiveResumeSummaries(

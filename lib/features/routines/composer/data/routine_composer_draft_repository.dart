@@ -25,6 +25,8 @@ abstract class RoutineComposerDraftRepository {
 
   Future<void> clearCreateDrafts();
 
+  Future<void> clearEditDraftsForRoutine(int routineId);
+
   Future<RoutineComposerDraftSnapshot> loadOrCreateDraft({
     required RoutineComposerMode mode,
     int? sourceRoutineId,
@@ -73,6 +75,11 @@ class RoutineComposerDraftRepositoryImpl
 
   @override
   Future<void> clearCreateDrafts() => _dao.deleteCreateDrafts();
+
+  @override
+  Future<void> clearEditDraftsForRoutine(int routineId) {
+    return _dao.deleteEditDraftsForRoutine(routineId);
+  }
 
   @override
   Future<RoutineComposerDraftSnapshot> loadOrCreateDraft({

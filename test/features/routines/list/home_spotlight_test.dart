@@ -1,15 +1,23 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
+import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/features/account_backup/providers/account_backup_ui_provider.dart';
 import 'package:pebble_routines/features/history/providers/routine_history_vm.dart';
+import 'package:pebble_routines/features/routines/composer/data/routine_composer_draft_repository.dart';
+import 'package:pebble_routines/features/routines/composer/ui/routine_composer_screen.dart';
 import 'package:pebble_routines/features/routines/execution/data/repositories/routine_session_repository.dart';
+import 'package:pebble_routines/features/routines/execution/ui/routine_player_screen.dart';
 import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
 import 'package:pebble_routines/features/routines/list/ui/routine_list_screen.dart';
+
+import '../composer/fake_routine_composer_draft_repository.dart';
 
 void main() {
   group('selectHomeSpotlightRoutine', () {
@@ -79,8 +87,12 @@ void main() {
 
   testWidgets('non-empty home spotlights last-run routine', (tester) async {
     final routines = [
-      _routine(id: 1, title: 'Newest'),
-      _routine(id: 2, title: 'Last Run'),
+      _routine(id: 1, title: 'Newest', steps: [_step('Open the curtains')]),
+      _routine(
+        id: 2,
+        title: 'Last Run',
+        steps: [_step('Check the doors'), _step('Settle the room')],
+      ),
     ];
 
     await tester.pumpWidget(
@@ -99,9 +111,13 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('Your Next Ripple'), findsOneWidget);
+    expect(find.text('YOUR NEXT RIPPLE'), findsOneWidget);
     expect(find.text('Begin Routine'), findsOneWidget);
     expect(find.text('Last Run.'), findsOneWidget);
+    expect(find.text('Settings'), findsNothing);
+    expect(find.text('Reminders'), findsOneWidget);
+    expect(find.text('Email'), findsOneWidget);
+    expect(find.text('2 steps'), findsNothing);
     expect(find.text('Your routines'), findsOneWidget);
     expect(find.text('Last Run'), findsNothing);
     expect(find.text('Newest'), findsNothing);
@@ -214,6 +230,257 @@ void main() {
     expect(find.text('Routine 7'), findsOneWidget);
   });
 
+  testWidgets('hero layout is ordered, stable, and above the routine shelf', (
+    tester,
+  ) async {
+    await _pumpHome(
+      tester,
+      surfaceSize: const Size(390, 844),
+      routines: [
+        _routine(
+          id: 1,
+          title: 'Morning Reset',
+          steps: [
+            _step('Open the curtains'),
+            _step('Start the kettle'),
+            _step('Pack the bag'),
+            _step('Lock the door'),
+          ],
+        ),
+      ],
+    );
+
+    final headerBottom = tester
+        .getBottomLeft(find.text('Small steps, big ripples'))
+        .dy;
+    final overlineTop = tester
+        .getTopLeft(find.byKey(const ValueKey('home_hero_overline')))
+        .dy;
+    expect(overlineTop - headerBottom, greaterThanOrEqualTo(16));
+
+    final overlineBottom = tester
+        .getBottomLeft(find.byKey(const ValueKey('home_hero_overline')))
+        .dy;
+    final titleTop = tester
+        .getTopLeft(find.byKey(const ValueKey('home_hero_title')))
+        .dy;
+    expect(titleTop - overlineBottom, closeTo(20, 1));
+
+    final titleBottom = tester
+        .getBottomLeft(find.byKey(const ValueKey('home_hero_title')))
+        .dy;
+    expect(find.text('Settings'), findsNothing);
+    expect(find.byKey(const ValueKey('home_hero_action_strip')), findsNothing);
+    expect(find.text('4 steps'), findsNothing);
+
+    final previewTop = tester
+        .getTopLeft(find.byKey(const ValueKey('home_hero_preview_card')))
+        .dy;
+    expect(previewTop, greaterThan(titleBottom));
+
+    final headerTop = tester
+        .getTopLeft(find.byKey(const ValueKey('home_hero_preview_header')))
+        .dy;
+    final footerTop = tester
+        .getTopLeft(find.byKey(const ValueKey('home_hero_preview_footer')))
+        .dy;
+    final settingsCog = find.descendant(
+      of: find.byKey(const ValueKey('home_hero_preview_header')),
+      matching: find.byTooltip('Routine settings'),
+    );
+    final footerReminders = find.descendant(
+      of: find.byKey(const ValueKey('home_hero_preview_footer')),
+      matching: find.text('Reminders'),
+    );
+    final footerEmail = find.descendant(
+      of: find.byKey(const ValueKey('home_hero_preview_footer')),
+      matching: find.text('Email'),
+    );
+    expect(find.text('STEPS PREVIEW'), findsOneWidget);
+    expect(settingsCog, findsOneWidget);
+    expect(footerReminders, findsOneWidget);
+    expect(footerEmail, findsOneWidget);
+    expect(headerTop, greaterThanOrEqualTo(previewTop));
+    expect(footerTop, greaterThan(previewTop));
+
+    final previewBottom = tester
+        .getBottomLeft(find.byKey(const ValueKey('home_hero_preview_card')))
+        .dy;
+    final ctaTop = tester
+        .getTopLeft(find.byKey(const ValueKey('home_hero_cta_box')))
+        .dy;
+    expect(ctaTop, greaterThan(previewBottom));
+
+    final ctaSize = tester.getSize(
+      find.byKey(const ValueKey('home_hero_cta_box')),
+    );
+    expect(ctaSize.height, greaterThanOrEqualTo(56));
+
+    final ctaBottom = tester
+        .getBottomLeft(find.byKey(const ValueKey('home_hero_cta_box')))
+        .dy;
+    final shelfTop = tester.getTopLeft(find.text('Your routines')).dy;
+    expect(ctaBottom, lessThan(shelfTop));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('hero preview viewport height is stable for long routines', (
+    tester,
+  ) async {
+    await _pumpHome(
+      tester,
+      surfaceSize: const Size(390, 844),
+      routines: [
+        _routine(id: 1, title: 'Short Routine', steps: [_step('One thing')]),
+      ],
+    );
+
+    final shortHeight = tester
+        .getSize(find.byKey(const ValueKey('home_hero_preview_card')))
+        .height;
+
+    await _pumpHome(
+      tester,
+      routines: [
+        _routine(
+          id: 1,
+          title: 'Long Routine',
+          steps: List.generate(12, (index) => _step('Long step ${index + 1}')),
+        ),
+      ],
+    );
+
+    final longHeight = tester
+        .getSize(find.byKey(const ValueKey('home_hero_preview_card')))
+        .height;
+    expect(longHeight, shortHeight);
+
+    final ctaTopBefore = tester
+        .getTopLeft(find.byKey(const ValueKey('home_hero_cta_box')))
+        .dy;
+    final headerTopBefore = tester
+        .getTopLeft(find.byKey(const ValueKey('home_hero_preview_header')))
+        .dy;
+    final footerTopBefore = tester
+        .getTopLeft(find.byKey(const ValueKey('home_hero_preview_footer')))
+        .dy;
+    await tester.drag(
+      find.byKey(const ValueKey('home_hero_preview_list')),
+      const Offset(0, -420),
+    );
+    await tester.pump();
+
+    final ctaTopAfter = tester
+        .getTopLeft(find.byKey(const ValueKey('home_hero_cta_box')))
+        .dy;
+    final heightAfterScroll = tester
+        .getSize(find.byKey(const ValueKey('home_hero_preview_card')))
+        .height;
+    final headerTopAfter = tester
+        .getTopLeft(find.byKey(const ValueKey('home_hero_preview_header')))
+        .dy;
+    final footerTopAfter = tester
+        .getTopLeft(find.byKey(const ValueKey('home_hero_preview_footer')))
+        .dy;
+    expect(heightAfterScroll, longHeight);
+    expect(ctaTopAfter, ctaTopBefore);
+    expect(headerTopAfter, headerTopBefore);
+    expect(footerTopAfter, footerTopBefore);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('tapping a preview step opens edit routine at that step', (
+    tester,
+  ) async {
+    await _pumpHome(
+      tester,
+      routines: [
+        _routine(
+          id: 1,
+          title: 'Departure Check',
+          steps: [
+            _step('Check windows'),
+            _step('Pack wallet'),
+            _step('Lock door'),
+          ],
+        ),
+      ],
+    );
+
+    await tester.drag(
+      find.byKey(const ValueKey('home_hero_preview_list')),
+      const Offset(0, -90),
+    );
+    await tester.pump();
+
+    expect(find.byTooltip('Edit step: Pack wallet'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Edit step: Pack wallet'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(find.byType(RoutineComposerScreen), findsOneWidget);
+    expect(find.byType(RoutinePlayerScreen), findsNothing);
+
+    final targetField = _composerStepField('Pack wallet');
+    expect(targetField, findsOneWidget);
+    expect(tester.widget<TextField>(targetField).focusNode?.hasFocus, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('long preview scrolls and tapped rows still deep-link', (
+    tester,
+  ) async {
+    await _pumpHome(
+      tester,
+      routines: [
+        _routine(
+          id: 1,
+          title: 'Long Departure',
+          steps: List.generate(12, (index) => _step('Long step ${index + 1}')),
+        ),
+      ],
+    );
+
+    final previewHeightBefore = tester
+        .getSize(find.byKey(const ValueKey('home_hero_preview_card')))
+        .height;
+
+    final targetTooltip = find.byTooltip('Edit step: Long step 8');
+    await tester.dragUntilVisible(
+      targetTooltip,
+      find.byKey(const ValueKey('home_hero_preview_list')),
+      const Offset(0, -80),
+      maxIteration: 20,
+    );
+    await tester.pump();
+
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('home_hero_preview_card')))
+          .height,
+      previewHeightBefore,
+    );
+
+    expect(targetTooltip, findsOneWidget);
+
+    await tester.tap(targetTooltip);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(find.byType(RoutineComposerScreen), findsOneWidget);
+    expect(find.byType(RoutinePlayerScreen), findsNothing);
+
+    final targetField = _composerStepField('Long step 8', skipOffstage: false);
+    expect(targetField, findsOneWidget);
+    expect(tester.widget<TextField>(targetField).focusNode?.hasFocus, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'hero handles long routine titles while keeping the selected row visible',
     (tester) async {
@@ -273,9 +540,36 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('Your Next Ripple'), findsOneWidget);
+    expect(find.text('YOUR NEXT RIPPLE'), findsOneWidget);
     expect(find.text('Morning Reset.'), findsOneWidget);
+    expect(find.text('Settings'), findsNothing);
+    expect(find.text('Reminders'), findsOneWidget);
+    expect(find.text('Email'), findsOneWidget);
     expect(find.text('Begin Routine'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('hero keeps CTA visible on a short phone surface', (
+    tester,
+  ) async {
+    await _pumpHome(
+      tester,
+      surfaceSize: const Size(390, 680),
+      routines: [
+        _routine(
+          id: 1,
+          title: 'The Anxiety-Free Departure',
+          steps: List.generate(8, (index) => _step('Short screen step $index')),
+        ),
+      ],
+    );
+
+    expect(find.text('Begin Routine'), findsOneWidget);
+    final ctaBottom = tester
+        .getBottomLeft(find.byKey(const ValueKey('home_hero_cta_box')))
+        .dy;
+    final shelfTop = tester.getTopLeft(find.text('Your routines')).dy;
+    expect(ctaBottom, lessThan(shelfTop));
     expect(tester.takeException(), isNull);
   });
 }
@@ -291,10 +585,16 @@ List<Override> _homeOverrides({
     ),
     currentColorThemeProvider.overrideWithValue(ThemeId.highNoon),
     routineListProvider.overrideWith((ref) => Stream.value(routines)),
+    routineRepositoryProvider.overrideWithValue(
+      _FakeRoutineRepository(routines),
+    ),
     routineHistoryVmProvider.overrideWith((ref) => Stream.value(runs)),
     activeRoutineSessionsProvider.overrideWith((ref) => Stream.value(const [])),
     latestRoutineRunProvider.overrideWith(
       (ref, routineId) => Stream.value(null),
+    ),
+    routineComposerDraftRepositoryProvider.overrideWithValue(
+      FakeRoutineComposerDraftRepository(),
     ),
     homeRoutineHighlightProvider.overrideWith((ref) => highlight),
     accountBackupRingStateProvider.overrideWithValue(
@@ -308,16 +608,113 @@ List<Override> _homeOverrides({
   ];
 }
 
+Future<void> _pumpHome(
+  WidgetTester tester, {
+  required List<Routine> routines,
+  List<RoutineRun> runs = const [],
+  HomeRoutineHighlight? highlight,
+  Size? surfaceSize,
+  double textScale = 1,
+}) async {
+  if (surfaceSize != null) {
+    tester.view.physicalSize = surfaceSize;
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+  }
+
+  Widget home = const RoutineListScreen();
+  if (textScale != 1) {
+    home = MediaQuery(
+      data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+      child: home,
+    );
+  }
+
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: _homeOverrides(
+        routines: routines,
+        runs: runs,
+        highlight: highlight,
+      ),
+      child: MaterialApp(theme: AppTheme.fromId(ThemeId.highNoon), home: home),
+    ),
+  );
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 100));
+}
+
+class _FakeRoutineRepository implements RoutineRepository {
+  _FakeRoutineRepository(List<Routine> routines)
+    : _routines = {for (final routine in routines) routine.id: routine};
+
+  final Map<int, Routine> _routines;
+
+  @override
+  Stream<List<Routine>> watchRoutines() =>
+      Stream.value(_routines.values.toList());
+
+  @override
+  Future<Routine?> getRoutineById(int id) async => _routines[id];
+
+  @override
+  Future<void> saveRoutine(Routine routine) async {
+    _routines[routine.id] = routine;
+  }
+
+  @override
+  Future<void> deleteRoutine(int id) async {
+    _routines.remove(id);
+  }
+
+  @override
+  Future<Routine> duplicateRoutine(int id) async => _routines[id]!;
+
+  @override
+  Future<(int?, String?)> getRoutineReminder(int id) async {
+    final routine = _routines[id];
+    return (routine?.reminderDay, routine?.reminderTime);
+  }
+
+  @override
+  Future<bool> moveRoutine(int id, RoutineMoveDirection direction) async =>
+      true;
+
+  @override
+  Future<void> updateRoutineAppearance({
+    required int id,
+    String? iconKey,
+    int? colorHex,
+  }) async {}
+
+  @override
+  Future<void> updateRoutinePinned(int id, bool isPinned) async {}
+
+  @override
+  Future<void> updateRoutineReminder({
+    required int id,
+    int? reminderDay,
+    String? reminderTime,
+  }) async {}
+
+  @override
+  Stream<RoutineRun?> watchLatestRunForRoutine(int routineId) {
+    return Stream.value(null);
+  }
+}
+
 Routine _routine({
   required int id,
   required String title,
   bool isPinned = false,
+  List<RoutineStep> steps = const [],
 }) {
   final createdAt = DateTime(2026, 4, id);
   return Routine(
     id: id,
     title: title,
-    stepsJson: '[]',
+    stepsJson: jsonEncode(steps.map((step) => step.toJson()).toList()),
     createdAt: createdAt,
     emoji: 'list-check',
     colorHex: null,
@@ -331,6 +728,15 @@ Routine _routine({
     ownerUserId: null,
     syncStatus: 'localOnly',
     lastSyncedAt: null,
+  );
+}
+
+RoutineStep _step(String label) => RoutineStep.check(label: label);
+
+Finder _composerStepField(String value, {bool skipOffstage = true}) {
+  return find.byWidgetPredicate(
+    (widget) => widget is TextField && widget.controller?.text == value,
+    skipOffstage: skipOffstage,
   );
 }
 

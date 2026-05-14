@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -33,6 +34,7 @@ import 'package:pebble_routines/features/subscription/ui/subscription_guard.dart
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/repositories/routine_session_repository.dart';
 
@@ -53,8 +55,6 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
   late AnimationController _breathingController;
   final ValueNotifier<double> _routineSheetExtent = ValueNotifier<double>(0);
 
-  // Breathing animation
-  late Animation<double> _breathingScale;
   int? _focusedRoutineId;
   double _minSheetExtent = 0;
   double _maxSheetExtent = 0;
@@ -245,10 +245,6 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
     _breathingController = AnimationController(
       duration: const Duration(seconds: 4),
       vsync: this,
-    );
-
-    _breathingScale = Tween<double>(begin: 1.0, end: 1.01).animate(
-      CurvedAnimation(parent: _breathingController, curve: Curves.easeInOut),
     );
 
     // Start animations
@@ -621,12 +617,44 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                     padding: EdgeInsets.fromLTRB(30, 0, 30, heroBottomPadding),
                     child: spotlightRoutine == null
                         ? const SizedBox.shrink()
-                        : _buildHeroFocus(
-                            themeData,
-                            spotlightRoutine,
-                            highlight: highlight,
+                        : _HomeHeroStage(
+                            routine: spotlightRoutine,
+                            themeData: themeData,
+                            steps: _stepsForRoutine(spotlightRoutine),
+                            accentColor: _routineAccentColor(
+                              spotlightRoutine,
+                              themeData,
+                              0,
+                            ),
                             availableHeight:
                                 constraints.maxHeight - heroBottomPadding,
+                            onSettings: () {
+                              HapticsService().lightImpact();
+                              _showContextMenu(
+                                context,
+                                spotlightRoutine,
+                                themeData,
+                              );
+                            },
+                            onReminders: () {
+                              HapticsService().lightImpact();
+                              _openRoutineReminders(spotlightRoutine);
+                            },
+                            onEmail: () {
+                              HapticsService().lightImpact();
+                              _openRoutineEmail(spotlightRoutine);
+                            },
+                            onBegin: () {
+                              HapticsService().lightImpact();
+                              _onPlayRoutine(spotlightRoutine);
+                            },
+                            onPreviewStepTap: (stepIndex) {
+                              HapticsService().lightImpact();
+                              _onEditRoutine(
+                                spotlightRoutine,
+                                initialStepIndex: stepIndex,
+                              );
+                            },
                           ),
                   ),
                 ),
@@ -813,7 +841,9 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(18),
                     ),
-                    border: Border.all(color: foundation.borderSubtle),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.24),
+                    ),
                     boxShadow: [
                       BoxShadow(
                         color: foundation.shadowSoft,
@@ -822,25 +852,45 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                       ),
                     ],
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Your routines',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.2,
-                          color: foundation.textPrimary,
+                  child: MediaQuery(
+                    data: MediaQuery.of(
+                      context,
+                    ).copyWith(textScaler: const TextScaler.linear(1.0)),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          key: const ValueKey('home_routines_drag_handle'),
+                          width: 34,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.42),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Icon(
-                        LucideIcons.chevronUp,
-                        size: 16,
-                        color: foundation.textSecondary,
-                      ),
-                    ],
+                        const SizedBox(height: 7),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Your routines',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.2,
+                                color: foundation.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Icon(
+                              LucideIcons.chevronUp,
+                              size: 16,
+                              color: foundation.textSecondary,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -848,347 +898,6 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
           ),
         );
       },
-    );
-  }
-
-  Widget _buildHeroFocus(
-    ThemeData themeData,
-    Routine routine, {
-    HomeRoutineHighlight? highlight,
-    required double availableHeight,
-  }) {
-    final foundation = context.darkFoundation;
-    final steps = _stepCountForRoutine(routine);
-    const label = 'Your Next Ripple';
-    final boundedHeight = availableHeight.clamp(280.0, 560.0);
-    final textScale = MediaQuery.textScalerOf(context).scale(1);
-    final largeText = textScale >= 1.35;
-    final compactHero = largeText || boundedHeight < 340;
-    final hideSecondaryActions = largeText || boundedHeight < 430;
-    final heroTextScale = textScale.clamp(1.0, 1.35);
-    final labelGapBase = compactHero
-        ? 10.0
-        : boundedHeight < 430
-        ? 18.0
-        : 24.0;
-    final titleGapBase = compactHero
-        ? 16.0
-        : boundedHeight < 430
-        ? 32.0
-        : 50.0;
-    final ctaGapBase = compactHero
-        ? 14.0
-        : boundedHeight < 460
-        ? 22.0
-        : 30.0;
-    final bottomInsetBase = compactHero
-        ? 14.0
-        : boundedHeight < 430
-        ? 24.0
-        : 31.0;
-    final topContent = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Transform.translate(
-          offset: Offset(0, compactHero ? 0 : -10),
-          child: Text(
-            label,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              letterSpacing: highlight == null ? 1.8 : 0.4,
-              color: themeData.colorScheme.primary,
-            ),
-          ),
-        ),
-        SizedBox(height: labelGapBase),
-        _buildHeroTitle(themeData, routine.title, compact: compactHero),
-        SizedBox(height: titleGapBase),
-        Padding(
-          padding: const EdgeInsets.only(right: 20),
-          child: _buildHeroActionGrid(
-            themeData,
-            routine,
-            steps,
-            hideSecondaryActions: hideSecondaryActions,
-          ),
-        ),
-      ],
-    );
-    final cta = AnimatedBuilder(
-      animation: _breathingController,
-      builder: (context, child) {
-        return Transform.scale(scale: _breathingScale.value, child: child);
-      },
-      child: FilledButton.icon(
-        onPressed: () {
-          HapticsService().lightImpact();
-          _onPlayRoutine(routine);
-        },
-        icon: const Icon(LucideIcons.play, size: 18),
-        label: const Text('Begin Routine'),
-        style: FilledButton.styleFrom(
-          backgroundColor: themeData.colorScheme.primary,
-          foregroundColor: foundation.bgBase,
-          elevation: 0,
-          shadowColor: themeData.colorScheme.primary.withValues(alpha: 0.28),
-          padding: EdgeInsets.symmetric(
-            horizontal: compactHero ? 22 : 26,
-            vertical: compactHero ? 13 : 18,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
-          textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-        ),
-      ),
-    );
-
-    final hero = Align(
-      alignment: Alignment.centerLeft,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final contentWidth = constraints.maxWidth.isFinite
-                ? constraints.maxWidth
-                : 420.0;
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  height: compactHero
-                      ? 20
-                      : boundedHeight < 430
-                      ? 26
-                      : 32,
-                ),
-                Flexible(
-                  fit: FlexFit.loose,
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.topLeft,
-                    child: SizedBox(width: contentWidth, child: topContent),
-                  ),
-                ),
-                SizedBox(height: ctaGapBase),
-                const Spacer(),
-                cta,
-                SizedBox(height: bottomInsetBase),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-
-    return MediaQuery(
-      data: MediaQuery.of(
-        context,
-      ).copyWith(textScaler: TextScaler.linear(heroTextScale)),
-      child: hero,
-    );
-  }
-
-  Widget _buildHeroTitle(
-    ThemeData themeData,
-    String title, {
-    bool compact = false,
-  }) {
-    final foundation = context.darkFoundation;
-    final spec = _heroTitleSpec(title, compact: compact);
-    final trimmed = title.trim().isEmpty ? 'Untitled routine' : title.trim();
-    final hasTerminalPunctuation = RegExp(r'[.!?]$').hasMatch(trimmed);
-    final body = hasTerminalPunctuation
-        ? trimmed.substring(0, trimmed.length - 1)
-        : trimmed;
-    final punctuation = hasTerminalPunctuation
-        ? trimmed.substring(trimmed.length - 1)
-        : '.';
-
-    return Text.rich(
-      TextSpan(
-        children: [
-          TextSpan(text: body),
-          TextSpan(
-            text: punctuation,
-            style: TextStyle(color: themeData.colorScheme.primary),
-          ),
-        ],
-      ),
-      maxLines: spec.maxLines,
-      overflow: TextOverflow.ellipsis,
-      style: GoogleFonts.dmSerifDisplay(
-        fontSize: spec.fontSize,
-        fontWeight: FontWeight.w400,
-        height: spec.lineHeight,
-        color: foundation.textPrimary,
-      ),
-    );
-  }
-
-  _HeroTitleSpec _heroTitleSpec(String title, {bool compact = false}) {
-    final length = title.trim().length;
-    if (compact) {
-      if (length <= 10) {
-        return const _HeroTitleSpec(
-          fontSize: 60,
-          maxLines: 2,
-          lineHeight: 0.95,
-        );
-      }
-      if (length <= 22) {
-        return const _HeroTitleSpec(
-          fontSize: 52,
-          maxLines: 2,
-          lineHeight: 0.98,
-        );
-      }
-      if (length <= 34) {
-        return const _HeroTitleSpec(
-          fontSize: 44,
-          maxLines: 2,
-          lineHeight: 1.02,
-        );
-      }
-      return const _HeroTitleSpec(fontSize: 38, maxLines: 3, lineHeight: 1.04);
-    }
-    if (length <= 10) {
-      return const _HeroTitleSpec(fontSize: 64, maxLines: 2, lineHeight: 0.95);
-    }
-    if (length <= 22) {
-      return const _HeroTitleSpec(fontSize: 56, maxLines: 2, lineHeight: 0.98);
-    }
-    if (length <= 34) {
-      return const _HeroTitleSpec(fontSize: 48, maxLines: 2, lineHeight: 1.02);
-    }
-    return const _HeroTitleSpec(fontSize: 40, maxLines: 3, lineHeight: 1.04);
-  }
-
-  Widget _buildHeroActionGrid(
-    ThemeData themeData,
-    Routine routine,
-    int steps, {
-    required bool hideSecondaryActions,
-  }) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final useGrid = !hideSecondaryActions && constraints.maxWidth >= 250;
-        final itemWidth = useGrid
-            ? (constraints.maxWidth - 8) / 2
-            : constraints.maxWidth;
-        return Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            SizedBox(
-              width: itemWidth,
-              child: _buildHeroMetaPill(steps, routine),
-            ),
-            if (!hideSecondaryActions) ...[
-              SizedBox(
-                width: itemWidth,
-                child: _buildHeroEditButton(themeData, routine),
-              ),
-              SizedBox(
-                width: itemWidth,
-                child: _buildHeroRemindersButton(themeData, routine),
-              ),
-              SizedBox(
-                width: itemWidth,
-                child: _buildHeroEmailButton(themeData, routine),
-              ),
-            ],
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildHeroEditButton(ThemeData themeData, Routine routine) {
-    return _buildHeroActionChip(
-      icon: LucideIcons.settings,
-      label: 'Settings',
-      onTap: () {
-        HapticsService().lightImpact();
-        _showContextMenu(context, routine, themeData);
-      },
-    );
-  }
-
-  Widget _buildHeroRemindersButton(ThemeData themeData, Routine routine) {
-    return _buildHeroActionChip(
-      icon: LucideIcons.bell,
-      label: 'Reminders',
-      onTap: () {
-        HapticsService().lightImpact();
-        _openRoutineReminders(routine);
-      },
-    );
-  }
-
-  Widget _buildHeroEmailButton(ThemeData themeData, Routine routine) {
-    return _buildHeroActionChip(
-      icon: LucideIcons.mail,
-      label: 'Email',
-      onTap: () {
-        HapticsService().lightImpact();
-        _openRoutineEmail(routine);
-      },
-    );
-  }
-
-  Widget _buildHeroMetaPill(int steps, Routine routine) {
-    return _buildHeroActionChip(
-      icon: LucideIcons.listChecks,
-      label: '$steps ${steps == 1 ? 'step' : 'steps'}',
-      onTap: () {
-        HapticsService().lightImpact();
-        _showStepsPreview(context, routine);
-      },
-    );
-  }
-
-  Widget _buildHeroActionChip({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    final foundation = context.darkFoundation;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 32),
-        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-        decoration: BoxDecoration(
-          color: foundation.surfaceLow.withValues(alpha: 0.72),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: foundation.borderSubtle),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.max,
-          children: [
-            Icon(icon, size: 13, color: foundation.textMuted),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: foundation.textSecondary,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -1727,7 +1436,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
 
   // Removed unused _onTogglePin (use _togglePinRoutine instead)
 
-  Future<void> _onEditRoutine(Routine routine) async {
+  Future<void> _onEditRoutine(Routine routine, {int? initialStepIndex}) async {
     // Ensure we edit the latest version from DB (quick-add or in-run patches may have changed it)
     final repo = ref.read(routineRepositoryProvider);
     final fresh = await repo.getRoutineById(routine.id) ?? routine;
@@ -1737,6 +1446,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
       MaterialPageRoute(
         builder: (context) => RoutineComposerScreen.edit(
           routine: fresh,
+          initialStepIndex: initialStepIndex,
           onSaveComplete: (_) {
             Navigator.of(context).pop();
           },
@@ -2256,314 +1966,23 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
     );
   }
 
-  void _showStepsPreview(BuildContext context, Routine routine) {
-    final foundation = context.darkFoundation;
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+  int _stepCountForRoutine(Routine routine) {
+    return _stepsForRoutine(routine).length;
+  }
 
-    List<RoutineStep> steps = [];
+  List<RoutineStep> _stepsForRoutine(Routine routine) {
     try {
       final decoded = jsonDecode(routine.stepsJson);
       if (decoded is List) {
-        steps = decoded
-            .map((e) => RoutineStep.fromJson(e as Map<String, dynamic>))
+        return decoded
+            .whereType<Map<String, dynamic>>()
+            .map(RoutineStep.fromJson)
             .toList();
       }
-    } catch (_) {}
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      useRootNavigator: true,
-      builder: (sheetContext) {
-        return Container(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(sheetContext).size.height * 0.75,
-          ),
-          padding: EdgeInsets.fromLTRB(
-            24,
-            16,
-            24,
-            24 + MediaQuery.of(sheetContext).padding.bottom,
-          ),
-          decoration: BoxDecoration(
-            color: foundation.surfaceLow,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-            border: Border(top: BorderSide(color: foundation.borderSubtle)),
-            boxShadow: [
-              BoxShadow(
-                color: foundation.shadowSoft,
-                blurRadius: 34,
-                offset: const Offset(0, -12),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 38,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 24),
-                  decoration: BoxDecoration(
-                    color: foundation.borderSubtle,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
-              ),
-              Text(
-                routine.title.toUpperCase(),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: colorScheme.primary,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.0,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildStepPreviewAction(
-                      theme,
-                      icon: LucideIcons.pencil,
-                      label: 'Edit routine',
-                      onTap: () {
-                        Navigator.pop(sheetContext);
-                        _onEditRoutine(routine);
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _buildStepPreviewAction(
-                      theme,
-                      icon: LucideIcons.listOrdered,
-                      label: 'Reorder steps',
-                      onTap: () async {
-                        Navigator.pop(sheetContext);
-                        await _openReorderRoutine(routine);
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Flexible(
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (steps.isEmpty)
-                        _buildEmptyStepsPreview(theme)
-                      else
-                        for (var i = 0; i < steps.length; i++) ...[
-                          _buildStepPreviewRow(steps[i], i + 1, theme),
-                          if (i != steps.length - 1) const SizedBox(height: 8),
-                        ],
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildStepPreviewAction(
-    ThemeData theme, {
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    final foundation = context.darkFoundation;
-    final colorScheme = theme.colorScheme;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {
-          HapticsService().lightImpact();
-          onTap();
-        },
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          height: 46,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: foundation.surfaceHigh,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: foundation.borderSubtle),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 15, color: colorScheme.primary),
-              const SizedBox(width: 7),
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: foundation.textPrimary,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyStepsPreview(ThemeData theme) {
-    final foundation = context.darkFoundation;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: foundation.surfaceHigh,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: foundation.borderSubtle),
-      ),
-      child: Text(
-        'No steps yet.',
-        textAlign: TextAlign.center,
-        style: theme.textTheme.bodyMedium?.copyWith(
-          color: foundation.textSecondary,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStepPreviewRow(RoutineStep step, int index, ThemeData theme) {
-    final foundation = context.darkFoundation;
-    final colorScheme = theme.colorScheme;
-    final requiresPhoto = step.hasPhotoRequirement;
-    final label = step.when(
-      check: (label, _, __, ___, ____, _____, ______) => label,
-      info: (message) => message,
-      timer: (duration) => 'Timer (${duration}s)',
-    );
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),
-      decoration: BoxDecoration(
-        color: foundation.surfaceHigh,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: requiresPhoto
-              ? colorScheme.primary.withValues(alpha: 0.18)
-              : foundation.borderSubtle,
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: Color.lerp(
-                foundation.surfaceHigh,
-                colorScheme.primary,
-                0.18,
-              ),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: colorScheme.primary.withValues(alpha: 0.14),
-              ),
-            ),
-            child: Text(
-              '$index',
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: colorScheme.primary,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 3),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: foundation.textPrimary,
-                      height: 1.34,
-                    ),
-                  ),
-                  if (requiresPhoto) ...[
-                    const SizedBox(height: 8),
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: colorScheme.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                          color: colorScheme.primary.withValues(alpha: 0.14),
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              LucideIcons.camera,
-                              size: 12,
-                              color: colorScheme.primary.withValues(
-                                alpha: 0.78,
-                              ),
-                            ),
-                            const SizedBox(width: 5),
-                            Text(
-                              'Photo',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: colorScheme.primary.withValues(
-                                  alpha: 0.84,
-                                ),
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  int _stepCountForRoutine(Routine routine) {
-    try {
-      final decoded = jsonDecode(routine.stepsJson);
-      if (decoded is List) {
-        return decoded.length;
-      }
     } catch (_) {
-      // Fall back to zero so malformed payloads don't crash duplication checks.
+      // Fall back to empty so malformed payloads don't crash home rendering.
     }
-    return 0;
+    return const [];
   }
 
   Future<void> _deleteRoutine(Routine routine) async {
@@ -2579,14 +1998,765 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
   }
 }
 
-class _HeroTitleSpec {
-  final double fontSize;
-  final int maxLines;
-  final double lineHeight;
-
-  const _HeroTitleSpec({
-    required this.fontSize,
-    required this.maxLines,
-    required this.lineHeight,
+class _HomeHeroStage extends ConsumerWidget {
+  const _HomeHeroStage({
+    required this.routine,
+    required this.themeData,
+    required this.steps,
+    required this.accentColor,
+    required this.availableHeight,
+    required this.onSettings,
+    required this.onReminders,
+    required this.onEmail,
+    required this.onBegin,
+    required this.onPreviewStepTap,
   });
+
+  final Routine routine;
+  final ThemeData themeData;
+  final List<RoutineStep> steps;
+  final Color accentColor;
+  final double availableHeight;
+  final VoidCallback onSettings;
+  final VoidCallback onReminders;
+  final VoidCallback onEmail;
+  final VoidCallback onBegin;
+  final ValueChanged<int> onPreviewStepTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final foundation = context.darkFoundation;
+    final latestRun = ref.watch(latestRoutineRunProvider(routine.id));
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxStageHeight = availableHeight < 260 ? 260.0 : availableHeight;
+        final stageHeight = constraints.maxHeight.isFinite
+            ? constraints.maxHeight.clamp(260.0, maxStageHeight).toDouble()
+            : maxStageHeight;
+        final metrics = _HomeHeroMetrics.resolve(
+          height: stageHeight,
+          textScale: textScale,
+        );
+        final hero = Align(
+          alignment: Alignment.topLeft,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Column(
+              key: const ValueKey('home_hero_stage'),
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(height: metrics.topInset),
+                Text(
+                  'YOUR NEXT RIPPLE',
+                  key: const ValueKey('home_hero_overline'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.4,
+                    color: themeData.colorScheme.primary,
+                  ),
+                ),
+                SizedBox(height: metrics.overlineTitleGap),
+                Text.rich(
+                  key: const ValueKey('home_hero_title'),
+                  _titleSpan(routine.title, themeData.colorScheme.primary),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.dmSerifDisplay(
+                    fontSize: metrics.titleFontSize,
+                    fontWeight: FontWeight.w400,
+                    height: 1.02,
+                    color: foundation.textPrimary,
+                  ),
+                ),
+                SizedBox(height: metrics.titlePreviewGap),
+                _HomeHeroPreviewCard(
+                  steps: steps,
+                  latestRun: latestRun,
+                  height: metrics.previewHeight,
+                  footerHeight: metrics.previewFooterHeight,
+                  accentColor: accentColor,
+                  themeData: themeData,
+                  onSettings: onSettings,
+                  onReminders: onReminders,
+                  onEmail: onEmail,
+                  onStepTap: onPreviewStepTap,
+                ),
+                SizedBox(height: metrics.previewCtaGap),
+                SizedBox(
+                  key: const ValueKey('home_hero_cta_box'),
+                  width: double.infinity,
+                  height: 56,
+                  child: FilledButton.icon(
+                    key: const ValueKey('home_hero_cta'),
+                    onPressed: onBegin,
+                    icon: const Icon(LucideIcons.play, size: 18),
+                    label: const Text('Begin Routine'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: themeData.colorScheme.primary,
+                      foregroundColor: foundation.bgBase,
+                      elevation: 0,
+                      shadowColor: themeData.colorScheme.primary.withValues(
+                        alpha: 0.28,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(height: metrics.bottomInset),
+              ],
+            ),
+          ),
+        );
+
+        return MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(metrics.effectiveTextScale)),
+          child: hero,
+        );
+      },
+    );
+  }
+
+  TextSpan _titleSpan(String title, Color accent) {
+    final trimmed = title.trim().isEmpty ? 'Untitled routine' : title.trim();
+    final hasTerminalPunctuation = RegExp(r'[.!?]$').hasMatch(trimmed);
+    final body = hasTerminalPunctuation
+        ? trimmed.substring(0, trimmed.length - 1)
+        : trimmed;
+    final punctuation = hasTerminalPunctuation
+        ? trimmed.substring(trimmed.length - 1)
+        : '.';
+
+    return TextSpan(
+      children: [
+        TextSpan(text: body),
+        TextSpan(
+          text: punctuation,
+          style: TextStyle(color: accent),
+        ),
+      ],
+    );
+  }
+}
+
+class _HomeHeroPreviewCard extends StatelessWidget {
+  const _HomeHeroPreviewCard({
+    required this.steps,
+    required this.latestRun,
+    required this.height,
+    required this.footerHeight,
+    required this.accentColor,
+    required this.themeData,
+    required this.onSettings,
+    required this.onReminders,
+    required this.onEmail,
+    required this.onStepTap,
+  });
+
+  final List<RoutineStep> steps;
+  final AsyncValue<RoutineRun?> latestRun;
+  final double height;
+  final double footerHeight;
+  final Color accentColor;
+  final ThemeData themeData;
+  final VoidCallback onSettings;
+  final VoidCallback onReminders;
+  final VoidCallback onEmail;
+  final ValueChanged<int> onStepTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+    final compact = height < 170;
+    return Container(
+      key: const ValueKey('home_hero_preview_card'),
+      height: height,
+      padding: EdgeInsets.fromLTRB(12, compact ? 6 : 10, 12, compact ? 6 : 9),
+      decoration: BoxDecoration(
+        color: foundation.surfaceLow.withValues(alpha: 0.78),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: foundation.borderSubtle),
+        boxShadow: [
+          BoxShadow(
+            color: foundation.shadowSoft,
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          _HomeHeroPreviewHeader(compact: compact, onSettings: onSettings),
+          SizedBox(height: compact ? 4 : 6),
+          Expanded(
+            child: _HomeHeroStepList(
+              steps: steps,
+              accentColor: accentColor,
+              themeData: themeData,
+              onStepTap: onStepTap,
+            ),
+          ),
+          SizedBox(height: compact ? 2 : 7),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: foundation.borderSubtle.withValues(alpha: 0.72),
+          ),
+          SizedBox(
+            height: footerHeight,
+            child: _HomeHeroPreviewFooter(
+              compact: compact,
+              latestRun: latestRun,
+              lastRunTextFor: _lastRunText,
+              onReminders: onReminders,
+              onEmail: onEmail,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _lastRunText(DateTime finishedAt) {
+    final diff = DateTime.now().difference(finishedAt);
+    if (diff.inMinutes < 1) return 'Last run: just now';
+    if (diff.inHours < 1) return 'Last run: ${diff.inMinutes}m ago';
+    if (diff.inDays < 1) return 'Last run: ${diff.inHours}h ago';
+    return 'Last run: ${DateFormat('MMM d').format(finishedAt)}';
+  }
+}
+
+class _HomeHeroPreviewHeader extends StatelessWidget {
+  const _HomeHeroPreviewHeader({
+    required this.compact,
+    required this.onSettings,
+  });
+
+  final bool compact;
+  final VoidCallback onSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+    return SizedBox(
+      key: const ValueKey('home_hero_preview_header'),
+      height: compact ? 34 : 44,
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'STEPS PREVIEW',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.1,
+                color: foundation.textMuted,
+              ),
+            ),
+          ),
+          Semantics(
+            label: 'Routine settings',
+            button: true,
+            child: SizedBox(
+              key: const ValueKey('home_hero_preview_settings'),
+              width: compact ? 34 : 44,
+              height: compact ? 34 : 44,
+              child: IconButton(
+                onPressed: onSettings,
+                tooltip: 'Routine settings',
+                icon: Icon(
+                  LucideIcons.settings,
+                  size: 17,
+                  color: foundation.textSecondary,
+                ),
+                style: IconButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: Size(compact ? 34 : 44, compact ? 34 : 44),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeHeroPreviewFooter extends StatelessWidget {
+  const _HomeHeroPreviewFooter({
+    required this.compact,
+    required this.latestRun,
+    required this.lastRunTextFor,
+    required this.onReminders,
+    required this.onEmail,
+  });
+
+  final bool compact;
+  final AsyncValue<RoutineRun?> latestRun;
+  final String Function(DateTime finishedAt) lastRunTextFor;
+  final VoidCallback onReminders;
+  final VoidCallback onEmail;
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+    final lastRunLineHeight = compact ? 12.0 : 17.0;
+    final actionHeight = compact ? 36.0 : 42.0;
+
+    return Padding(
+      key: const ValueKey('home_hero_preview_footer'),
+      padding: EdgeInsets.only(top: compact ? 0 : 6),
+      child: Column(
+        children: [
+          SizedBox(
+            key: const ValueKey('home_hero_last_run_footer'),
+            height: lastRunLineHeight,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: latestRun.maybeWhen(
+                data: (run) => run == null
+                    ? const SizedBox.shrink()
+                    : Text(
+                        lastRunTextFor(run.finishedAt),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: foundation.textMuted,
+                        ),
+                      ),
+                orElse: () => const SizedBox.shrink(),
+              ),
+            ),
+          ),
+          SizedBox(height: compact ? 2 : 5),
+          Row(
+            children: [
+              Expanded(
+                child: _HomeHeroFooterAction(
+                  key: const ValueKey('home_hero_footer_reminders'),
+                  icon: LucideIcons.bell,
+                  label: 'Reminders',
+                  height: actionHeight,
+                  onTap: onReminders,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _HomeHeroFooterAction(
+                  key: const ValueKey('home_hero_footer_email'),
+                  icon: LucideIcons.mail,
+                  label: 'Email',
+                  height: actionHeight,
+                  onTap: onEmail,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeHeroFooterAction extends StatelessWidget {
+  const _HomeHeroFooterAction({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.height,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final double height;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+    return Semantics(
+      button: true,
+      label: label,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            height: height,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: foundation.surfaceHigh.withValues(alpha: 0.46),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: foundation.borderSubtle.withValues(alpha: 0.72),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 14, color: foundation.textMuted),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: foundation.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeHeroStepList extends StatefulWidget {
+  const _HomeHeroStepList({
+    required this.steps,
+    required this.accentColor,
+    required this.themeData,
+    required this.onStepTap,
+  });
+
+  final List<RoutineStep> steps;
+  final Color accentColor;
+  final ThemeData themeData;
+  final ValueChanged<int> onStepTap;
+
+  @override
+  State<_HomeHeroStepList> createState() => _HomeHeroStepListState();
+}
+
+class _HomeHeroStepListState extends State<_HomeHeroStepList> {
+  late final ScrollController _controller;
+  bool _canScroll = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = ScrollController()..addListener(_syncCanScroll);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncCanScroll());
+  }
+
+  @override
+  void didUpdateWidget(covariant _HomeHeroStepList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncCanScroll());
+  }
+
+  @override
+  void dispose() {
+    _controller
+      ..removeListener(_syncCanScroll)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _syncCanScroll() {
+    if (!mounted || !_controller.hasClients) return;
+    final canScroll = _controller.position.maxScrollExtent > 1;
+    if (canScroll != _canScroll) {
+      setState(() => _canScroll = canScroll);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+    if (widget.steps.isEmpty) {
+      return Align(
+        alignment: Alignment.topLeft,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+          child: Text(
+            'No steps yet.',
+            style: widget.themeData.textTheme.bodyMedium?.copyWith(
+              color: foundation.textSecondary,
+              height: 1.35,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Stack(
+      children: [
+        ListView.separated(
+          key: const ValueKey('home_hero_preview_list'),
+          controller: _controller,
+          primary: false,
+          shrinkWrap: false,
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.only(bottom: 8),
+          itemCount: widget.steps.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          itemBuilder: (context, index) {
+            return _HomeHeroStepRow(
+              step: widget.steps[index],
+              index: index + 1,
+              accentColor: widget.accentColor,
+              themeData: widget.themeData,
+              onTap: () => widget.onStepTap(index),
+            );
+          },
+        ),
+        if (_canScroll)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: IgnorePointer(
+              child: Container(
+                key: const ValueKey('home_hero_preview_fade'),
+                height: 30,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      foundation.surfaceLow.withValues(alpha: 0),
+                      foundation.surfaceLow.withValues(alpha: 0.9),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _HomeHeroStepRow extends StatelessWidget {
+  const _HomeHeroStepRow({
+    required this.step,
+    required this.index,
+    required this.accentColor,
+    required this.themeData,
+    required this.onTap,
+  });
+
+  final RoutineStep step;
+  final int index;
+  final Color accentColor;
+  final ThemeData themeData;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+    final label = step.when(
+      check: (label, _, __, ___, ____, _____, ______) => label,
+      info: (message) => message,
+      timer: (duration) => 'Timer (${duration}s)',
+    );
+
+    final semanticsLabel = 'Edit step: $label';
+
+    return Semantics(
+      button: true,
+      label: semanticsLabel,
+      child: Tooltip(
+        message: semanticsLabel,
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(10, 10, 12, 10),
+              decoration: BoxDecoration(
+                color: foundation.surfaceHigh.withValues(alpha: 0.72),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: foundation.borderSubtle),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: Color.lerp(
+                        foundation.surfaceHigh,
+                        accentColor,
+                        0.16,
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: accentColor.withValues(alpha: 0.14),
+                      ),
+                    ),
+                    child: Text(
+                      '$index',
+                      style: themeData.textTheme.labelMedium?.copyWith(
+                        color: accentColor,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        label,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: themeData.textTheme.bodyMedium?.copyWith(
+                          color: foundation.textPrimary,
+                          height: 1.28,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeHeroMetrics {
+  const _HomeHeroMetrics({
+    required this.topInset,
+    required this.overlineTitleGap,
+    required this.titlePreviewGap,
+    required this.previewCtaGap,
+    required this.bottomInset,
+    required this.titleFontSize,
+    required this.previewHeight,
+    required this.previewFooterHeight,
+    required this.effectiveTextScale,
+  });
+
+  final double topInset;
+  final double overlineTitleGap;
+  final double titlePreviewGap;
+  final double previewCtaGap;
+  final double bottomInset;
+  final double titleFontSize;
+  final double previewHeight;
+  final double previewFooterHeight;
+  final double effectiveTextScale;
+
+  static _HomeHeroMetrics resolve({
+    required double height,
+    required double textScale,
+  }) {
+    final tightForText = textScale >= 1.7;
+    final tight = height < 440 || tightForText;
+    final compact = tight || height < 540 || textScale >= 1.3;
+    final effectiveScale = textScale.clamp(1.0, tight ? 1.04 : 1.28);
+    final baseTopInset = tight
+        ? 8.0
+        : compact
+        ? 18.0
+        : 26.0;
+    const heroLift = 15.0;
+    final overlineTitleGap = tightForText ? 10.0 : 20.0;
+    final previewExtension = tightForText ? 0.0 : 15.0;
+    final titlePreviewGap = tight
+        ? 8.0
+        : compact
+        ? 13.0
+        : 18.0;
+    final previewCtaGap = tight
+        ? 5.0
+        : compact
+        ? 13.0
+        : 16.0;
+    final bottomInset = tight
+        ? 0.0
+        : compact
+        ? 12.0
+        : 16.0;
+    final titleFontSize = tight
+        ? 28.0
+        : compact
+        ? 42.0
+        : 52.0;
+    final previewFooterHeight = tight ? 50.0 : 70.0;
+    final targetPreviewHeight =
+        (tight
+            ? 142.0
+            : compact
+            ? 184.0
+            : 228.0) +
+        previewExtension;
+    final baseFixedHeight =
+        baseTopInset +
+        (13 * effectiveScale) +
+        overlineTitleGap +
+        (titleFontSize * 1.02 * 2 * effectiveScale) +
+        titlePreviewGap +
+        previewCtaGap +
+        56 +
+        bottomInset;
+    final slack = height - (baseFixedHeight + targetPreviewHeight);
+    final dropCap = tightForText
+        ? 0.0
+        : tight
+        ? 12.0
+        : compact
+        ? 34.0
+        : 58.0;
+    final verticalDrop = slack <= 0
+        ? 0.0
+        : (slack * 0.68).clamp(0.0, dropCap).toDouble();
+    final topInset = math.max(0.0, baseTopInset + verticalDrop - heroLift);
+    final fixedHeight = baseFixedHeight - baseTopInset + topInset;
+    final previewMinHeight = tight ? 116.0 : 158.0;
+    final remainingHeight = height - fixedHeight;
+    final previewHeight = remainingHeight <= previewMinHeight
+        ? remainingHeight.clamp(0.0, targetPreviewHeight).toDouble()
+        : remainingHeight
+              .clamp(previewMinHeight, targetPreviewHeight)
+              .toDouble();
+
+    return _HomeHeroMetrics(
+      topInset: topInset,
+      overlineTitleGap: overlineTitleGap,
+      titlePreviewGap: titlePreviewGap,
+      previewCtaGap: previewCtaGap,
+      bottomInset: bottomInset,
+      titleFontSize: titleFontSize,
+      previewHeight: previewHeight,
+      previewFooterHeight: previewFooterHeight,
+      effectiveTextScale: effectiveScale,
+    );
+  }
 }

@@ -843,10 +843,12 @@ class _PlayerPhotoSummary extends StatelessWidget {
     final theme = Theme.of(context);
     final onSurface = theme.colorScheme.onSurface;
     final statusTitle = capturedPhotoCount > 0
-        ? '$capturedPhotoCount photo${capturedPhotoCount == 1 ? '' : 's'} added'
-        : 'Photo needed';
+        ? capturedPhotoCount == 1
+              ? 'Photo added'
+              : '$capturedPhotoCount photos added'
+        : 'Take photo';
     final statusBody = capturedPhotoCount < requiredPhotoCount
-        ? 'Add a photo before completing this step.'
+        ? 'Take a photo before completing this step.'
         : null;
 
     return Container(
