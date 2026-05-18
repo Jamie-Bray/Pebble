@@ -10,6 +10,7 @@ import "package:go_router/go_router.dart";
 import "package:pebble_routines/core/ui_kit/animated_background.dart";
 import "package:pebble_routines/core/ui/zen_components.dart";
 import "package:pebble_routines/core/ui/pebble_navigation.dart";
+import "package:pebble_routines/features/settings/data/player_settings_provider.dart";
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -55,6 +56,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   @override
   Widget build(BuildContext context) {
     final theme = ref.watch(currentThemeDataProvider);
+    final playerSettings = ref.watch(playerSettingsControllerProvider);
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
@@ -93,6 +95,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                         onTap: () {
                           HapticFeedback.selectionClick();
                           context.push('/reminders');
+                        },
+                      ),
+                      const _Hairline(),
+                      _FlowSwitchTile(
+                        icon: LucideIcons.focus,
+                        title: 'Visual anchor',
+                        subtitle: 'Show the routine step focus circle',
+                        value: playerSettings.showVisualAnchor,
+                        onChanged: (value) {
+                          HapticFeedback.selectionClick();
+                          setState(() {
+                            playerSettings.showVisualAnchor = value;
+                          });
                         },
                       ),
                       const _Hairline(),
@@ -285,6 +300,75 @@ class _FlowTile extends StatelessWidget {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _FlowSwitchTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const _FlowSwitchTile({
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.onChanged,
+    this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            alignment: Alignment.center,
+            child: Icon(icon, color: theme.colorScheme.primary),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle!,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w300,
+                      letterSpacing: 0.2,
+                      color: theme.colorScheme.onSurface.withValues(
+                        alpha: 0.65,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Switch(value: value, onChanged: onChanged),
+        ],
       ),
     );
   }

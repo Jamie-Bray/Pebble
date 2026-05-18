@@ -253,6 +253,7 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
           color: cs.onSurface.withValues(alpha: 0.62),
         ),
       ),
+      actions: [_DoneAction(state: state, onPressed: () => _handleDone(state))],
     );
   }
 
@@ -367,43 +368,25 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  _AddStepButton(
-                    onPressed: () => _handleAddStep(state),
-                    subdued: _shouldSubdueAddStep(state),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: state.canPublish && !state.isPublishing
-                          ? () => _handleDone(state)
-                          : null,
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size.fromHeight(48),
-                        disabledBackgroundColor: cs.surfaceContainerHigh,
-                        disabledForegroundColor: cs.onSurface.withValues(
-                          alpha: 0.34,
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      child: state.isPublishing
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Text(_saveButtonLabel(state)),
-                    ),
-                  ),
-                ],
+              _AddStepButton(
+                label: _addStepButtonLabel(state),
+                onPressed: state.isPublishing
+                    ? null
+                    : () => _handleAddStep(state),
+                subdued: _shouldSubdueAddStep(state),
               ),
+              if (_shouldShowAddStepHint(state)) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Add step creates the next one',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface.withValues(alpha: 0.48),
+                  ),
+                ),
+              ],
               if (!state.isPublishing &&
                   (state.isSavingDraft || state.showSavedConfirmation)) ...[
                 const SizedBox(height: 8),
@@ -422,10 +405,15 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
     );
   }
 
-  String _saveButtonLabel(RoutineComposerState state) {
-    return state.mode == RoutineComposerMode.edit
-        ? 'Save changes'
-        : 'Save routine';
+  String _addStepButtonLabel(RoutineComposerState state) {
+    final nonEmptyStepCount = state.steps
+        .where((step) => step.text.trim().isNotEmpty)
+        .length;
+    return nonEmptyStepCount == 0 ? 'Add step' : 'Add next step';
+  }
+
+  bool _shouldShowAddStepHint(RoutineComposerState state) {
+    return _focusedStepId != null && !state.isPublishing;
   }
 
   Future<void> _handleBack(RoutineComposerState state) async {
@@ -1647,33 +1635,75 @@ class _DraftSaveStatus extends StatelessWidget {
   }
 }
 
-class _AddStepButton extends StatelessWidget {
-  const _AddStepButton({required this.onPressed, required this.subdued});
+class _DoneAction extends StatelessWidget {
+  const _DoneAction({required this.state, required this.onPressed});
 
+  final RoutineComposerState state;
   final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final enabled = state.canPublish && !state.isPublishing;
+
+    if (state.isPublishing) {
+      return const Padding(
+        padding: EdgeInsets.only(right: 18),
+        child: Center(
+          child: SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: TextButton.icon(
+        onPressed: enabled ? onPressed : null,
+        icon: const Icon(LucideIcons.check, size: 16),
+        label: const Text('Done'),
+        style: TextButton.styleFrom(
+          foregroundColor: cs.primary,
+          disabledForegroundColor: cs.onSurface.withValues(alpha: 0.34),
+          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+        ),
+      ),
+    );
+  }
+}
+
+class _AddStepButton extends StatelessWidget {
+  const _AddStepButton({
+    required this.label,
+    required this.onPressed,
+    required this.subdued,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
   final bool subdued;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return TextButton.icon(
+    return FilledButton.icon(
       onPressed: onPressed,
-      style: TextButton.styleFrom(
+      style: FilledButton.styleFrom(
         foregroundColor: subdued
-            ? cs.onSurface.withValues(alpha: 0.52)
-            : cs.onSurface.withValues(alpha: 0.84),
-        backgroundColor: subdued
-            ? cs.surfaceContainerHighest.withValues(alpha: 0.16)
-            : cs.surfaceContainerLow,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-        minimumSize: const Size(0, 48),
+            ? cs.onSecondaryContainer.withValues(alpha: 0.78)
+            : cs.onPrimary,
+        backgroundColor: subdued ? cs.secondaryContainer : cs.primary,
+        disabledBackgroundColor: cs.surfaceContainerHigh,
+        disabledForegroundColor: cs.onSurface.withValues(alpha: 0.34),
+        minimumSize: const Size.fromHeight(52),
+        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
       icon: const Icon(LucideIcons.plus, size: 16),
-      label: const Text(
-        'Add step',
-        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-      ),
+      label: Text(label),
     );
   }
 }

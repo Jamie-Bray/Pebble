@@ -281,35 +281,51 @@ void main() {
     final headerTop = tester
         .getTopLeft(find.byKey(const ValueKey('home_hero_preview_header')))
         .dy;
-    final footerTop = tester
-        .getTopLeft(find.byKey(const ValueKey('home_hero_preview_footer')))
+    final metaTop = tester
+        .getTopLeft(find.byKey(const ValueKey('home_hero_meta_row')))
         .dy;
     final settingsCog = find.descendant(
       of: find.byKey(const ValueKey('home_hero_preview_header')),
       matching: find.byTooltip('Routine settings'),
     );
     final footerReminders = find.descendant(
-      of: find.byKey(const ValueKey('home_hero_preview_footer')),
+      of: find.byKey(const ValueKey('home_hero_meta_row')),
       matching: find.text('Reminders'),
     );
     final footerEmail = find.descendant(
-      of: find.byKey(const ValueKey('home_hero_preview_footer')),
+      of: find.byKey(const ValueKey('home_hero_meta_row')),
       matching: find.text('Email'),
+    );
+    final previewCardReminders = find.descendant(
+      of: find.byKey(const ValueKey('home_hero_preview_card')),
+      matching: find.text('Reminders'),
+    );
+    final previewCardEmail = find.descendant(
+      of: find.byKey(const ValueKey('home_hero_preview_card')),
+      matching: find.text('Email'),
+    );
+    final previewMask = find.descendant(
+      of: find.byKey(const ValueKey('home_hero_preview_card')),
+      matching: find.byType(ShaderMask),
     );
     expect(find.text('STEPS PREVIEW'), findsOneWidget);
     expect(settingsCog, findsOneWidget);
     expect(footerReminders, findsOneWidget);
     expect(footerEmail, findsOneWidget);
+    expect(previewCardReminders, findsNothing);
+    expect(previewCardEmail, findsNothing);
+    expect(previewMask, findsOneWidget);
     expect(headerTop, greaterThanOrEqualTo(previewTop));
-    expect(footerTop, greaterThan(previewTop));
 
     final previewBottom = tester
         .getBottomLeft(find.byKey(const ValueKey('home_hero_preview_card')))
         .dy;
+    expect(metaTop, greaterThan(previewBottom));
+
     final ctaTop = tester
         .getTopLeft(find.byKey(const ValueKey('home_hero_cta_box')))
         .dy;
-    expect(ctaTop, greaterThan(previewBottom));
+    expect(ctaTop, greaterThan(metaTop));
 
     final ctaSize = tester.getSize(
       find.byKey(const ValueKey('home_hero_cta_box')),
@@ -361,8 +377,8 @@ void main() {
     final headerTopBefore = tester
         .getTopLeft(find.byKey(const ValueKey('home_hero_preview_header')))
         .dy;
-    final footerTopBefore = tester
-        .getTopLeft(find.byKey(const ValueKey('home_hero_preview_footer')))
+    final metaTopBefore = tester
+        .getTopLeft(find.byKey(const ValueKey('home_hero_meta_row')))
         .dy;
     await tester.drag(
       find.byKey(const ValueKey('home_hero_preview_list')),
@@ -379,13 +395,13 @@ void main() {
     final headerTopAfter = tester
         .getTopLeft(find.byKey(const ValueKey('home_hero_preview_header')))
         .dy;
-    final footerTopAfter = tester
-        .getTopLeft(find.byKey(const ValueKey('home_hero_preview_footer')))
+    final metaTopAfter = tester
+        .getTopLeft(find.byKey(const ValueKey('home_hero_meta_row')))
         .dy;
     expect(heightAfterScroll, longHeight);
     expect(ctaTopAfter, ctaTopBefore);
     expect(headerTopAfter, headerTopBefore);
-    expect(footerTopAfter, footerTopBefore);
+    expect(metaTopAfter, metaTopBefore);
     expect(tester.takeException(), isNull);
   });
 

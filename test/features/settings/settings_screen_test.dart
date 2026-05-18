@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
+import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
 import 'package:pebble_routines/features/settings/ui/appearance_screen.dart';
 import 'package:pebble_routines/features/settings/ui/settings_screen.dart';
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
@@ -15,9 +16,11 @@ void main() {
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
 
     await tester.pumpWidget(
       ProviderScope(
+        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
         child: MaterialApp(
           theme: ThemeData(
             colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
@@ -35,11 +38,45 @@ void main() {
     expect(find.text('Your account'), findsOneWidget);
     expect(find.text('About Pebble'), findsOneWidget);
     expect(find.text('Reminders'), findsOneWidget);
+    expect(find.text('Visual anchor'), findsOneWidget);
 
     expect(find.text('Subscription Status (Dev Override)'), findsNothing);
     expect(find.text('Show Celebration'), findsNothing);
     expect(find.text('Sound effects'), findsNothing);
     expect(find.text('Support'), findsNothing);
+  });
+
+  testWidgets('visual anchor setting defaults on and persists changes', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+        child: MaterialApp(
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
+            useMaterial3: true,
+          ),
+          home: const SettingsScreen(),
+        ),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('Visual anchor'), findsOneWidget);
+    expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
+
+    await tester.tap(find.byType(Switch));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(prefs.getBool('showVisualAnchor'), isFalse);
+    expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
   });
 
   testWidgets('theme picker shows curated sections for free users', (

@@ -837,18 +837,22 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                 child: Container(
                   height: 48,
                   decoration: BoxDecoration(
-                    color: foundation.surfaceLow,
+                    color: foundation.surfaceLow.withValues(alpha: 0.92),
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(18),
                     ),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.24),
+                      color: Color.lerp(
+                        foundation.borderSubtle,
+                        themeData.colorScheme.primary,
+                        0.18,
+                      )!.withValues(alpha: 0.82),
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: foundation.shadowSoft,
-                        blurRadius: 20,
-                        offset: const Offset(0, 6),
+                        color: foundation.shadowSoft.withValues(alpha: 0.72),
+                        blurRadius: 18,
+                        offset: const Offset(0, 5),
                       ),
                     ],
                   ),
@@ -2077,17 +2081,20 @@ class _HomeHeroStage extends ConsumerWidget {
                 SizedBox(height: metrics.titlePreviewGap),
                 _HomeHeroPreviewCard(
                   steps: steps,
-                  latestRun: latestRun,
                   height: metrics.previewHeight,
-                  footerHeight: metrics.previewFooterHeight,
                   accentColor: accentColor,
                   themeData: themeData,
                   onSettings: onSettings,
-                  onReminders: onReminders,
-                  onEmail: onEmail,
                   onStepTap: onPreviewStepTap,
                 ),
-                SizedBox(height: metrics.previewCtaGap),
+                SizedBox(height: metrics.previewMetaGap),
+                _HomeHeroMetaRow(
+                  latestRun: latestRun,
+                  lastRunTextFor: _lastRunText,
+                  onReminders: onReminders,
+                  onEmail: onEmail,
+                ),
+                SizedBox(height: metrics.metaCtaGap),
                 SizedBox(
                   key: const ValueKey('home_hero_cta_box'),
                   width: double.infinity,
@@ -2130,6 +2137,14 @@ class _HomeHeroStage extends ConsumerWidget {
     );
   }
 
+  String _lastRunText(DateTime finishedAt) {
+    final diff = DateTime.now().difference(finishedAt);
+    if (diff.inMinutes < 1) return 'Last run: just now';
+    if (diff.inHours < 1) return 'Last run: ${diff.inMinutes}m ago';
+    if (diff.inDays < 1) return 'Last run: ${diff.inHours}h ago';
+    return 'Last run: ${DateFormat('MMM d').format(finishedAt)}';
+  }
+
   TextSpan _titleSpan(String title, Color accent) {
     final trimmed = title.trim().isEmpty ? 'Untitled routine' : title.trim();
     final hasTerminalPunctuation = RegExp(r'[.!?]$').hasMatch(trimmed);
@@ -2155,26 +2170,18 @@ class _HomeHeroStage extends ConsumerWidget {
 class _HomeHeroPreviewCard extends StatelessWidget {
   const _HomeHeroPreviewCard({
     required this.steps,
-    required this.latestRun,
     required this.height,
-    required this.footerHeight,
     required this.accentColor,
     required this.themeData,
     required this.onSettings,
-    required this.onReminders,
-    required this.onEmail,
     required this.onStepTap,
   });
 
   final List<RoutineStep> steps;
-  final AsyncValue<RoutineRun?> latestRun;
   final double height;
-  final double footerHeight;
   final Color accentColor;
   final ThemeData themeData;
   final VoidCallback onSettings;
-  final VoidCallback onReminders;
-  final VoidCallback onEmail;
   final ValueChanged<int> onStepTap;
 
   @override
@@ -2209,33 +2216,9 @@ class _HomeHeroPreviewCard extends StatelessWidget {
               onStepTap: onStepTap,
             ),
           ),
-          SizedBox(height: compact ? 2 : 7),
-          Divider(
-            height: 1,
-            thickness: 1,
-            color: foundation.borderSubtle.withValues(alpha: 0.72),
-          ),
-          SizedBox(
-            height: footerHeight,
-            child: _HomeHeroPreviewFooter(
-              compact: compact,
-              latestRun: latestRun,
-              lastRunTextFor: _lastRunText,
-              onReminders: onReminders,
-              onEmail: onEmail,
-            ),
-          ),
         ],
       ),
     );
-  }
-
-  String _lastRunText(DateTime finishedAt) {
-    final diff = DateTime.now().difference(finishedAt);
-    if (diff.inMinutes < 1) return 'Last run: just now';
-    if (diff.inHours < 1) return 'Last run: ${diff.inMinutes}m ago';
-    if (diff.inDays < 1) return 'Last run: ${diff.inHours}h ago';
-    return 'Last run: ${DateFormat('MMM d').format(finishedAt)}';
   }
 }
 
@@ -2298,16 +2281,14 @@ class _HomeHeroPreviewHeader extends StatelessWidget {
   }
 }
 
-class _HomeHeroPreviewFooter extends StatelessWidget {
-  const _HomeHeroPreviewFooter({
-    required this.compact,
+class _HomeHeroMetaRow extends StatelessWidget {
+  const _HomeHeroMetaRow({
     required this.latestRun,
     required this.lastRunTextFor,
     required this.onReminders,
     required this.onEmail,
   });
 
-  final bool compact;
   final AsyncValue<RoutineRun?> latestRun;
   final String Function(DateTime finishedAt) lastRunTextFor;
   final VoidCallback onReminders;
@@ -2316,57 +2297,61 @@ class _HomeHeroPreviewFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
-    final lastRunLineHeight = compact ? 12.0 : 17.0;
-    final actionHeight = compact ? 36.0 : 42.0;
 
-    return Padding(
-      key: const ValueKey('home_hero_preview_footer'),
-      padding: EdgeInsets.only(top: compact ? 0 : 6),
-      child: Column(
+    return SizedBox(
+      key: const ValueKey('home_hero_meta_row'),
+      height: 38,
+      child: Row(
         children: [
-          SizedBox(
-            key: const ValueKey('home_hero_last_run_footer'),
-            height: lastRunLineHeight,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: latestRun.maybeWhen(
-                data: (run) => run == null
-                    ? const SizedBox.shrink()
-                    : Text(
-                        lastRunTextFor(run.finishedAt),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: foundation.textMuted,
+          Expanded(
+            child: latestRun.maybeWhen(
+              data: (run) => run == null
+                  ? const SizedBox.shrink()
+                  : Row(
+                      key: const ValueKey('home_hero_last_run_meta'),
+                      children: [
+                        Container(
+                          width: 7,
+                          height: 7,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Color(0xFFA3C9A8),
+                          ),
                         ),
-                      ),
-                orElse: () => const SizedBox.shrink(),
-              ),
+                        const SizedBox(width: 7),
+                        Expanded(
+                          child: Text(
+                            lastRunTextFor(run.finishedAt),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: foundation.textMuted,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+              orElse: () => const SizedBox.shrink(),
             ),
           ),
-          SizedBox(height: compact ? 2 : 5),
+          const SizedBox(width: 12),
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
-                child: _HomeHeroFooterAction(
-                  key: const ValueKey('home_hero_footer_reminders'),
-                  icon: LucideIcons.bell,
-                  label: 'Reminders',
-                  height: actionHeight,
-                  onTap: onReminders,
-                ),
+              _HomeHeroFooterAction(
+                key: const ValueKey('home_hero_footer_reminders'),
+                icon: LucideIcons.bell,
+                label: 'Reminders',
+                onTap: onReminders,
               ),
               const SizedBox(width: 8),
-              Expanded(
-                child: _HomeHeroFooterAction(
-                  key: const ValueKey('home_hero_footer_email'),
-                  icon: LucideIcons.mail,
-                  label: 'Email',
-                  height: actionHeight,
-                  onTap: onEmail,
-                ),
+              _HomeHeroFooterAction(
+                key: const ValueKey('home_hero_footer_email'),
+                icon: LucideIcons.mail,
+                label: 'Email',
+                onTap: onEmail,
               ),
             ],
           ),
@@ -2381,13 +2366,11 @@ class _HomeHeroFooterAction extends StatelessWidget {
     super.key,
     required this.icon,
     required this.label,
-    required this.height,
     required this.onTap,
   });
 
   final IconData icon;
   final String label;
-  final double height;
   final VoidCallback onTap;
 
   @override
@@ -2398,35 +2381,34 @@ class _HomeHeroFooterAction extends StatelessWidget {
       label: label,
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(999),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(999),
           child: Container(
-            height: height,
-            padding: const EdgeInsets.symmetric(horizontal: 10),
+            height: 36,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: foundation.surfaceHigh.withValues(alpha: 0.46),
-              borderRadius: BorderRadius.circular(12),
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(999),
               border: Border.all(
-                color: foundation.borderSubtle.withValues(alpha: 0.72),
+                color: foundation.borderSubtle.withValues(alpha: 0.9),
               ),
             ),
             child: Row(
+              mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(icon, size: 14, color: foundation.textMuted),
                 const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: foundation.textSecondary,
-                    ),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: foundation.textSecondary,
                   ),
                 ),
               ],
@@ -2457,41 +2439,23 @@ class _HomeHeroStepList extends StatefulWidget {
 
 class _HomeHeroStepListState extends State<_HomeHeroStepList> {
   late final ScrollController _controller;
-  bool _canScroll = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = ScrollController()..addListener(_syncCanScroll);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _syncCanScroll());
-  }
-
-  @override
-  void didUpdateWidget(covariant _HomeHeroStepList oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _syncCanScroll());
+    _controller = ScrollController();
   }
 
   @override
   void dispose() {
-    _controller
-      ..removeListener(_syncCanScroll)
-      ..dispose();
+    _controller.dispose();
     super.dispose();
-  }
-
-  void _syncCanScroll() {
-    if (!mounted || !_controller.hasClients) return;
-    final canScroll = _controller.position.maxScrollExtent > 1;
-    if (canScroll != _canScroll) {
-      setState(() => _canScroll = canScroll);
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
     if (widget.steps.isEmpty) {
+      final foundation = context.darkFoundation;
       return Align(
         alignment: Alignment.topLeft,
         child: Padding(
@@ -2507,50 +2471,35 @@ class _HomeHeroStepListState extends State<_HomeHeroStepList> {
       );
     }
 
-    return Stack(
-      children: [
-        ListView.separated(
-          key: const ValueKey('home_hero_preview_list'),
-          controller: _controller,
-          primary: false,
-          shrinkWrap: false,
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.only(bottom: 8),
-          itemCount: widget.steps.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
-          itemBuilder: (context, index) {
-            return _HomeHeroStepRow(
-              step: widget.steps[index],
-              index: index + 1,
-              accentColor: widget.accentColor,
-              themeData: widget.themeData,
-              onTap: () => widget.onStepTap(index),
-            );
-          },
-        ),
-        if (_canScroll)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: IgnorePointer(
-              child: Container(
-                key: const ValueKey('home_hero_preview_fade'),
-                height: 30,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      foundation.surfaceLow.withValues(alpha: 0),
-                      foundation.surfaceLow.withValues(alpha: 0.9),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
+    return ShaderMask(
+      shaderCallback: (bounds) {
+        return LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Colors.white, Colors.white.withValues(alpha: 0.0)],
+          stops: const [0.6, 1.0],
+        ).createShader(bounds);
+      },
+      blendMode: BlendMode.dstIn,
+      child: ListView.separated(
+        key: const ValueKey('home_hero_preview_list'),
+        controller: _controller,
+        primary: false,
+        shrinkWrap: false,
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.only(bottom: 8),
+        itemCount: widget.steps.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 8),
+        itemBuilder: (context, index) {
+          return _HomeHeroStepRow(
+            step: widget.steps[index],
+            index: index + 1,
+            accentColor: widget.accentColor,
+            themeData: widget.themeData,
+            onTap: () => widget.onStepTap(index),
+          );
+        },
+      ),
     );
   }
 }
@@ -2580,6 +2529,22 @@ class _HomeHeroStepRow extends StatelessWidget {
     );
 
     final semanticsLabel = 'Edit step: $label';
+    final isDark = themeData.brightness == Brightness.dark;
+    final pillColor = Color.lerp(
+      foundation.surfaceHigh,
+      const Color(0xFFFDFBFC),
+      isDark ? 0.08 : 0.92,
+    )!;
+    final pillBorder = Color.lerp(
+      foundation.borderSubtle,
+      const Color(0xFFF0ECE6),
+      isDark ? 0.12 : 0.92,
+    )!;
+    final numberFill = Color.lerp(
+      foundation.surfaceHigh,
+      accentColor,
+      isDark ? 0.18 : 0.13,
+    )!;
 
     return Semantics(
       button: true,
@@ -2588,33 +2553,29 @@ class _HomeHeroStepRow extends StatelessWidget {
         message: semanticsLabel,
         child: Material(
           color: Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(16),
             child: Container(
-              padding: const EdgeInsets.fromLTRB(10, 10, 12, 10),
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
               decoration: BoxDecoration(
-                color: foundation.surfaceHigh.withValues(alpha: 0.72),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: foundation.borderSubtle),
+                color: pillColor,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: pillBorder),
               ),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Container(
                     width: 28,
                     height: 28,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: Color.lerp(
-                        foundation.surfaceHigh,
-                        accentColor,
-                        0.16,
-                      ),
-                      borderRadius: BorderRadius.circular(10),
+                      color: numberFill,
+                      shape: BoxShape.circle,
                       border: Border.all(
-                        color: accentColor.withValues(alpha: 0.14),
+                        color: accentColor.withValues(alpha: 0.12),
                       ),
                     ),
                     child: Text(
@@ -2655,22 +2616,22 @@ class _HomeHeroMetrics {
     required this.topInset,
     required this.overlineTitleGap,
     required this.titlePreviewGap,
-    required this.previewCtaGap,
+    required this.previewMetaGap,
+    required this.metaCtaGap,
     required this.bottomInset,
     required this.titleFontSize,
     required this.previewHeight,
-    required this.previewFooterHeight,
     required this.effectiveTextScale,
   });
 
   final double topInset;
   final double overlineTitleGap;
   final double titlePreviewGap;
-  final double previewCtaGap;
+  final double previewMetaGap;
+  final double metaCtaGap;
   final double bottomInset;
   final double titleFontSize;
   final double previewHeight;
-  final double previewFooterHeight;
   final double effectiveTextScale;
 
   static _HomeHeroMetrics resolve({
@@ -2694,11 +2655,16 @@ class _HomeHeroMetrics {
         : compact
         ? 13.0
         : 18.0;
-    final previewCtaGap = tight
+    final previewMetaGap = tight
         ? 5.0
         : compact
-        ? 13.0
-        : 16.0;
+        ? 10.0
+        : 14.0;
+    final metaCtaGap = tight
+        ? 5.0
+        : compact
+        ? 12.0
+        : 14.0;
     final bottomInset = tight
         ? 0.0
         : compact
@@ -2709,13 +2675,12 @@ class _HomeHeroMetrics {
         : compact
         ? 42.0
         : 52.0;
-    final previewFooterHeight = tight ? 50.0 : 70.0;
     final targetPreviewHeight =
         (tight
-            ? 142.0
+            ? 116.0
             : compact
-            ? 184.0
-            : 228.0) +
+            ? 158.0
+            : 202.0) +
         previewExtension;
     final baseFixedHeight =
         baseTopInset +
@@ -2723,10 +2688,13 @@ class _HomeHeroMetrics {
         overlineTitleGap +
         (titleFontSize * 1.02 * 2 * effectiveScale) +
         titlePreviewGap +
-        previewCtaGap +
+        targetPreviewHeight +
+        previewMetaGap +
+        38 +
+        metaCtaGap +
         56 +
         bottomInset;
-    final slack = height - (baseFixedHeight + targetPreviewHeight);
+    final slack = height - baseFixedHeight;
     final dropCap = tightForText
         ? 0.0
         : tight
@@ -2738,8 +2706,9 @@ class _HomeHeroMetrics {
         ? 0.0
         : (slack * 0.68).clamp(0.0, dropCap).toDouble();
     final topInset = math.max(0.0, baseTopInset + verticalDrop - heroLift);
-    final fixedHeight = baseFixedHeight - baseTopInset + topInset;
-    final previewMinHeight = tight ? 116.0 : 158.0;
+    final fixedHeight =
+        baseFixedHeight - baseTopInset - targetPreviewHeight + topInset;
+    final previewMinHeight = tight ? 98.0 : 140.0;
     final remainingHeight = height - fixedHeight;
     final previewHeight = remainingHeight <= previewMinHeight
         ? remainingHeight.clamp(0.0, targetPreviewHeight).toDouble()
@@ -2751,11 +2720,11 @@ class _HomeHeroMetrics {
       topInset: topInset,
       overlineTitleGap: overlineTitleGap,
       titlePreviewGap: titlePreviewGap,
-      previewCtaGap: previewCtaGap,
+      previewMetaGap: previewMetaGap,
+      metaCtaGap: metaCtaGap,
       bottomInset: bottomInset,
       titleFontSize: titleFontSize,
       previewHeight: previewHeight,
-      previewFooterHeight: previewFooterHeight,
       effectiveTextScale: effectiveScale,
     );
   }

@@ -124,7 +124,7 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(TextButton, 'Add step'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Add step'));
       await tester.pumpAndSettle();
 
       expect(findPrimaryStepField(), findsOneWidget);
@@ -134,7 +134,47 @@ void main() {
     },
   );
 
-  testWidgets('bottom done enables only with content and clutter is removed', (
+  testWidgets('primary add step inserts a focused row after step text exists', (
+    tester,
+  ) async {
+    final repository = FakeRoutineComposerDraftRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          routineComposerDraftRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: MaterialApp(
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+            useMaterial3: true,
+          ),
+          home: RoutineComposerScreen.newDraft(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    final firstStepFieldFinder = findAnyStepField().first;
+    await tester.tap(firstStepFieldFinder);
+    await tester.pump();
+    await tester.enterText(firstStepFieldFinder, 'Check the hob');
+    await tester.pump();
+
+    expect(find.widgetWithText(FilledButton, 'Add next step'), findsOneWidget);
+    expect(find.text('Add step creates the next one'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Add next step'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Check the hob'), findsOneWidget);
+    expect(findStepFields(), findsOneWidget);
+    final newStepField = tester.widget<TextField>(findStepFields().first);
+    expect(newStepField.focusNode?.hasFocus, isTrue);
+  });
+
+  testWidgets('app bar done enables only with content and clutter is removed', (
     tester,
   ) async {
     final repository = FakeRoutineComposerDraftRepository();
@@ -160,9 +200,11 @@ void main() {
     expect(find.text('Brain-dump first. Upgrade steps after.'), findsNothing);
     expect(find.text('Keys & wallet'), findsNothing);
     expect(find.text('New Routine'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Add step'), findsOneWidget);
+    expect(find.text('Save routine'), findsNothing);
 
-    final doneButton = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Save routine'),
+    final doneButton = tester.widget<TextButton>(
+      find.widgetWithText(TextButton, 'Done'),
     );
     expect(doneButton.onPressed, isNull);
 
@@ -172,8 +214,8 @@ void main() {
     await tester.enterText(firstStepFieldFinder, 'Check doors');
     await tester.pump();
 
-    final enabledDoneButton = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Save routine'),
+    final enabledDoneButton = tester.widget<TextButton>(
+      find.widgetWithText(TextButton, 'Done'),
     );
     expect(enabledDoneButton.onPressed, isNotNull);
   });
@@ -216,7 +258,7 @@ void main() {
       isTrue,
     );
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Save routine'));
+    await tester.tap(find.widgetWithText(TextButton, 'Done'));
     await tester.pumpAndSettle();
 
     expect(saveCompleted, isTrue);

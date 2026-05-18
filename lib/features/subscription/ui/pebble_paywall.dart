@@ -17,6 +17,7 @@ enum PremiumEntrySource {
   routineLimit,
   stepLimit,
   guidanceAudio,
+  proofPhotoLimit,
 }
 
 extension PremiumEntrySourceParsing on PremiumEntrySource {
@@ -27,6 +28,7 @@ extension PremiumEntrySourceParsing on PremiumEntrySource {
       'routine_limit' => PremiumEntrySource.routineLimit,
       'step_limit' => PremiumEntrySource.stepLimit,
       'guidance_audio' => PremiumEntrySource.guidanceAudio,
+      'proof_photo_limit' => PremiumEntrySource.proofPhotoLimit,
       _ => PremiumEntrySource.general,
     };
   }
@@ -39,6 +41,7 @@ extension PremiumEntrySourceParsing on PremiumEntrySource {
       PremiumEntrySource.routineLimit => 'routine_limit',
       PremiumEntrySource.stepLimit => 'step_limit',
       PremiumEntrySource.guidanceAudio => 'guidance_audio',
+      PremiumEntrySource.proofPhotoLimit => 'proof_photo_limit',
     };
   }
 }
@@ -332,7 +335,7 @@ class _SimplePaywallHeader extends StatelessWidget {
     };
     final body = switch (entrySource) {
       PremiumEntrySource.routineLimit =>
-        'Pebble is free to use with no login and no ads. Free includes 2 routines; unlimited routines are part of Pebble Plus.',
+        'Pebble is free to use with no login and no ads. Free includes 2 routines; unlimited routines are part of Pebble Premium.',
       _ =>
         'Unlimited routines, proof photo backup, shared reminders, and every premium theme.',
     };
