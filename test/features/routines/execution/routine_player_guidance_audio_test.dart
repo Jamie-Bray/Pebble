@@ -361,7 +361,7 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('Add more with Pebble Plus'), findsOneWidget);
+    expect(find.text('Add more with Pebble Premium'), findsOneWidget);
     expect(find.text('Choose from Gallery'), findsNothing);
   });
 
@@ -383,7 +383,7 @@ void main() {
     );
 
     expect(find.text('Maximum photos added for this step.'), findsOneWidget);
-    expect(find.text('Add more with Pebble Plus'), findsNothing);
+    expect(find.text('Add more with Pebble Premium'), findsNothing);
     expect(find.text('Choose from Gallery'), findsNothing);
   });
 
@@ -707,7 +707,14 @@ class _FakeGuidanceAudioStorage implements GuidanceAudioStorage {
   }
 
   @override
-  Future<void> deleteStoredAudio(String localPath) async {}
+  Future<void> deleteStoredAudio(String localPath) async {
+    // No-op
+  }
+
+  @override
+  Future<void> cleanupOrphanedAudio(Set<String> activeLocalPaths) async {
+    // No-op
+  }
 
   @override
   Future<String> prepareRecordingPath() {

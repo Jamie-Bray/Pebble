@@ -81,8 +81,6 @@ class RoutineComposerViewModel extends StateNotifier<RoutineComposerState> {
               seedData:
                   _config.seedData ?? _seedDataFromRoutine(_config.routine),
             )
-          : _config.isTemplateCustomization
-          ? await _repository.createDraft(seedData: _config.seedData)
           : _config.forceNewDraft
           ? await _repository.createFreshDraft()
           : await _repository.loadOrCreateDraft(

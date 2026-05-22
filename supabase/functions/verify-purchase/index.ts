@@ -16,11 +16,7 @@ type VerifiedPurchase = {
 };
 
 const personalPremiumProductIds = new Set([
-  'personal_premium_monthly',
-]);
-
-const householdProductIds = new Set([
-  'household_monthly',
+  'personal_premium',
 ]);
 
 const corsHeaders = {
@@ -303,11 +299,11 @@ function isFuture(value: string | null): boolean {
 }
 
 function isKnownProduct(productId: string): boolean {
-  return personalPremiumProductIds.has(productId) || householdProductIds.has(productId);
+  return personalPremiumProductIds.has(productId);
 }
 
 function tierForProduct(productId: string): 'personalPremium' | 'pebbleHousehold' {
-  return householdProductIds.has(productId) ? 'pebbleHousehold' : 'personalPremium';
+  return 'personalPremium';
 }
 
 function isEntitlementCurrentlyActive(status: string, periodEndsAt: string | null): boolean {

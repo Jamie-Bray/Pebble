@@ -11,7 +11,31 @@ import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/repositories/routine_session_repository.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
+import 'package:pebble_routines/features/routines/composer/data/guidance_audio_storage.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
+
+class _FakeGuidanceAudioStorage implements GuidanceAudioStorage {
+  @override
+  Future<String> prepareRecordingPath() async => '';
+  @override
+  Future<String> resolveStoredPath(String localPath) async => '';
+  @override
+  Future<void> deleteStoredAudio(String localPath) async {}
+  @override
+  Future<void> cleanupOrphanedAudio(Set<String> activeLocalPaths) async {}
+  @override
+  Future<StepGuidanceAudio> createMetadataForRecordedFile({
+    required String absolutePath,
+    required Duration duration,
+    String mimeType = 'audio/wav',
+  }) async {
+    return StepGuidanceAudio(
+      localPath: absolutePath,
+      durationMs: duration.inMilliseconds,
+      mimeType: mimeType,
+    );
+  }
+}
 
 class _FakeProofStorage implements RoutineSessionProofStorage {
   final Set<String> deletedSessions = <String>{};
@@ -96,6 +120,7 @@ void main() {
         overrides: [
           localDbProvider.overrideWithValue(database),
           routineSessionProofStorageProvider.overrideWithValue(proofStorage),
+          guidanceAudioStorageProvider.overrideWithValue(_FakeGuidanceAudioStorage()),
           subscriptionAccountControllerProvider.overrideWith(
             (ref) => SubscriptionAccountController(database, loadOnInit: false),
           ),

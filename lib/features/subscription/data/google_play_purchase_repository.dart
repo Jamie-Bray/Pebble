@@ -26,13 +26,8 @@ class GooglePlayPurchaseRepository extends ChangeNotifier
     unawaited(_initialise());
   }
 
-  static const _personalProductIds = <String>{
-    PebbleProductIds.personalPremiumMonthly,
-  };
-  static const _allProductIds = <String>{
-    PebbleProductIds.personalPremiumMonthly,
-    PebbleProductIds.householdMonthly,
-  };
+  static const _personalProductIds = <String>{PebbleProductIds.personalPremium};
+  static const _allProductIds = <String>{PebbleProductIds.personalPremium};
 
   final Ref _ref;
   final InAppPurchase _iap = InAppPurchase.instance;
@@ -43,6 +38,7 @@ class GooglePlayPurchaseRepository extends ChangeNotifier
   DateTime? _lastPurchaseCheckAt;
   List<ProductDetails> _products = [];
   Completer<PurchaseResult>? _purchaseCompleter;
+  BillingPlan? _purchasePlan;
 
   @override
   String? get manageSubscriptionsUrl => Platform.isAndroid
@@ -61,9 +57,7 @@ class GooglePlayPurchaseRepository extends ChangeNotifier
   @override
   bool get isPurchaseAvailable =>
       _billingAvailable &&
-      _products.any(
-        (product) => product.id == PebbleProductIds.personalPremiumMonthly,
-      );
+      personalPremiumProducts.any((product) => product.hasValidOfferToken);
 
   @override
   String? get unavailableReason =>
@@ -71,26 +65,18 @@ class GooglePlayPurchaseRepository extends ChangeNotifier
 
   @override
   List<PremiumProduct> get personalPremiumProducts {
-    ProductDetails? product;
+    final products = <PremiumProduct>[];
     for (final candidate in _products) {
-      if (candidate.id == PebbleProductIds.personalPremiumMonthly) {
-        product = candidate;
-        break;
+      final product = _premiumProductFromDetails(candidate);
+      if (product != null) {
+        products.add(product);
       }
     }
-    if (product == null) {
+    if (products.isEmpty) {
       return getPlaceholderPremiumCatalog(isPurchasable: false);
     }
-    return [
-      PremiumProduct(
-        productId: product.id,
-        plan: BillingPlan.monthly,
-        title: 'Monthly',
-        priceLabel: product.price,
-        detailLabel: 'per month. Cancel anytime.',
-        isPurchasable: true,
-      ),
-    ];
+    products.sort((a, b) => a.plan.index.compareTo(b.plan.index));
+    return products;
   }
 
   void _initStream() {
@@ -140,8 +126,8 @@ class GooglePlayPurchaseRepository extends ChangeNotifier
       }
 
       _products = response.productDetails;
-      final missingPersonalPremium = !_products.any(
-        (p) => p.id == PebbleProductIds.personalPremiumMonthly,
+      final missingPersonalPremium = !personalPremiumProducts.any(
+        (product) => product.hasValidOfferToken,
       );
       _unavailableReason = missingPersonalPremium
           ? 'Personal Premium is not available from Google Play yet.'
@@ -164,8 +150,16 @@ class GooglePlayPurchaseRepository extends ChangeNotifier
         unavailableReason ?? 'Personal Premium is not available right now.',
       );
     }
+    final premiumProduct = personalPremiumProducts.firstWhere(
+      (product) => product.plan == plan && product.hasValidOfferToken,
+      orElse: () => throw PurchaseFlowException(
+        plan == BillingPlan.yearly
+            ? 'Yearly Personal Premium is not available from Google Play yet.'
+            : 'Monthly Personal Premium is not available from Google Play yet.',
+      ),
+    );
     final productDetails = _products.firstWhere(
-      (p) => p.id == PebbleProductIds.personalPremiumMonthly,
+      (product) => _matchesPremiumProduct(product, premiumProduct),
     );
 
     _purchaseCompleter?.completeError(
@@ -173,11 +167,16 @@ class GooglePlayPurchaseRepository extends ChangeNotifier
     );
     final completer = Completer<PurchaseResult>();
     _purchaseCompleter = completer;
+    _purchasePlan = premiumProduct.plan;
 
     try {
-      final started = await _iap.buyNonConsumable(
-        purchaseParam: PurchaseParam(productDetails: productDetails),
-      );
+      final purchaseParam = Platform.isAndroid
+          ? GooglePlayPurchaseParam(
+              productDetails: productDetails,
+              offerToken: premiumProduct.offerToken,
+            )
+          : PurchaseParam(productDetails: productDetails);
+      final started = await _iap.buyNonConsumable(purchaseParam: purchaseParam);
       if (!started && !completer.isCompleted) {
         completer.completeError(
           const PurchaseFlowException('Google Play could not start checkout.'),
@@ -196,6 +195,7 @@ class GooglePlayPurchaseRepository extends ChangeNotifier
     return completer.future.whenComplete(() {
       if (identical(_purchaseCompleter, completer)) {
         _purchaseCompleter = null;
+        _purchasePlan = null;
       }
     });
   }
@@ -290,6 +290,7 @@ class GooglePlayPurchaseRepository extends ChangeNotifier
           final result = await _verifyAndApply(
             purchaseDetails,
             restored: purchaseDetails.status == PurchaseStatus.restored,
+            plan: _purchasePlan,
           );
           if (result != null &&
               _purchaseCompleter != null &&
@@ -310,6 +311,7 @@ class GooglePlayPurchaseRepository extends ChangeNotifier
   Future<PurchaseResult?> _verifyAndApply(
     PurchaseDetails purchaseDetails, {
     required bool restored,
+    BillingPlan? plan,
   }) async {
     final verification = await _verifyPurchaseOnServer(purchaseDetails);
     switch (verification.status) {
@@ -326,7 +328,7 @@ class GooglePlayPurchaseRepository extends ChangeNotifier
             .applyVerifiedPersonalEntitlement(tier);
         return PurchaseResult(
           tier: tier,
-          plan: BillingPlan.monthly,
+          plan: plan ?? BillingPlan.monthly,
           requiresSignIn: false,
           message: restored
               ? 'Personal Premium restored from Google Play.'
@@ -429,6 +431,59 @@ class GooglePlayPurchaseRepository extends ChangeNotifier
     _subscription.cancel();
     super.dispose();
   }
+}
+
+PremiumProduct? _premiumProductFromDetails(ProductDetails product) {
+  if (product.id != PebbleProductIds.personalPremium ||
+      product is! GooglePlayProductDetails) {
+    return null;
+  }
+  final subscriptionIndex = product.subscriptionIndex;
+  final offerDetails = product.productDetails.subscriptionOfferDetails;
+  if (subscriptionIndex == null ||
+      offerDetails == null ||
+      subscriptionIndex >= offerDetails.length) {
+    return null;
+  }
+
+  final offer = offerDetails[subscriptionIndex];
+  final plan = _planForBasePlanId(offer.basePlanId);
+  if (plan == null) {
+    return null;
+  }
+
+  return PremiumProduct(
+    productId: product.id,
+    basePlanId: offer.basePlanId,
+    plan: plan,
+    title: plan == BillingPlan.yearly ? 'Yearly' : 'Monthly',
+    priceLabel: product.price,
+    detailLabel: plan == BillingPlan.yearly
+        ? 'per year. Best value.'
+        : 'per month. Cancel anytime.',
+    badgeLabel: plan == BillingPlan.yearly ? 'Best value' : null,
+    offerToken: product.offerToken,
+    isPurchasable: product.offerToken != null && product.offerToken!.isNotEmpty,
+  );
+}
+
+bool _matchesPremiumProduct(
+  ProductDetails productDetails,
+  PremiumProduct premiumProduct,
+) {
+  if (productDetails.id != premiumProduct.productId ||
+      productDetails is! GooglePlayProductDetails) {
+    return false;
+  }
+  return productDetails.offerToken == premiumProduct.offerToken;
+}
+
+BillingPlan? _planForBasePlanId(String basePlanId) {
+  return switch (basePlanId) {
+    PebbleBasePlanIds.monthly => BillingPlan.monthly,
+    PebbleBasePlanIds.yearly => BillingPlan.yearly,
+    _ => null,
+  };
 }
 
 enum _VerifiedPurchaseStatus { active, expired, failed }

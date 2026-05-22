@@ -10,28 +10,38 @@ enum BillingPlan { monthly, yearly }
 enum PurchaseStore { googlePlay, appStore }
 
 class PebbleProductIds {
-  static const personalPremiumMonthly = 'personal_premium_monthly';
-  static const householdMonthly = 'household_monthly';
+  static const personalPremium = 'personal_premium';
+}
+
+class PebbleBasePlanIds {
+  static const monthly = 'monthly';
+  static const yearly = 'yearly';
 }
 
 class PremiumProduct {
   const PremiumProduct({
     required this.productId,
+    required this.basePlanId,
     required this.plan,
     required this.title,
     required this.priceLabel,
     required this.detailLabel,
     required this.isPurchasable,
+    this.offerToken,
     this.badgeLabel,
   });
 
   final String productId;
+  final String basePlanId;
   final BillingPlan plan;
   final String title;
   final String priceLabel;
   final String detailLabel;
+  final String? offerToken;
   final String? badgeLabel;
   final bool isPurchasable;
+
+  bool get hasValidOfferToken => offerToken != null && offerToken!.isNotEmpty;
 }
 
 class PurchaseResult {
@@ -137,11 +147,22 @@ List<PremiumProduct> getPlaceholderPremiumCatalog({
 }) {
   return [
     PremiumProduct(
-      productId: PebbleProductIds.personalPremiumMonthly,
+      productId: PebbleProductIds.personalPremium,
+      basePlanId: PebbleBasePlanIds.monthly,
       plan: BillingPlan.monthly,
       title: 'Monthly',
-      priceLabel: '99p',
+      priceLabel: '\$0.99',
       detailLabel: 'per month. Cancel anytime.',
+      isPurchasable: isPurchasable,
+    ),
+    PremiumProduct(
+      productId: PebbleProductIds.personalPremium,
+      basePlanId: PebbleBasePlanIds.yearly,
+      plan: BillingPlan.yearly,
+      title: 'Yearly',
+      priceLabel: '\$6.99',
+      detailLabel: 'per year. About \$0.58 / month.',
+      badgeLabel: 'Best value',
       isPurchasable: isPurchasable,
     ),
   ];

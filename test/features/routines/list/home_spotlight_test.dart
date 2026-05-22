@@ -16,10 +16,19 @@ import 'package:pebble_routines/features/routines/execution/data/repositories/ro
 import 'package:pebble_routines/features/routines/execution/ui/routine_player_screen.dart';
 import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
 import 'package:pebble_routines/features/routines/list/ui/routine_list_screen.dart';
+import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../composer/fake_routine_composer_draft_repository.dart';
 
+late SharedPreferences _prefs;
+
 void main() {
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    _prefs = await SharedPreferences.getInstance();
+  });
+
   group('selectHomeSpotlightRoutine', () {
     test('uses last-run routine first', () {
       final newest = _routine(id: 1, title: 'Newest');
@@ -62,7 +71,7 @@ void main() {
     });
   });
 
-  testWidgets('empty home shows calm create and template actions', (
+  testWidgets('empty home shows reliable create and template actions', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -115,10 +124,14 @@ void main() {
     expect(find.text('Begin Routine'), findsOneWidget);
     expect(find.text('Last Run.'), findsOneWidget);
     expect(find.text('Settings'), findsNothing);
-    expect(find.text('Reminders'), findsOneWidget);
-    expect(find.text('Email'), findsOneWidget);
+    expect(find.byTooltip('App settings'), findsOneWidget);
+    expect(find.text('Reminders'), findsNothing);
+    expect(find.text('Email'), findsNothing);
+    expect(find.byTooltip('Reminders'), findsOneWidget);
+    expect(find.byTooltip('Email'), findsOneWidget);
     expect(find.text('2 steps'), findsNothing);
     expect(find.text('Your routines'), findsOneWidget);
+    expect(find.text('2 routines'), findsOneWidget);
     expect(find.text('Last Run'), findsNothing);
     expect(find.text('Newest'), findsNothing);
     await tester.tap(find.text('Your routines'));
@@ -136,7 +149,7 @@ void main() {
     expect(find.text('Your routines'), findsOneWidget);
     expect(find.text('Your Routines'), findsNothing);
 
-    await tester.tap(find.text('Your routines'));
+    await tester.drag(find.text('Your routines'), const Offset(0, -90));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
@@ -215,6 +228,7 @@ void main() {
     expect(find.text('Routine 1'), findsNothing);
     expect(find.text('Ready when you are'), findsNothing);
     expect(find.text('Your routines'), findsOneWidget);
+    expect(find.text('7 routines'), findsOneWidget);
 
     await tester.tap(find.text('Your routines'));
     await tester.pump();
@@ -288,13 +302,13 @@ void main() {
       of: find.byKey(const ValueKey('home_hero_preview_header')),
       matching: find.byTooltip('Routine settings'),
     );
-    final footerReminders = find.descendant(
-      of: find.byKey(const ValueKey('home_hero_meta_row')),
-      matching: find.text('Reminders'),
+    final previewHeaderReminders = find.descendant(
+      of: find.byKey(const ValueKey('home_hero_preview_header')),
+      matching: find.byTooltip('Reminders'),
     );
-    final footerEmail = find.descendant(
-      of: find.byKey(const ValueKey('home_hero_meta_row')),
-      matching: find.text('Email'),
+    final previewHeaderEmail = find.descendant(
+      of: find.byKey(const ValueKey('home_hero_preview_header')),
+      matching: find.byTooltip('Email'),
     );
     final previewCardReminders = find.descendant(
       of: find.byKey(const ValueKey('home_hero_preview_card')),
@@ -310,8 +324,8 @@ void main() {
     );
     expect(find.text('STEPS PREVIEW'), findsOneWidget);
     expect(settingsCog, findsOneWidget);
-    expect(footerReminders, findsOneWidget);
-    expect(footerEmail, findsOneWidget);
+    expect(previewHeaderReminders, findsOneWidget);
+    expect(previewHeaderEmail, findsOneWidget);
     expect(previewCardReminders, findsNothing);
     expect(previewCardEmail, findsNothing);
     expect(previewMask, findsOneWidget);
@@ -402,6 +416,78 @@ void main() {
     expect(ctaTopAfter, ctaTopBefore);
     expect(headerTopAfter, headerTopBefore);
     expect(metaTopAfter, metaTopBefore);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('home steps preview collapses and expands', (tester) async {
+    await _pumpHome(
+      tester,
+      routines: [
+        _routine(
+          id: 1,
+          title: 'Departure Check',
+          steps: [
+            _step('Check windows'),
+            _step('Pack wallet'),
+            _step('Lock door'),
+          ],
+        ),
+      ],
+    );
+
+    expect(find.text('STEPS PREVIEW'), findsOneWidget);
+    expect(find.text('Check windows'), findsOneWidget);
+    expect(find.text('Begin Routine'), findsOneWidget);
+    expect(find.byTooltip('Hide steps preview'), findsOneWidget);
+    expect(find.byType(ShaderMask), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Hide steps preview'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 220));
+
+    expect(find.text('STEPS PREVIEW'), findsOneWidget);
+    expect(find.text('Check windows'), findsNothing);
+    expect(find.text('Begin Routine'), findsOneWidget);
+    expect(find.byTooltip('Show steps preview'), findsOneWidget);
+    expect(find.byType(ShaderMask), findsNothing);
+
+    await tester.tap(find.byTooltip('Show steps preview'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 220));
+
+    expect(find.text('Check windows'), findsOneWidget);
+    expect(find.byTooltip('Hide steps preview'), findsOneWidget);
+    expect(find.byType(ShaderMask), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('collapsed home steps preview persists after rebuild', (
+    tester,
+  ) async {
+    final routines = [
+      _routine(
+        id: 1,
+        title: 'Departure Check',
+        steps: [_step('Check windows'), _step('Pack wallet')],
+      ),
+    ];
+
+    await _pumpHome(tester, routines: routines);
+    expect(find.text('Check windows'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Hide steps preview'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 220));
+    expect(find.text('Check windows'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    await _pumpHome(tester, routines: routines);
+
+    expect(find.text('STEPS PREVIEW'), findsOneWidget);
+    expect(find.text('Check windows'), findsNothing);
+    expect(find.text('Begin Routine'), findsOneWidget);
+    expect(find.byTooltip('Show steps preview'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -559,8 +645,11 @@ void main() {
     expect(find.text('YOUR NEXT RIPPLE'), findsOneWidget);
     expect(find.text('Morning Reset.'), findsOneWidget);
     expect(find.text('Settings'), findsNothing);
-    expect(find.text('Reminders'), findsOneWidget);
-    expect(find.text('Email'), findsOneWidget);
+    expect(find.byTooltip('App settings'), findsOneWidget);
+    expect(find.text('Reminders'), findsNothing);
+    expect(find.text('Email'), findsNothing);
+    expect(find.byTooltip('Reminders'), findsOneWidget);
+    expect(find.byTooltip('Email'), findsOneWidget);
     expect(find.text('Begin Routine'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -609,6 +698,7 @@ List<Override> _homeOverrides({
     latestRoutineRunProvider.overrideWith(
       (ref, routineId) => Stream.value(null),
     ),
+    sharedPreferencesProvider.overrideWithValue(_prefs),
     routineComposerDraftRepositoryProvider.overrideWithValue(
       FakeRoutineComposerDraftRepository(),
     ),

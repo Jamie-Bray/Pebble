@@ -191,6 +191,7 @@ class _ReorderStepsScreenState extends ConsumerState<ReorderStepsScreen> {
     final updated = widget.routine.copyWith(
       stepsJson: _encodeSteps(steps),
       updatedAt: DateTime.now(),
+      version: widget.routine.version + 1,
     );
     await repo.saveRoutine(updated);
     await ref

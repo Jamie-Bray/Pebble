@@ -88,9 +88,13 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
     }
     setState(() => _busy = true);
     try {
+      final products = ref
+          .read(purchaseRepositoryProvider)
+          .personalPremiumProducts;
+      final selectedPlan = _effectiveSelectedPlan(products, _selectedPlan);
       final result = await ref
           .read(purchaseRepositoryProvider)
-          .purchasePersonalPremium(_selectedPlan);
+          .purchasePersonalPremium(selectedPlan);
       await _continueAfterPurchase(result);
     } catch (error) {
       _showSnackBar(_purchaseErrorMessage(error));
@@ -169,7 +173,6 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
   Widget build(BuildContext context) {
     final parentTheme = Theme.of(context);
     final foundation = context.darkFoundation;
-    final cs = parentTheme.colorScheme;
     final cinemaTheme = parentTheme.copyWith(
       scaffoldBackgroundColor: foundation.bgBase,
       colorScheme: parentTheme.colorScheme.copyWith(
@@ -188,136 +191,85 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
         builder: (context) {
           final purchaseRepository = ref.watch(purchaseRepositoryProvider);
           final products = purchaseRepository.personalPremiumProducts;
-          final selectedProduct = _selectedProduct(products, _selectedPlan);
+          final selectedPlan = _effectiveSelectedPlan(products, _selectedPlan);
+          final selectedProduct = _selectedProduct(products, selectedPlan);
           final purchaseUnavailableReason =
               purchaseRepository.unavailableReason;
+          final selectedPlanPurchasable =
+              selectedProduct.isPurchasable &&
+              selectedProduct.hasValidOfferToken;
+          final selectedPlanUnavailableReason =
+              purchaseUnavailableReason ??
+              (!selectedPlanPurchasable
+                  ? _planUnavailableMessage(selectedProduct.plan)
+                  : null);
           final purchasesEnabled =
-              purchaseRepository.isPurchaseAvailable &&
-              selectedProduct.isPurchasable;
+              purchaseRepository.isPurchaseAvailable && selectedPlanPurchasable;
 
           return Scaffold(
             backgroundColor: foundation.bgBase,
-            body: Stack(
-              children: [
-                Positioned.fill(child: _AmbientGlows(accent: cs.primary)),
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: _CinemaGrainPainter(baseColor: foundation.bgBase),
-                  ),
-                ),
-
-                SafeArea(
-                  bottom: false,
-                  child: SingleChildScrollView(
-                    controller: _scrollController,
-                    physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _SimplePaywallHeader(entrySource: widget.entrySource),
-                        const SizedBox(height: 32),
-
-                        _PlanSelection(
-                          products: products,
-                          selectedPlan: _selectedPlan,
-                          onSelected: (plan) {
-                            HapticFeedback.selectionClick();
-                            setState(() => _selectedPlan = plan);
-                          },
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        _PremiumActionButton(
-                          busy: _busy,
-                          enabled: purchasesEnabled,
-                          label: _ctaLabel(selectedProduct),
-                          onPressed: _startPremium,
-                        ),
-
-                        const SizedBox(height: 12),
-                        const _CancelNote(),
-                        if (purchaseUnavailableReason != null) ...[
-                          const SizedBox(height: 12),
-                          _UnavailableNotice(
-                            message: purchaseUnavailableReason,
-                          ),
-                        ],
-                        const SizedBox(height: 48),
-
-                        const _FeaturesList(),
-
-                        const SizedBox(height: 40),
-
-                        _RestoreLink(
-                          onTap:
-                              _busy || !purchaseRepository.isPurchaseAvailable
-                              ? null
-                              : _restorePurchase,
-                        ),
-
-                        const SizedBox(height: 40),
-                        const _DataSecurityNote(),
-                        const SizedBox(height: 16),
-                        const _FairUseNote(),
-                        SizedBox(
-                          height: MediaQuery.paddingOf(context).bottom + 20,
-                        ),
-                      ],
+            body: SafeArea(
+              bottom: false,
+              child: SingleChildScrollView(
+                controller: _scrollController,
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Align(
+                      alignment: Alignment.centerRight,
+                      child: PebbleBackButton(
+                        backgroundColor: Colors.transparent,
+                        iconColor: null,
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 16),
+                    _SimplePaywallHeader(entrySource: widget.entrySource),
+                    const SizedBox(height: 24),
+                    const _FeaturesList(),
+                    const SizedBox(height: 24),
+                    _PlanSelection(
+                      products: products,
+                      selectedPlan: selectedPlan,
+                      onSelected: (plan) {
+                        HapticFeedback.selectionClick();
+                        setState(() => _selectedPlan = plan);
+                      },
+                    ),
+                    const SizedBox(height: 18),
+                    _PremiumActionButton(
+                      busy: _busy,
+                      enabled: purchasesEnabled,
+                      label: _ctaLabel(selectedProduct),
+                      onPressed: _startPremium,
+                    ),
+                    const SizedBox(height: 12),
+                    const _CancelNote(),
+                    if (selectedPlanUnavailableReason != null) ...[
+                      const SizedBox(height: 12),
+                      _UnavailableNotice(
+                        message: selectedPlanUnavailableReason,
+                      ),
+                    ],
+                    const SizedBox(height: 18),
+                    _RestoreLink(
+                      onTap: _busy || !purchaseRepository.isPurchaseAvailable
+                          ? null
+                          : _restorePurchase,
+                    ),
+                    const SizedBox(height: 22),
+                    const _DataSecurityNote(),
+                    const SizedBox(height: 12),
+                    const _FairUseNote(),
+                    SizedBox(height: MediaQuery.paddingOf(context).bottom + 20),
+                  ],
                 ),
-
-                Positioned(
-                  top: MediaQuery.paddingOf(context).top + 10,
-                  left: 20,
-                  child: const PebbleBackButton(
-                    backgroundColor: Colors.transparent,
-                    iconColor: null,
-                  ),
-                ),
-              ],
+              ),
             ),
           );
         },
       ),
-    );
-  }
-}
-
-class _AmbientGlows extends StatelessWidget {
-  const _AmbientGlows({required this.accent});
-
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Stack(
-      children: [
-        _AmbientGlow(
-          color: accent,
-          size: 320,
-          top: -100,
-          left: -80,
-          opacity: 0.08,
-        ),
-        _AmbientGlow(
-          color: cs.secondary,
-          size: 320,
-          top: 300,
-          right: -100,
-          opacity: 0.06,
-        ),
-        _AmbientGlow(
-          color: cs.tertiary,
-          size: 280,
-          bottom: -100,
-          left: -60,
-          opacity: 0.05,
-        ),
-      ],
     );
   }
 }
@@ -330,29 +282,38 @@ class _SimplePaywallHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
     final title = switch (entrySource) {
-      PremiumEntrySource.routineLimit => 'You have reached the free limit.',
-      _ => 'More of\nPebble.',
+      PremiumEntrySource.routineLimit ||
+      PremiumEntrySource.stepLimit => 'Routines without limits',
+      PremiumEntrySource.proofPhotoLimit => 'More proof when you need it',
+      PremiumEntrySource.guidanceAudio => 'Your routines, in your voice',
+      PremiumEntrySource.backup => 'Keep your history longer',
+      PremiumEntrySource.premiumTheme => 'Make Pebble feel like yours',
+      _ => 'Routines without limits',
     };
     final body = switch (entrySource) {
-      PremiumEntrySource.routineLimit =>
-        'Pebble is free to use with no login and no ads. Free includes 2 routines; unlimited routines are part of Pebble Premium.',
+      PremiumEntrySource.routineLimit || PremiumEntrySource.stepLimit =>
+        'Free includes 2 routines and 10 steps per routine. Premium removes the caps, keeps your history longer, and unlocks the practical extras.',
+      PremiumEntrySource.proofPhotoLimit =>
+        'Premium lets you save up to 4 proof photos per step, with longer history and private backup for the proof you choose.',
+      PremiumEntrySource.guidanceAudio =>
+        'Add short voice tips to steps, unlock every routine limit, and keep your evidence and history available for longer.',
+      PremiumEntrySource.backup =>
+        'Free keeps recent history on this device for 48 hours. Premium keeps supported history and proof photos backed up for 21 days.',
       _ =>
-        'Unlimited routines, proof photo backup, shared reminders, and every premium theme.',
+        'Everything in Free, plus the tools that make Pebble genuinely yours.',
     };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Align(alignment: Alignment.centerRight, child: _PremiumBadge()),
-        const SizedBox(height: 52),
-        const _Eyebrow('UNLOCK EVERYTHING'),
-        const SizedBox(height: 14),
-        Text(title, style: _serifStyle(context, fontSize: 56, height: 0.95)),
-        const SizedBox(height: 24),
+        const _PremiumBadge(),
+        const SizedBox(height: 16),
+        Text(title, style: _serifStyle(context, fontSize: 40, height: 1.08)),
+        const SizedBox(height: 12),
         Text(
           body,
           style: TextStyle(
-            fontSize: 16,
-            height: 1.5,
+            fontSize: 15,
+            height: 1.48,
             color: foundation.textSecondary,
           ),
         ),
@@ -379,8 +340,8 @@ class _PlanSelection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _Eyebrow('PICK A PLAN'),
-        const SizedBox(height: 16),
+        const _Eyebrow('CHOOSE YOUR PLAN'),
+        const SizedBox(height: 14),
         Wrap(
           spacing: 12,
           runSpacing: 12,
@@ -412,7 +373,8 @@ class _CompactPlanCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isYearly = product.plan == BillingPlan.yearly;
-    final color = isYearly ? _CinemaColors.blue : Colors.white;
+    final foundation = context.darkFoundation;
+    final cs = Theme.of(context).colorScheme;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -425,41 +387,53 @@ class _CompactPlanCard extends StatelessWidget {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             width: cardWidth > 140 ? cardWidth : double.infinity,
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(14, 17, 14, 14),
             decoration: BoxDecoration(
               color: selected
-                  ? color.withValues(alpha: 0.1)
-                  : Colors.white.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(20),
+                  ? Color.lerp(foundation.surfaceLow, cs.primary, 0.06)
+                  : foundation.surfaceLow.withValues(alpha: 0.78),
+              borderRadius: BorderRadius.circular(18),
               border: Border.all(
                 color: selected
-                    ? color.withValues(alpha: 0.6)
-                    : Colors.white.withValues(alpha: 0.1),
-                width: 2,
+                    ? cs.primary.withValues(alpha: 0.68)
+                    : foundation.borderSubtle,
+                width: selected ? 1.5 : 1,
               ),
+              boxShadow: selected
+                  ? [
+                      BoxShadow(
+                        color: cs.primary.withValues(alpha: 0.10),
+                        blurRadius: 18,
+                        offset: const Offset(0, 7),
+                      ),
+                    ]
+                  : null,
             ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Row(
                   children: [
-                    Text(
-                      product.plan == BillingPlan.yearly ? 'YEARLY' : 'MONTHLY',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.5,
-                        color: Colors.white.withValues(alpha: 0.4),
+                    Expanded(
+                      child: Text(
+                        product.plan == BillingPlan.yearly
+                            ? 'YEARLY'
+                            : 'MONTHLY',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.7,
+                          color: foundation.textMuted,
+                        ),
                       ),
                     ),
-                    const Spacer(),
-                    _PlanRadio(selected: selected, color: color),
+                    _PlanRadio(selected: selected, color: cs.primary),
                   ],
                 ),
                 const SizedBox(height: 12),
                 FittedBox(
                   fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
+                  alignment: Alignment.center,
                   child: Text(
                     product.priceLabel,
                     style: _serifStyle(context, fontSize: 32, height: 1.1),
@@ -467,30 +441,29 @@ class _CompactPlanCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  isYearly ? 'per year.' : 'per month.',
+                  isYearly ? 'per year' : 'per month',
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 13,
-                    color: Colors.white.withValues(alpha: 0.4),
+                    fontWeight: FontWeight.w600,
+                    color: foundation.textMuted,
                   ),
                 ),
                 if (isYearly) ...[
+                  const SizedBox(height: 2),
                   Text(
-                    'About 46p / month.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.white.withValues(alpha: 0.4),
-                    ),
+                    _yearlyPerMonthLabel(product),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12, color: foundation.textMuted),
                   ),
-                  const SizedBox(height: 12),
-                  const _SmallSaveBadge(label: 'SAVE 54%'),
+                  const SizedBox(height: 10),
+                  const _SmallSaveBadge(label: 'BEST VALUE'),
                 ] else ...[
                   const SizedBox(height: 4),
                   Text(
                     'Cancel anytime.',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.white.withValues(alpha: 0.4),
-                    ),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 13, color: foundation.textMuted),
                   ),
                   const SizedBox(height: 28), // Spacer to match yearly height
                 ],
@@ -510,12 +483,16 @@ class _PlanRadio extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
     return Container(
       width: 20,
       height: 20,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: selected ? color : Colors.white24, width: 2),
+        border: Border.all(
+          color: selected ? color : foundation.borderSubtle,
+          width: 2,
+        ),
       ),
       padding: const EdgeInsets.all(3),
       child: AnimatedScale(
@@ -572,10 +549,15 @@ class _CancelNote extends StatelessWidget {
   const _CancelNote();
   @override
   Widget build(BuildContext context) {
-    return const Text(
-      'Cancel anytime. No commitment.',
+    final foundation = context.darkFoundation;
+    return Text(
+      'Cancel anytime. No free-trial small print.',
       textAlign: TextAlign.center,
-      style: TextStyle(fontSize: 14, color: Colors.white38),
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: foundation.textMuted,
+      ),
     );
   }
 }
@@ -588,36 +570,52 @@ class _FeaturesList extends StatelessWidget {
     return const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _Eyebrow('WHAT YOU GET'),
+        _Eyebrow('PEBBLE PREMIUM INCLUDES'),
         SizedBox(height: 16),
-        _FeatureListItem(
-          icon: LucideIcons.camera,
-          tint: _PremiumTint.amber,
-          title: 'Proof photo backup',
-          isExclusive: true,
-          body:
-              'Take a photo as proof you completed a step. Stored privately and backed up securely - for reassurance later. Your camera roll is never scanned.',
-        ),
         _FeatureListItem(
           icon: LucideIcons.infinity,
           tint: _PremiumTint.blue,
           title: 'Unlimited routines & steps',
           body:
-              'Build every routine you actually need - not just the few you\'re allowed. No caps on routines, no caps on steps.',
+              'Build every routine you actually need, with no cap on routines and no cap on steps.',
+          upgradeLabel: 'Free: 2 routines / 10 steps -> Premium: unlimited',
+        ),
+        _FeatureListItem(
+          icon: LucideIcons.cloud,
+          tint: _PremiumTint.green,
+          title: 'Backup & longer history',
+          body:
+              'Keep supported routine history and proof photos backed up, so a reinstall or new phone is easier to restore.',
+          upgradeLabel: 'Free: 48 hrs -> Premium: 21 days',
+        ),
+        _FeatureListItem(
+          icon: LucideIcons.audioLines,
+          tint: _PremiumTint.amber,
+          title: 'Voice tips on steps',
+          body:
+              'Record short step guidance and play it back during the routine.',
+        ),
+        _FeatureListItem(
+          icon: LucideIcons.images,
+          tint: _PremiumTint.purple,
+          title: 'More proof photos',
+          body:
+              'Save up to 4 photos per step when one angle is not enough reassurance.',
+          upgradeLabel: 'Free: 1 photo -> Premium: 4 per step',
         ),
         _FeatureListItem(
           icon: LucideIcons.bell,
           tint: _PremiumTint.green,
           title: 'Shared reminders',
           body:
-              'Let a trusted person know when a routine is done or missed. Automatic, quiet, and entirely in your control.',
+              'Let a trusted person know when a routine is done or missed. Automatic, quiet, and in your control.',
         ),
         _FeatureListItem(
           icon: LucideIcons.palette,
           tint: _PremiumTint.purple,
           title: 'Premium themes & style',
           body:
-              'Unlock Aurora, Ember, Ocean, and more. Every theme, icon set, and accent colour - make Pebble feel genuinely yours.',
+              'Unlock every premium theme, icon set, and accent colour so Pebble feels genuinely yours.',
         ),
       ],
     );
@@ -630,26 +628,23 @@ class _FeatureListItem extends StatelessWidget {
     required this.tint,
     required this.title,
     required this.body,
-    this.isExclusive = false,
+    this.upgradeLabel,
   });
 
   final IconData icon;
   final _PremiumTint tint;
   final String title;
   final String body;
-  final bool isExclusive;
+  final String? upgradeLabel;
 
   @override
   Widget build(BuildContext context) {
     final colors = _tintColors(context, tint);
+    final foundation = context.darkFoundation;
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-      ),
+      margin: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 10),
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(14)),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -670,17 +665,16 @@ class _FeatureListItem extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: foundation.textPrimary,
+                        ),
                       ),
                     ),
-                    if (isExclusive) ...[
-                      const SizedBox(width: 8),
-                      _ExclusiveBadge(),
-                    ],
                   ],
                 ),
                 const SizedBox(height: 6),
@@ -689,9 +683,13 @@ class _FeatureListItem extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 14,
                     height: 1.45,
-                    color: Colors.white.withValues(alpha: 0.5),
+                    color: foundation.textSecondary,
                   ),
                 ),
+                if (upgradeLabel != null) ...[
+                  const SizedBox(height: 7),
+                  _UpgradePill(label: upgradeLabel!),
+                ],
               ],
             ),
           ),
@@ -701,22 +699,30 @@ class _FeatureListItem extends StatelessWidget {
   }
 }
 
-class _ExclusiveBadge extends StatelessWidget {
+class _UpgradePill extends StatelessWidget {
+  const _UpgradePill({required this.label});
+
+  final String label;
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+    final cs = Theme.of(context).colorScheme;
+    return DecoratedBox(
       decoration: BoxDecoration(
-        color: _CinemaColors.amber.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: _CinemaColors.amber.withValues(alpha: 0.3)),
+        color: cs.primary.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.16)),
       ),
-      child: const Text(
-        'EXCLUSIVE',
-        style: TextStyle(
-          fontSize: 9,
-          fontWeight: FontWeight.w900,
-          color: _CinemaColors.amber,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            height: 1.15,
+            fontWeight: FontWeight.w800,
+            color: cs.primary,
+          ),
         ),
       ),
     );
@@ -729,15 +735,13 @@ class _RestoreLink extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
     return Center(
       child: TextButton(
         onPressed: onTap,
         child: Text(
           'Restore purchase \u00B7 I already have Premium',
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.4),
-            fontSize: 14,
-          ),
+          style: TextStyle(color: foundation.textSecondary, fontSize: 14),
         ),
       ),
     );
@@ -748,14 +752,11 @@ class _DataSecurityNote extends StatelessWidget {
   const _DataSecurityNote();
   @override
   Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          LucideIcons.info,
-          size: 16,
-          color: Colors.white.withValues(alpha: 0.3),
-        ),
+        Icon(LucideIcons.info, size: 16, color: foundation.textMuted),
         const SizedBox(width: 12),
         Expanded(
           child: Text(
@@ -763,7 +764,7 @@ class _DataSecurityNote extends StatelessWidget {
             style: TextStyle(
               fontSize: 13,
               fontStyle: FontStyle.italic,
-              color: Colors.white.withValues(alpha: 0.3),
+              color: foundation.textMuted,
             ),
           ),
         ),
@@ -777,11 +778,12 @@ class _PremiumBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: _CinemaColors.gold.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        border: Border.all(color: _CinemaColors.gold.withValues(alpha: 0.28)),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
@@ -795,9 +797,9 @@ class _PremiumBadge extends StatelessWidget {
             ),
             const SizedBox(width: 6),
             Text(
-              'Personal Premium',
+              'Pebble Premium',
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Colors.white.withValues(alpha: 0.62),
+                color: foundation.textPrimary,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.2,
               ),
@@ -816,43 +818,16 @@ class _Eyebrow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
     return Text(
       text.toUpperCase(),
       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-        color: Colors.white.withValues(alpha: 0.27),
+        color: foundation.textMuted,
         fontWeight: FontWeight.w900,
-        letterSpacing: 2,
+        letterSpacing: 1.5,
       ),
     );
   }
-}
-
-class _CinemaGrainPainter extends CustomPainter {
-  const _CinemaGrainPainter({required this.baseColor});
-
-  final Color baseColor;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final base = Paint()..color = baseColor;
-    canvas.drawRect(Offset.zero & size, base);
-
-    final paint = Paint()..color = Colors.white.withValues(alpha: 0.018);
-    const spacing = 17.0;
-    for (double y = 0; y < size.height; y += spacing) {
-      for (
-        double x = (y ~/ spacing).isEven ? 0 : spacing / 2;
-        x < size.width;
-        x += spacing
-      ) {
-        canvas.drawCircle(Offset(x, y), 0.55, paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _CinemaGrainPainter oldDelegate) =>
-      oldDelegate.baseColor != baseColor;
 }
 
 enum _PremiumTint { amber, blue, green, purple }
@@ -878,11 +853,10 @@ TextStyle _serifStyle(
   double height = 1.0,
 }) {
   final foundation = context.darkFoundation;
-  return GoogleFonts.cormorantGaramond(
+  return GoogleFonts.dmSerifDisplay(
     color: foundation.textPrimary,
     fontSize: fontSize,
-    fontStyle: FontStyle.italic,
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.w400,
     letterSpacing: 0,
     height: height,
   );
@@ -910,53 +884,6 @@ _TintColors _tintColors(BuildContext context, _PremiumTint tint) {
   };
 }
 
-class _AmbientGlow extends StatelessWidget {
-  const _AmbientGlow({
-    required this.color,
-    required this.size,
-    this.opacity = 0.10,
-    this.top,
-    this.right,
-    this.bottom,
-    this.left,
-  });
-
-  final Color color;
-  final double size;
-  final double opacity;
-  final double? top;
-  final double? right;
-  final double? bottom;
-  final double? left;
-
-  @override
-  Widget build(BuildContext context) {
-    final glow = Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: RadialGradient(
-          colors: <Color>[
-            color.withValues(alpha: opacity),
-            color.withValues(alpha: 0),
-          ],
-        ),
-      ),
-    );
-    if (top == null && right == null && bottom == null && left == null) {
-      return Center(child: glow);
-    }
-    return Positioned(
-      top: top,
-      right: right,
-      bottom: bottom,
-      left: left,
-      child: glow,
-    );
-  }
-}
-
 class _SmallSaveBadge extends StatelessWidget {
   const _SmallSaveBadge({required this.label});
 
@@ -964,18 +891,19 @@ class _SmallSaveBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: _CinemaColors.green.withValues(alpha: 0.14),
+        color: _CinemaColors.gold.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: _CinemaColors.green.withValues(alpha: 0.22)),
+        border: Border.all(color: _CinemaColors.gold.withValues(alpha: 0.24)),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         child: Text(
           label.toUpperCase(),
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: _CinemaColors.green,
+            color: foundation.textPrimary,
             fontSize: 9.5,
             fontWeight: FontWeight.w900,
             letterSpacing: 0.3,
@@ -991,18 +919,19 @@ class _FairUseNote extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.026),
+        color: foundation.surfaceLow.withValues(alpha: 0.62),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.055)),
+        border: Border.all(color: foundation.borderSubtle),
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Text(
           'Fair use: Photo uploads pause at 1 GB active storage or 500 uploads per 30 days. Routine sync keeps working regardless. Your camera roll is not scanned.',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Colors.white.withValues(alpha: 0.42),
+            color: foundation.textMuted,
             fontWeight: FontWeight.w600,
             height: 1.55,
           ),
@@ -1019,28 +948,25 @@ class _UnavailableNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.035),
+        color: foundation.surfaceLow.withValues(alpha: 0.76),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(color: foundation.borderSubtle),
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Icon(
-              LucideIcons.info,
-              color: Colors.white.withValues(alpha: 0.42),
-              size: 16,
-            ),
+            Icon(LucideIcons.info, color: foundation.textMuted, size: 16),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 message,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.46),
+                  color: foundation.textSecondary,
                   height: 1.45,
                 ),
               ),
@@ -1071,26 +997,110 @@ PremiumProduct _selectedProduct(
   );
 }
 
+BillingPlan _effectiveSelectedPlan(
+  List<PremiumProduct> products,
+  BillingPlan selectedPlan,
+) {
+  final hasSelectedProduct = products.any(
+    (product) => product.plan == selectedPlan,
+  );
+  if (!hasSelectedProduct && products.isNotEmpty) {
+    return _sortedProducts(products).first.plan;
+  }
+  final hasSelectedPlan = products.any(
+    (product) =>
+        product.plan == selectedPlan &&
+        product.isPurchasable &&
+        product.hasValidOfferToken,
+  );
+  if (hasSelectedPlan) {
+    return selectedPlan;
+  }
+  final purchasableProducts = _sortedProducts(
+    products
+        .where((product) => product.isPurchasable && product.hasValidOfferToken)
+        .toList(),
+  );
+  if (purchasableProducts.isEmpty) {
+    return selectedPlan;
+  }
+  return purchasableProducts.first.plan;
+}
+
 String _ctaLabel(PremiumProduct product) {
-  final suffix = product.plan == BillingPlan.yearly ? '/ year' : '/ month';
-  return 'Start Premium \u00B7 ${product.priceLabel} $suffix';
+  final cadence = product.plan == BillingPlan.yearly ? 'yearly' : 'monthly';
+  return 'Start $cadence - ${product.priceLabel}';
+}
+
+String _yearlyPerMonthLabel(PremiumProduct product) {
+  final parsed = _parsePrice(product.priceLabel);
+  if (parsed == null) {
+    return 'best annual value';
+  }
+  final monthly = parsed.value / 12;
+  if (parsed.suffix == 'p') {
+    return 'about ${monthly.round()}p / month';
+  }
+  return 'about ${parsed.prefix}${monthly.toStringAsFixed(2)} / month';
+}
+
+_ParsedPrice? _parsePrice(String label) {
+  final trimmed = label.trim();
+  if (trimmed.isEmpty) {
+    return null;
+  }
+  final numeric = RegExp(r'([0-9]+(?:[.,][0-9]+)?)').firstMatch(trimmed);
+  if (numeric == null) {
+    return null;
+  }
+  final value = double.tryParse(numeric.group(1)!.replaceAll(',', '.'));
+  if (value == null) {
+    return null;
+  }
+  final prefix = trimmed.substring(0, numeric.start);
+  final suffix = trimmed.substring(numeric.end).trim();
+  return _ParsedPrice(
+    value: suffix == 'p' ? value / 100 : value,
+    prefix: suffix == 'p' ? '' : prefix,
+    suffix: suffix,
+  );
+}
+
+class _ParsedPrice {
+  const _ParsedPrice({
+    required this.value,
+    required this.prefix,
+    required this.suffix,
+  });
+
+  final double value;
+  final String prefix;
+  final String suffix;
+}
+
+String _planUnavailableMessage(BillingPlan plan) {
+  return plan == BillingPlan.yearly
+      ? 'Yearly Pebble Premium is not available from Google Play yet. Check the yearly base plan offer token in Play Console.'
+      : 'Monthly Pebble Premium is not available from Google Play yet. Check the monthly base plan offer token in Play Console.';
 }
 
 const _fallbackMonthlyProduct = PremiumProduct(
-  productId: PebbleProductIds.personalPremiumMonthly,
+  productId: PebbleProductIds.personalPremium,
+  basePlanId: PebbleBasePlanIds.monthly,
   plan: BillingPlan.monthly,
   title: 'Monthly',
-  priceLabel: '99p',
+  priceLabel: '\$0.99',
   detailLabel: 'per month. Cancel anytime.',
   isPurchasable: false,
 );
 
 const _fallbackYearlyProduct = PremiumProduct(
-  productId: PebbleProductIds.personalPremiumMonthly,
+  productId: PebbleProductIds.personalPremium,
+  basePlanId: PebbleBasePlanIds.yearly,
   plan: BillingPlan.yearly,
   title: 'Yearly',
-  priceLabel: '\u00A35.49',
-  detailLabel: 'per year. About 46p / month.',
-  badgeLabel: 'Save 54%',
+  priceLabel: '\$6.99',
+  detailLabel: 'per year. About \$0.58 / month.',
+  badgeLabel: 'Best value',
   isPurchasable: false,
 );

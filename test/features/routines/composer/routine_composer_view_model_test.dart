@@ -250,50 +250,7 @@ void main() {
       },
     );
 
-    test(
-      'template customization prefill does not leak into blank creation',
-      () async {
-        final repository = FakeRoutineComposerDraftRepository();
-        const seed = RoutineComposerSeedData(
-          title: 'Leaving Home',
-          iconKey: 'house',
-          colorHex: null,
-          steps: [
-            RoutineComposerStepDraft(
-              id: 'template-step',
-              text: 'Lock the door',
-              requiresPhoto: false,
-              allowSkip: false,
-              sortOrder: 0,
-            ),
-          ],
-        );
-        final templateViewModel = RoutineComposerViewModel(
-          repository,
-          const RoutineComposerConfig.customizeTemplate(seedData: seed),
-        );
 
-        await Future<void>.delayed(const Duration(milliseconds: 20));
-
-        expect(templateViewModel.state.title, 'Leaving Home');
-        expect(templateViewModel.state.steps.single.text, 'Lock the door');
-        final templateDraftId = templateViewModel.state.draftId;
-        templateViewModel.dispose();
-
-        final blankViewModel = RoutineComposerViewModel(
-          repository,
-          const RoutineComposerConfig.newDraft(),
-        );
-
-        await Future<void>.delayed(const Duration(milliseconds: 20));
-
-        expect(blankViewModel.state.draftId, isNot(templateDraftId));
-        expect(blankViewModel.state.title, isEmpty);
-        expect(blankViewModel.state.steps.single.text, isEmpty);
-
-        blankViewModel.dispose();
-      },
-    );
 
     test(
       'edit mode keeps the source routine untouched until publish',

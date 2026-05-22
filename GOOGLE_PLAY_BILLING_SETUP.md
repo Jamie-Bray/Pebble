@@ -1,24 +1,22 @@
 # Google Play Billing Setup
 
-Last updated: May 12, 2026
+Last updated: May 19, 2026
 
 This is the remaining setup needed for Personal Premium purchase testing.
 
 ## Product IDs
 
-The app currently expects:
+The app currently expects one subscription product:
 
-- `personal_premium_monthly`
-- `household_monthly` is present in code but is not a launch product.
+- Product ID: `personal_premium`
 
-Create the launch subscription in Play Console with product ID:
+Create these base plans under that subscription:
 
-```text
-personal_premium_monthly
-```
+- Base plan ID: `monthly`
+- Base plan ID: `yearly`
 
-The app will show Personal Premium as unavailable until Google Play returns that
-product from Billing.
+The app will show a plan as unavailable until Google Play returns that base
+plan with a valid offer token.
 
 ## Production Package Name
 
@@ -51,8 +49,8 @@ GOOGLE_PLAY_SERVICE_ACCOUNT_JSON
 ## Play Console Steps
 
 1. In Play Console, finish app setup enough that monetization/subscriptions are available.
-2. Create the subscription product `personal_premium_monthly`.
-3. Add a monthly base plan and make it available for the testing countries you need.
+2. Create the subscription product `personal_premium`.
+3. Add base plans `monthly` and `yearly`, then make them available for the testing countries you need.
 4. Set up Play Console API access and a Google Cloud service account for purchase verification.
 5. Grant the service account access to this app with permission to manage or view orders/subscriptions.
 6. Download the service account JSON key to your local machine.
@@ -97,7 +95,7 @@ After Play products and the service account secret are configured:
 2. Add a license tester.
 3. Install from Play, not `flutter run`.
 4. Open Premium.
-5. Confirm Google Play returns `personal_premium_monthly`.
+5. Confirm Google Play returns `personal_premium` with base plans `monthly` and `yearly`.
 6. Start a test purchase.
 7. Confirm Supabase writes a row in `personal_entitlements`.
 8. Confirm Account shows Premium active and backup setup can continue.

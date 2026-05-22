@@ -76,7 +76,7 @@ extension UserTierExtension on UserTier {
       case UserTier.personalFree:
         return 'Free';
       case UserTier.personalPremium:
-        return '\u00A30.99/mo';
+        return '\$0.99/mo';
       case UserTier.pebbleHousehold:
         return '\u00A33.99/mo';
       case UserTier.workspace:

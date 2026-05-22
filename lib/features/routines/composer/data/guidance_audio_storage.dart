@@ -21,6 +21,8 @@ abstract class GuidanceAudioStorage {
   Future<String> resolveStoredPath(String localPath);
 
   Future<void> deleteStoredAudio(String localPath);
+
+  Future<void> cleanupOrphanedAudio(Set<String> activeLocalPaths);
 }
 
 class LocalGuidanceAudioStorage implements GuidanceAudioStorage {
@@ -85,6 +87,34 @@ class LocalGuidanceAudioStorage implements GuidanceAudioStorage {
     final file = File(absolutePath);
     if (await file.exists()) {
       await file.delete();
+    }
+  }
+
+  @override
+  Future<void> cleanupOrphanedAudio(Set<String> activeLocalPaths) async {
+    final root = await _rootDirectory();
+    if (!await root.exists()) return;
+
+    final files = root.listSync();
+    final now = DateTime.now();
+
+    for (final entity in files) {
+      if (entity is! File || !entity.path.endsWith('.wav')) continue;
+
+      final fileName = p.basename(entity.path);
+      if (activeLocalPaths.contains(fileName)) continue;
+
+      // Check if it's recently created (e.g., within the last 1 hour) to avoid
+      // deleting files that are currently being recorded or attached to an unsaved draft.
+      try {
+        final stat = await entity.stat();
+        if (now.difference(stat.modified).inHours < 1) {
+          continue;
+        }
+        await entity.delete();
+      } catch (_) {
+        // Ignore deletion errors for individual files
+      }
     }
   }
 

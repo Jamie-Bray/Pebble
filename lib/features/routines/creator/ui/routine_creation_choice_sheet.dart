@@ -87,7 +87,7 @@ class _RoutineCreationChoiceSheet extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Start from a calm template or build your own checklist from scratch.',
+                'Start from a ready-made checklist or build your own from scratch.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: foundation.textSecondary,
                   height: 1.4,

@@ -136,6 +136,9 @@ final _routerProvider = Provider<GoRouter>((ref) {
       if (!hasCompletedOnboarding && !isGoingToOnboarding) {
         return '/onboarding';
       }
+      if (hasCompletedOnboarding && isGoingToOnboarding) {
+        return '/';
+      }
       return null;
     },
     routes: [

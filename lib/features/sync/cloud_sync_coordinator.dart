@@ -12,6 +12,7 @@ import 'package:pebble_routines/data/remote/remote_routine_run_data_source.dart'
 import 'package:pebble_routines/data/remote/remote_routine_session_data_source.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
+import 'package:pebble_routines/features/routines/composer/data/guidance_audio_storage.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
 import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
@@ -97,10 +98,74 @@ class CloudSyncCoordinator {
 
   Future<void> kick() async {
     final lifecycle = _ref.read(subscriptionLifecycleProvider);
+    await _syncInternal(userInitiated: false);
     await _proofStorage.enforceRetentionPolicy(
       isPremium: lifecycle.hasPremiumRetention,
     );
-    await _syncInternal(userInitiated: false);
+    
+    // Prune terminal sessions older than 24 hours
+    final sessionCutoff = DateTime.now().subtract(const Duration(hours: 24));
+    await _database.routineSessionDao.deleteSessionsOlderThan(sessionCutoff);
+    
+    // Run garbage collection for orphaned voice clips
+    await _runGuidanceAudioGarbageCollection();
+
+    if (!lifecycle.hasPremiumRetention) {
+      final cutoff = DateTime.now().subtract(lifecycle.localHistoryRetention);
+      await _database.routineRunDao.deleteRunsOlderThan(cutoff);
+    }
+  }
+
+  Future<void> _runGuidanceAudioGarbageCollection() async {
+    final activePaths = <String>{};
+    
+    // Extract from published routines
+    final routines = await _database.routineDao.getAllRoutines();
+    for (final routine in routines) {
+      if (routine.stepsJson.isEmpty) continue;
+      try {
+        final decoded = jsonDecode(routine.stepsJson);
+        if (decoded is List) {
+          for (final item in decoded) {
+            if (item is Map) {
+              final audio = item['guidanceAudio'];
+              if (audio is Map) {
+                final localPath = audio['localPath']?.toString();
+                if (localPath != null && localPath.isNotEmpty) {
+                  activePaths.add(localPath);
+                }
+              }
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    // Extract from active drafts
+    // Need to get edit drafts too. Let's just query all drafts.
+    // wait, I can just use getAllDrafts() if it exists, or just query the table.
+    final allDraftRows = await _database.select(_database.routineComposerDrafts).get();
+    for (final draft in allDraftRows) {
+      if (draft.stepsJson.isEmpty) continue;
+      try {
+        final decoded = jsonDecode(draft.stepsJson);
+        if (decoded is List) {
+          for (final item in decoded) {
+            if (item is Map) {
+              final audio = item['guidanceAudio'];
+              if (audio is Map) {
+                final localPath = audio['localPath']?.toString();
+                if (localPath != null && localPath.isNotEmpty) {
+                  activePaths.add(localPath);
+                }
+              }
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    await _ref.read(guidanceAudioStorageProvider).cleanupOrphanedAudio(activePaths);
   }
 
   Future<ManualSyncResult> runManualSync() {

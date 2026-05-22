@@ -1,8 +1,12 @@
+import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pebble_routines/core/database/local_db.dart';
+import 'package:pebble_routines/features/subscription/data/purchase_repository.dart';
 import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
 import 'package:pebble_routines/features/subscription/data/models/subscription_account_state.dart';
 import 'package:pebble_routines/features/subscription/domain/subscription_lifecycle.dart';
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
+import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
 
 void main() {
   group('subscriptionLifecycleForAccount', () {
@@ -52,4 +56,27 @@ void main() {
       expect(lifecycle.localHistoryRetention, const Duration(hours: 48));
     });
   });
+
+  test(
+    'verified personal_premium purchase unlocks Premium entitlement',
+    () async {
+      final database = LocalDb.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+      final controller = SubscriptionAccountController(
+        database,
+        loadOnInit: false,
+      );
+
+      expect(PebbleProductIds.personalPremium, 'personal_premium');
+
+      await controller.applyStoreEntitlement(UserTier.personalPremium);
+
+      expect(controller.state.entitlementTier, UserTier.personalPremium);
+      expect(
+        controller.state.entitlementStatus,
+        EntitlementStatus.personalPremium,
+      );
+      expect(controller.state.entitlementSource, EntitlementSource.googlePlay);
+    },
+  );
 }

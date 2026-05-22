@@ -64,6 +64,22 @@ class SyncOutboxRepositoryImpl implements SyncOutboxRepository {
     Map<String, dynamic>? payload,
   }) async {
     final now = DateTime.now();
+
+    if (operation == SyncOperation.delete) {
+      final existingUpsert = await _db.syncOutboxDao.findMatchingPending(
+        entityType: entityType.name,
+        entityId: entityId,
+        operation: SyncOperation.upsert.name,
+      );
+      if (existingUpsert != null) {
+        await _db.syncOutboxDao.deleteItem(existingUpsert.id);
+        final cloudId = payload?['cloudId']?.toString();
+        if (cloudId == null || cloudId.isEmpty) {
+          return;
+        }
+      }
+    }
+
     final payloadJson = payload == null ? null : jsonEncode(payload);
     final existing = await _db.syncOutboxDao.findMatchingPending(
       entityType: entityType.name,
@@ -111,9 +127,9 @@ class SyncOutboxRepositoryImpl implements SyncOutboxRepository {
 
   @override
   Future<void> markRetry(String id, Object error, int attemptCount) {
-    final nextAttemptAt = DateTime.now().add(
-      Duration(seconds: attemptCount.clamp(1, 5) * 15),
-    );
+    final nextAttemptAt = attemptCount >= 20
+        ? DateTime.now().add(const Duration(days: 365))
+        : DateTime.now().add(Duration(seconds: attemptCount.clamp(1, 5) * 15));
     return _db.syncOutboxDao.updateRetry(
       id: id,
       attemptCount: attemptCount,

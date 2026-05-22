@@ -16,23 +16,7 @@ class RoutineDao extends DatabaseAccessor<LocalDb> with _$RoutineDaoMixin {
   Future<void> deleteRoutine(int id) =>
       (delete(routines)..where((tbl) => tbl.id.equals(id))).go();
 
-  Future<void> updateRoutinePinned(int id, bool isPinned) =>
-      (update(routines)..where((tbl) => tbl.id.equals(id))).write(
-        RoutinesCompanion(
-          isPinned: Value(isPinned),
-          updatedAt: Value(DateTime.now()),
-          syncStatus: const Value('pendingUpload'),
-        ),
-      );
 
-  Future<void> updateRoutineCreatedAt(int id, DateTime createdAt) =>
-      (update(routines)..where((tbl) => tbl.id.equals(id))).write(
-        RoutinesCompanion(
-          createdAt: Value(createdAt),
-          updatedAt: Value(DateTime.now()),
-          syncStatus: const Value('pendingUpload'),
-        ),
-      );
 
   Future<Routine?> getRoutineById(int id) =>
       (select(routines)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
@@ -41,22 +25,7 @@ class RoutineDao extends DatabaseAccessor<LocalDb> with _$RoutineDaoMixin {
     routines,
   )..where((tbl) => tbl.cloudId.equals(cloudId))).getSingleOrNull();
 
-  Future<void> updateRoutineAppearance({
-    required int id,
-    String? iconKey,
-    int? colorHex,
-  }) async {
-    final companion = RoutinesCompanion(
-      // Backed by legacy `emoji` column for compatibility.
-      emoji: iconKey != null ? Value(iconKey) : const Value.absent(),
-      colorHex: colorHex != null ? Value(colorHex) : const Value.absent(),
-      updatedAt: Value(DateTime.now()),
-      syncStatus: const Value('pendingUpload'),
-    );
-    await (update(
-      routines,
-    )..where((tbl) => tbl.id.equals(id))).write(companion);
-  }
+
 
   Future<void> markRoutineSynced({
     required int id,

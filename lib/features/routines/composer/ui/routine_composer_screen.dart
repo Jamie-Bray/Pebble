@@ -31,21 +31,16 @@ class RoutineComposerScreen extends ConsumerStatefulWidget {
   }) : config = RoutineComposerConfig.newDraft(forceNewDraft: forceNewDraft);
 
   // ignore: prefer_const_constructors_in_immutables
-  RoutineComposerScreen.customizeTemplate({
-    super.key,
-    required RoutineComposerSeedData seedData,
-    this.onSaveComplete,
-  }) : config = RoutineComposerConfig.customizeTemplate(seedData: seedData);
-
-  // ignore: prefer_const_constructors_in_immutables
   RoutineComposerScreen.edit({
     super.key,
     required Routine routine,
+    this.onSaveComplete,
+    RoutineComposerSeedData? seedData,
     String? initialStepId,
     int? initialStepIndex,
-    this.onSaveComplete,
   }) : config = RoutineComposerConfig.edit(
          routine: routine,
+         seedData: seedData,
          initialStepId: initialStepId,
          initialStepIndex: initialStepIndex,
        );
@@ -260,9 +255,6 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
   String _composerTitle(RoutineComposerState state) {
     if (state.mode == RoutineComposerMode.edit) {
       return 'Edit Routine';
-    }
-    if (widget.config.isTemplateCustomization) {
-      return 'Use Template';
     }
     return 'New Routine';
   }
@@ -1397,7 +1389,7 @@ class _GuidanceAudioSheet extends StatelessWidget {
             else ...[
               Text(
                 step.guidanceAudio == null
-                    ? 'Record up to 10 seconds of calm guidance for this step.'
+                    ? 'Record up to 10 seconds of step guidance for this checklist item.'
                     : 'A voice tip is saved. Play it, replace it, or remove it.',
                 style: TextStyle(
                   fontSize: 14,

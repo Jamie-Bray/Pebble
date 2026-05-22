@@ -98,7 +98,7 @@ class _TemplatesHeader extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Calm starting points for the moments you come back to again and again.',
+            'Ready-made checklists for routines you repeat.',
             style: theme.textTheme.titleMedium?.copyWith(
               color: tokens.templatesTextSecondary,
               height: 1.36,

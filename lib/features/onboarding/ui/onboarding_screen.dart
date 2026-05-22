@@ -41,10 +41,10 @@ class _StarterRoutine {
 
 const _starterRoutines = [
   _StarterRoutine(
-    cardTitle: 'The Anxiety-Free Departure',
+    cardTitle: 'The Everyday Departure',
     subtitle:
-        'For the "Did I leave the stove on?" loop. Capture proof so you can breathe.',
-    previewTitle: 'The Anxiety-Free Departure',
+        'For the "Did I leave the stove on?" moment. Capture a quick photo so you can leave the house with confidence.',
+    previewTitle: 'The Everyday Departure',
     icon: LucideIcons.house,
     steps: [
       _StarterStep('Hair tools unplugged', requiresPhoto: true),
@@ -80,10 +80,10 @@ const _starterRoutines = [
     ],
   ),
   _StarterRoutine(
-    cardTitle: 'Car Security & Parking Peace',
+    cardTitle: 'Car Lock & Parking Check',
     subtitle:
-        'For the "Did I lock the car?" panic, with proof of where you parked.',
-    previewTitle: 'Car Security & Parking Peace',
+        'Never second-guess if you locked the car. Get visual reassurance of your locks and your parking spot.',
+    previewTitle: 'Car Lock & Parking Check',
     icon: LucideIcons.car,
     steps: [
       _StarterStep('Windows fully up'),
@@ -554,7 +554,7 @@ class _WelcomeStatement extends StatelessWidget {
           textStyle: style.copyWith(color: mutedColor),
           strikeColor: accentColor,
         ),
-        Text('calmer', style: style.copyWith(color: accentColor)),
+        Text('reliable', style: style.copyWith(color: accentColor)),
         Text('kind of check.', style: style.copyWith(color: primaryColor)),
       ],
     );
@@ -715,7 +715,7 @@ class _ThemePickerPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Choose a look\nthat feels calm.',
+                    'Choose a look\nthat works for you.',
                     style: GoogleFonts.dmSerifDisplay(
                       color: foundation.textPrimary,
                       fontSize: 26,

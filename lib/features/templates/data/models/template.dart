@@ -11,14 +11,14 @@ class Template {
   ];
 
   static const List<String> launchTemplateTitleOrder = <String>[
-    'The Anxiety-Free Departure',
-    'The Deep Sleep Bedtime Scan',
-    'Car Security & Parking Peace',
+    'The Everyday Departure',
+    'Bedtime House Check',
+    'Car Lock & Parking Check',
     'The Big Trip Home Shutdown',
     'The “Did I take it?” Med Check',
     'Morning Pet Routine',
     'Essential School Morning Run',
-    'The Toddler “Survival” Bag',
+    'The Toddler Essentials Bag',
     'The “No Item Left Behind” Hotel Checkout',
     'The Office/Workspace “Switch-Off”',
     'Gym & Sports Prep',

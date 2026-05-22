@@ -18,6 +18,7 @@ import 'package:pebble_routines/features/routines/composer/ui/routine_composer_s
 import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/features/settings/data/haptics_service.dart';
+import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
 import 'package:pebble_routines/features/history/providers/routine_history_vm.dart';
 import 'package:pebble_routines/features/history/ui/styled_history_screen.dart';
 import 'package:pebble_routines/core/navigation/app_shell.dart';
@@ -50,6 +51,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
   static const double _routineSheetRowHeight = 76;
   static const double _bottomNavHeight = 70;
   static const double _routineSheetHeaderHeight = 104;
+  static const double _collapsedRoutineSheetPeekHeight = 74;
 
   // Breathing animation controllers
   late AnimationController _breathingController;
@@ -343,7 +345,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            'A calm checklist for the moments you repeat.',
+                            'A reliable checklist for the routines you repeat.',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w400,
@@ -496,7 +498,9 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
     required double hostHeight,
     required double bottomSafe,
   }) {
-    return 0.001;
+    final collapsedHeight =
+        _bottomNavHeight + bottomSafe + _collapsedRoutineSheetPeekHeight;
+    return (collapsedHeight / hostHeight).clamp(0.12, 0.24);
   }
 
   double _expandedSheetExtent({
@@ -590,8 +594,9 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
 
         _minSheetExtent = minExtent;
         _maxSheetExtent = maxExtent;
-        // Hero padding: bottom nav + button + clear separation
-        final heroBottomPadding = _bottomNavHeight + bottomSafe + 82;
+        // Hero padding: bottom nav + the visible routine shelf teaser.
+        final heroBottomPadding =
+            _bottomNavHeight + bottomSafe + _collapsedRoutineSheetPeekHeight;
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
@@ -660,7 +665,6 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                 ),
               ],
             ),
-            _buildLibraryOverlayButton(themeData, bottomSafe),
             ValueListenableBuilder<double>(
               valueListenable: _routineSheetExtent,
               builder: (context, extent, _) {
@@ -764,8 +768,8 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
               ),
             ),
             _buildHeaderIconButton(
-              tooltip: 'Settings',
-              icon: LucideIcons.settings,
+              tooltip: 'App settings',
+              icon: LucideIcons.slidersHorizontal,
               onPressed: () => context.push('/settings'),
               themeData: themeData,
             ),
@@ -797,114 +801,6 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
     );
   }
 
-  Widget _buildLibraryOverlayButton(ThemeData themeData, double bottomSafe) {
-    final foundation = context.darkFoundation;
-    // Grounding it right against the bottom nav bar without extreme overlap
-    final bottomPadding = _bottomNavHeight + bottomSafe;
-
-    return ValueListenableBuilder<double>(
-      valueListenable: _routineSheetExtent,
-      builder: (context, extent, _) {
-        final currentExtent = extent == 0 ? _minSheetExtent : extent;
-        // Fade out quickly as the sheet expands
-        final opacity = (1.0 - (currentExtent / (_maxSheetExtent * 0.3))).clamp(
-          0.0,
-          1.0,
-        );
-
-        if (opacity <= 0) return const SizedBox.shrink();
-
-        return Positioned(
-          left: 0,
-          right: 0,
-          bottom: bottomPadding,
-          child: IgnorePointer(
-            ignoring: opacity < 0.5,
-            child: Opacity(
-              opacity: opacity,
-              child: GestureDetector(
-                onTap: () {
-                  HapticsService().lightImpact();
-                  _animateRoutineSheetTo(_maxSheetExtent);
-                },
-                onVerticalDragUpdate: (details) {
-                  if ((details.primaryDelta ?? 0) < 0 &&
-                      _routineSheetExtent.value == _minSheetExtent) {
-                    HapticsService().lightImpact();
-                    _animateRoutineSheetTo(_maxSheetExtent);
-                  }
-                },
-                child: Container(
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: foundation.surfaceLow.withValues(alpha: 0.92),
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(18),
-                    ),
-                    border: Border.all(
-                      color: Color.lerp(
-                        foundation.borderSubtle,
-                        themeData.colorScheme.primary,
-                        0.18,
-                      )!.withValues(alpha: 0.82),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: foundation.shadowSoft.withValues(alpha: 0.72),
-                        blurRadius: 18,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  child: MediaQuery(
-                    data: MediaQuery.of(
-                      context,
-                    ).copyWith(textScaler: const TextScaler.linear(1.0)),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          key: const ValueKey('home_routines_drag_handle'),
-                          width: 34,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.42),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                        ),
-                        const SizedBox(height: 7),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Your routines',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.2,
-                                color: foundation.textPrimary,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Icon(
-                              LucideIcons.chevronUp,
-                              size: 16,
-                              color: foundation.textSecondary,
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   Widget _buildRoutineLibrarySheet(
     List<Routine> visibleRoutines,
     ThemeData themeData, {
@@ -919,10 +815,21 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
     final listFadeAlpha = 0.82 + (collapsedProgress * 0.14);
     final header = GestureDetector(
       behavior: HitTestBehavior.opaque,
+      onTap: expandProgress <= 0.05
+          ? () {
+              HapticsService().lightImpact();
+              _animateRoutineSheetTo(_maxSheetExtent);
+            }
+          : null,
       onVerticalDragUpdate: expandProgress > 0.05
           ? (details) =>
                 _handleRoutineSheetDismissDragUpdate(details, hostHeight)
-          : null,
+          : (details) {
+              if ((details.primaryDelta ?? 0) < 0) {
+                HapticsService().lightImpact();
+                _animateRoutineSheetTo(_maxSheetExtent);
+              }
+            },
       onVerticalDragEnd: expandProgress > 0.05
           ? _handleRoutineSheetDismissDragEnd
           : null,
@@ -952,26 +859,41 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
               child: expandProgress <= 0.45
                   ? SizedBox(
                       key: const ValueKey('collapsed-routines-header'),
-                      height: 24,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            'Routine shelf',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.1,
-                              color: foundation.textMuted,
+                      height: 48,
+                      child: MediaQuery(
+                        data: MediaQuery.of(
+                          context,
+                        ).copyWith(textScaler: const TextScaler.linear(1.0)),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  'Your routines',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.1,
+                                    color: foundation.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Icon(
+                                  LucideIcons.chevronUp,
+                                  size: 15,
+                                  color: foundation.textSecondary,
+                                ),
+                              ],
                             ),
-                          ),
-                          const SizedBox(width: 6),
-                          Icon(
-                            LucideIcons.chevronUp,
-                            size: 14,
-                            color: foundation.textMuted.withValues(alpha: 0.8),
-                          ),
-                        ],
+                            const SizedBox(height: 6),
+                            _buildCollapsedRoutineCountHint(
+                              count: visibleRoutines.length,
+                              accent: themeData.colorScheme.primary,
+                            ),
+                          ],
+                        ),
                       ),
                     )
                   : SizedBox(
@@ -1033,7 +955,9 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                   ),
             slivers: [
               SliverToBoxAdapter(child: header),
-              if (visibleRoutines.isEmpty)
+              if (expandProgress <= 0.05)
+                const SliverToBoxAdapter(child: SizedBox.shrink())
+              else if (visibleRoutines.isEmpty)
                 SliverToBoxAdapter(
                   child: AnimatedOpacity(
                     opacity: expandProgress.clamp(0.0, 1.0),
@@ -1226,6 +1150,46 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildRoutineCountDot(Color color, double alpha) {
+    return Container(
+      width: 6,
+      height: 6,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color.withValues(alpha: alpha),
+      ),
+    );
+  }
+
+  Widget _buildCollapsedRoutineCountHint({
+    required int count,
+    required Color accent,
+  }) {
+    final foundation = context.darkFoundation;
+    final label = '$count ${count == 1 ? 'routine' : 'routines'}';
+    return Row(
+      key: const ValueKey('home_routines_count_hint'),
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _buildRoutineCountDot(accent, 0.86),
+        const SizedBox(width: 5),
+        _buildRoutineCountDot(foundation.textSecondary, 0.56),
+        const SizedBox(width: 5),
+        _buildRoutineCountDot(foundation.textMuted, 0.36),
+        const SizedBox(width: 7),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.1,
+            color: foundation.textMuted,
+          ),
+        ),
+      ],
     );
   }
 
@@ -2002,7 +1966,9 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
   }
 }
 
-class _HomeHeroStage extends ConsumerWidget {
+const _homeStepsPreviewExpandedKey = 'homeStepsPreviewExpanded';
+
+class _HomeHeroStage extends ConsumerStatefulWidget {
   const _HomeHeroStage({
     required this.routine,
     required this.themeData,
@@ -2028,14 +1994,46 @@ class _HomeHeroStage extends ConsumerWidget {
   final ValueChanged<int> onPreviewStepTap;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_HomeHeroStage> createState() => _HomeHeroStageState();
+}
+
+class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
+  late bool _isPreviewExpanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _isPreviewExpanded =
+        ref
+            .read(sharedPreferencesProvider)
+            .getBool(_homeStepsPreviewExpandedKey) ??
+        true;
+  }
+
+  void _setPreviewExpanded(bool expanded) {
+    if (_isPreviewExpanded == expanded) {
+      return;
+    }
+    HapticsService().lightImpact();
+    setState(() => _isPreviewExpanded = expanded);
+    unawaited(
+      ref
+          .read(sharedPreferencesProvider)
+          .setBool(_homeStepsPreviewExpandedKey, expanded),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
-    final latestRun = ref.watch(latestRoutineRunProvider(routine.id));
+    final latestRun = ref.watch(latestRoutineRunProvider(widget.routine.id));
     final textScale = MediaQuery.textScalerOf(context).scale(1);
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final maxStageHeight = availableHeight < 260 ? 260.0 : availableHeight;
+        final maxStageHeight = widget.availableHeight < 260
+            ? 260.0
+            : widget.availableHeight;
         final stageHeight = constraints.maxHeight.isFinite
             ? constraints.maxHeight.clamp(260.0, maxStageHeight).toDouble()
             : maxStageHeight;
@@ -2062,13 +2060,16 @@ class _HomeHeroStage extends ConsumerWidget {
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 1.4,
-                    color: themeData.colorScheme.primary,
+                    color: widget.themeData.colorScheme.primary,
                   ),
                 ),
                 SizedBox(height: metrics.overlineTitleGap),
                 Text.rich(
                   key: const ValueKey('home_hero_title'),
-                  _titleSpan(routine.title, themeData.colorScheme.primary),
+                  _titleSpan(
+                    widget.routine.title,
+                    widget.themeData.colorScheme.primary,
+                  ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.dmSerifDisplay(
@@ -2080,19 +2081,22 @@ class _HomeHeroStage extends ConsumerWidget {
                 ),
                 SizedBox(height: metrics.titlePreviewGap),
                 _HomeHeroPreviewCard(
-                  steps: steps,
+                  steps: widget.steps,
                   height: metrics.previewHeight,
-                  accentColor: accentColor,
-                  themeData: themeData,
-                  onSettings: onSettings,
-                  onStepTap: onPreviewStepTap,
+                  isExpanded: _isPreviewExpanded,
+                  accentColor: widget.accentColor,
+                  themeData: widget.themeData,
+                  onSettings: widget.onSettings,
+                  onReminders: widget.onReminders,
+                  onEmail: widget.onEmail,
+                  onToggleExpanded: () =>
+                      _setPreviewExpanded(!_isPreviewExpanded),
+                  onStepTap: widget.onPreviewStepTap,
                 ),
                 SizedBox(height: metrics.previewMetaGap),
                 _HomeHeroMetaRow(
                   latestRun: latestRun,
                   lastRunTextFor: _lastRunText,
-                  onReminders: onReminders,
-                  onEmail: onEmail,
                 ),
                 SizedBox(height: metrics.metaCtaGap),
                 SizedBox(
@@ -2101,16 +2105,15 @@ class _HomeHeroStage extends ConsumerWidget {
                   height: 56,
                   child: FilledButton.icon(
                     key: const ValueKey('home_hero_cta'),
-                    onPressed: onBegin,
+                    onPressed: widget.onBegin,
                     icon: const Icon(LucideIcons.play, size: 18),
                     label: const Text('Begin Routine'),
                     style: FilledButton.styleFrom(
-                      backgroundColor: themeData.colorScheme.primary,
+                      backgroundColor: widget.themeData.colorScheme.primary,
                       foregroundColor: foundation.bgBase,
                       elevation: 0,
-                      shadowColor: themeData.colorScheme.primary.withValues(
-                        alpha: 0.28,
-                      ),
+                      shadowColor: widget.themeData.colorScheme.primary
+                          .withValues(alpha: 0.28),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(18),
                       ),
@@ -2171,26 +2174,39 @@ class _HomeHeroPreviewCard extends StatelessWidget {
   const _HomeHeroPreviewCard({
     required this.steps,
     required this.height,
+    required this.isExpanded,
     required this.accentColor,
     required this.themeData,
     required this.onSettings,
+    required this.onReminders,
+    required this.onEmail,
+    required this.onToggleExpanded,
     required this.onStepTap,
   });
 
   final List<RoutineStep> steps;
   final double height;
+  final bool isExpanded;
   final Color accentColor;
   final ThemeData themeData;
   final VoidCallback onSettings;
+  final VoidCallback onReminders;
+  final VoidCallback onEmail;
+  final VoidCallback onToggleExpanded;
   final ValueChanged<int> onStepTap;
 
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
     final compact = height < 170;
+    final verticalPadding = compact ? 12.0 : 19.0;
+    final headerHeight = compact ? 34.0 : 44.0;
+    final effectiveHeight = isExpanded
+        ? height
+        : headerHeight + verticalPadding + 4;
     return Container(
       key: const ValueKey('home_hero_preview_card'),
-      height: height,
+      height: effectiveHeight,
       padding: EdgeInsets.fromLTRB(12, compact ? 6 : 10, 12, compact ? 6 : 9),
       decoration: BoxDecoration(
         color: foundation.surfaceLow.withValues(alpha: 0.78),
@@ -2206,16 +2222,25 @@ class _HomeHeroPreviewCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _HomeHeroPreviewHeader(compact: compact, onSettings: onSettings),
-          SizedBox(height: compact ? 4 : 6),
-          Expanded(
-            child: _HomeHeroStepList(
-              steps: steps,
-              accentColor: accentColor,
-              themeData: themeData,
-              onStepTap: onStepTap,
-            ),
+          _HomeHeroPreviewHeader(
+            compact: compact,
+            isExpanded: isExpanded,
+            onToggleExpanded: onToggleExpanded,
+            onSettings: onSettings,
+            onReminders: onReminders,
+            onEmail: onEmail,
           ),
+          if (isExpanded) ...[
+            SizedBox(height: compact ? 4 : 6),
+            Expanded(
+              child: _HomeHeroStepList(
+                steps: steps,
+                accentColor: accentColor,
+                themeData: themeData,
+                onStepTap: onStepTap,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -2225,11 +2250,19 @@ class _HomeHeroPreviewCard extends StatelessWidget {
 class _HomeHeroPreviewHeader extends StatelessWidget {
   const _HomeHeroPreviewHeader({
     required this.compact,
+    required this.isExpanded,
+    required this.onToggleExpanded,
     required this.onSettings,
+    required this.onReminders,
+    required this.onEmail,
   });
 
   final bool compact;
+  final bool isExpanded;
+  final VoidCallback onToggleExpanded;
   final VoidCallback onSettings;
+  final VoidCallback onReminders;
+  final VoidCallback onEmail;
 
   @override
   Widget build(BuildContext context) {
@@ -2240,42 +2273,130 @@ class _HomeHeroPreviewHeader extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              'STEPS PREVIEW',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.1,
-                color: foundation.textMuted,
-              ),
+            child: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    'STEPS PREVIEW',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.1,
+                      color: foundation.textMuted,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Semantics(
+                  label: isExpanded
+                      ? 'Hide steps preview'
+                      : 'Show steps preview',
+                  button: true,
+                  child: SizedBox(
+                    key: const ValueKey('home_hero_preview_toggle'),
+                    width: compact ? 30 : 34,
+                    height: compact ? 30 : 34,
+                    child: IconButton(
+                      onPressed: onToggleExpanded,
+                      tooltip: isExpanded
+                          ? 'Hide steps preview'
+                          : 'Show steps preview',
+                      icon: Icon(
+                        isExpanded
+                            ? LucideIcons.chevronUp
+                            : LucideIcons.chevronDown,
+                        size: 17,
+                        color: foundation.textSecondary,
+                      ),
+                      style: IconButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size(compact ? 30 : 34, compact ? 30 : 34),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           Semantics(
-            label: 'Routine settings',
-            button: true,
-            child: SizedBox(
-              key: const ValueKey('home_hero_preview_settings'),
-              width: compact ? 34 : 44,
-              height: compact ? 34 : 44,
-              child: IconButton(
-                onPressed: onSettings,
-                tooltip: 'Routine settings',
-                icon: Icon(
-                  LucideIcons.settings,
-                  size: 17,
-                  color: foundation.textSecondary,
+            label: 'Routine actions',
+            container: true,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _HomeHeroPreviewIconButton(
+                  key: const ValueKey('home_hero_preview_reminders'),
+                  tooltip: 'Reminders',
+                  icon: LucideIcons.bell,
+                  compact: compact,
+                  onPressed: onReminders,
                 ),
-                style: IconButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  minimumSize: Size(compact ? 34 : 44, compact ? 34 : 44),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                _HomeHeroPreviewIconButton(
+                  key: const ValueKey('home_hero_preview_email'),
+                  tooltip: 'Email',
+                  icon: LucideIcons.mail,
+                  compact: compact,
+                  onPressed: onEmail,
                 ),
-              ),
+                Container(
+                  width: 1,
+                  height: compact ? 16 : 20,
+                  margin: EdgeInsets.symmetric(horizontal: compact ? 2 : 4),
+                  color: foundation.borderSubtle.withValues(alpha: 0.78),
+                ),
+                _HomeHeroPreviewIconButton(
+                  key: const ValueKey('home_hero_preview_settings'),
+                  tooltip: 'Routine settings',
+                  icon: LucideIcons.settings,
+                  compact: compact,
+                  onPressed: onSettings,
+                ),
+              ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _HomeHeroPreviewIconButton extends StatelessWidget {
+  const _HomeHeroPreviewIconButton({
+    super.key,
+    required this.tooltip,
+    required this.icon,
+    required this.compact,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final bool compact;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+    final size = compact ? 32.0 : 36.0;
+    return Semantics(
+      label: tooltip,
+      button: true,
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: IconButton(
+          onPressed: onPressed,
+          tooltip: tooltip,
+          icon: Icon(icon, size: 16, color: foundation.textSecondary),
+          style: IconButton.styleFrom(
+            padding: EdgeInsets.zero,
+            minimumSize: Size(size, size),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        ),
       ),
     );
   }
@@ -2285,14 +2406,10 @@ class _HomeHeroMetaRow extends StatelessWidget {
   const _HomeHeroMetaRow({
     required this.latestRun,
     required this.lastRunTextFor,
-    required this.onReminders,
-    required this.onEmail,
   });
 
   final AsyncValue<RoutineRun?> latestRun;
   final String Function(DateTime finishedAt) lastRunTextFor;
-  final VoidCallback onReminders;
-  final VoidCallback onEmail;
 
   @override
   Widget build(BuildContext context) {
@@ -2336,85 +2453,7 @@ class _HomeHeroMetaRow extends StatelessWidget {
               orElse: () => const SizedBox.shrink(),
             ),
           ),
-          const SizedBox(width: 12),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _HomeHeroFooterAction(
-                key: const ValueKey('home_hero_footer_reminders'),
-                icon: LucideIcons.bell,
-                label: 'Reminders',
-                onTap: onReminders,
-              ),
-              const SizedBox(width: 8),
-              _HomeHeroFooterAction(
-                key: const ValueKey('home_hero_footer_email'),
-                icon: LucideIcons.mail,
-                label: 'Email',
-                onTap: onEmail,
-              ),
-            ],
-          ),
         ],
-      ),
-    );
-  }
-}
-
-class _HomeHeroFooterAction extends StatelessWidget {
-  const _HomeHeroFooterAction({
-    super.key,
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
-    return Semantics(
-      button: true,
-      label: label,
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(999),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(999),
-          child: Container(
-            height: 36,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: Colors.transparent,
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(
-                color: foundation.borderSubtle.withValues(alpha: 0.9),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 14, color: foundation.textMuted),
-                const SizedBox(width: 6),
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: foundation.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

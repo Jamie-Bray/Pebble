@@ -1,7 +1,7 @@
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/features/routines/composer/models/routine_composer_seed_data.dart';
 
-enum RoutineComposerEntryPoint { newDraft, editRoutine, customizeTemplate }
+enum RoutineComposerEntryPoint { newDraft, editRoutine }
 
 class RoutineComposerConfig {
   final Routine? routine;
@@ -18,22 +18,13 @@ class RoutineComposerConfig {
       initialStepId = null,
       initialStepIndex = null;
 
-  const RoutineComposerConfig.customizeTemplate({required this.seedData})
-    : routine = null,
-      entryPoint = RoutineComposerEntryPoint.customizeTemplate,
-      forceNewDraft = true,
-      initialStepId = null,
-      initialStepIndex = null;
-
   const RoutineComposerConfig.create({
     this.seedData,
     this.forceNewDraft = false,
     this.initialStepId,
     this.initialStepIndex,
   }) : routine = null,
-       entryPoint = seedData == null
-           ? RoutineComposerEntryPoint.newDraft
-           : RoutineComposerEntryPoint.customizeTemplate;
+       entryPoint = RoutineComposerEntryPoint.newDraft;
 
   const RoutineComposerConfig.edit({
     required this.routine,
@@ -44,8 +35,6 @@ class RoutineComposerConfig {
        forceNewDraft = false;
 
   bool get isEdit => routine != null;
-  bool get isTemplateCustomization =>
-      entryPoint == RoutineComposerEntryPoint.customizeTemplate;
 
   @override
   bool operator ==(Object other) {

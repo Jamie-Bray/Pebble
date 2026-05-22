@@ -36,10 +36,11 @@ if ([string]::IsNullOrWhiteSpace($parsed.client_email) -or
 
 $tempEnvFile = Join-Path $env:TEMP "pebble-google-play-secrets.env"
 try {
+  $compressedJson = $parsed | ConvertTo-Json -Compress -Depth 10
   @(
     "GOOGLE_PLAY_PACKAGE_NAME=com.vix.pebble_routines"
-    "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=$json"
-  ) | Set-Content -LiteralPath $tempEnvFile -Encoding utf8
+    "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=$compressedJson"
+  ) | Set-Content -LiteralPath $tempEnvFile -Encoding ascii
 
   supabase secrets set --env-file $tempEnvFile --project-ref $projectRef
   supabase functions deploy verify-purchase --project-ref $projectRef

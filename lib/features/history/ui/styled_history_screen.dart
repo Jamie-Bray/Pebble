@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -16,12 +17,10 @@ import 'package:pebble_routines/features/account_backup/providers/account_status
 import 'package:pebble_routines/features/history/ui/routine_run_detail_screen.dart';
 import 'package:pebble_routines/features/history/providers/routine_history_vm.dart';
 import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
-import 'package:pebble_routines/features/routines/data/models/routine_icon_catalog.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
-import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/ui/zen_error_view.dart';
 import 'package:pebble_routines/core/ui/zen_components.dart';
@@ -183,7 +182,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
       children: [
         ZenScreenHeader(
           title: 'History',
-          subtitle: _historySubtitle(count: count, backupStatus: backupStatus),
+          subtitle: _historySubtitle(count: count),
           actions: [
             IconButton(
               tooltip: 'Search',
@@ -204,22 +203,20 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
                 size: 24,
               ),
             ),
-            IconButton(
-              tooltip: 'Delete all history',
-              onPressed: () => _showDeleteAllDialog(context, ref, backupStatus),
-              icon: Icon(
-                LucideIcons.trash2,
-                color: foundation.textSecondary,
-                size: 24,
-              ),
-            ),
           ],
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [_buildSegmentedToggle(ref)],
+            children: [
+              _HistoryStorageBadge(
+                status: backupStatus,
+                onTap: () => context.push('/account-hub'),
+              ),
+              const SizedBox(height: 14),
+              _buildSegmentedToggle(ref),
+            ],
           ),
         ),
         // Search line with increased margin and Lucide style
@@ -325,6 +322,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
                       routine: byId[run.routineId],
                       proofStorage: proofStorage,
                       showSyncState: backupStatus.showRunSyncState,
+                      onDismiss: () => _confirmDismissRun(context, ref, run),
                       onManage: () {
                         HapticFeedback.mediumImpact();
                         _showManageRunSheet(context, ref, run, proofStorage);
@@ -492,7 +490,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 48),
             child: Text(
-              'Capture photos during your routines to see them here for instant peace of mind.',
+              'Capture photos during your routines to see visual proof here when you need it.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 14, color: foundation.textSecondary),
             ),
@@ -587,18 +585,9 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
     );
   }
 
-  String _historySubtitle({
-    required int count,
-    required AccountStatusPresentation backupStatus,
-  }) {
+  String _historySubtitle({required int count}) {
     final noun = count == 1 ? 'routine run' : 'routine runs';
-    if (backupStatus.showRunSyncState) {
-      return '$count $noun saved - backed up with Premium';
-    }
-    if (backupStatus.showPremiumNote) {
-      return '$count $noun saved - free keeps 48 hours on this device';
-    }
-    return '$count $noun saved - ${backupStatus.historyLabel}';
+    return '$count $noun saved';
   }
 
   Future<void> _showManageRunSheet(
@@ -696,31 +685,18 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
     );
   }
 
-  Future<void> _showDeleteAllDialog(
-    BuildContext context,
-    WidgetRef ref,
-    AccountStatusPresentation backupStatus,
-  ) async {
-    final body = backupStatus.showRunSyncState
-        ? 'This will delete your history and stored photos from this device and your Pebble cloud backup. This action cannot be undone.'
-        : 'This will delete the history and photos currently stored on this device. This action cannot be undone.';
-    final confirmed = await showPebbleConfirmationSheet(
-      context: context,
-      title: 'Delete all history?',
-      body: body,
-      confirmLabel: 'Delete all history',
-      isDestructive: true,
-    );
-    if (confirmed == true) {
-      await deleteAllRuns(ref);
-    }
-  }
-
   Future<void> _showDeleteRunConfirmation(
     BuildContext context,
     WidgetRef ref,
     RoutineRun run,
   ) async {
+    final confirmed = await _confirmDeleteRun(context, run);
+    if (confirmed) {
+      await deleteSingleRun(ref, run.id);
+    }
+  }
+
+  Future<bool> _confirmDeleteRun(BuildContext context, RoutineRun run) async {
     final confirmed = await showPebbleConfirmationSheet(
       context: context,
       title: 'Delete this routine run?',
@@ -728,9 +704,19 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
       confirmLabel: 'Delete routine run',
       isDestructive: true,
     );
-    if (confirmed == true) {
+    return confirmed == true;
+  }
+
+  Future<bool> _confirmDismissRun(
+    BuildContext context,
+    WidgetRef ref,
+    RoutineRun run,
+  ) async {
+    final confirmed = await _confirmDeleteRun(context, run);
+    if (confirmed) {
       await deleteSingleRun(ref, run.id);
     }
+    return confirmed;
   }
 
   Future<void> _openRunPhotoGallery(
@@ -989,6 +975,7 @@ class _HistoryCard extends StatelessWidget {
     required this.routine,
     required this.proofStorage,
     required this.showSyncState,
+    required this.onDismiss,
     required this.onManage,
   });
 
@@ -996,120 +983,250 @@ class _HistoryCard extends StatelessWidget {
   final Routine? routine;
   final RoutineSessionProofStorage proofStorage;
   final bool showSyncState;
+  final Future<bool> Function() onDismiss;
   final VoidCallback onManage;
 
   @override
   Widget build(BuildContext context) {
     final r = routine;
-    final cs = Theme.of(context).colorScheme;
     final foundation = context.darkFoundation;
 
-    final routineIcon = RoutineIconCatalog.resolve(r?.emoji);
     final syncState = showSyncState ? _syncStateForRun(run) : null;
     final title = run.routineTitle.trim().isEmpty
         ? 'Deleted routine'
         : run.routineTitle.trim();
     final stepCount = _runStepCount(run);
-    final metadata = [
-      DateFormat.jm().format(run.finishedAt),
-      if (stepCount > 0) '$stepCount step${stepCount == 1 ? '' : 's'}',
-    ].join(' - ');
-
-    final storedHex = r?.colorHex;
-    final bubbleColor = Color(
-      _ensureArgb(storedHex ?? cs.primary.toARGB32()),
-    ).withValues(alpha: r == null ? 0.72 : 0.9);
+    final completedStepCount = _runCompletedStepCount(run);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () {
-          HapticFeedback.lightImpact();
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => RoutineRunDetailScreen(run: run)),
-          );
-        },
-        onLongPress: onManage,
-        child: ClipRRect(
+      child: Dismissible(
+        key: ValueKey('history-run-${run.id}'),
+        direction: DismissDirection.endToStart,
+        confirmDismiss: (_) => onDismiss(),
+        background: const _HistoryDismissBackground(),
+        child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                color: foundation.surfaceLow,
-                border: Border.all(color: foundation.borderSubtle),
+          onTap: () {
+            HapticFeedback.lightImpact();
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => RoutineRunDetailScreen(run: run),
               ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      color: bubbleColor.withValues(alpha: 0.14),
+            );
+          },
+          onLongPress: onManage,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  color: foundation.surfaceLow,
+                  border: Border.all(color: foundation.borderSubtle),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    _HistoryRunTimeBlock(time: run.finishedAt),
+                    Container(
+                      width: 1,
+                      height: 46,
+                      margin: const EdgeInsets.symmetric(horizontal: 14),
+                      color: foundation.borderSubtle,
                     ),
-                    alignment: Alignment.center,
-                    child: Icon(
-                      r == null ? LucideIcons.history : routineIcon.icon,
-                      size: 18,
-                      color: bubbleColor,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            height: 1.18,
-                            color: foundation.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          metadata,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: foundation.textSecondary,
-                          ),
-                        ),
-                        if (r == null) ...[
-                          const SizedBox(height: 3),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
-                            'Routine deleted',
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: foundation.textMuted,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              height: 1.18,
+                              color: foundation.textPrimary,
                             ),
                           ),
+                          const SizedBox(height: 8),
+                          _HistoryRunBadges(
+                            run: run,
+                            proofStorage: proofStorage,
+                            syncState: syncState,
+                            completedSteps: completedStepCount,
+                            totalSteps: stepCount,
+                          ),
+                          if (r == null) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              'Routine deleted',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: foundation.textMuted,
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  _HistoryRowTrailing(
-                    run: run,
-                    proofStorage: proofStorage,
-                    syncState: syncState,
-                  ),
-                ],
+                    const SizedBox(width: 10),
+                    Icon(
+                      LucideIcons.chevronRight,
+                      size: 16,
+                      color: foundation.textMuted,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HistoryStorageBadge extends StatelessWidget {
+  const _HistoryStorageBadge({required this.status, required this.onTap});
+
+  final AccountStatusPresentation status;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+    final cs = Theme.of(context).colorScheme;
+    final toneColor = switch (status.tone) {
+      AccountStatusTone.active => Color.lerp(
+        cs.primary,
+        const Color(0xFF7C9A61),
+        0.55,
+      )!,
+      AccountStatusTone.ready => cs.primary,
+      AccountStatusTone.paused => const Color(0xFFD99B55),
+      AccountStatusTone.attention => cs.error,
+      AccountStatusTone.neutral => foundation.textMuted,
+    };
+    final actionLabel = status.showPremiumNote
+        ? 'Back up with Premium'
+        : status.primaryActionLabel;
+    final showAction =
+        actionLabel != null && status.primaryAction != AccountStatusAction.none;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: showAction ? onTap : null,
+        borderRadius: BorderRadius.circular(999),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: foundation.surfaceLow,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: foundation.borderSubtle),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: toneColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  status.historyLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: foundation.textSecondary,
+                  ),
+                ),
+              ),
+              if (showAction) ...[
+                const SizedBox(width: 8),
+                Text(
+                  actionLabel,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: cs.primary,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HistoryRunTimeBlock extends StatelessWidget {
+  const _HistoryRunTimeBlock({required this.time});
+
+  final DateTime time;
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+    return SizedBox(
+      width: 56,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            DateFormat('h:mm').format(time),
+            maxLines: 1,
+            style: GoogleFonts.dmSerifDisplay(
+              fontSize: 22,
+              height: 0.98,
+              color: foundation.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            DateFormat('a').format(time),
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              color: foundation.textMuted,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HistoryDismissBackground extends StatelessWidget {
+  const _HistoryDismissBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 18),
+        color: cs.error.withValues(alpha: 0.12),
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(color: cs.error, shape: BoxShape.circle),
+          child: const Icon(LucideIcons.trash2, color: Colors.white, size: 18),
         ),
       ),
     );
@@ -1178,16 +1295,20 @@ class _HistorySyncPill extends StatelessWidget {
   }
 }
 
-class _HistoryRowTrailing extends StatelessWidget {
-  const _HistoryRowTrailing({
+class _HistoryRunBadges extends StatelessWidget {
+  const _HistoryRunBadges({
     required this.run,
     required this.proofStorage,
     required this.syncState,
+    required this.completedSteps,
+    required this.totalSteps,
   });
 
   final RoutineRun run;
   final RoutineSessionProofStorage proofStorage;
   final _HistorySyncState? syncState;
+  final int completedSteps;
+  final int totalSteps;
 
   @override
   Widget build(BuildContext context) {
@@ -1195,21 +1316,68 @@ class _HistoryRowTrailing extends StatelessWidget {
       future: _existingRunPhotoCount(run, proofStorage),
       builder: (context, snapshot) {
         final photoCount = snapshot.data ?? 0;
-        if (photoCount == 0 && syncState == null) {
-          return const SizedBox(width: 4);
-        }
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
+        return Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
+            if (totalSteps > 0)
+              _HistoryCompletionChip(
+                completedSteps: completedSteps,
+                totalSteps: totalSteps,
+              ),
             if (syncState != null) _HistorySyncPill(state: syncState!),
-            if (photoCount > 0) ...[
-              if (syncState != null) const SizedBox(width: 6),
-              _HistoryPhotoCount(count: photoCount),
-            ],
+            if (photoCount > 0) _HistoryPhotoCount(count: photoCount),
           ],
         );
       },
+    );
+  }
+}
+
+class _HistoryCompletionChip extends StatelessWidget {
+  const _HistoryCompletionChip({
+    required this.completedSteps,
+    required this.totalSteps,
+  });
+
+  final int completedSteps;
+  final int totalSteps;
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+    final cs = Theme.of(context).colorScheme;
+    final isComplete = totalSteps > 0 && completedSteps >= totalSteps;
+    final accent = isComplete
+        ? Color.lerp(cs.primary, const Color(0xFF7C9A61), 0.55)!
+        : foundation.textMuted;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: isComplete ? 0.12 : 0.08),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: accent.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isComplete ? LucideIcons.check : LucideIcons.listChecks,
+            size: 12,
+            color: accent,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '$completedSteps/$totalSteps steps',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: isComplete ? accent : foundation.textSecondary,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1224,20 +1392,28 @@ class _HistoryPhotoCount extends StatelessWidget {
     final foundation = context.darkFoundation;
     return Tooltip(
       message: '$count retained photo${count == 1 ? '' : 's'}',
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(LucideIcons.camera, size: 13, color: foundation.textSecondary),
-          const SizedBox(width: 4),
-          Text(
-            '$count',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: foundation.textSecondary,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        decoration: BoxDecoration(
+          color: foundation.surfaceHigh.withValues(alpha: 0.48),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: foundation.borderSubtle),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(LucideIcons.camera, size: 13, color: foundation.textSecondary),
+            const SizedBox(width: 4),
+            Text(
+              '$count photo${count == 1 ? '' : 's'}',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: foundation.textSecondary,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1336,10 +1512,8 @@ class _HistoryBackupFooter extends StatelessWidget {
                 ),
               ),
               TextButton(
-                onPressed: () => context.push(
-                  premiumRoute(source: PremiumEntrySource.backup),
-                ),
-                child: const Text('Learn more'),
+                onPressed: () => context.push('/account-hub'),
+                child: const Text('Back up'),
               ),
             ],
           ),
@@ -1702,6 +1876,31 @@ int _runStepCount(RoutineRun run) {
   return 0;
 }
 
+int _runCompletedStepCount(RoutineRun run) {
+  final data = _decodeRunCompletionData(run);
+  final steps = data?['steps'];
+  if (steps is! List || steps.isEmpty) {
+    return _runStepCount(run);
+  }
+
+  var completed = 0;
+  for (final rawStep in steps) {
+    if (rawStep is! Map) {
+      continue;
+    }
+    final step = Map<String, dynamic>.from(rawStep);
+    final skipped = step['skipped'] == true;
+    final explicitlyCompleted = step['completed'] == true;
+    final hasCompletionTime =
+        DateTime.tryParse(step['completedAt']?.toString() ?? '') != null;
+    if (!skipped && (explicitlyCompleted || hasCompletionTime)) {
+      completed++;
+    }
+  }
+
+  return completed;
+}
+
 Map<String, dynamic>? _decodeRunCompletionData(RoutineRun run) {
   final raw = run.stepCompletionData;
   if (raw == null || raw.isEmpty) {
@@ -1796,10 +1995,4 @@ Future<int> _existingRunPhotoCount(
     }
   }
   return count;
-}
-
-int _ensureArgb(int argbOrRgb) {
-  // If upper 8 bits (alpha) are zero, add 0xFF alpha.
-  if ((argbOrRgb >> 24) == 0x00) return 0xFF000000 | argbOrRgb;
-  return argbOrRgb;
 }

@@ -69,7 +69,7 @@ class AppearanceScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Choose a calm surface for Pebble.\nPreview first, apply when it feels right.',
+                        'Choose a look that works for you.\nPreview first, then apply.',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: foundation.textSecondary,
                           height: 1.45,
@@ -765,7 +765,7 @@ class _MiniAppPreview extends StatelessWidget {
     final rowData = <({String label, String count, Color color})>[
       (label: 'Leaving Home', count: '5', color: scheme.primary),
       (
-        label: 'Anxiety-Free Departure',
+        label: 'Everyday Departure',
         count: '10',
         color: templateTokens.templatesAccentGroup2,
       ),

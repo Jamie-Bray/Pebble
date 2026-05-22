@@ -237,7 +237,7 @@ class RoutineComposerDraftRepositoryImpl
       pinnedAt: existing?.pinnedAt,
       reminderDay: existing?.reminderDay,
       reminderTime: existing?.reminderTime,
-      version: existing?.version ?? 1,
+      version: (existing?.version ?? 0) + 1,
       updatedAt: now,
       cloudId: existing?.cloudId,
       ownerUserId: existing?.ownerUserId,

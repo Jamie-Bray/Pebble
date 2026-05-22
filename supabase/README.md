@@ -37,7 +37,7 @@ powershell -ExecutionPolicy Bypass -File .\supabase\scripts\push-prod.ps1
 - Use staging first for every schema/policy change.
 - Do not hand-edit schema in Dashboard unless immediately codified as a migration.
 - Personal Premium entitlement truth lives in `personal_entitlements`, written by the `verify-purchase` Edge Function after Google Play verification.
-- The active Google Play subscription product ids are `personal_premium_monthly` and `household_monthly`.
+- The active Google Play subscription product id is `personal_premium`, with base plans `monthly` and `yearly`.
 - Routine metadata remains readable by the account owner after cancellation, but cloud inserts/updates and proof-photo uploads require an active/grace/cancelled-active entitlement.
 - Migration `005_cloud_backup_consent_and_deletion_requests.sql` adds the cloud-backup consent record and makes cloud writes require current consent as well as entitlement.
 - Migration `007_remove_pre_store_entitlement_bridge.sql` removes the old profile-tier bridge, so cloud writes can no longer be unlocked by `profiles.tier`.

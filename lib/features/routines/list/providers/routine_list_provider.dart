@@ -62,7 +62,7 @@ final routineListProvider = StreamProvider<List<Routine>>((ref) {
             colorHex: routine.colorHex,
             isPinned: routine.isPinned,
             pinnedAt: routine.pinnedAt,
-            version: routine.version,
+            version: routine.version + 1,
             updatedAt: DateTime.now(),
             cloudId: routine.cloudId,
             ownerUserId: routine.ownerUserId,

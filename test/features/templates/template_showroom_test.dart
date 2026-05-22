@@ -160,7 +160,7 @@ void main() {
       expect(find.text('Templates'), findsOneWidget);
       expect(
         find.text(
-          'Calm starting points for the moments you come back to again and again.',
+          'Ready-made checklists for routines you repeat.',
         ),
         findsOneWidget,
       );

@@ -43,6 +43,12 @@ class RoutineSessionDao extends DatabaseAccessor<LocalDb>
         .get();
   }
 
+  Future<void> deleteSessionsOlderThan(DateTime cutoff) {
+    return (delete(routineSessions)
+          ..where((tbl) => tbl.updatedAt.isSmallerThanValue(cutoff)))
+        .go();
+  }
+
   Future<List<RoutineSessionRow>> getAllSessions() {
     return (select(
       routineSessions,

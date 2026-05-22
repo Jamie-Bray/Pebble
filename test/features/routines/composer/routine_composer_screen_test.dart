@@ -6,8 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/features/routines/composer/data/routine_composer_draft_repository.dart';
-import 'package:pebble_routines/features/routines/composer/models/routine_composer_seed_data.dart';
-import 'package:pebble_routines/features/routines/composer/models/routine_composer_step_draft.dart';
+
 import 'package:pebble_routines/features/routines/composer/ui/routine_composer_screen.dart';
 
 import 'fake_routine_composer_draft_repository.dart';
@@ -299,47 +298,7 @@ void main() {
     expect(find.text('Ready to finish'), findsOneWidget);
   });
 
-  testWidgets('template composer uses distinct title and seed content', (
-    tester,
-  ) async {
-    final repository = FakeRoutineComposerDraftRepository();
-    const seedData = RoutineComposerSeedData(
-      title: 'Leaving Home',
-      iconKey: 'house',
-      colorHex: null,
-      steps: [
-        RoutineComposerStepDraft(
-          id: 'template-step',
-          text: 'Lock the door',
-          requiresPhoto: false,
-          allowSkip: false,
-          sortOrder: 0,
-        ),
-      ],
-    );
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          routineComposerDraftRepositoryProvider.overrideWithValue(repository),
-        ],
-        child: MaterialApp(
-          theme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
-            useMaterial3: true,
-          ),
-          home: RoutineComposerScreen.customizeTemplate(seedData: seedData),
-        ),
-      ),
-    );
-
-    await tester.pumpAndSettle();
-
-    expect(find.text('Use Template'), findsOneWidget);
-    expect(find.text('New Routine'), findsNothing);
-    expect(find.text('Leaving Home'), findsOneWidget);
-    expect(find.text('Lock the door'), findsOneWidget);
-  });
 
   testWidgets('edit mode focuses the requested initial step index', (
     tester,

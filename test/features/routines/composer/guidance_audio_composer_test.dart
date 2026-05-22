@@ -6,8 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/features/routines/composer/data/guidance_audio_storage.dart';
 import 'package:pebble_routines/features/routines/composer/data/routine_composer_draft_repository.dart';
-import 'package:pebble_routines/features/routines/composer/models/routine_composer_seed_data.dart';
-import 'package:pebble_routines/features/routines/composer/models/routine_composer_step_draft.dart';
+
 import 'package:pebble_routines/features/routines/composer/ui/routine_composer_screen.dart';
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
@@ -81,46 +80,7 @@ void main() {
     },
   );
 
-  testWidgets('recorded guidance audio opens playback management sheet', (
-    tester,
-  ) async {
-    const audio = StepGuidanceAudio(
-      localPath: 'saved.wav',
-      durationMs: 1200,
-      mimeType: GuidanceAudioStorage.defaultMimeType,
-      byteSize: 42,
-    );
-    const seed = RoutineComposerSeedData(
-      title: 'Leaving Home',
-      iconKey: null,
-      colorHex: null,
-      steps: [
-        RoutineComposerStepDraft(
-          id: 'step-with-audio',
-          text: 'Check keys',
-          requiresPhoto: false,
-          allowSkip: false,
-          guidanceAudio: audio,
-          sortOrder: 0,
-        ),
-      ],
-    );
 
-    await pumpComposer(
-      tester,
-      tier: UserTier.personalPremium,
-      screen: RoutineComposerScreen.customizeTemplate(seedData: seed),
-    );
-
-    expect(find.text('Voice tip ✓'), findsOneWidget);
-
-    await tester.tap(find.text('Voice tip ✓'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Play guidance'), findsOneWidget);
-    expect(find.text('Remove'), findsOneWidget);
-    expect(find.text('Hold to re-record'), findsOneWidget);
-  });
 }
 
 class _FakeGuidanceAudioStorage implements GuidanceAudioStorage {
@@ -136,7 +96,14 @@ class _FakeGuidanceAudioStorage implements GuidanceAudioStorage {
   }
 
   @override
-  Future<void> deleteStoredAudio(String localPath) async {}
+  Future<void> deleteStoredAudio(String localPath) async {
+    // No-op for test
+  }
+
+  @override
+  Future<void> cleanupOrphanedAudio(Set<String> activeLocalPaths) async {
+    // No-op for test
+  }
 
   @override
   Future<String> prepareRecordingPath() {

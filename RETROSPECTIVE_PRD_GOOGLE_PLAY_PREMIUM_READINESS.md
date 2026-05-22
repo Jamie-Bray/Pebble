@@ -69,8 +69,9 @@ Canonical naming:
 
 - `UserTier.personalPremium`
 - `EntitlementStatus.personalPremium`
-- `PebbleProductIds.personalPremiumMonthly`
-- Google Play product ID: `personal_premium_monthly`
+- `PebbleProductIds.personalPremium`
+- Google Play product ID: `personal_premium`
+- Google Play base plan IDs: `monthly`, `yearly`
 
 ### 5.3 Cloud Access Separation
 
@@ -125,10 +126,10 @@ Renamed the paid personal tier to Premium in app code, tests, Supabase function 
 Important final product ID:
 
 ```text
-personal_premium_monthly
+personal_premium
 ```
 
-Play Console must use this exact subscription product ID unless the app is intentionally changed back to an already-created Play product ID.
+Play Console must use this exact subscription product ID with base plans `monthly` and `yearly` unless the app and backend are intentionally changed together.
 
 ### 6.3 Runtime Environment
 
@@ -231,9 +232,10 @@ If any requirement is missing, backup should be paused or unavailable with clear
 
 - No legacy paid-tier naming remains in app, tests, Supabase code, web pages, or release docs.
 - No legacy paid-tier product or tier symbols remain.
-- Product ID constant is `personal_premium_monthly`.
+- Product ID constant is `personal_premium`.
+- Monthly and yearly are Google Play base plans, not separate product IDs.
 - Paywall shows **Personal Premium**.
-- Google Play verification function accepts `personal_premium_monthly`.
+- Google Play verification function accepts `personal_premium`.
 - App-side code cannot grant Premium without server-verified entitlement.
 - Full Flutter test suite passes.
 - Flutter analyzer passes with no issues.
@@ -260,8 +262,9 @@ Note: the full test suite emits a Drift multiple-database warning in debug tests
 ## 11. Remaining Work Before First Internal Test Upload
 
 - Create/confirm Play Console subscription product:
-  - `personal_premium_monthly`
-- Confirm base plan is active and available for internal testing.
+  - Product ID: `personal_premium`
+  - Base plans: `monthly`, `yearly`
+- Confirm base plans are active and available for internal testing.
 - Configure Play license testers.
 - Configure Supabase `verify-purchase` secrets:
   - `GOOGLE_PLAY_PACKAGE_NAME`
@@ -292,7 +295,7 @@ Production release builds must use production Supabase values and real Google Pl
 
 ## 13. Risks and Follow-Ups
 
-- If Play Console already has a subscription under an older paid-tier product ID, the app will not find it. Either create `personal_premium_monthly` in Play Console or intentionally change the app and backend to the existing Play product ID.
+- If Play Console already has a subscription under an older paid-tier product ID, the app will not find it. Create `personal_premium` in Play Console or intentionally change the app and backend to the existing Play product ID.
 - Google Play subscription expiration and cancellation behavior should be manually verified through Play Console testing after upload.
 - Supabase verification depends on correct Google Play Developer API access and service account permissions.
 - The Home hero accessibility fix is covered by widget tests, but should still be checked on a physical Android device with large display and font settings.

@@ -1,11 +1,11 @@
 [
   {
     "id": "tpl_anxiety_free_departure",
-    "title": "The Anxiety-Free Departure",
-    "description": "Designed specifically for the \"Did I leave the stove on?\" brain-loop. Capture proof so you can breathe.",
+    "title": "The Everyday Departure",
+    "description": "For the 'Did I leave the stove on?' moment. Capture a quick photo so you can leave the house with confidence.",
     "category": "Leaving & Locking Up",
     "goodFor": "Capture proof so you can look at your history on the bus and breathe.",
-    "searchTerms": ["stove", "straighteners", "iron", "lock", "departure", "anxiety"],
+    "searchTerms": ["stove", "straighteners", "iron", "lock", "departure", "reassurance"],
     "steps": [
       "Hair Tools: Physically unplug the straighteners or curling iron and move them to a heat-safe surface. (Take a photo)",
       "The Kitchen Hub: Check that every single dial on the stove and oven is pointing to 'Off.' (Take a photo)",
@@ -21,8 +21,8 @@
   },
   {
     "id": "tpl_deep_sleep_bedtime_scan",
-    "title": "The Deep Sleep Bedtime Scan",
-    "description": "For when you're in bed and suddenly wonder if the back door is open. Do this once and stay in bed.",
+    "title": "Bedtime House Check",
+    "description": "Do this sweep once, and you won't have to get out of bed to check the back door again.",
     "category": "Leaving & Locking Up",
     "goodFor": "A comprehensive house check to ensure you can sleep soundly.",
     "searchTerms": ["night", "doors", "alarm", "windows", "bedtime", "safety"],
@@ -80,7 +80,7 @@
   {
     "id": "tpl_school_morning_run",
     "title": "Essential School Morning Run",
-    "description": "To stop that \"I forgot the PE kit\" panic 10 minutes into the drive.",
+    "description": "Avoid the turnaround. Check off the essentials before the car leaves the driveway.",
     "category": "Daily Care",
     "goodFor": "Morning essentials check to ensure everyone is ready for school.",
     "searchTerms": ["school", "bag", "lunch", "PE kit", "homework", "morning"],
@@ -119,8 +119,8 @@
   },
   {
     "id": "tpl_car_security",
-    "title": "Car Security & Parking Peace",
-    "description": "For that \"Did I actually lock the car?\" panic. Visual proof that you're secure.",
+    "title": "Car Lock & Parking Check",
+    "description": "Never second-guess if you locked the car. Get visual reassurance of your locks and your parking spot.",
     "category": "Leaving & Locking Up",
     "goodFor": "Confidence that your car is locked and your spot is remembered.",
     "searchTerms": ["car", "lock", "parking", "garage", "travel", "security"],
@@ -159,7 +159,7 @@
   {
     "id": "tpl_morning_pet_routine",
     "title": "Morning Pet Routine",
-    "description": "Because \"Did I feed the dog?\" shouldn't be a source of guilt at your 9 AM meeting.",
+    "description": "Because \"Did I feed the dog?\" shouldn't distract you at your 9 AM meeting.",
     "category": "Daily Care",
     "goodFor": "Consistent care for your pets with visual evidence of food and water.",
     "searchTerms": ["pet", "dog", "cat", "feeding", "water", "morning", "meds"],
@@ -178,7 +178,7 @@
   {
     "id": "tpl_office_switch_off",
     "title": "The Office/Workspace “Switch-Off”",
-    "description": "Leave work at work. Transition from \"Office Mode\" to \"Home Mode\" without worry.",
+    "description": "Leave work at work. Transition from \"Office Mode\" to \"Home Mode\" with a clear head.",
     "category": "Travel & Handovers",
     "goodFor": "Closing out the workday and ensuring office equipment is safe.",
     "searchTerms": ["office", "work", "desk", "heater", "papers", "lock", "switch off"],
@@ -196,8 +196,8 @@
   },
   {
     "id": "tpl_toddler_survival_bag",
-    "title": "The Toddler “Survival” Bag",
-    "description": "Ensures you have the \"emergency\" items that stop a meltdown.",
+    "title": "The Toddler Essentials Bag",
+    "description": "Ensure you have the essentials packed to keep the day running smoothly.",
     "category": "Daily Care",
     "goodFor": "Complete preparation for outings with a toddler.",
     "searchTerms": ["toddler", "baby", "bag", "nappies", "snacks", "toys", "packing"],
