@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:drift/drift.dart' as drift;
 import 'package:drift/native.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:uuid/uuid.dart';
@@ -13,6 +14,7 @@ import 'package:pebble_routines/data/remote/remote_routine_reminder_data_source.
 import 'package:pebble_routines/data/remote/remote_routine_run_data_source.dart';
 import 'package:pebble_routines/data/remote/remote_routine_session_data_source.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
+import 'package:pebble_routines/features/account_backup/providers/account_status_mapper.dart';
 import 'package:pebble_routines/features/account_backup/providers/account_backup_ui_provider.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
@@ -20,6 +22,7 @@ import 'package:pebble_routines/features/routines/execution/data/services/routin
 import 'package:pebble_routines/features/subscription/data/fair_use_policy.dart';
 import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
 import 'package:pebble_routines/features/subscription/data/models/subscription_account_state.dart';
+import 'package:pebble_routines/features/subscription/data/purchase_repository.dart';
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
 import 'package:pebble_routines/features/subscription/providers/cloud_access_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
@@ -126,12 +129,65 @@ class _CapturingRunDataSource extends RemoteRoutineRunDataSource {
   }
 }
 
+class _AccountTestPurchaseRepository extends ChangeNotifier
+    implements PurchaseRepository {
+  @override
+  bool get isPurchaseAvailable => true;
+
+  @override
+  bool get billingAvailable => true;
+
+  @override
+  DateTime? get lastPurchaseCheckAt => DateTime.utc(2026, 5, 26);
+
+  @override
+  Set<String> get loadedProductIds => {PebbleProductIds.personalPremium};
+
+  @override
+  String? get manageSubscriptionsUrl =>
+      'https://play.google.com/store/account/subscriptions';
+
+  @override
+  List<PremiumProduct> get personalPremiumProducts =>
+      getPlaceholderPremiumCatalog(isPurchasable: true);
+
+  @override
+  String? get unavailableReason => null;
+
+  @override
+  Future<PurchaseResult> purchasePersonalPremium(BillingPlan plan) async {
+    return PurchaseResult(
+      tier: UserTier.personalPremium,
+      plan: plan,
+      requiresSignIn: false,
+      message: 'Welcome to Personal Premium.',
+    );
+  }
+
+  @override
+  Future<PurchaseResult> restorePurchases() async {
+    return const PurchaseResult(
+      tier: UserTier.personalPremium,
+      plan: BillingPlan.monthly,
+      requiresSignIn: false,
+      message: 'Premium restored.',
+    );
+  }
+
+  @override
+  Future<void> syncPurchasesSilently() async {}
+
+  @override
+  Future<void> logOut() async {}
+}
+
 _UiHarness _buildUiContainer({
   required AuthSessionSummary auth,
   required EntitlementState entitlement,
   required PersonalCloudAccessState cloudAccess,
   required SubscriptionAccountState account,
   required int pendingCount,
+  PurchaseRepository? purchaseRepository,
   CloudSyncRuntimeState runtime = const CloudSyncRuntimeState.idle(),
   ProofMediaFairUseState fairUseState = const ProofMediaFairUseState(
     activeCloudBytes: 0,
@@ -158,6 +214,9 @@ _UiHarness _buildUiContainer({
         cloudSyncRuntimeStateProvider.overrideWith((ref) => runtime),
         proofMediaFairUseStateProvider.overrideWith(
           (ref) async => fairUseState,
+        ),
+        purchaseRepositoryProvider.overrideWith(
+          (ref) => purchaseRepository ?? _AccountTestPurchaseRepository(),
         ),
       ],
     ),
@@ -188,6 +247,10 @@ Routine _buildRoutine({String? ownerUserId}) {
 Future<void> _primeUiState(ProviderContainer container) async {
   await container.read(syncOutboxCountProvider.future);
   await container.read(proofMediaFairUseStateProvider.future);
+}
+
+List<String> _chipValues(AccountStatusPresentation presentation) {
+  return presentation.limitChips.map((chip) => chip.value).toList();
 }
 
 void main() {
@@ -233,6 +296,97 @@ void main() {
       );
       expect(ui.accountActionLabel, 'Restore Premium');
       expect(ui.planActionLabel, 'Upgrade');
+    });
+
+    test('account card shows free plan facts without sign-in CTA', () async {
+      final harness = _buildUiContainer(
+        auth: const AuthSessionSummary(
+          isSignedIn: false,
+          userId: null,
+          email: null,
+          provider: null,
+        ),
+        entitlement: const EntitlementState(
+          personalTier: UserTier.personalFree,
+          source: EntitlementSource.localCache,
+          lastCheckedAt: null,
+          isRefreshing: false,
+          lastError: null,
+        ),
+        cloudAccess: const PersonalCloudAccessState(
+          status: PersonalCloudAccessStatus.offFree,
+          label: 'Cloud backup is off',
+          detail: 'Local only.',
+        ),
+        account: const SubscriptionAccountState.initial(),
+        pendingCount: 0,
+      );
+      addTearDown(() async {
+        harness.container.dispose();
+        await harness.database.close();
+      });
+      await _primeUiState(harness.container);
+
+      final presentation = harness.container.read(
+        accountStatusPresentationProvider,
+      );
+
+      expect(presentation.planLabel, 'Free plan');
+      expect(_chipValues(presentation), ['48h', '2', '10']);
+      expect(presentation.primaryAction, AccountStatusAction.startPremium);
+      expect(presentation.secondaryAction, AccountStatusAction.restorePurchase);
+    });
+
+    test('account card shows paid signed-out plan facts', () async {
+      final harness = _buildUiContainer(
+        auth: const AuthSessionSummary(
+          isSignedIn: false,
+          userId: null,
+          email: null,
+          provider: null,
+        ),
+        entitlement: const EntitlementState(
+          personalTier: UserTier.personalPremium,
+          source: EntitlementSource.revenueCat,
+          lastCheckedAt: null,
+          isRefreshing: false,
+          lastError: null,
+          status: EntitlementStatus.personalPremium,
+        ),
+        cloudAccess: const PersonalCloudAccessState(
+          status: PersonalCloudAccessStatus.pausedSignedOut,
+          label: 'Backup is paused',
+          detail: 'Sign in again.',
+        ),
+        account: const SubscriptionAccountState(
+          entitlementTier: UserTier.personalPremium,
+          entitlementStatus: EntitlementStatus.personalPremium,
+          entitlementSource: EntitlementSource.revenueCat,
+          pendingTier: null,
+          bootstrapStatus: BootstrapStatus.ready,
+          userId: 'user-1',
+          email: 'jamie@example.com',
+          authProvider: 'google',
+          lastBootstrapAt: null,
+          lastSyncAt: null,
+          lastSyncError: null,
+        ),
+        pendingCount: 0,
+      );
+      addTearDown(() async {
+        harness.container.dispose();
+        await harness.database.close();
+      });
+      await _primeUiState(harness.container);
+
+      final presentation = harness.container.read(
+        accountStatusPresentationProvider,
+      );
+
+      expect(presentation.planLabel, 'Premium active');
+      expect(presentation.title, 'Not signed in yet');
+      expect(_chipValues(presentation), ['48h', 'Unlimited', 'Unlimited']);
+      expect(presentation.primaryAction, AccountStatusAction.signIn);
     });
 
     test('paid signed in healthy stays quiet with active backup', () async {
@@ -284,6 +438,58 @@ void main() {
       expect(ui.backupSummary, 'Backup is active for supported routine data.');
       expect(ui.backupDetail, 'All caught up');
       expect(ui.backupPrimaryActionLabel, 'Refresh status');
+    });
+
+    test('account card shows fully active Premium plan facts', () async {
+      final harness = _buildUiContainer(
+        auth: const AuthSessionSummary(
+          isSignedIn: true,
+          userId: 'user-1',
+          email: 'jamie@example.com',
+          provider: 'google',
+        ),
+        entitlement: const EntitlementState(
+          personalTier: UserTier.personalPremium,
+          source: EntitlementSource.serverVerified,
+          lastCheckedAt: null,
+          isRefreshing: false,
+          lastError: null,
+          status: EntitlementStatus.personalPremium,
+        ),
+        cloudAccess: const PersonalCloudAccessState(
+          status: PersonalCloudAccessStatus.available,
+          label: 'Backup is up to date',
+          detail: 'Ready.',
+        ),
+        account: const SubscriptionAccountState(
+          entitlementTier: UserTier.personalPremium,
+          entitlementStatus: EntitlementStatus.personalPremium,
+          entitlementSource: EntitlementSource.serverVerified,
+          pendingTier: null,
+          bootstrapStatus: BootstrapStatus.ready,
+          userId: 'user-1',
+          email: 'jamie@example.com',
+          authProvider: 'google',
+          lastBootstrapAt: null,
+          lastSyncAt: null,
+          lastSyncError: null,
+        ),
+        pendingCount: 0,
+      );
+      addTearDown(() async {
+        harness.container.dispose();
+        await harness.database.close();
+      });
+      await _primeUiState(harness.container);
+
+      final presentation = harness.container.read(
+        accountStatusPresentationProvider,
+      );
+
+      expect(presentation.planLabel, 'Premium active');
+      expect(presentation.title, 'Backup is on');
+      expect(_chipValues(presentation), ['21d', 'Unlimited', 'Unlimited']);
+      expect(presentation.secondaryAction, AccountStatusAction.managePlan);
     });
 
     test('paid signed in requires consent before cloud upload', () async {

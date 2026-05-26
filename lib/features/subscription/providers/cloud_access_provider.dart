@@ -40,12 +40,16 @@ final personalCloudAccessProvider = Provider<PersonalCloudAccessState>((ref) {
   final auth = ref.watch(authSessionProvider);
   final account = ref.watch(subscriptionAccountControllerProvider);
   final lifecycle = ref.watch(subscriptionLifecycleProvider);
-  final consent = auth.isSignedIn && lifecycle.canUploadCloudChanges
+  final hasServerVerifiedCloudEntitlement =
+      lifecycle.canUploadCloudChanges &&
+      account.entitlementSource == EntitlementSource.serverVerified;
+  final consent = auth.isSignedIn && hasServerVerifiedCloudEntitlement
       ? ref.watch(cloudBackupConsentControllerProvider)
       : const CloudBackupConsentState(
           isLoading: false,
           record: null,
           lastError: null,
+          isRemoteConfirmed: false,
         );
 
   if (lifecycle.phase == SubscriptionLifecyclePhase.expiredGrace) {
@@ -72,6 +76,15 @@ final personalCloudAccessProvider = Provider<PersonalCloudAccessState>((ref) {
           );
   }
 
+  if (!hasServerVerifiedCloudEntitlement) {
+    return const PersonalCloudAccessState(
+      status: PersonalCloudAccessStatus.syncing,
+      label: 'Finishing Premium verification',
+      detail:
+          'Cloud backup will unlock after RevenueCat confirms Premium with Pebble.',
+    );
+  }
+
   if (!auth.isSignedIn) {
     return const PersonalCloudAccessState(
       status: PersonalCloudAccessStatus.pausedSignedOut,
@@ -80,7 +93,7 @@ final personalCloudAccessProvider = Provider<PersonalCloudAccessState>((ref) {
     );
   }
 
-  if (!consent.isAccepted) {
+  if (!consent.canEnableCloudUpload) {
     return const PersonalCloudAccessState(
       status: PersonalCloudAccessStatus.consentRequired,
       label: 'Review cloud backup',
@@ -134,27 +147,30 @@ final cloudAccessPolicyProvider = Provider<CloudAccessPolicy>((ref) {
   final auth = ref.watch(authSessionProvider);
   final lifecycle = ref.watch(subscriptionLifecycleProvider);
   final workspace = ref.watch(workspaceAccessProvider);
+  final hasServerVerifiedCloudEntitlement =
+      lifecycle.canUploadCloudChanges &&
+      account.entitlementSource == EntitlementSource.serverVerified;
   final cachedOwnerUserId = account.userId != null && account.userId!.isNotEmpty
       ? account.userId
       : null;
   final accountSwitchBlocked =
       account.bootstrapStatus == BootstrapStatus.error &&
       _looksAccountSwitchBlocked(account.lastSyncError);
-  final consentAccepted = auth.isSignedIn && lifecycle.canUploadCloudChanges
-      ? ref.watch(cloudBackupConsentControllerProvider).isAccepted
+  final consentAccepted = auth.isSignedIn && hasServerVerifiedCloudEntitlement
+      ? ref.watch(cloudBackupConsentControllerProvider).canEnableCloudUpload
       : false;
 
   return CloudAccessPolicy(
     cachedOwnerUserId: cachedOwnerUserId,
     personalCloudEnabled:
         auth.isSignedIn &&
-        lifecycle.canUploadCloudChanges &&
+        hasServerVerifiedCloudEntitlement &&
         consentAccepted &&
         !accountSwitchBlocked &&
         cachedOwnerUserId != null,
     canQueuePersonalSync:
         auth.isSignedIn &&
-        lifecycle.canUploadCloudChanges &&
+        hasServerVerifiedCloudEntitlement &&
         consentAccepted &&
         !accountSwitchBlocked &&
         cachedOwnerUserId != null,

@@ -17,6 +17,10 @@ function Require-Env($Name) {
 
 $supabaseUrl = Require-Env "PEBBLE_PROD_SUPABASE_URL"
 $supabaseAnonKey = Require-Env "PEBBLE_PROD_SUPABASE_ANON_KEY"
+$revenueCatAndroidApiKey = Require-Env "PEBBLE_PROD_REVENUECAT_ANDROID_API_KEY"
+if (-not $revenueCatAndroidApiKey.StartsWith("goog_")) {
+  throw "PEBBLE_PROD_REVENUECAT_ANDROID_API_KEY must be the RevenueCat Android SDK key starting with 'goog_', not a test or secret key."
+}
 $googleWebClientId = [Environment]::GetEnvironmentVariable(
   "PEBBLE_PROD_GOOGLE_WEB_CLIENT_ID",
   "User"
@@ -32,7 +36,9 @@ $arguments = @(
   "--release",
   "--dart-define=APP_ENV=production",
   "--dart-define=SUPABASE_URL=$supabaseUrl",
-  "--dart-define=SUPABASE_ANON_KEY=$supabaseAnonKey"
+  "--dart-define=SUPABASE_ANON_KEY=$supabaseAnonKey",
+  "--dart-define=REVENUECAT_ANDROID_API_KEY=$revenueCatAndroidApiKey",
+  "--dart-define=REVENUECAT_ENTITLEMENT_ID=personal_premium"
 )
 
 if (-not [string]::IsNullOrWhiteSpace($googleWebClientId)) {

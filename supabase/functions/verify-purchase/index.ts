@@ -54,6 +54,9 @@ serve(async (req) => {
   if (userError || !userData.user) {
     return json({ error: 'Invalid user authorization' }, 401);
   }
+  if (isAnonymousUser(userData.user)) {
+    return json({ error: 'Create or sign in to an account before verifying purchases' }, 403);
+  }
   const userId = userData.user.id;
 
   let body: VerifyPurchaseRequest;
@@ -80,6 +83,20 @@ serve(async (req) => {
   const now = new Date().toISOString();
   const tokenHash = await sha256Hex(body.serverVerificationData);
   const serviceClient = createClient(supabaseUrl, serviceRoleKey);
+
+  const existingClaim = await findExistingPurchaseClaim(
+    serviceClient,
+    body.store,
+    purchase.productId,
+    tokenHash,
+  );
+  if (existingClaim.error) {
+    return json({ error: existingClaim.error.message }, 500);
+  }
+  if (existingClaim.ownerUserId && existingClaim.ownerUserId !== userId) {
+    return json({ error: 'This store purchase is already linked to another Pebble account' }, 409);
+  }
+
   const entitlementRow = {
     owner_user_id: userId,
     product_id: purchase.productId,
@@ -124,6 +141,29 @@ serve(async (req) => {
     },
   });
 });
+
+async function findExistingPurchaseClaim(
+  client: ReturnType<typeof createClient>,
+  store: string,
+  productId: string,
+  tokenHash: string,
+): Promise<
+  | { ownerUserId: string | null; error: null }
+  | { ownerUserId: null; error: { message: string } }
+> {
+  const { data, error } = await client
+    .from('personal_entitlements')
+    .select('owner_user_id')
+    .eq('store', store)
+    .eq('product_id', productId)
+    .eq('purchase_token_hash', tokenHash)
+    .in('status', ['active', 'grace', 'cancelled_active'])
+    .maybeSingle();
+  if (error) {
+    return { ownerUserId: null, error };
+  }
+  return { ownerUserId: data?.owner_user_id ?? null, error: null };
+}
 
 async function verifyPurchase(
   body: VerifyPurchaseRequest,
@@ -300,6 +340,10 @@ function isFuture(value: string | null): boolean {
 
 function isKnownProduct(productId: string): boolean {
   return personalPremiumProductIds.has(productId);
+}
+
+function isAnonymousUser(user: { is_anonymous?: boolean; app_metadata?: Record<string, unknown> }): boolean {
+  return user.is_anonymous === true || user.app_metadata?.provider === 'anonymous';
 }
 
 function tierForProduct(productId: string): 'personalPremium' | 'pebbleHousehold' {

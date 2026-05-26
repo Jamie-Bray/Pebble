@@ -1,9 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
-import 'package:pebble_routines/features/subscription/data/google_play_purchase_repository.dart';
+import 'package:pebble_routines/features/subscription/data/revenuecat_purchase_repository.dart';
 
 enum BillingPlan { monthly, yearly }
 
@@ -58,10 +59,18 @@ class PurchaseResult {
   final String message;
 }
 
+class PurchaseCancelledException implements Exception {
+  const PurchaseCancelledException();
+}
+
 abstract class EntitlementStore {
-  Future<void> applyVerifiedPersonalEntitlement(UserTier tier);
+  Future<void> applyRevenueCatEntitlement(
+    UserTier tier, {
+    DateTime? periodEndsAt,
+  });
   Future<void> applyExpiredEntitlement();
   Future<void> recordEntitlementError(String message);
+  Future<bool> refreshServerVerifiedEntitlement();
 }
 
 class LocalEntitlementStore implements EntitlementStore {
@@ -70,10 +79,13 @@ class LocalEntitlementStore implements EntitlementStore {
   final Ref _ref;
 
   @override
-  Future<void> applyVerifiedPersonalEntitlement(UserTier tier) async {
+  Future<void> applyRevenueCatEntitlement(
+    UserTier tier, {
+    DateTime? periodEndsAt,
+  }) async {
     await _ref
         .read(subscriptionAccountControllerProvider.notifier)
-        .applyStoreEntitlement(tier);
+        .applyRevenueCatEntitlement(tier, periodEndsAt: periodEndsAt);
   }
 
   @override
@@ -89,6 +101,13 @@ class LocalEntitlementStore implements EntitlementStore {
         .read(subscriptionAccountControllerProvider.notifier)
         .recordEntitlementCheckError(message);
   }
+
+  @override
+  Future<bool> refreshServerVerifiedEntitlement() async {
+    return _ref
+        .read(subscriptionAccountControllerProvider.notifier)
+        .refreshServerVerifiedEntitlement();
+  }
 }
 
 abstract class PurchaseRepository extends ChangeNotifier {
@@ -101,6 +120,8 @@ abstract class PurchaseRepository extends ChangeNotifier {
   String? get unavailableReason;
   Future<PurchaseResult> purchasePersonalPremium(BillingPlan plan);
   Future<PurchaseResult> restorePurchases();
+  Future<void> syncPurchasesSilently();
+  Future<void> logOut();
 }
 
 class StoreUnavailablePurchaseRepository extends ChangeNotifier
@@ -140,6 +161,14 @@ class StoreUnavailablePurchaseRepository extends ChangeNotifier
   Future<PurchaseResult> restorePurchases() async {
     throw StateError(_message);
   }
+
+  @override
+  Future<void> syncPurchasesSilently() async {
+    throw StateError(_message);
+  }
+
+  @override
+  Future<void> logOut() async {}
 }
 
 List<PremiumProduct> getPlaceholderPremiumCatalog({
@@ -175,5 +204,6 @@ final entitlementStoreProvider = Provider<EntitlementStore>((ref) {
 final purchaseRepositoryProvider = ChangeNotifierProvider<PurchaseRepository>((
   ref,
 ) {
-  return GooglePlayPurchaseRepository(ref);
+  ref.watch(authSessionProvider);
+  return RevenueCatPurchaseRepository(ref);
 });

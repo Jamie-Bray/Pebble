@@ -19,6 +19,7 @@ class SubscriptionAccountState {
   final EntitlementStatus entitlementStatus;
   final EntitlementSource entitlementSource;
   final DateTime? lastEntitlementCheckAt;
+  final DateTime? entitlementPeriodEndsAt;
   final String? entitlementError;
 
   const SubscriptionAccountState({
@@ -34,6 +35,7 @@ class SubscriptionAccountState {
     this.entitlementStatus = EntitlementStatus.free,
     this.entitlementSource = EntitlementSource.localCache,
     this.lastEntitlementCheckAt,
+    this.entitlementPeriodEndsAt,
     this.entitlementError,
   });
 
@@ -50,6 +52,7 @@ class SubscriptionAccountState {
       entitlementStatus = EntitlementStatus.free,
       entitlementSource = EntitlementSource.localCache,
       lastEntitlementCheckAt = null,
+      entitlementPeriodEndsAt = null,
       entitlementError = null;
 
   SubscriptionAccountState copyWith({
@@ -70,6 +73,8 @@ class SubscriptionAccountState {
     EntitlementStatus? entitlementStatus,
     EntitlementSource? entitlementSource,
     DateTime? lastEntitlementCheckAt,
+    DateTime? entitlementPeriodEndsAt,
+    bool clearEntitlementPeriodEndsAt = false,
     String? entitlementError,
     bool clearEntitlementError = false,
   }) {
@@ -91,6 +96,9 @@ class SubscriptionAccountState {
       entitlementSource: entitlementSource ?? this.entitlementSource,
       lastEntitlementCheckAt:
           lastEntitlementCheckAt ?? this.lastEntitlementCheckAt,
+      entitlementPeriodEndsAt: clearEntitlementPeriodEndsAt
+          ? null
+          : entitlementPeriodEndsAt ?? this.entitlementPeriodEndsAt,
       entitlementError: clearEntitlementError
           ? null
           : entitlementError ?? this.entitlementError,

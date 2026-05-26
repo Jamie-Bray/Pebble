@@ -7,6 +7,7 @@ import 'package:pebble_routines/features/subscription/data/models/subscription_a
 import 'package:pebble_routines/features/subscription/domain/subscription_lifecycle.dart';
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   group('subscriptionLifecycleForAccount', () {
@@ -69,14 +70,40 @@ void main() {
 
       expect(PebbleProductIds.personalPremium, 'personal_premium');
 
-      await controller.applyStoreEntitlement(UserTier.personalPremium);
+      await controller.applyRevenueCatEntitlement(UserTier.personalPremium);
 
       expect(controller.state.entitlementTier, UserTier.personalPremium);
       expect(
         controller.state.entitlementStatus,
         EntitlementStatus.personalPremium,
       );
-      expect(controller.state.entitlementSource, EntitlementSource.googlePlay);
+      expect(controller.state.entitlementSource, EntitlementSource.revenueCat);
+    },
+  );
+
+  test(
+    'store verified entitlement expires from persisted period end',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final database = LocalDb.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+      final writer = SubscriptionAccountController(
+        database,
+        prefs: prefs,
+        loadOnInit: false,
+      );
+      await writer.applyRevenueCatEntitlement(
+        UserTier.personalPremium,
+        periodEndsAt: DateTime.now().subtract(const Duration(days: 1)),
+      );
+
+      final reader = SubscriptionAccountController(database, prefs: prefs);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(reader.state.entitlementTier, UserTier.personalFree);
+      expect(reader.state.entitlementStatus, EntitlementStatus.expired);
+      expect(reader.state.entitlementPeriodEndsAt, isNull);
     },
   );
 }

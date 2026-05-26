@@ -101,18 +101,22 @@ class CloudBackupConsentState {
     required this.isLoading,
     required this.record,
     required this.lastError,
+    this.isRemoteConfirmed = false,
   });
 
   const CloudBackupConsentState.initial()
     : isLoading = true,
       record = null,
-      lastError = null;
+      lastError = null,
+      isRemoteConfirmed = false;
 
   final bool isLoading;
   final CloudBackupConsentRecord? record;
   final String? lastError;
+  final bool isRemoteConfirmed;
 
   bool get isAccepted => record?.isCurrentAccepted == true;
+  bool get canEnableCloudUpload => isAccepted && isRemoteConfirmed;
 
   CloudBackupConsentState copyWith({
     bool? isLoading,
@@ -120,11 +124,13 @@ class CloudBackupConsentState {
     bool clearRecord = false,
     String? lastError,
     bool clearError = false,
+    bool? isRemoteConfirmed,
   }) {
     return CloudBackupConsentState(
       isLoading: isLoading ?? this.isLoading,
       record: clearRecord ? null : record ?? this.record,
       lastError: clearError ? null : lastError ?? this.lastError,
+      isRemoteConfirmed: isRemoteConfirmed ?? this.isRemoteConfirmed,
     );
   }
 }
@@ -158,6 +164,7 @@ class CloudBackupConsentController
         isLoading: false,
         record: null,
         lastError: null,
+        isRemoteConfirmed: false,
       );
       return;
     }
@@ -165,12 +172,20 @@ class CloudBackupConsentController
     state = state.copyWith(isLoading: true, clearError: true);
     final localRecord = _readLocalRecord(userId);
     if (localRecord?.isCurrentAccepted == true) {
-      state = state.copyWith(isLoading: false, record: localRecord);
+      state = state.copyWith(
+        isLoading: false,
+        record: localRecord,
+        isRemoteConfirmed: false,
+      );
     }
 
     final client = _client;
     if (client == null) {
-      state = state.copyWith(isLoading: false, record: localRecord);
+      state = state.copyWith(
+        isLoading: false,
+        record: localRecord,
+        isRemoteConfirmed: false,
+      );
       return;
     }
 
@@ -191,8 +206,9 @@ class CloudBackupConsentController
       }
       state = CloudBackupConsentState(
         isLoading: false,
-        record: remoteRecord ?? localRecord,
+        record: remoteRecord,
         lastError: null,
+        isRemoteConfirmed: remoteRecord?.isCurrentAccepted == true,
       );
     } catch (_) {
       state = CloudBackupConsentState(
@@ -200,6 +216,7 @@ class CloudBackupConsentController
         record: localRecord,
         lastError:
             'Pebble could not check your cloud backup consent yet. Try again.',
+        isRemoteConfirmed: false,
       );
     }
   }
@@ -242,6 +259,7 @@ class CloudBackupConsentController
       isLoading: false,
       record: record,
       lastError: null,
+      isRemoteConfirmed: true,
     );
   }
 
@@ -285,6 +303,7 @@ class CloudBackupConsentController
       isLoading: false,
       record: record,
       lastError: null,
+      isRemoteConfirmed: true,
     );
   }
 

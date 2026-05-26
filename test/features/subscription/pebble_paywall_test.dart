@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
+import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
 import 'package:pebble_routines/features/subscription/data/purchase_repository.dart';
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
@@ -148,6 +150,67 @@ void main() {
     final button = tester.widget<FilledButton>(find.byType(FilledButton).first);
     expect(button.onPressed, isNull);
   });
+
+  testWidgets('purchase cancellation quietly returns to the paywall', (
+    tester,
+  ) async {
+    await _pumpPaywall(
+      tester,
+      overrides: [
+        authSessionProvider.overrideWithValue(
+          const AuthSessionSummary(
+            isSignedIn: true,
+            userId: '11111111-1111-1111-1111-111111111111',
+            email: 'jamie@example.com',
+            provider: 'google',
+          ),
+        ),
+        purchaseRepositoryProvider.overrideWith(
+          (ref) => _PlanPurchaseRepository.both(cancelPurchase: true),
+        ),
+      ],
+    );
+
+    final startButton = find.text('Start yearly - \$6.99');
+    await _scrollUntilVisible(tester, startButton);
+    await tester.tap(startButton);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SnackBar), findsNothing);
+    expect(find.text('Pebble Premium'), findsOneWidget);
+  });
+
+  testWidgets('premium page dynamically displays App Store references on iOS', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    try {
+      await _pumpPaywall(
+        tester,
+        overrides: [
+          purchaseRepositoryProvider.overrideWith(
+            (ref) => _PlanPurchaseRepository.monthlyMissingOfferToken(),
+          ),
+        ],
+      );
+
+      await _scrollUntilVisible(
+        tester,
+        find.textContaining('monthly base plan offer token'),
+      );
+
+      expect(
+        find.textContaining('not available from App Store yet'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('offer token in App Store Connect'),
+        findsOneWidget,
+      );
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
 }
 
 Future<void> _pumpPaywall(
@@ -205,11 +268,17 @@ class _UnavailablePurchaseRepository extends ChangeNotifier
   Future<PurchaseResult> restorePurchases() {
     throw StateError('Store is not ready yet.');
   }
+
+  @override
+  Future<void> syncPurchasesSilently() async {}
+
+  @override
+  Future<void> logOut() async {}
 }
 
 class _PlanPurchaseRepository extends ChangeNotifier
     implements PurchaseRepository {
-  _PlanPurchaseRepository(this._products);
+  _PlanPurchaseRepository(this._products, {this.cancelPurchase = false});
 
   factory _PlanPurchaseRepository.monthly() {
     return _PlanPurchaseRepository([
@@ -231,7 +300,7 @@ class _PlanPurchaseRepository extends ChangeNotifier
     ]);
   }
 
-  factory _PlanPurchaseRepository.both() {
+  factory _PlanPurchaseRepository.both({bool cancelPurchase = false}) {
     return _PlanPurchaseRepository([
       _premiumProduct(
         plan: BillingPlan.yearly,
@@ -243,7 +312,7 @@ class _PlanPurchaseRepository extends ChangeNotifier
         price: '\$0.99',
         offerToken: 'monthly-token',
       ),
-    ]);
+    ], cancelPurchase: cancelPurchase);
   }
 
   factory _PlanPurchaseRepository.monthlyMissingOfferToken() {
@@ -253,6 +322,7 @@ class _PlanPurchaseRepository extends ChangeNotifier
   }
 
   final List<PremiumProduct> _products;
+  final bool cancelPurchase;
 
   @override
   bool get isPurchaseAvailable =>
@@ -279,6 +349,9 @@ class _PlanPurchaseRepository extends ChangeNotifier
 
   @override
   Future<PurchaseResult> purchasePersonalPremium(BillingPlan plan) async {
+    if (cancelPurchase) {
+      throw const PurchaseCancelledException();
+    }
     return const PurchaseResult(
       tier: UserTier.personalPremium,
       plan: BillingPlan.monthly,
@@ -293,9 +366,15 @@ class _PlanPurchaseRepository extends ChangeNotifier
       tier: UserTier.personalPremium,
       plan: BillingPlan.monthly,
       requiresSignIn: false,
-      message: 'Personal Premium restored from Google Play.',
+      message: 'Pebble Premium restored from RevenueCat.',
     );
   }
+
+  @override
+  Future<void> syncPurchasesSilently() async {}
+
+  @override
+  Future<void> logOut() async {}
 }
 
 PremiumProduct _premiumProduct({

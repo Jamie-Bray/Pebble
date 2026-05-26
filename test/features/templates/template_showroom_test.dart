@@ -35,14 +35,14 @@ void main() {
       expect(
         templates.map((Template template) => template.title).toList(),
         containsAll(<String>[
-          'The Anxiety-Free Departure',
-          'The Deep Sleep Bedtime Scan',
-          'Car Security & Parking Peace',
+          'The Everyday Departure',
+          'Bedtime House Check',
+          'Car Lock & Parking Check',
           'The Big Trip Home Shutdown',
           'The “Did I take it?” Med Check',
           'Morning Pet Routine',
           'Essential School Morning Run',
-          'The Toddler “Survival” Bag',
+          'The Toddler Essentials Bag',
           'The “No Item Left Behind” Hotel Checkout',
           'The Office/Workspace “Switch-Off”',
           'Gym & Sports Prep',
@@ -167,7 +167,7 @@ void main() {
       expect(find.text('LEAVING & LOCKING UP'), findsOneWidget);
       expect(find.text('DAILY CARE'), findsOneWidget);
       expect(find.text('TRAVEL & HANDOVERS'), findsOneWidget);
-      expect(find.text('The Anxiety-Free Departure'), findsOneWidget);
+      expect(find.text('The Everyday Departure'), findsOneWidget);
       expect(find.text('5 checks'), findsNothing);
       expect(find.text('5'), findsNWidgets(3));
       expect(find.text('Featured'), findsNothing);
@@ -230,7 +230,7 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.text('The Anxiety-Free Departure'), findsOneWidget);
+      expect(find.text('The Everyday Departure'), findsOneWidget);
       expect(
         find.text(
           'A final sweep before you leave and start wondering about the door.',
@@ -253,9 +253,9 @@ void main() {
       expect(routineRepository.savedRoutines, hasLength(1));
       expect(
         routineRepository.savedRoutines.single.title,
-        'The Anxiety-Free Departure',
+        'The Everyday Departure',
       );
-      expect(find.text('The Anxiety-Free Departure is ready'), findsOneWidget);
+      expect(find.text('The Everyday Departure is ready'), findsOneWidget);
     });
   });
 }
@@ -367,7 +367,7 @@ class _FakeRoutineRepository implements RoutineRepository {
 const List<Template> _sampleTemplates = <Template>[
   Template(
     id: 'tpl_anxiety_free_departure',
-    title: 'The Anxiety-Free Departure',
+    title: 'The Everyday Departure',
     description:
         'A final sweep before you leave and start wondering about the door.',
     category: 'Leaving & Locking Up',

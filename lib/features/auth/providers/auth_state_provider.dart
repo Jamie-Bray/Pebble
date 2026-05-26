@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/features/auth/data/auth_repository.dart';
 import 'package:pebble_routines/features/subscription/data/purchase_repository.dart';
+import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
 import 'package:pebble_routines/features/subscription/data/models/subscription_account_state.dart';
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
 import 'package:pebble_routines/features/subscription/providers/cloud_backup_consent_provider.dart';
@@ -122,7 +123,7 @@ class AuthController extends StateNotifier<AuthState> {
     );
   }
 
-  Future<void> requestEmailOtp(String email) async {
+  Future<bool> requestEmailOtp(String email) async {
     state = state.copyWith(
       status: AuthStatus.authenticating,
       emailDraft: email,
@@ -134,19 +135,21 @@ class AuthController extends StateNotifier<AuthState> {
         status: AuthStatus.pendingSignIn,
         emailDraft: email,
       );
+      return true;
     } catch (error) {
       state = state.copyWith(
         status: AuthStatus.authError,
         errorMessage: error.toString(),
       );
+      return false;
     }
   }
 
-  Future<void> verifyEmailOtp({
+  Future<bool> verifyEmailOtp({
     required String email,
     required String token,
   }) async {
-    await _completeSignIn(
+    return _completeSignIn(
       () => _repository.verifyEmailOtp(email: email, token: token),
     );
   }
@@ -161,6 +164,7 @@ class AuthController extends StateNotifier<AuthState> {
 
   Future<void> signOut() async {
     await _repository.signOut();
+    await _ref.read(purchaseRepositoryProvider).logOut();
     await _ref
         .read(subscriptionAccountControllerProvider.notifier)
         .signOutIdentity();
@@ -192,7 +196,7 @@ class AuthController extends StateNotifier<AuthState> {
     }
   }
 
-  Future<void> _completeSignIn(
+  Future<bool> _completeSignIn(
     Future<AuthIdentity> Function() signInAction,
   ) async {
     state = state.copyWith(status: AuthStatus.authenticating, clearError: true);
@@ -216,6 +220,7 @@ class AuthController extends StateNotifier<AuthState> {
       await _refreshStoreEntitlement();
       await _ensureCloudReady(identity.userId);
       state = state.copyWith(status: AuthStatus.signedIn, clearError: true);
+      return true;
     } catch (error) {
       await _ref
           .read(subscriptionAccountControllerProvider.notifier)
@@ -226,6 +231,7 @@ class AuthController extends StateNotifier<AuthState> {
         status: AuthStatus.authError,
         errorMessage: error.toString(),
       );
+      return false;
     }
   }
 
@@ -298,7 +304,13 @@ class AuthController extends StateNotifier<AuthState> {
     if (!_hasPaidPersonalEntitlement(account)) {
       return;
     }
-    if (!_ref.read(cloudBackupConsentControllerProvider).isAccepted) {
+    if (account.entitlementSource != EntitlementSource.serverVerified) {
+      await _ref
+          .read(subscriptionAccountControllerProvider.notifier)
+          .updateBootstrapStatus(BootstrapStatus.idle, clearError: true);
+      return;
+    }
+    if (!_ref.read(cloudBackupConsentControllerProvider).canEnableCloudUpload) {
       await _ref
           .read(subscriptionAccountControllerProvider.notifier)
           .updateBootstrapStatus(BootstrapStatus.idle, clearError: true);
@@ -328,10 +340,12 @@ class AuthController extends StateNotifier<AuthState> {
 
   Future<void> _refreshStoreEntitlement() async {
     try {
-      await _ref.read(purchaseRepositoryProvider).restorePurchases();
+      final entitlementStore = _ref.read(entitlementStoreProvider);
+      await _ref.read(purchaseRepositoryProvider).syncPurchasesSilently();
+      await entitlementStore.refreshServerVerifiedEntitlement();
     } catch (_) {
-      // No active Play purchase, or Play is unreachable. The entitlement layer
-      // keeps the last verified local state and exposes the check error.
+      // No active store purchase, or RevenueCat is unreachable. The entitlement
+      // layer keeps the last verified local state and exposes the check error.
     }
   }
 

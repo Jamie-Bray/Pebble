@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/data/repositories/routine_run_repository.dart';
+import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
 import 'package:pebble_routines/features/subscription/domain/subscription_lifecycle.dart';
@@ -20,13 +21,21 @@ void main() {
     late _FakeProofStorage proofStorage;
     late ProviderContainer container;
 
-    Future<void> buildHarness(UserTier tier) async {
+    Future<void> buildHarness(UserTier tier, {bool isSignedIn = false}) async {
       database = LocalDb.forTesting(NativeDatabase.memory());
       proofStorage = _FakeProofStorage();
       container = ProviderContainer(
         overrides: [
           localDbProvider.overrideWithValue(database),
           routineSessionProofStorageProvider.overrideWithValue(proofStorage),
+          authSessionProvider.overrideWithValue(
+            AuthSessionSummary(
+              isSignedIn: isSignedIn,
+              userId: isSignedIn ? 'user-1' : null,
+              email: isSignedIn ? 'jamie@example.com' : null,
+              provider: isSignedIn ? 'google' : null,
+            ),
+          ),
           subscriptionProvider.overrideWithValue(tier),
           subscriptionLifecycleProvider.overrideWithValue(
             tier == UserTier.personalPremium
@@ -90,9 +99,9 @@ void main() {
     });
 
     test(
-      'premium history is not pruned by the free retention window',
+      'signed-in premium history is not pruned by the free retention window',
       () async {
-        await buildHarness(UserTier.personalPremium);
+        await buildHarness(UserTier.personalPremium, isSignedIn: true);
         final run = _run(
           id: 'premium-old',
           finishedAt: DateTime.now().subtract(const Duration(days: 7)),
@@ -111,6 +120,29 @@ void main() {
         expect(proofStorage.deletedProofs, isEmpty);
       },
     );
+
+    test('signed-out premium uses the 48-hour local history window', () async {
+      await buildHarness(UserTier.personalPremium);
+      final run = _run(
+        id: 'premium-signed-out-old',
+        finishedAt: DateTime.now().subtract(const Duration(hours: 49)),
+        stepCompletionData: _completionData(
+          proofPath: 'routine_session_proofs/session/proof.webp',
+        ),
+      );
+      await database.routineRunDao.insertOrUpdateRun(run);
+
+      await container
+          .read(routineRunRepositoryProvider)
+          .enforceRetentionPolicy();
+
+      final runs = await database.routineRunDao.getAllRuns();
+      expect(runs, isEmpty);
+      expect(
+        proofStorage.deletedProofs,
+        contains('routine_session_proofs/session/proof.webp'),
+      );
+    });
   });
 }
 

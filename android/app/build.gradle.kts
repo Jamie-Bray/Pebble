@@ -100,5 +100,8 @@ tasks.matching { it.name == "bundleRelease" || it.name == "assembleRelease" }.co
         check(defines["SUPABASE_URL"]?.contains("lxvrvrrxdjbrjwsxzppl.supabase.co") != true) {
             "Production release builds cannot use the staging Supabase URL."
         }
+        check(defines["REVENUECAT_ANDROID_API_KEY"]?.startsWith("goog_") == true) {
+            "Android release builds require the RevenueCat Android SDK key starting with 'goog_'."
+        }
     }
 }

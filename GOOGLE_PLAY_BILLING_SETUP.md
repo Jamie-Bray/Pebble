@@ -1,8 +1,10 @@
 # Google Play Billing Setup
 
-Last updated: May 19, 2026
+Last updated: May 22, 2026
 
-This is the remaining setup needed for Personal Premium purchase testing.
+Pebble now uses RevenueCat as the app billing SDK and entitlement bridge. Keep
+this file for the Google Play product setup details, but use
+`REVENUECAT_BILLING_SETUP.md` for the current end-to-end billing checklist.
 
 ## Product IDs
 
@@ -28,17 +30,18 @@ com.vix.pebble_routines
 
 This has already been set in Supabase as `GOOGLE_PLAY_PACKAGE_NAME`.
 
-## Server Verification
+## Legacy Server Verification
 
-Pebble verifies purchases in:
+The old direct Google Play verification function remains in:
 
 ```text
 supabase/functions/verify-purchase/index.ts
 ```
 
-The function uses Google Play Developer API
-`purchases.subscriptionsv2.get`, so Supabase needs a Google service account JSON
-with access to the app in Play Console.
+RevenueCat webhooks now provide the primary entitlement path. The legacy
+function uses Google Play Developer API `purchases.subscriptionsv2.get`, so it
+still requires a Google service account JSON if you keep or test the old direct
+verification route.
 
 Required Supabase secret still missing:
 

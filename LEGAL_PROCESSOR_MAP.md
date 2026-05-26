@@ -1,6 +1,6 @@
 # Pebble Processor and Data-Flow Map
 
-Last scanned: May 12, 2026
+Last scanned: May 22, 2026
 
 This map is generated from the current codebase and should be used when filling
 Google Play Data safety, Apple privacy declarations, and the public Privacy
@@ -19,15 +19,19 @@ Policy.
 - Supabase: authentication, profiles, database tables, private proof-photo
   storage, Edge Functions, account deletion, cloud-backup consent records, and
   deletion request tickets.
-- Google: Google sign-in and Google Play Billing through `in_app_purchase`.
-- Apple: Sign in with Apple and future App Store billing support.
+- Google: Google sign-in and Google Play purchase processing through
+  RevenueCat.
+- Apple: Sign in with Apple and App Store purchase processing through
+  RevenueCat.
+- RevenueCat: subscription product loading, purchase/restore state, customer
+  entitlement state, and purchase webhooks to Supabase.
 - Email/support provider: not hard-coded in the app, but used when users email
   support or privacy inboxes from the legal pages.
 
 ## Third-Party SDKs Not Found
 
-- No Firebase, Crashlytics, Sentry, PostHog, RevenueCat, OneSignal, Cloudflare,
-  ad SDK, or analytics SDK was found in `pubspec.yaml` or the app code scan.
+- No Firebase, Crashlytics, Sentry, PostHog, OneSignal, Cloudflare, ad SDK, or
+  analytics SDK was found in `pubspec.yaml` or the app code scan.
 
 ## Outbound Network Calls Found
 
@@ -37,10 +41,14 @@ Policy.
   runs, routine sessions, proof asset usage, entitlements, cloud backup
   consents, and deletion request tickets.
 - Supabase Storage bucket: `routine-proofs`.
-- Supabase Edge Functions: `delete-account`, `verify-purchase`, and
-  `request-account-deletion`.
+- Supabase Edge Functions: `delete-account`, `verify-purchase`,
+  `revenuecat-webhook`, and `request-account-deletion`.
 - Google Play subscription management URL:
   `https://play.google.com/store/account/subscriptions`.
+- App Store subscription management URL:
+  `https://apps.apple.com/account/subscriptions`.
+- RevenueCat SDK calls for offerings, purchases, restores, and customer
+  entitlement info.
 - Supabase Edge Functions import Deno and Supabase client libraries from
   `deno.land` and `esm.sh` at deploy/build time.
 

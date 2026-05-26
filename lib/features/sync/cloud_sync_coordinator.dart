@@ -97,28 +97,29 @@ class CloudSyncCoordinator {
   );
 
   Future<void> kick() async {
-    final lifecycle = _ref.read(subscriptionLifecycleProvider);
-    await _syncInternal(userInitiated: false);
-    await _proofStorage.enforceRetentionPolicy(
-      isPremium: lifecycle.hasPremiumRetention,
+    final hasPremiumHistory = _ref.read(
+      accountHasPremiumHistoryRetentionProvider,
     );
-    
+    final historyRetention = _ref.read(accountHistoryRetentionProvider);
+    await _syncInternal(userInitiated: false);
+    await _proofStorage.enforceRetentionPolicy(isPremium: hasPremiumHistory);
+
     // Prune terminal sessions older than 24 hours
     final sessionCutoff = DateTime.now().subtract(const Duration(hours: 24));
     await _database.routineSessionDao.deleteSessionsOlderThan(sessionCutoff);
-    
+
     // Run garbage collection for orphaned voice clips
     await _runGuidanceAudioGarbageCollection();
 
-    if (!lifecycle.hasPremiumRetention) {
-      final cutoff = DateTime.now().subtract(lifecycle.localHistoryRetention);
+    if (!hasPremiumHistory) {
+      final cutoff = DateTime.now().subtract(historyRetention);
       await _database.routineRunDao.deleteRunsOlderThan(cutoff);
     }
   }
 
   Future<void> _runGuidanceAudioGarbageCollection() async {
     final activePaths = <String>{};
-    
+
     // Extract from published routines
     final routines = await _database.routineDao.getAllRoutines();
     for (final routine in routines) {
@@ -144,7 +145,9 @@ class CloudSyncCoordinator {
     // Extract from active drafts
     // Need to get edit drafts too. Let's just query all drafts.
     // wait, I can just use getAllDrafts() if it exists, or just query the table.
-    final allDraftRows = await _database.select(_database.routineComposerDrafts).get();
+    final allDraftRows = await _database
+        .select(_database.routineComposerDrafts)
+        .get();
     for (final draft in allDraftRows) {
       if (draft.stepsJson.isEmpty) continue;
       try {
@@ -165,7 +168,9 @@ class CloudSyncCoordinator {
       } catch (_) {}
     }
 
-    await _ref.read(guidanceAudioStorageProvider).cleanupOrphanedAudio(activePaths);
+    await _ref
+        .read(guidanceAudioStorageProvider)
+        .cleanupOrphanedAudio(activePaths);
   }
 
   Future<ManualSyncResult> runManualSync() {

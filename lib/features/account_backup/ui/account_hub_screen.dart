@@ -239,13 +239,13 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
   Future<void> _openManagePlan() async {
     final rawUrl = ref.read(purchaseRepositoryProvider).manageSubscriptionsUrl;
     if (rawUrl == null || rawUrl.isEmpty) {
-      _showVaultSnackBar('Google Play subscription management is not ready.');
+      _showVaultSnackBar('Subscription management is not ready yet.');
       return;
     }
     final url = Uri.parse(rawUrl);
     final opened = await launchUrl(url, mode: LaunchMode.externalApplication);
     if (!opened) {
-      _showVaultSnackBar('Could not open Google Play subscriptions.');
+      _showVaultSnackBar('Could not open subscription management.');
     }
   }
 

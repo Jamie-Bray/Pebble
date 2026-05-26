@@ -13,11 +13,14 @@ import 'package:pebble_routines/data/remote/remote_routine_session_data_source.d
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
 import 'package:pebble_routines/features/subscription/data/models/subscription_account_state.dart';
+import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
+import 'package:pebble_routines/features/subscription/providers/cloud_backup_consent_provider.dart';
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
 import 'package:pebble_routines/features/subscription/providers/cloud_access_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
 import 'package:pebble_routines/features/sync/cloud_restore_coordinator.dart';
 import 'package:pebble_routines/features/sync/sync_outbox_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _TestSubscriptionAccountController extends SubscriptionAccountController {
   _TestSubscriptionAccountController(
@@ -26,6 +29,23 @@ class _TestSubscriptionAccountController extends SubscriptionAccountController {
   ) : super(loadOnInit: false) {
     state = initialState;
   }
+}
+
+class _TestCloudBackupConsentController extends CloudBackupConsentController {
+  _TestCloudBackupConsentController(
+    CloudBackupConsentState initialState, {
+    required super.prefs,
+    required super.auth,
+  }) : super(client: null) {
+    state = initialState;
+  }
+
+  @override
+  Future<void> load() async {}
+  @override
+  Future<void> accept() async {}
+  @override
+  Future<void> withdraw() async {}
 }
 
 class _FakeRoutineDataSource extends RemoteRoutineDataSource {
@@ -112,6 +132,124 @@ void main() {
         expect(policy.personalCloudEnabled, isFalse);
         expect(policy.canQueuePersonalSync, isFalse);
         expect(policy.canUploadCloudChanges, isFalse);
+      },
+    );
+
+    test(
+      'does not queue personal sync with only locally cached consent',
+      () async {
+        final database = LocalDb.forTesting(NativeDatabase.memory());
+        addTearDown(database.close);
+        SharedPreferences.setMockInitialValues({});
+        final prefs = await SharedPreferences.getInstance();
+        const auth = AuthSessionSummary(
+          isSignedIn: true,
+          userId: '11111111-1111-1111-1111-111111111111',
+          email: 'jamie@example.com',
+          provider: 'google',
+        );
+
+        final localConsent = CloudBackupConsentRecord(
+          userId: '11111111-1111-1111-1111-111111111111',
+          feature: cloudBackupConsentFeature,
+          featureEnabled: true,
+          appVersion: cloudBackupConsentAppVersion,
+          privacyVersion: cloudBackupConsentPrivacyVersion,
+          termsVersion: cloudBackupConsentTermsVersion,
+          consentTextHash: cloudBackupConsentTextHash,
+          consentedAt: DateTime.utc(2026, 5, 1),
+          withdrawnAt: null,
+        );
+        final container = ProviderContainer(
+          overrides: [
+            localDbProvider.overrideWithValue(database),
+            authSessionProvider.overrideWithValue(auth),
+            subscriptionAccountControllerProvider.overrideWith(
+              (ref) => _TestSubscriptionAccountController(
+                database,
+                const SubscriptionAccountState(
+                  entitlementTier: UserTier.personalPremium,
+                  pendingTier: null,
+                  bootstrapStatus: BootstrapStatus.ready,
+                  userId: '11111111-1111-1111-1111-111111111111',
+                  email: 'jamie@example.com',
+                  authProvider: 'google',
+                  lastBootstrapAt: null,
+                  lastSyncAt: null,
+                  lastSyncError: null,
+                  entitlementStatus: EntitlementStatus.personalPremium,
+                  entitlementSource: EntitlementSource.serverVerified,
+                ),
+              ),
+            ),
+            cloudBackupConsentControllerProvider.overrideWith(
+              (ref) => _TestCloudBackupConsentController(
+                CloudBackupConsentState(
+                  isLoading: false,
+                  record: localConsent,
+                  lastError: 'Could not confirm remotely',
+                  isRemoteConfirmed: false,
+                ),
+                prefs: prefs,
+                auth: auth,
+              ),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final policy = container.read(cloudAccessPolicyProvider);
+
+        expect(policy.canQueuePersonalSync, isFalse);
+        expect(policy.canUploadCloudChanges, isFalse);
+      },
+    );
+
+    test(
+      'waits for Supabase mirror before enabling cloud after RevenueCat unlock',
+      () async {
+        final database = LocalDb.forTesting(NativeDatabase.memory());
+        addTearDown(database.close);
+        const auth = AuthSessionSummary(
+          isSignedIn: true,
+          userId: '11111111-1111-1111-1111-111111111111',
+          email: 'jamie@example.com',
+          provider: 'apple',
+        );
+
+        final container = ProviderContainer(
+          overrides: [
+            localDbProvider.overrideWithValue(database),
+            authSessionProvider.overrideWithValue(auth),
+            subscriptionAccountControllerProvider.overrideWith(
+              (ref) => _TestSubscriptionAccountController(
+                database,
+                const SubscriptionAccountState(
+                  entitlementTier: UserTier.personalPremium,
+                  pendingTier: null,
+                  bootstrapStatus: BootstrapStatus.ready,
+                  userId: '11111111-1111-1111-1111-111111111111',
+                  email: 'jamie@example.com',
+                  authProvider: 'apple',
+                  lastBootstrapAt: null,
+                  lastSyncAt: null,
+                  lastSyncError: null,
+                  entitlementStatus: EntitlementStatus.personalPremium,
+                  entitlementSource: EntitlementSource.revenueCat,
+                ),
+              ),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final access = container.read(personalCloudAccessProvider);
+        final policy = container.read(cloudAccessPolicyProvider);
+
+        expect(access.status, PersonalCloudAccessStatus.syncing);
+        expect(access.label, 'Finishing Premium verification');
+        expect(policy.personalCloudEnabled, isFalse);
+        expect(policy.canQueuePersonalSync, isFalse);
       },
     );
   });

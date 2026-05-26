@@ -453,7 +453,7 @@ class _WelcomePage extends StatelessWidget {
                               ),
                               const TextSpan(
                                 text:
-                                    'The ones you do every day, once a month, or whenever life calls for them. Follow the steps, stay clear, and get on with your day knowing it is done.',
+                                    'The ones you do every day, once a month, or whenever life calls for them. Follow the steps, check them off, and free up your mind so you can get on with your day',
                               ),
                             ],
                           ),

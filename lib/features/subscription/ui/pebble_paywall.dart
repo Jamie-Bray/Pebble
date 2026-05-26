@@ -1,9 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
@@ -75,13 +77,19 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
     super.dispose();
   }
 
+  String get _storeName {
+    return defaultTargetPlatform == TargetPlatform.iOS
+        ? 'App Store'
+        : 'Google Play';
+  }
+
   Future<void> _startPremium() async {
     if (_busy) return;
     final auth = ref.read(authSessionProvider);
     if (!auth.isSignedIn) {
       await ref.read(authControllerProvider.notifier).beginPremiumUpgrade();
       if (mounted) {
-        _showSnackBar('Sign in first, then Google Play will handle checkout.');
+        _showSnackBar('Sign in first, then $_storeName will handle checkout.');
         context.push('/sign-in');
       }
       return;
@@ -97,6 +105,7 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
           .purchasePersonalPremium(selectedPlan);
       await _continueAfterPurchase(result);
     } catch (error) {
+      if (error is PurchaseCancelledException) return;
       _showSnackBar(_purchaseErrorMessage(error));
     } finally {
       if (mounted) {
@@ -111,7 +120,7 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
     if (!auth.isSignedIn) {
       await ref.read(authControllerProvider.notifier).beginPremiumUpgrade();
       if (mounted) {
-        _showSnackBar('Sign in first so Pebble can verify Google Play.');
+        _showSnackBar('Sign in first so Pebble can verify $_storeName.');
         context.push('/sign-in');
       }
       return;
@@ -161,12 +170,22 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
       );
   }
 
+  Future<void> _openLegalUrl(String url) async {
+    final opened = await launchUrl(
+      Uri.parse(url),
+      mode: LaunchMode.externalApplication,
+    );
+    if (!opened) {
+      _showSnackBar('Could not open that page.');
+    }
+  }
+
   String _purchaseErrorMessage(Object error) {
     final message = error.toString().replaceFirst('Exception: ', '').trim();
     if (message.isNotEmpty && !message.startsWith('Bad state:')) {
       return message;
     }
-    return 'Google Play could not complete that request. Please try again.';
+    return '$_storeName could not complete that request. Please try again.';
   }
 
   @override
@@ -246,6 +265,8 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
                     ),
                     const SizedBox(height: 12),
                     const _CancelNote(),
+                    const SizedBox(height: 8),
+                    _SubscriptionTermsLinks(onOpen: _openLegalUrl),
                     if (selectedPlanUnavailableReason != null) ...[
                       const SizedBox(height: 12),
                       _UnavailableNotice(
@@ -558,6 +579,39 @@ class _CancelNote extends StatelessWidget {
         fontWeight: FontWeight.w600,
         color: foundation.textMuted,
       ),
+    );
+  }
+}
+
+class _SubscriptionTermsLinks extends StatelessWidget {
+  const _SubscriptionTermsLinks({required this.onOpen});
+
+  final ValueChanged<String> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text(
+          'Auto-renews until canceled.',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: foundation.textMuted,
+          ),
+        ),
+        TextButton(
+          onPressed: () => onOpen('https://pebbleroutines.com/terms'),
+          child: const Text('Terms'),
+        ),
+        TextButton(
+          onPressed: () => onOpen('https://pebbleroutines.com/privacy'),
+          child: const Text('Privacy'),
+        ),
+      ],
     );
   }
 }
@@ -1079,9 +1133,15 @@ class _ParsedPrice {
 }
 
 String _planUnavailableMessage(BillingPlan plan) {
-  return plan == BillingPlan.yearly
-      ? 'Yearly Pebble Premium is not available from Google Play yet. Check the yearly base plan offer token in Play Console.'
-      : 'Monthly Pebble Premium is not available from Google Play yet. Check the monthly base plan offer token in Play Console.';
+  final storeName = defaultTargetPlatform == TargetPlatform.iOS
+      ? 'App Store'
+      : 'Google Play';
+  final consoleName = defaultTargetPlatform == TargetPlatform.iOS
+      ? 'App Store Connect'
+      : 'Play Console';
+  final cadence = plan == BillingPlan.yearly ? 'Yearly' : 'Monthly';
+  final lowerCadence = plan == BillingPlan.yearly ? 'yearly' : 'monthly';
+  return '$cadence Pebble Premium is not available from $storeName yet. Check the $lowerCadence base plan offer token in $consoleName.';
 }
 
 const _fallbackMonthlyProduct = PremiumProduct(

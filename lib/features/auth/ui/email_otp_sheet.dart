@@ -6,6 +6,8 @@ Future<void> showEmailOtpSheet(BuildContext context, WidgetRef ref) {
   final emailController = TextEditingController();
   final codeController = TextEditingController();
   var otpRequested = false;
+  var isBusy = false;
+  String? inlineError;
 
   return showModalBottomSheet<void>(
     context: context,
@@ -61,6 +63,17 @@ Future<void> showEmailOtpSheet(BuildContext context, WidgetRef ref) {
                         color: colorScheme.onSurface.withValues(alpha: 0.72),
                       ),
                     ),
+                    if (inlineError != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        inlineError!,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: colorScheme.error,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 18),
                     TextField(
                       controller: emailController,
@@ -84,30 +97,77 @@ Future<void> showEmailOtpSheet(BuildContext context, WidgetRef ref) {
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton(
-                        onPressed: () async {
-                          if (!otpRequested) {
-                            await ref
-                                .read(authControllerProvider.notifier)
-                                .requestEmailOtp(emailController.text.trim());
-                            if (context.mounted) {
-                              setState(() => otpRequested = true);
-                            }
-                            return;
-                          }
+                        onPressed: isBusy
+                            ? null
+                            : () async {
+                                final email = emailController.text.trim();
+                                final code = codeController.text.trim();
+                                if (!otpRequested && !_looksLikeEmail(email)) {
+                                  setState(
+                                    () => inlineError =
+                                        'Enter a valid email address.',
+                                  );
+                                  return;
+                                }
+                                if (otpRequested && code.isEmpty) {
+                                  setState(
+                                    () => inlineError =
+                                        'Enter the one-time code from your email.',
+                                  );
+                                  return;
+                                }
 
-                          await ref
-                              .read(authControllerProvider.notifier)
-                              .verifyEmailOtp(
-                                email: emailController.text.trim(),
-                                token: codeController.text.trim(),
-                              );
-                          if (context.mounted) {
-                            Navigator.of(context).pop();
-                          }
-                        },
-                        child: Text(
-                          otpRequested ? 'Complete sign-in' : 'Send code',
-                        ),
+                                setState(() {
+                                  isBusy = true;
+                                  inlineError = null;
+                                });
+
+                                final authController = ref.read(
+                                  authControllerProvider.notifier,
+                                );
+                                var success = false;
+                                if (!otpRequested) {
+                                  success = await authController
+                                      .requestEmailOtp(email);
+                                  if (context.mounted) {
+                                    setState(() {
+                                      isBusy = false;
+                                      if (success) {
+                                        otpRequested = true;
+                                      } else {
+                                        inlineError = _authError(ref);
+                                      }
+                                    });
+                                  }
+                                  return;
+                                }
+
+                                success = await authController.verifyEmailOtp(
+                                  email: email,
+                                  token: code,
+                                );
+                                if (!context.mounted) return;
+                                if (success) {
+                                  Navigator.of(context).pop();
+                                  return;
+                                }
+                                setState(() {
+                                  isBusy = false;
+                                  inlineError = _authError(ref);
+                                });
+                              },
+                        child: isBusy
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Text(
+                                otpRequested ? 'Complete sign-in' : 'Send code',
+                              ),
                       ),
                     ),
                   ],
@@ -118,5 +178,17 @@ Future<void> showEmailOtpSheet(BuildContext context, WidgetRef ref) {
         },
       );
     },
-  );
+  ).whenComplete(() {
+    emailController.dispose();
+    codeController.dispose();
+  });
+}
+
+bool _looksLikeEmail(String value) {
+  return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value);
+}
+
+String _authError(WidgetRef ref) {
+  return ref.read(authControllerProvider).errorMessage ??
+      'We could not complete sign-in. Please try again.';
 }

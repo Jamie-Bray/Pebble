@@ -116,9 +116,7 @@ class RoutineRunRepositoryImpl implements RoutineRunRepository {
   }
 
   Future<List<RoutineRun>> _pruneExpiredRuns(List<RoutineRun> runs) async {
-    final retention = _ref
-        .read(subscriptionLifecycleProvider)
-        .localHistoryRetention;
+    final retention = _ref.read(accountHistoryRetentionProvider);
 
     final cutoff = DateTime.now().subtract(retention);
     final expiredRuns = runs

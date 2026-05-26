@@ -1,10 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:pebble_routines/core/config/app_runtime_config.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
+import 'package:pebble_routines/data/remote/supabase_client_provider.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
+import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
+import 'package:pebble_routines/features/subscription/data/fair_use_policy.dart';
 import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
 import 'package:pebble_routines/features/subscription/data/models/subscription_account_state.dart';
 import 'package:pebble_routines/features/subscription/domain/subscription_lifecycle.dart';
@@ -23,10 +27,12 @@ final subscriptionAccountControllerProvider =
         prefs = null;
       }
       final runtimeConfig = ref.read(appRuntimeConfigProvider);
+      final supabaseClient = ref.watch(supabaseClientProvider);
       return SubscriptionAccountController(
         db,
         prefs: prefs,
         isProduction: runtimeConfig.isProduction,
+        supabaseClient: supabaseClient,
       );
     });
 
@@ -40,12 +46,32 @@ final subscriptionLifecycleProvider = Provider<SubscriptionLifecycle>((ref) {
   );
 });
 
+final accountHistoryRetentionProvider = Provider<Duration>((ref) {
+  final lifecycle = ref.watch(subscriptionLifecycleProvider);
+  final isSignedIn = ref.watch(authSessionProvider).isSignedIn;
+
+  if (lifecycle.phase == SubscriptionLifecyclePhase.expiredGrace) {
+    return lifecycle.localHistoryRetention;
+  }
+  if (lifecycle.phase == SubscriptionLifecyclePhase.activePremium &&
+      isSignedIn) {
+    return lifecycle.localHistoryRetention;
+  }
+  return ProofMediaFairUsePolicy.localRetentionDuration;
+});
+
+final accountHasPremiumHistoryRetentionProvider = Provider<bool>((ref) {
+  return ref.watch(accountHistoryRetentionProvider) !=
+      ProofMediaFairUsePolicy.localRetentionDuration;
+});
+
 class SubscriptionAccountController
     extends StateNotifier<SubscriptionAccountState> {
   SubscriptionAccountController(
     this._db, {
     this.prefs,
     this.isProduction = false,
+    this.supabaseClient,
     bool loadOnInit = true,
   }) : super(const SubscriptionAccountState.initial()) {
     if (loadOnInit) {
@@ -56,10 +82,12 @@ class SubscriptionAccountController
   final LocalDb _db;
   final SharedPreferences? prefs;
   final bool isProduction;
+  final SupabaseClient? supabaseClient;
 
   static const _sourceKey = 'pebble.entitlement.source';
   static const _statusKey = 'pebble.entitlement.status';
   static const _lastCheckedAtKey = 'pebble.entitlement.last_checked_at';
+  static const _periodEndsAtKey = 'pebble.entitlement.period_ends_at';
   static const _lastErrorKey = 'pebble.entitlement.last_error';
 
   Future<void> _load() async {
@@ -69,9 +97,12 @@ class SubscriptionAccountController
       return;
     }
 
-    final persisted = _withEntitlementMetadata(_mapRow(row));
+    final persisted = _expireIfPeriodEnded(
+      _withEntitlementMetadata(_mapRow(row)),
+    );
     final verifiedSource =
         persisted.entitlementSource == EntitlementSource.googlePlay ||
+        persisted.entitlementSource == EntitlementSource.revenueCat ||
         persisted.entitlementSource == EntitlementSource.serverVerified;
     if (isProduction &&
         persisted.entitlementTier != UserTier.personalFree &&
@@ -89,7 +120,7 @@ class SubscriptionAccountController
         entitlementStatus: EntitlementStatus.unknown,
         entitlementSource: EntitlementSource.unknown,
         entitlementError:
-            'Stored entitlement was ignored because it was not Play verified.',
+            'Stored entitlement was ignored because it was not store verified.',
       );
       state = sanitized;
       await _persist(sanitized);
@@ -100,13 +131,41 @@ class SubscriptionAccountController
     state = persisted;
   }
 
-  Future<void> applyStoreEntitlement(UserTier newTier) async {
+  Future<void> applyRevenueCatEntitlement(
+    UserTier newTier, {
+    DateTime? periodEndsAt,
+  }) async {
     final next = state.copyWith(
       entitlementTier: newTier,
       clearPendingTier: true,
       entitlementStatus: _statusForTier(newTier),
-      entitlementSource: EntitlementSource.googlePlay,
+      entitlementSource: EntitlementSource.revenueCat,
       lastEntitlementCheckAt: DateTime.now(),
+      entitlementPeriodEndsAt: periodEndsAt,
+      clearEntitlementPeriodEndsAt: periodEndsAt == null,
+      clearEntitlementError: true,
+      bootstrapStatus: newTier == UserTier.personalFree
+          ? BootstrapStatus.idle
+          : state.bootstrapStatus,
+      clearLastSyncError: true,
+    );
+    state = next;
+    await _persist(next);
+    await _persistEntitlementMetadata(next);
+  }
+
+  Future<void> applyServerVerifiedEntitlement(
+    UserTier newTier, {
+    DateTime? periodEndsAt,
+  }) async {
+    final next = state.copyWith(
+      entitlementTier: newTier,
+      clearPendingTier: true,
+      entitlementStatus: _statusForTier(newTier),
+      entitlementSource: EntitlementSource.serverVerified,
+      lastEntitlementCheckAt: DateTime.now(),
+      entitlementPeriodEndsAt: periodEndsAt,
+      clearEntitlementPeriodEndsAt: periodEndsAt == null,
       clearEntitlementError: true,
       bootstrapStatus: newTier == UserTier.personalFree
           ? BootstrapStatus.idle
@@ -123,8 +182,9 @@ class SubscriptionAccountController
       entitlementTier: UserTier.personalFree,
       clearPendingTier: true,
       entitlementStatus: EntitlementStatus.expired,
-      entitlementSource: EntitlementSource.googlePlay,
+      entitlementSource: _expiredEntitlementSource(state.entitlementSource),
       lastEntitlementCheckAt: DateTime.now(),
+      clearEntitlementPeriodEndsAt: true,
       clearEntitlementError: true,
       bootstrapStatus: BootstrapStatus.idle,
       clearLastSyncError: true,
@@ -132,6 +192,67 @@ class SubscriptionAccountController
     state = next;
     await _persist(next);
     await _persistEntitlementMetadata(next);
+  }
+
+  Future<bool> refreshServerVerifiedEntitlement() async {
+    final client = supabaseClient;
+    final user = client?.auth.currentUser;
+    if (client == null || user == null) {
+      return false;
+    }
+
+    final rows = await client
+        .from('personal_entitlements')
+        .select(
+          'entitlement_tier,status,period_ends_at,last_verified_at,updated_at',
+        )
+        .eq('owner_user_id', user.id)
+        .order('last_verified_at', ascending: false)
+        .limit(10);
+    if (rows.isEmpty) {
+      return false;
+    }
+
+    final now = DateTime.now();
+    Map<dynamic, dynamic>? expiredRow;
+    for (final row in rows.whereType<Map>()) {
+      final tier = _tierFromString(row['entitlement_tier']?.toString() ?? '');
+      final status = row['status']?.toString();
+      final periodEndsAt = _dateFromRow(row['period_ends_at']);
+      final hasActiveStatus =
+          status == 'active' ||
+          status == 'grace' ||
+          status == 'cancelled_active';
+      final stillCurrent = periodEndsAt == null || periodEndsAt.isAfter(now);
+      if (tier != UserTier.personalFree && hasActiveStatus && stillCurrent) {
+        await applyServerVerifiedEntitlement(tier, periodEndsAt: periodEndsAt);
+        return true;
+      }
+      if (status == 'expired' && expiredRow == null) {
+        expiredRow = row;
+      }
+    }
+
+    if (expiredRow != null) {
+      final checkedAt = _dateFromRow(expiredRow['last_verified_at']) ?? now;
+      final next = state.copyWith(
+        entitlementTier: UserTier.personalFree,
+        clearPendingTier: true,
+        entitlementStatus: EntitlementStatus.expired,
+        entitlementSource: EntitlementSource.serverVerified,
+        lastEntitlementCheckAt: checkedAt,
+        clearEntitlementPeriodEndsAt: true,
+        clearEntitlementError: true,
+        bootstrapStatus: BootstrapStatus.idle,
+        clearLastSyncError: true,
+      );
+      state = next;
+      await _persist(next);
+      await _persistEntitlementMetadata(next);
+      return true;
+    }
+
+    return false;
   }
 
   Future<void> recordEntitlementCheckError(String message) async {
@@ -283,13 +404,38 @@ class SubscriptionAccountController
           : EntitlementSource.unknown,
     );
     final checkedAtRaw = prefs?.getString(_lastCheckedAtKey);
+    final periodEndsAtRaw = prefs?.getString(_periodEndsAtKey);
     return state.copyWith(
       entitlementStatus: status,
       entitlementSource: source,
       lastEntitlementCheckAt: checkedAtRaw == null
           ? null
           : DateTime.tryParse(checkedAtRaw),
+      entitlementPeriodEndsAt: periodEndsAtRaw == null
+          ? null
+          : DateTime.tryParse(periodEndsAtRaw),
       entitlementError: prefs?.getString(_lastErrorKey),
+    );
+  }
+
+  SubscriptionAccountState _expireIfPeriodEnded(
+    SubscriptionAccountState state,
+  ) {
+    final periodEndsAt = state.entitlementPeriodEndsAt;
+    if (periodEndsAt == null || periodEndsAt.isAfter(DateTime.now())) {
+      return state;
+    }
+    if (state.entitlementTier == UserTier.personalFree) {
+      return state;
+    }
+    return state.copyWith(
+      entitlementTier: UserTier.personalFree,
+      clearPendingTier: true,
+      bootstrapStatus: BootstrapStatus.idle,
+      entitlementStatus: EntitlementStatus.expired,
+      lastEntitlementCheckAt: DateTime.now(),
+      clearEntitlementPeriodEndsAt: true,
+      clearLastSyncError: true,
     );
   }
 
@@ -306,6 +452,12 @@ class SubscriptionAccountController
     } else {
       await prefs.setString(_lastCheckedAtKey, checkedAt.toIso8601String());
     }
+    final periodEndsAt = next.entitlementPeriodEndsAt;
+    if (periodEndsAt == null) {
+      await prefs.remove(_periodEndsAtKey);
+    } else {
+      await prefs.setString(_periodEndsAtKey, periodEndsAt.toIso8601String());
+    }
     final error = next.entitlementError;
     if (error == null || error.isEmpty) {
       await prefs.remove(_lastErrorKey);
@@ -313,6 +465,16 @@ class SubscriptionAccountController
       await prefs.setString(_lastErrorKey, error);
     }
   }
+}
+
+EntitlementSource _expiredEntitlementSource(EntitlementSource current) {
+  return switch (current) {
+    EntitlementSource.googlePlay ||
+    EntitlementSource.revenueCat ||
+    EntitlementSource.serverVerified => current,
+    EntitlementSource.localCache ||
+    EntitlementSource.unknown => EntitlementSource.unknown,
+  };
 }
 
 UserTier _tierFromString(String value) {
@@ -360,4 +522,10 @@ EntitlementSource _entitlementSourceFromString(
     (source) => source.name == value,
     orElse: () => fallback,
   );
+}
+
+DateTime? _dateFromRow(Object? value) {
+  if (value == null) return null;
+  if (value is DateTime) return value;
+  return DateTime.tryParse(value.toString());
 }

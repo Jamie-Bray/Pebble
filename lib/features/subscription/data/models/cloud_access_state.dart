@@ -2,7 +2,7 @@ import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
 
 enum EntitlementStatus { free, personalPremium, household, expired, unknown }
 
-enum EntitlementSource { localCache, googlePlay, serverVerified, unknown }
+enum EntitlementSource { localCache, googlePlay, revenueCat, serverVerified, unknown }
 
 class EntitlementState {
   const EntitlementState({

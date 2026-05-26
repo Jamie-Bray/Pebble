@@ -1,4 +1,7 @@
 // lib/main.dart
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -29,7 +32,9 @@ import 'features/routines/execution/ui/routine_player_screen.dart';
 import 'features/routines/execution/data/repositories/routine_session_repository.dart';
 import 'features/routines/list/providers/routine_list_provider.dart';
 import 'features/sync/cloud_sync_coordinator.dart';
+import 'features/auth/providers/auth_state_provider.dart';
 import 'features/subscription/data/purchase_repository.dart';
+import 'features/subscription/data/revenuecat_runtime_config.dart';
 // duplicate import removed
 
 class RoutineSessionEntry {
@@ -131,7 +136,8 @@ final _routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
     redirect: (context, state) {
-      final hasCompletedOnboarding = prefs.getBool('has_completed_onboarding') ?? false;
+      final hasCompletedOnboarding =
+          prefs.getBool('has_completed_onboarding') ?? false;
       final isGoingToOnboarding = state.uri.path == '/onboarding';
       if (!hasCompletedOnboarding && !isGoingToOnboarding) {
         return '/onboarding';
@@ -343,6 +349,14 @@ void main() async {
   const googleWebClientId = String.fromEnvironment(
     'SUPABASE_GOOGLE_WEB_CLIENT_ID',
   );
+  const revenueCatAndroidApiKey = String.fromEnvironment(
+    'REVENUECAT_ANDROID_API_KEY',
+  );
+  const revenueCatIosApiKey = String.fromEnvironment('REVENUECAT_IOS_API_KEY');
+  const revenueCatEntitlementId = String.fromEnvironment(
+    'REVENUECAT_ENTITLEMENT_ID',
+    defaultValue: PebbleProductIds.personalPremium,
+  );
   const stagingSupabaseHost = 'lxvrvrrxdjbrjwsxzppl.supabase.co';
   if (appRuntimeConfig.isProduction) {
     if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
@@ -355,6 +369,26 @@ void main() async {
         'Production builds cannot use the staging Supabase URL.',
       );
     }
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        if (!revenueCatAndroidApiKey.startsWith('goog_')) {
+          throw StateError(
+            'Android production builds require REVENUECAT_ANDROID_API_KEY starting with goog_.',
+          );
+        }
+      case TargetPlatform.iOS:
+        if (!revenueCatIosApiKey.startsWith('appl_')) {
+          throw StateError(
+            'iOS production builds require REVENUECAT_IOS_API_KEY starting with appl_.',
+          );
+        }
+      default:
+        if (revenueCatAndroidApiKey.isEmpty && revenueCatIosApiKey.isEmpty) {
+          throw StateError(
+            'Production builds require a RevenueCat API key for the target platform.',
+          );
+        }
+    }
   }
   final supabaseConfig = supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty
       ? SupabaseRuntimeConfig(
@@ -366,6 +400,11 @@ void main() async {
               : googleWebClientId,
         )
       : const SupabaseRuntimeConfig.disabled();
+  const revenueCatConfig = RevenueCatRuntimeConfig(
+    androidApiKey: revenueCatAndroidApiKey,
+    iosApiKey: revenueCatIosApiKey,
+    entitlementId: revenueCatEntitlementId,
+  );
 
   if (supabaseConfig.enabled) {
     await Supabase.initialize(
@@ -393,6 +432,7 @@ void main() async {
         localDbProvider.overrideWithValue(db),
         appRuntimeConfigProvider.overrideWithValue(appRuntimeConfig),
         supabaseRuntimeConfigProvider.overrideWithValue(supabaseConfig),
+        revenueCatRuntimeConfigProvider.overrideWithValue(revenueCatConfig),
       ],
       child: const PebbleApp(),
     ),
@@ -428,8 +468,20 @@ class _PebbleAppState extends ConsumerState<PebbleApp>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      unawaited(_refreshPurchasesAndCloudAccess());
       ref.read(routineRunRepositoryProvider).enforceRetentionPolicy();
       ref.read(cloudSyncCoordinatorProvider).kick();
+    }
+  }
+
+  Future<void> _refreshPurchasesAndCloudAccess() async {
+    try {
+      await ref.read(purchaseRepositoryProvider).syncPurchasesSilently();
+      await ref
+          .read(authControllerProvider.notifier)
+          .refreshCloudAccessAfterEntitlementChange();
+    } catch (_) {
+      // The visible account state keeps the last known entitlement and error.
     }
   }
 
