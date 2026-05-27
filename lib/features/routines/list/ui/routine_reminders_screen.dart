@@ -587,9 +587,9 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
               ? SizedBox(
                   width: 14,
                   height: 14,
-                  child: CircularProgressIndicator(
+                  child: CircularProgressIndicator.adaptive(
                     strokeWidth: 2,
-                    color: cs.primary,
+                    valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
                   ),
                 )
               : const Icon(Icons.refresh_rounded, size: 16),
@@ -796,9 +796,11 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
                                 ? SizedBox(
                                     width: 16,
                                     height: 16,
-                                    child: CircularProgressIndicator(
+                                    child: CircularProgressIndicator.adaptive(
                                       strokeWidth: 2,
-                                      color: cs.onPrimary,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        cs.onPrimary,
+                                      ),
                                     ),
                                   )
                                 : const Icon(LucideIcons.send, size: 16),
@@ -1176,7 +1178,9 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircularProgressIndicator(color: cs.primary),
+          CircularProgressIndicator.adaptive(
+            valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
+          ),
           const SizedBox(height: 16),
           Text(
             'Loading reminders...',

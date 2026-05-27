@@ -156,7 +156,7 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
         body: SafeArea(
           top: false,
           child: composerState.isLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? const Center(child: CircularProgressIndicator.adaptive())
               : ListView(
                   controller: _scrollController,
                   padding: const EdgeInsets.fromLTRB(20, 10, 20, 112),
@@ -1645,7 +1645,7 @@ class _DoneAction extends StatelessWidget {
           child: SizedBox(
             width: 18,
             height: 18,
-            child: CircularProgressIndicator(strokeWidth: 2),
+            child: CircularProgressIndicator.adaptive(strokeWidth: 2),
           ),
         ),
       );

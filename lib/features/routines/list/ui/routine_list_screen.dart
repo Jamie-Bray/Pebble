@@ -286,7 +286,10 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
     return Container(
       decoration: BoxDecoration(color: foundation.bgBase),
       child: Center(
-        child: CircularProgressIndicator(color: cs.primary, strokeWidth: 2),
+        child: CircularProgressIndicator.adaptive(
+          valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
+          strokeWidth: 2,
+        ),
       ),
     );
   }
@@ -864,33 +867,38 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                         data: MediaQuery.of(
                           context,
                         ).copyWith(textScaler: const TextScaler.linear(1.0)),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                        child: Row(
                           children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  'Your routines',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 0.1,
-                                    color: foundation.textPrimary,
-                                  ),
+                            Expanded(
+                              child: Text(
+                                'Your routines',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.1,
+                                  color: foundation.textPrimary,
                                 ),
-                                const SizedBox(width: 8),
-                                Icon(
-                                  LucideIcons.chevronUp,
-                                  size: 15,
-                                  color: foundation.textSecondary,
-                                ),
-                              ],
+                              ),
                             ),
-                            const SizedBox(height: 6),
-                            _buildCollapsedRoutineCountHint(
-                              count: visibleRoutines.length,
-                              accent: themeData.colorScheme.primary,
+                            const SizedBox(width: 10),
+                            Flexible(
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: _buildCollapsedRoutineCountHint(
+                                  count: visibleRoutines.length,
+                                  accent: themeData.colorScheme.primary,
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  mainAxisSize: MainAxisSize.min,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Icon(
+                              LucideIcons.chevronUp,
+                              size: 15,
+                              color: foundation.textSecondary,
                             ),
                           ],
                         ),
@@ -1167,12 +1175,15 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
   Widget _buildCollapsedRoutineCountHint({
     required int count,
     required Color accent,
+    MainAxisAlignment mainAxisAlignment = MainAxisAlignment.center,
+    MainAxisSize mainAxisSize = MainAxisSize.max,
   }) {
     final foundation = context.darkFoundation;
     final label = '$count ${count == 1 ? 'routine' : 'routines'}';
     return Row(
       key: const ValueKey('home_routines_count_hint'),
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisAlignment: mainAxisAlignment,
+      mainAxisSize: mainAxisSize,
       children: [
         _buildRoutineCountDot(accent, 0.86),
         const SizedBox(width: 5),

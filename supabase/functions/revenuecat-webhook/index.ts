@@ -237,6 +237,8 @@ async function handleTransfer(
   const from = event.transferred_from?.filter(isUuid) ?? [];
   if (from.length === 0) return;
 
+  const productId = event.product_id ?? personalPremiumEntitlementId;
+  const store = normalizeStore(event.store);
   const now = new Date().toISOString();
   await serviceClient
     .from('personal_entitlements')
@@ -245,6 +247,8 @@ async function handleTransfer(
       last_verified_at: now,
       updated_at: now,
     })
+    .eq('product_id', productId)
+    .eq('store', store)
     .in('owner_user_id', from);
 
   for (const userId of from) {

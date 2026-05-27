@@ -278,7 +278,7 @@ class SageMistThemeFactory {
     bg: const Color(0xFF162119), // dark forest
     fg: const Color(0xFFE2EBE5), // soft pale green
     accent: const Color(0xFF6B8A72), // sage accent
-    secondary: const Color(0xFF8B9E8E), 
+    secondary: const Color(0xFF8B9E8E),
     isDark: true,
   );
 }

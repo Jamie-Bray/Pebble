@@ -17,17 +17,6 @@ class ZenHeader extends StatelessWidget {
         title: 'Pebble',
         subtitle: 'Small routines. Lasting ripples.',
         actions: [
-          IconButton(
-            tooltip: 'Reminders',
-            onPressed: () {
-              HapticFeedback.lightImpact();
-              context.push('/reminders');
-            },
-            icon: Icon(
-              Icons.notifications_none_rounded,
-              color: foundation.textSecondary,
-            ),
-          ),
           ...extraActions,
           IconButton(
             tooltip: 'Settings',

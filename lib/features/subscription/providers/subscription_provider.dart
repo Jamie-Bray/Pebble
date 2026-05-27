@@ -6,7 +6,6 @@ import 'package:pebble_routines/core/config/app_runtime_config.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/data/remote/supabase_client_provider.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
-import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
 import 'package:pebble_routines/features/subscription/data/fair_use_policy.dart';
 import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
@@ -48,13 +47,11 @@ final subscriptionLifecycleProvider = Provider<SubscriptionLifecycle>((ref) {
 
 final accountHistoryRetentionProvider = Provider<Duration>((ref) {
   final lifecycle = ref.watch(subscriptionLifecycleProvider);
-  final isSignedIn = ref.watch(authSessionProvider).isSignedIn;
 
   if (lifecycle.phase == SubscriptionLifecyclePhase.expiredGrace) {
     return lifecycle.localHistoryRetention;
   }
-  if (lifecycle.phase == SubscriptionLifecyclePhase.activePremium &&
-      isSignedIn) {
+  if (lifecycle.phase == SubscriptionLifecyclePhase.activePremium) {
     return lifecycle.localHistoryRetention;
   }
   return ProofMediaFairUsePolicy.localRetentionDuration;
@@ -235,6 +232,10 @@ class SubscriptionAccountController
 
     if (expiredRow != null) {
       final checkedAt = _dateFromRow(expiredRow['last_verified_at']) ?? now;
+      if (state.lastEntitlementCheckAt != null &&
+          checkedAt.isBefore(state.lastEntitlementCheckAt!)) {
+        return false;
+      }
       final next = state.copyWith(
         entitlementTier: UserTier.personalFree,
         clearPendingTier: true,
@@ -342,11 +343,18 @@ class SubscriptionAccountController
 
   Future<void> signOutIdentity() async {
     final next = state.copyWith(
+      entitlementTier: UserTier.personalFree,
+      entitlementSource: EntitlementSource.localCache,
+      entitlementStatus: EntitlementStatus.free,
       clearPendingTier: true,
       clearLastSyncError: true,
+      clearEntitlementPeriodEndsAt: true,
+      clearEntitlementError: true,
+      bootstrapStatus: BootstrapStatus.idle,
     );
     state = next;
     await _persist(next);
+    await _persistEntitlementMetadata(next);
   }
 
   Future<void> resetAfterAccountDeletion() async {

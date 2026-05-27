@@ -4,10 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
+import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
+import 'package:pebble_routines/features/onboarding/ui/onboarding_screen.dart';
 import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
+import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
 import 'package:pebble_routines/features/templates/data/models/template.dart';
@@ -15,6 +19,7 @@ import 'package:pebble_routines/features/templates/domain/usecases/use_template_
 import 'package:pebble_routines/features/templates/ui/template_detail_screen.dart';
 import 'package:pebble_routines/features/templates/ui/templates_gallery_screen.dart';
 import 'package:pebble_routines/features/templates/ui/templates_providers.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -159,9 +164,7 @@ void main() {
 
       expect(find.text('Templates'), findsOneWidget);
       expect(
-        find.text(
-          'Ready-made checklists for routines you repeat.',
-        ),
+        find.text('Ready-made checklists for routines you repeat.'),
         findsOneWidget,
       );
       expect(find.text('LEAVING & LOCKING UP'), findsOneWidget);
@@ -174,6 +177,298 @@ void main() {
       expect(find.textContaining('Search'), findsNothing);
       expect(find.textContaining('Preview first'), findsNothing);
       expect(find.textContaining('Then customize'), findsNothing);
+    });
+
+    testWidgets('onboarding browse templates does not complete onboarding', (
+      WidgetTester tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({
+        'has_completed_onboarding': false,
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final router = GoRouter(
+        initialLocation: '/onboarding',
+        routes: <RouteBase>[
+          GoRoute(
+            path: '/onboarding',
+            builder: (BuildContext context, GoRouterState state) {
+              return const OnboardingScreen(initialPage: 2);
+            },
+          ),
+          GoRoute(
+            path: '/templates',
+            builder: (BuildContext context, GoRouterState state) {
+              return Scaffold(
+                body: Text(
+                  state.uri.queryParameters['from'] == 'onboarding'
+                      ? 'Templates from onboarding'
+                      : 'Templates without onboarding',
+                ),
+              );
+            },
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: <Override>[
+            sharedPreferencesProvider.overrideWithValue(prefs),
+          ],
+          child: MaterialApp.router(
+            theme: AppTheme.fromId(ThemeId.amberResin),
+            routerConfig: router,
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Check out templates'));
+      await tester.pumpAndSettle();
+
+      expect(prefs.getBool('has_completed_onboarding'), isFalse);
+      expect(find.text('Templates from onboarding'), findsOneWidget);
+    });
+
+    testWidgets(
+      'gallery back returns to onboarding when opened from onboarding',
+      (WidgetTester tester) async {
+        final router = GoRouter(
+          initialLocation: '/templates?from=onboarding',
+          routes: <RouteBase>[
+            GoRoute(
+              path: '/onboarding',
+              builder: (BuildContext context, GoRouterState state) {
+                return const Scaffold(body: Text('Onboarding templates'));
+              },
+            ),
+            GoRoute(
+              path: '/templates',
+              builder: (BuildContext context, GoRouterState state) {
+                return TemplatesGalleryScreen(
+                  fromOnboarding:
+                      state.uri.queryParameters['from'] == 'onboarding',
+                );
+              },
+            ),
+          ],
+        );
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: <Override>[
+              templateRepositoryProvider.overrideWithValue(
+                _FakeTemplateRepository(_sampleTemplates),
+              ),
+            ],
+            child: MaterialApp.router(
+              theme: AppTheme.fromId(ThemeId.amberResin),
+              routerConfig: router,
+            ),
+          ),
+        );
+
+        await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(LucideIcons.chevronLeft).first);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Onboarding templates'), findsOneWidget);
+      },
+    );
+
+    testWidgets('gallery preserves onboarding source when opening details', (
+      WidgetTester tester,
+    ) async {
+      final router = GoRouter(
+        initialLocation: '/templates?from=onboarding',
+        routes: <RouteBase>[
+          GoRoute(
+            path: '/templates',
+            builder: (BuildContext context, GoRouterState state) {
+              return TemplatesGalleryScreen(
+                fromOnboarding:
+                    state.uri.queryParameters['from'] == 'onboarding',
+              );
+            },
+          ),
+          GoRoute(
+            path: '/templates/:id',
+            builder: (BuildContext context, GoRouterState state) {
+              return Scaffold(
+                body: Text(
+                  state.uri.queryParameters['from'] == 'onboarding'
+                      ? 'Detail from onboarding'
+                      : 'Detail without onboarding',
+                ),
+              );
+            },
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: <Override>[
+            templateRepositoryProvider.overrideWithValue(
+              _FakeTemplateRepository(_sampleTemplates),
+            ),
+          ],
+          child: MaterialApp.router(
+            theme: AppTheme.fromId(ThemeId.amberResin),
+            routerConfig: router,
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('The Everyday Departure'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Detail from onboarding'), findsOneWidget);
+    });
+
+    testWidgets('gallery uses the selected theme accent for template groups', (
+      WidgetTester tester,
+    ) async {
+      final theme = AppTheme.fromId(ThemeId.deepGlacier);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: <Override>[
+            templateRepositoryProvider.overrideWithValue(
+              _FakeTemplateRepository(_sampleTemplates),
+            ),
+          ],
+          child: MaterialApp(
+            theme: theme,
+            home: const TemplatesGalleryScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      final shieldIcon = tester.widget<Icon>(
+        find.byIcon(LucideIcons.shieldCheck).first,
+      );
+      expect(shieldIcon.color, theme.colorScheme.primary);
+    });
+
+    testWidgets('detail back returns to onboarding template gallery', (
+      WidgetTester tester,
+    ) async {
+      final router = GoRouter(
+        initialLocation:
+            '/templates/tpl_anxiety_free_departure?from=onboarding',
+        routes: <RouteBase>[
+          GoRoute(
+            path: '/templates',
+            builder: (BuildContext context, GoRouterState state) {
+              return const Scaffold(body: Text('Onboarding gallery'));
+            },
+          ),
+          GoRoute(
+            path: '/templates/:id',
+            builder: (BuildContext context, GoRouterState state) {
+              return TemplateDetailScreen(
+                templateId: state.pathParameters['id']!,
+                fromOnboarding:
+                    state.uri.queryParameters['from'] == 'onboarding',
+              );
+            },
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: <Override>[
+            templateRepositoryProvider.overrideWithValue(
+              _FakeTemplateRepository(_sampleTemplates),
+            ),
+            routineListProvider.overrideWith(
+              (ref) => Stream<List<Routine>>.value(const <Routine>[]),
+            ),
+            subscriptionProvider.overrideWithValue(UserTier.personalPremium),
+          ],
+          child: MaterialApp.router(
+            theme: AppTheme.fromId(ThemeId.amberResin),
+            routerConfig: router,
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(LucideIcons.chevronLeft).first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Onboarding gallery'), findsOneWidget);
+    });
+
+    testWidgets('using a template from onboarding completes onboarding', (
+      WidgetTester tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({
+        'has_completed_onboarding': false,
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final routineRepository = _FakeRoutineRepository();
+
+      final router = GoRouter(
+        initialLocation:
+            '/templates/tpl_anxiety_free_departure?from=onboarding',
+        routes: <RouteBase>[
+          GoRoute(
+            path: '/',
+            builder: (BuildContext context, GoRouterState state) {
+              return Consumer(
+                builder: (context, ref, child) {
+                  final highlight = ref.watch(homeRoutineHighlightProvider);
+                  return Scaffold(body: Text(highlight?.message ?? 'Home'));
+                },
+              );
+            },
+          ),
+          GoRoute(
+            path: '/templates/:id',
+            builder: (BuildContext context, GoRouterState state) {
+              return TemplateDetailScreen(
+                templateId: state.pathParameters['id']!,
+                fromOnboarding:
+                    state.uri.queryParameters['from'] == 'onboarding',
+              );
+            },
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: <Override>[
+            sharedPreferencesProvider.overrideWithValue(prefs),
+            templateRepositoryProvider.overrideWithValue(
+              _FakeTemplateRepository(_sampleTemplates),
+            ),
+            routineRepositoryProvider.overrideWithValue(routineRepository),
+            routineListProvider.overrideWith(
+              (ref) => Stream<List<Routine>>.value(const <Routine>[]),
+            ),
+            subscriptionProvider.overrideWithValue(UserTier.personalPremium),
+          ],
+          child: MaterialApp.router(
+            theme: AppTheme.fromId(ThemeId.amberResin),
+            routerConfig: router,
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Use this template'));
+      await tester.pumpAndSettle();
+
+      expect(prefs.getBool('has_completed_onboarding'), isTrue);
+      expect(find.text('The Everyday Departure is ready'), findsOneWidget);
+      expect(routineRepository.savedRoutines, hasLength(1));
     });
 
     testWidgets('detail screen previews steps and hands off to Home', (

@@ -90,6 +90,7 @@ void main() {
     expect(find.text('Start with one routine.'), findsOneWidget);
     expect(find.text('Create routine'), findsOneWidget);
     expect(find.text('Use template'), findsOneWidget);
+    expect(find.byTooltip('Reminders'), findsNothing);
     expect(find.text('Life flows better\nwith routines'), findsNothing);
     expect(find.textContaining('organized humans'), findsNothing);
   });

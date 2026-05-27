@@ -91,7 +91,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                       _FlowTile(
                         icon: LucideIcons.bell,
                         title: 'Reminders',
-                        subtitle: 'Routine reminders & notifications',
+                        subtitle: 'Manage all your routine reminders',
                         onTap: () {
                           HapticFeedback.selectionClick();
                           context.push('/reminders');
@@ -100,8 +100,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                       const _Hairline(),
                       _FlowSwitchTile(
                         icon: LucideIcons.focus,
-                        title: 'Visual anchor',
-                        subtitle: 'Show the routine step focus circle',
+                        title: 'Routine focus guide',
+                        subtitle:
+                            'Show a visual cue while you move through steps',
                         value: playerSettings.showVisualAnchor,
                         onChanged: (value) {
                           HapticFeedback.selectionClick();
@@ -122,16 +123,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                               builder: (_) => const AppearanceScreen(),
                             ),
                           );
-                        },
-                      ),
-                      const _Hairline(),
-                      _FlowTile(
-                        icon: LucideIcons.userRound,
-                        title: 'Your account',
-                        subtitle: 'Your Data Vault for Sync & Backup',
-                        onTap: () {
-                          HapticFeedback.selectionClick();
-                          context.pushNamed('account-hub');
                         },
                       ),
                     ],
@@ -367,7 +358,7 @@ class _FlowSwitchTile extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          Switch(value: value, onChanged: onChanged),
+          Switch.adaptive(value: value, onChanged: onChanged),
         ],
       ),
     );

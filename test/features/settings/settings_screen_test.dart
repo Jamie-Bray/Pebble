@@ -35,11 +35,12 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('Theme & colours'), findsOneWidget);
-    expect(find.text('Your account'), findsOneWidget);
     expect(find.text('About Pebble'), findsOneWidget);
     expect(find.text('Reminders'), findsOneWidget);
-    expect(find.text('Visual anchor'), findsOneWidget);
+    expect(find.text('Manage all your routine reminders'), findsOneWidget);
+    expect(find.text('Routine focus guide'), findsOneWidget);
 
+    expect(find.text('Your account'), findsNothing);
     expect(find.text('Subscription Status (Dev Override)'), findsNothing);
     expect(find.text('Show Celebration'), findsNothing);
     expect(find.text('Sound effects'), findsNothing);
@@ -68,7 +69,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('Visual anchor'), findsOneWidget);
+    expect(find.text('Routine focus guide'), findsOneWidget);
     expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
 
     await tester.tap(find.byType(Switch));
@@ -107,7 +108,7 @@ void main() {
     expect(find.text('Matcha'), findsNothing);
     expect(
       find.text(
-        'Current theme. Tap any card below to preview before switching.',
+        'Choose a look that works for you.\nPreview first, then apply.',
       ),
       findsOneWidget,
     );

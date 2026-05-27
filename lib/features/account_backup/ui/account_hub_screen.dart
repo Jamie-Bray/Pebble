@@ -273,7 +273,7 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
                       'Pebble will only start backup after you choose to turn it on.',
                     ),
                     const SizedBox(height: 12),
-                    CheckboxListTile(
+                    CheckboxListTile.adaptive(
                       contentPadding: EdgeInsets.zero,
                       controlAffinity: ListTileControlAffinity.leading,
                       value: accepted,

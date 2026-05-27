@@ -261,7 +261,8 @@ class RoutineSessionRepositoryImpl implements RoutineSessionRepository {
         finishedAt: now,
         stepCompletionData: jsonEncode(stepCompletionData),
         ownerUserId: completedSession.ownerUserId,
-        syncStatus: completedSession.ownerUserId == null ||
+        syncStatus:
+            completedSession.ownerUserId == null ||
                 !_ref.read(cloudAccessPolicyProvider).canQueuePersonalSync
             ? 'localOnly'
             : 'pendingUpload',

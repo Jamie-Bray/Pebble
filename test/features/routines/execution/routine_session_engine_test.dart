@@ -120,7 +120,9 @@ void main() {
         overrides: [
           localDbProvider.overrideWithValue(database),
           routineSessionProofStorageProvider.overrideWithValue(proofStorage),
-          guidanceAudioStorageProvider.overrideWithValue(_FakeGuidanceAudioStorage()),
+          guidanceAudioStorageProvider.overrideWithValue(
+            _FakeGuidanceAudioStorage(),
+          ),
           subscriptionAccountControllerProvider.overrideWith(
             (ref) => SubscriptionAccountController(database, loadOnInit: false),
           ),

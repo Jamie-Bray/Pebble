@@ -649,9 +649,9 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
                 ? SizedBox(
                     height: 20,
                     width: 20,
-                    child: CircularProgressIndicator(
+                    child: CircularProgressIndicator.adaptive(
                       strokeWidth: 2.5,
-                      color: cs.onPrimary,
+                      valueColor: AlwaysStoppedAnimation<Color>(cs.onPrimary),
                     ),
                   )
                 : Row(
@@ -711,7 +711,9 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(color: cs.primary),
+            CircularProgressIndicator.adaptive(
+              valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
+            ),
             const SizedBox(height: 16),
             Text(
               'Loading...',

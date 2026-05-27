@@ -121,28 +121,28 @@ void main() {
       },
     );
 
-    test('signed-out premium uses the 48-hour local history window', () async {
-      await buildHarness(UserTier.personalPremium);
-      final run = _run(
-        id: 'premium-signed-out-old',
-        finishedAt: DateTime.now().subtract(const Duration(hours: 49)),
-        stepCompletionData: _completionData(
-          proofPath: 'routine_session_proofs/session/proof.webp',
-        ),
-      );
-      await database.routineRunDao.insertOrUpdateRun(run);
+    test(
+      'signed-out premium retains history using the premium retention window',
+      () async {
+        await buildHarness(UserTier.personalPremium);
+        final run = _run(
+          id: 'premium-signed-out-old',
+          finishedAt: DateTime.now().subtract(const Duration(hours: 49)),
+          stepCompletionData: _completionData(
+            proofPath: 'routine_session_proofs/session/proof.webp',
+          ),
+        );
+        await database.routineRunDao.insertOrUpdateRun(run);
 
-      await container
-          .read(routineRunRepositoryProvider)
-          .enforceRetentionPolicy();
+        await container
+            .read(routineRunRepositoryProvider)
+            .enforceRetentionPolicy();
 
-      final runs = await database.routineRunDao.getAllRuns();
-      expect(runs, isEmpty);
-      expect(
-        proofStorage.deletedProofs,
-        contains('routine_session_proofs/session/proof.webp'),
-      );
-    });
+        final runs = await database.routineRunDao.getAllRuns();
+        expect(runs.single.id, 'premium-signed-out-old');
+        expect(proofStorage.deletedProofs, isEmpty);
+      },
+    );
   });
 }
 

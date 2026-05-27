@@ -6,15 +6,21 @@ import 'package:pebble_routines/core/navigation/app_shell.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
+import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
 import 'package:pebble_routines/features/subscription/ui/subscription_guard.dart';
 import 'package:pebble_routines/features/templates/data/models/template.dart';
 import 'package:pebble_routines/features/templates/domain/usecases/use_template_usecase.dart';
 import 'package:pebble_routines/features/templates/ui/templates_providers.dart';
 
 class TemplateDetailScreen extends ConsumerWidget {
-  const TemplateDetailScreen({super.key, required this.templateId});
+  const TemplateDetailScreen({
+    super.key,
+    required this.templateId,
+    this.fromOnboarding = false,
+  });
 
   final String templateId;
+  final bool fromOnboarding;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -43,7 +49,10 @@ class TemplateDetailScreen extends ConsumerWidget {
               );
             }
 
-            return _TemplateDetailContent(template: template);
+            return _TemplateDetailContent(
+              template: template,
+              fromOnboarding: fromOnboarding,
+            );
           },
         ),
       ),
@@ -52,9 +61,13 @@ class TemplateDetailScreen extends ConsumerWidget {
 }
 
 class _TemplateDetailContent extends ConsumerWidget {
-  const _TemplateDetailContent({required this.template});
+  const _TemplateDetailContent({
+    required this.template,
+    required this.fromOnboarding,
+  });
 
   final Template template;
+  final bool fromOnboarding;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -67,7 +80,11 @@ class _TemplateDetailContent extends ConsumerWidget {
       bottom: false,
       child: Column(
         children: <Widget>[
-          const PebbleBackChrome(),
+          PebbleBackChrome(
+            onBack: fromOnboarding
+                ? () => context.go('/templates?from=onboarding')
+                : null,
+          ),
           Expanded(
             child: CustomScrollView(
               physics: const BouncingScrollPhysics(),
@@ -176,6 +193,11 @@ class _TemplateDetailContent extends ConsumerWidget {
                       final routine = await ref
                           .read(useTemplateUseCaseProvider)
                           .call(template);
+                      if (fromOnboarding) {
+                        await ref
+                            .read(sharedPreferencesProvider)
+                            .setBool('has_completed_onboarding', true);
+                      }
                       ref.read(navIndexProvider.notifier).state = 0;
                       ref
                           .read(homeRoutineHighlightProvider.notifier)

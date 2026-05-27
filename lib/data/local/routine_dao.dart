@@ -16,16 +16,12 @@ class RoutineDao extends DatabaseAccessor<LocalDb> with _$RoutineDaoMixin {
   Future<void> deleteRoutine(int id) =>
       (delete(routines)..where((tbl) => tbl.id.equals(id))).go();
 
-
-
   Future<Routine?> getRoutineById(int id) =>
       (select(routines)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
 
   Future<Routine?> getRoutineByCloudId(String cloudId) => (select(
     routines,
   )..where((tbl) => tbl.cloudId.equals(cloudId))).getSingleOrNull();
-
-
 
   Future<void> markRoutineSynced({
     required int id,

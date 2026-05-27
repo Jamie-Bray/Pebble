@@ -181,8 +181,13 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
   }
 
   String _purchaseErrorMessage(Object error) {
-    final message = error.toString().replaceFirst('Exception: ', '').trim();
-    if (message.isNotEmpty && !message.startsWith('Bad state:')) {
+    var message = error.toString().replaceFirst('Exception: ', '').trim();
+    if (message.startsWith('Bad state: ')) {
+      message = message.substring('Bad state: '.length).trim();
+    } else if (message.startsWith('Bad state:')) {
+      message = message.substring('Bad state:'.length).trim();
+    }
+    if (message.isNotEmpty) {
       return message;
     }
     return '$_storeName could not complete that request. Please try again.';
@@ -556,9 +561,9 @@ class _PremiumActionButton extends StatelessWidget {
           ? const SizedBox(
               width: 24,
               height: 24,
-              child: CircularProgressIndicator(
+              child: CircularProgressIndicator.adaptive(
                 strokeWidth: 2.5,
-                color: Colors.white,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
               ),
             )
           : Text(label),

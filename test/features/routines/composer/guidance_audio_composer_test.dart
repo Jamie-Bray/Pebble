@@ -79,8 +79,6 @@ void main() {
       expect(find.byIcon(LucideIcons.lock), findsNothing);
     },
   );
-
-
 }
 
 class _FakeGuidanceAudioStorage implements GuidanceAudioStorage {

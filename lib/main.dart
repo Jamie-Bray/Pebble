@@ -74,6 +74,17 @@ TimeOfDay? _parseReminderTime(String value) {
   }
 }
 
+bool _isOnboardingTemplateRequest(GoRouterState state) {
+  final path = state.uri.path;
+  final fromOnboarding = state.uri.queryParameters['from'] == 'onboarding';
+  return fromOnboarding &&
+      (path == '/templates' || path.startsWith('/templates/'));
+}
+
+int _onboardingInitialPage(GoRouterState state) {
+  return state.uri.queryParameters['step'] == 'templates' ? 2 : 0;
+}
+
 Future<void> _resyncEnabledReminderNotifications(LocalDb db) async {
   final notifications = NotificationService();
   final hasPermission = await notifications.hasNotificationPermission();
@@ -139,7 +150,9 @@ final _routerProvider = Provider<GoRouter>((ref) {
       final hasCompletedOnboarding =
           prefs.getBool('has_completed_onboarding') ?? false;
       final isGoingToOnboarding = state.uri.path == '/onboarding';
-      if (!hasCompletedOnboarding && !isGoingToOnboarding) {
+      if (!hasCompletedOnboarding &&
+          !isGoingToOnboarding &&
+          !_isOnboardingTemplateRequest(state)) {
         return '/onboarding';
       }
       if (hasCompletedOnboarding && isGoingToOnboarding) {
@@ -150,7 +163,8 @@ final _routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: '/onboarding',
-        builder: (context, state) => const OnboardingScreen(),
+        builder: (context, state) =>
+            OnboardingScreen(initialPage: _onboardingInitialPage(state)),
       ),
       GoRoute(
         path: '/',
@@ -160,14 +174,20 @@ final _routerProvider = Provider<GoRouter>((ref) {
             path: 'templates/:id',
             builder: (context, state) {
               final id = state.pathParameters['id']!;
-              return TemplateDetailScreen(templateId: id);
+              return TemplateDetailScreen(
+                templateId: id,
+                fromOnboarding:
+                    state.uri.queryParameters['from'] == 'onboarding',
+              );
             },
           ),
         ],
       ),
       GoRoute(
         path: '/templates',
-        builder: (context, state) => const TemplatesGalleryScreen(),
+        builder: (context, state) => TemplatesGalleryScreen(
+          fromOnboarding: state.uri.queryParameters['from'] == 'onboarding',
+        ),
       ),
       GoRoute(
         path: '/settings',
@@ -239,7 +259,7 @@ final _routerProvider = Provider<GoRouter>((ref) {
               builder: (context, snapshot) {
                 if (snapshot.connectionState != ConnectionState.done) {
                   return const Scaffold(
-                    body: Center(child: CircularProgressIndicator()),
+                    body: Center(child: CircularProgressIndicator.adaptive()),
                   );
                 }
                 final routine = snapshot.data;
@@ -266,7 +286,7 @@ final _routerProvider = Provider<GoRouter>((ref) {
               final async = ref.watch(routineSessionEntryProvider(id));
               return async.when(
                 loading: () => const Scaffold(
-                  body: Center(child: CircularProgressIndicator()),
+                  body: Center(child: CircularProgressIndicator.adaptive()),
                 ),
                 error: (e, st) => const Scaffold(
                   body: Center(child: Text('Could not load routine')),

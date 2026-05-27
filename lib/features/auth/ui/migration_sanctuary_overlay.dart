@@ -89,9 +89,11 @@ class _MigrationSanctuaryOverlayState extends State<MigrationSanctuaryOverlay>
                           child: SizedBox(
                             width: 28,
                             height: 28,
-                            child: CircularProgressIndicator(
+                            child: CircularProgressIndicator.adaptive(
                               strokeWidth: 2.2,
-                              color: colorScheme.primary,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                colorScheme.primary,
+                              ),
                             ),
                           ),
                         ),

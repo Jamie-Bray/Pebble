@@ -26,8 +26,9 @@ class RoutineRunDao extends DatabaseAccessor<LocalDb>
   Future<int> deleteRun(String id) =>
       (delete(routineRuns)..where((t) => t.id.equals(id))).go();
 
-  Future<int> deleteRunsOlderThan(DateTime cutoff) =>
-      (delete(routineRuns)..where((t) => t.finishedAt.isSmallerThanValue(cutoff))).go();
+  Future<int> deleteRunsOlderThan(DateTime cutoff) => (delete(
+    routineRuns,
+  )..where((t) => t.finishedAt.isSmallerThanValue(cutoff))).go();
 
   Future<void> markRunSynced({
     required String id,

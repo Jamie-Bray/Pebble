@@ -95,7 +95,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
 
     return runsAsync.when(
       loading: () => const _ThemeScaffold(
-        child: Center(child: CircularProgressIndicator()),
+        child: Center(child: CircularProgressIndicator.adaptive()),
       ),
       error: (e, _) => _ThemeScaffold(
         child: ZenErrorView(message: 'Could not load history: $e'),
@@ -103,7 +103,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
       data: (runs) {
         return routinesAsync.when(
           loading: () => const _ThemeScaffold(
-            child: Center(child: CircularProgressIndicator()),
+            child: Center(child: CircularProgressIndicator.adaptive()),
           ),
           error: (e, _) => _ThemeScaffold(
             child: ZenErrorView(message: 'Could not load routines: $e'),
@@ -348,7 +348,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
       builder: (context, snapshot) {
         final allPhotos = snapshot.data ?? const <_VaultPhoto>[];
         if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(child: CircularProgressIndicator.adaptive());
         }
         if (allPhotos.isEmpty) return _buildVaultEmptyState();
 

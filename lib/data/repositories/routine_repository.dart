@@ -226,7 +226,7 @@ class RoutineRepositoryImpl implements RoutineRepository {
   }) async {
     final existing = await getRoutineById(id);
     if (existing == null) return;
-    
+
     // Fall back to old value if null is provided
     final newEmoji = iconKey ?? existing.emoji;
     final newColorHex = colorHex ?? existing.colorHex;
@@ -257,7 +257,7 @@ class RoutineRepositoryImpl implements RoutineRepository {
     // Since saveRoutine handles all sync outbox and updatedAt logic, it's safer
     // to just let saveRoutine do its job, and handle the nullification in SQL first
     // if needed, OR just construct a new Routine. We'll construct a new Routine!
-    
+
     final updated = Routine(
       id: existing.id,
       title: existing.title,

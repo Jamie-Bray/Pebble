@@ -76,7 +76,7 @@ class AppearanceScreen extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      _ActiveThemeHero(
+                      _ActiveThemeBar(
                         meta: currentMeta,
                         onTap: () =>
                             _openThemePreview(context, ref, currentMeta),
@@ -169,8 +169,8 @@ class _InfoButton extends StatelessWidget {
   }
 }
 
-class _ActiveThemeHero extends StatelessWidget {
-  const _ActiveThemeHero({required this.meta, required this.onTap});
+class _ActiveThemeBar extends StatelessWidget {
+  const _ActiveThemeBar({required this.meta, required this.onTap});
 
   final ThemeMetadata meta;
   final VoidCallback onTap;
@@ -179,66 +179,103 @@ class _ActiveThemeHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
     final themeData = AppTheme.fromId(meta.id);
+    final scheme = themeData.colorScheme;
+    final colors = _railColors(themeData).take(3).toList();
+
     return Material(
-      color: foundation.surfaceLow,
-      borderRadius: BorderRadius.circular(22),
+      color: foundation.surfaceHigh,
+      borderRadius: BorderRadius.circular(14),
       child: InkWell(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(14),
         onTap: () {
           HapticFeedback.selectionClick();
           onTap();
         },
-        child: DecoratedBox(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: foundation.borderSubtle),
-            boxShadow: <BoxShadow>[
-              BoxShadow(
-                color: foundation.shadowSoft,
-                blurRadius: 24,
-                offset: const Offset(0, 10),
-              ),
-            ],
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: foundation.borderSubtle.withValues(alpha: 0.65),
+            ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
             children: <Widget>[
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(22),
-                ),
-                child: SizedBox(
-                  height: 190,
-                  width: double.infinity,
-                  child: _MiniAppPreview(themeData: themeData, rows: 3),
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: colors.map((color) {
+                  return Container(
+                    width: 10,
+                    height: 10,
+                    margin: const EdgeInsets.only(right: 4),
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        width: 0.5,
+                      ),
+                    ),
+                  );
+                }).toList(),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 13, 14, 15),
+              const SizedBox(width: 8),
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: Text(
-                            meta.name,
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(
-                                  color: foundation.textPrimary,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                          ),
-                        ),
-                        const _StatePill.active(label: 'Active'),
-                      ],
-                    ),
-                    const SizedBox(height: 5),
                     Text(
-                      'Current theme. Tap any card below to preview before switching.',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      'CURRENT THEME',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1,
                         color: foundation.textSecondary,
-                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      meta.name,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: foundation.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: scheme.primary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: scheme.primary.withValues(alpha: 0.22),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Container(
+                      width: 5,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: scheme.primary,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      'Active',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: scheme.primary,
+                        letterSpacing: 0.2,
                       ),
                     ),
                   ],
@@ -280,11 +317,23 @@ class _SectionHeader extends StatelessWidget {
         ),
         if (tag != null) ...<Widget>[
           const SizedBox(width: 10),
-          Text(
-            tag!,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: foundation.textMuted,
-              fontWeight: FontWeight.w800,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: const Color(0xFF6B9A6E).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: const Color(0xFF6B9A6E).withValues(alpha: 0.18),
+              ),
+            ),
+            child: Text(
+              tag!,
+              style: const TextStyle(
+                color: Color(0xFF6B9A6E),
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.2,
+              ),
             ),
           ),
         ],
@@ -362,10 +411,8 @@ class _ThemeGridCard extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: isCurrent
-                  ? accent
-                  : foundation.borderSubtle.withValues(alpha: 0.9),
-              width: isCurrent ? 1.6 : 1.2,
+              color: isCurrent ? accent : Colors.transparent,
+              width: 1.5,
             ),
             boxShadow: isCurrent
                 ? <BoxShadow>[
@@ -478,11 +525,10 @@ class _ThemeGridCard extends StatelessWidget {
         width: 21,
         height: 21,
         decoration: BoxDecoration(
-          color: accent.withValues(alpha: 0.16),
+          color: accent,
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: accent.withValues(alpha: 0.22)),
         ),
-        child: Icon(Icons.check, size: 12, color: accent),
+        child: const Icon(Icons.check, size: 12, color: Colors.white),
       );
     }
     if (meta.isAccessibilityTheme) {
@@ -561,8 +607,8 @@ class _PremiumThemeCard extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: isCurrent ? accent : foundation.borderSubtle,
-                width: isCurrent ? 1.6 : 1.2,
+                color: isCurrent ? accent : Colors.transparent,
+                width: 1.5,
               ),
               boxShadow: isCurrent
                   ? <BoxShadow>[
@@ -594,13 +640,6 @@ class _PremiumThemeCard extends StatelessWidget {
                         color: foundation.surfaceLow,
                         borderRadius: const BorderRadius.vertical(
                           bottom: Radius.circular(19),
-                        ),
-                        border: Border(
-                          top: BorderSide(
-                            color: foundation.borderSubtle.withValues(
-                              alpha: 0.55,
-                            ),
-                          ),
                         ),
                       ),
                       child: Column(
@@ -640,13 +679,14 @@ class _PremiumThemeCard extends StatelessWidget {
                       width: 21,
                       height: 21,
                       decoration: BoxDecoration(
-                        color: accent.withValues(alpha: 0.16),
+                        color: accent,
                         borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                          color: accent.withValues(alpha: 0.22),
-                        ),
                       ),
-                      child: Icon(Icons.check, size: 12, color: accent),
+                      child: const Icon(
+                        Icons.check,
+                        size: 12,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 if (isLocked)
@@ -836,18 +876,27 @@ class _MiniAppPreview extends StatelessWidget {
             ],
             const Spacer(),
             Row(
-              children: _railColors(themeData).take(4).map((color) {
-                return Expanded(
-                  child: Container(
-                    height: 4,
-                    margin: const EdgeInsets.only(right: 3),
-                    decoration: BoxDecoration(
-                      color: color,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                );
-              }).toList(),
+              mainAxisSize: MainAxisSize.min,
+              children:
+                  <Color>[
+                    scheme.primary,
+                    templateTokens.templatesAccentGroup2,
+                    templateTokens.templatesAccentGroup3,
+                  ].asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final color = entry.value;
+                    return Container(
+                      width: 16,
+                      height: 3,
+                      margin: const EdgeInsets.only(right: 4),
+                      decoration: BoxDecoration(
+                        color: index == 0
+                            ? color
+                            : color.withValues(alpha: index == 1 ? 0.6 : 0.4),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    );
+                  }).toList(),
             ),
           ],
         ),

@@ -120,18 +120,20 @@ const _starterRoutines = [
   ),
 ];
 
-const _defaultOnboardingThemeId = ThemeId.amberResin;
+const _defaultOnboardingThemeId = ThemeId.highNoon;
 
 class OnboardingScreen extends ConsumerStatefulWidget {
-  const OnboardingScreen({super.key});
+  const OnboardingScreen({super.key, this.initialPage = 0});
+
+  final int initialPage;
 
   @override
   ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
-  final PageController _pageController = PageController();
-  int _currentPage = 0;
+  late final PageController _pageController;
+  late int _currentPage;
   bool _isCreatingStarter = false;
   late ThemeId _selectedThemeId;
   final _StarterRoutine _selectedStarter = _starterRoutines.first;
@@ -139,10 +141,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedThemeId = _defaultOnboardingThemeId;
-    Future.microtask(
-      () => ref.read(themeProvider.notifier).setColorTheme(_selectedThemeId),
-    );
+    _currentPage = widget.initialPage.clamp(0, 3).toInt();
+    _pageController = PageController(initialPage: _currentPage);
+    if (_currentPage == 0) {
+      _selectedThemeId = _defaultOnboardingThemeId;
+      Future.microtask(
+        () => ref.read(themeProvider.notifier).setColorTheme(_selectedThemeId),
+      );
+    } else {
+      _selectedThemeId = ref.read(currentColorThemeProvider);
+    }
   }
 
   @override
@@ -182,9 +190,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   Future<void> _completeToTemplates() async {
     HapticFeedback.lightImpact();
-    await _markOnboardingComplete();
     if (!mounted) return;
-    GoRouter.of(context).go('/templates');
+    GoRouter.of(context).go('/templates?from=onboarding');
   }
 
   Future<void> _useStarterRoutine() async {
@@ -252,7 +259,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final activeTheme = _currentPage == 0
-        ? AppTheme.fromId(ThemeId.amberResin)
+        ? AppTheme.fromId(_defaultOnboardingThemeId)
         : AppTheme.fromId(_selectedThemeId);
 
     return AnimatedTheme(
@@ -686,8 +693,8 @@ class _ThemePickerPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
     final themes = [
-      ThemeMetadata.get(ThemeId.amberResin),
       ThemeMetadata.get(ThemeId.highNoon),
+      ThemeMetadata.get(ThemeId.amberResin),
       ThemeMetadata.get(ThemeId.softPink),
       ThemeMetadata.get(ThemeId.sageMist),
     ];
@@ -1638,9 +1645,7 @@ class _TemplateDots extends StatelessWidget {
           width: isActive ? 22 : 6,
           height: 6,
           decoration: BoxDecoration(
-            color: isActive
-                ? accent
-                : accent.withValues(alpha: 0.2),
+            color: isActive ? accent : accent.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(99),
           ),
         );
@@ -1681,7 +1686,7 @@ class _StarterPreviewPage extends StatelessWidget {
             child: isCreating
                 ? const SizedBox.square(
                     dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: CircularProgressIndicator.adaptive(strokeWidth: 2),
                   )
                 : const Text('Use this starter routine'),
           ),

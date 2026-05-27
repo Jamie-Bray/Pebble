@@ -298,8 +298,6 @@ void main() {
     expect(find.text('Ready to finish'), findsOneWidget);
   });
 
-
-
   testWidgets('edit mode focuses the requested initial step index', (
     tester,
   ) async {

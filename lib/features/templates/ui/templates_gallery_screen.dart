@@ -8,7 +8,9 @@ import 'package:pebble_routines/features/templates/data/models/template.dart';
 import 'package:pebble_routines/features/templates/ui/templates_providers.dart';
 
 class TemplatesGalleryScreen extends ConsumerWidget {
-  const TemplatesGalleryScreen({super.key});
+  const TemplatesGalleryScreen({super.key, this.fromOnboarding = false});
+
+  final bool fromOnboarding;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -39,7 +41,9 @@ class TemplatesGalleryScreen extends ConsumerWidget {
               child: CustomScrollView(
                 physics: const BouncingScrollPhysics(),
                 slivers: <Widget>[
-                  const SliverToBoxAdapter(child: _TemplatesHeader()),
+                  SliverToBoxAdapter(
+                    child: _TemplatesHeader(fromOnboarding: fromOnboarding),
+                  ),
                   SliverPadding(
                     padding: EdgeInsets.fromLTRB(
                       20,
@@ -52,8 +56,9 @@ class TemplatesGalleryScreen extends ConsumerWidget {
                         for (final entry in grouped.entries) ...<Widget>[
                           _TemplateGroup(
                             title: entry.key,
-                            accent: _accentForGroup(tokens, entry.key),
+                            accent: _accentForGroup(context, entry.key),
                             templates: entry.value,
+                            fromOnboarding: fromOnboarding,
                           ),
                           const SizedBox(height: 18),
                         ],
@@ -71,7 +76,9 @@ class TemplatesGalleryScreen extends ConsumerWidget {
 }
 
 class _TemplatesHeader extends StatelessWidget {
-  const _TemplatesHeader();
+  const _TemplatesHeader({required this.fromOnboarding});
+
+  final bool fromOnboarding;
 
   @override
   Widget build(BuildContext context) {
@@ -86,6 +93,9 @@ class _TemplatesHeader extends StatelessWidget {
           PebbleBackButton(
             backgroundColor: tokens.templatesSurface,
             iconColor: tokens.templatesTextSecondary,
+            onPressed: fromOnboarding
+                ? () => context.go('/onboarding?step=templates')
+                : null,
           ),
           const SizedBox(height: 24),
           Text(
@@ -116,11 +126,13 @@ class _TemplateGroup extends StatelessWidget {
     required this.title,
     required this.accent,
     required this.templates,
+    required this.fromOnboarding,
   });
 
   final String title;
   final Color accent;
   final List<Template> templates;
+  final bool fromOnboarding;
 
   @override
   Widget build(BuildContext context) {
@@ -130,7 +142,11 @@ class _TemplateGroup extends StatelessWidget {
         _TemplateSectionHeader(title: title, count: templates.length),
         const SizedBox(height: 6),
         for (var index = 0; index < templates.length; index += 1) ...<Widget>[
-          _TemplateCard(template: templates[index], accent: accent),
+          _TemplateCard(
+            template: templates[index],
+            accent: accent,
+            fromOnboarding: fromOnboarding,
+          ),
           if (index != templates.length - 1) const SizedBox(height: 8),
         ],
       ],
@@ -146,7 +162,7 @@ class _TemplateSectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
+    final tokens = _templateTokensFor(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 8, 4, 2),
       child: Padding(
@@ -162,7 +178,7 @@ class _TemplateSectionHeader extends StatelessWidget {
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.9,
-                  color: foundation.textMuted,
+                  color: tokens.templatesTextMuted,
                 ),
               ),
             ),
@@ -171,7 +187,7 @@ class _TemplateSectionHeader extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: foundation.textSecondary,
+                color: tokens.templatesTextSecondary,
               ),
             ),
           ],
@@ -182,10 +198,15 @@ class _TemplateSectionHeader extends StatelessWidget {
 }
 
 class _TemplateCard extends StatelessWidget {
-  const _TemplateCard({required this.template, required this.accent});
+  const _TemplateCard({
+    required this.template,
+    required this.accent,
+    required this.fromOnboarding,
+  });
 
   final Template template;
   final Color accent;
+  final bool fromOnboarding;
 
   @override
   Widget build(BuildContext context) {
@@ -203,7 +224,9 @@ class _TemplateCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           splashColor: accent.withValues(alpha: 0.08),
           highlightColor: accent.withValues(alpha: 0.05),
-          onTap: () => context.push('/templates/${template.id}'),
+          onTap: () => context.push(
+            '/templates/${template.id}${fromOnboarding ? '?from=onboarding' : ''}',
+          ),
           child: Container(
             constraints: const BoxConstraints(minHeight: 96),
             decoration: BoxDecoration(
@@ -372,12 +395,13 @@ PebbleTemplatesTokens _templateTokensFor(BuildContext context) {
   );
 }
 
-Color _accentForGroup(PebbleTemplatesTokens tokens, String group) {
+Color _accentForGroup(BuildContext context, String group) {
+  final colorScheme = Theme.of(context).colorScheme;
   return switch (group) {
-    'Leaving & Locking Up' => tokens.templatesAccentGroup1,
-    'Daily Care' => tokens.templatesAccentGroup2,
-    'Travel & Handovers' => tokens.templatesAccentGroup3,
-    _ => tokens.templatesAccentGroup1,
+    'Leaving & Locking Up' => colorScheme.primary,
+    'Daily Care' => colorScheme.secondary,
+    'Travel & Handovers' => colorScheme.tertiary,
+    _ => colorScheme.primary,
   };
 }
 
