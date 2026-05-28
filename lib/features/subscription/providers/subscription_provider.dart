@@ -343,13 +343,11 @@ class SubscriptionAccountController
 
   Future<void> signOutIdentity() async {
     final next = state.copyWith(
-      entitlementTier: UserTier.personalFree,
-      entitlementSource: EntitlementSource.localCache,
-      entitlementStatus: EntitlementStatus.free,
       clearPendingTier: true,
+      clearUserId: true,
+      clearEmail: true,
+      clearAuthProvider: true,
       clearLastSyncError: true,
-      clearEntitlementPeriodEndsAt: true,
-      clearEntitlementError: true,
       bootstrapStatus: BootstrapStatus.idle,
     );
     state = next;

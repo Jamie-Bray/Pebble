@@ -85,15 +85,6 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
 
   Future<void> _startPremium() async {
     if (_busy) return;
-    final auth = ref.read(authSessionProvider);
-    if (!auth.isSignedIn) {
-      await ref.read(authControllerProvider.notifier).beginPremiumUpgrade();
-      if (mounted) {
-        _showSnackBar('Sign in first, then $_storeName will handle checkout.');
-        context.push('/sign-in');
-      }
-      return;
-    }
     setState(() => _busy = true);
     try {
       final products = ref
@@ -116,15 +107,6 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
 
   Future<void> _restorePurchase() async {
     if (_busy) return;
-    final auth = ref.read(authSessionProvider);
-    if (!auth.isSignedIn) {
-      await ref.read(authControllerProvider.notifier).beginPremiumUpgrade();
-      if (mounted) {
-        _showSnackBar('Sign in first so Pebble can verify $_storeName.');
-        context.push('/sign-in');
-      }
-      return;
-    }
     setState(() => _busy = true);
     try {
       final result = await ref
@@ -148,15 +130,9 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
       await ref
           .read(authControllerProvider.notifier)
           .refreshCloudAccessAfterEntitlementChange();
-      if (mounted) {
-        context.go('/account-hub');
-      }
-      return;
     }
-
-    await ref.read(authControllerProvider.notifier).beginPremiumUpgrade();
     if (mounted) {
-      context.push('/sign-in');
+      context.go('/account-hub');
     }
   }
 
@@ -324,7 +300,7 @@ class _SimplePaywallHeader extends StatelessWidget {
       PremiumEntrySource.guidanceAudio =>
         'Add short voice tips to steps, unlock every routine limit, and keep your evidence and history available for longer.',
       PremiumEntrySource.backup =>
-        'Free keeps recent history on this device for 48 hours. Premium keeps supported history and proof photos backed up for 21 days.',
+        'Free keeps recent history on this device for 48 hours. Premium keeps recent history for 21 days, with optional backup after sign-in.',
       _ =>
         'Everything in Free, plus the tools that make Pebble genuinely yours.',
     };
@@ -644,7 +620,7 @@ class _FeaturesList extends StatelessWidget {
           tint: _PremiumTint.green,
           title: 'Backup & longer history',
           body:
-              'Keep supported routine history and proof photos backed up, so a reinstall or new phone is easier to restore.',
+              'Keep recent history longer on this device. Sign in later if you want supported backup for reinstalling or changing phone.',
           upgradeLabel: 'Free: 48 hrs -> Premium: 21 days',
         ),
         _FeatureListItem(

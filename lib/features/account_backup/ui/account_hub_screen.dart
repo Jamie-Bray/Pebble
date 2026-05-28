@@ -201,15 +201,6 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
     if (_restoreInFlight) {
       return;
     }
-    final auth = ref.read(authSessionProvider);
-    if (!auth.isSignedIn) {
-      await ref.read(authControllerProvider.notifier).beginPremiumUpgrade();
-      if (mounted) {
-        _showVaultSnackBar('Sign in first so Pebble can verify Google Play.');
-        context.push('/sign-in');
-      }
-      return;
-    }
     setState(() => _restoreInFlight = true);
     try {
       final result = await ref
@@ -219,9 +210,12 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
         return;
       }
       _showVaultSnackBar(result.message);
-      await ref
-          .read(authControllerProvider.notifier)
-          .refreshCloudAccessAfterEntitlementChange();
+      final auth = ref.read(authSessionProvider);
+      if (auth.isSignedIn) {
+        await ref
+            .read(authControllerProvider.notifier)
+            .refreshCloudAccessAfterEntitlementChange();
+      }
       if (mounted) {
         context.go('/account-hub');
       }

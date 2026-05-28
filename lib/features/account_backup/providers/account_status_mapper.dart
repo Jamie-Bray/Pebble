@@ -107,7 +107,6 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
   final planFacts = _planFacts(
     tier: account.entitlementTier,
     lifecycle: lifecycle,
-    isSignedIn: auth.isSignedIn,
   );
 
   if (runtime.isRunning) {
@@ -161,11 +160,14 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
     );
   }
 
-  if (!purchase.isPurchaseAvailable && !entitlement.isPersonalPaid) {
+  if (auth.isSignedIn &&
+      !purchase.isPurchaseAvailable &&
+      !entitlement.isPersonalPaid) {
     return AccountStatusPresentation(
       planLabel: planFacts.label,
       title: 'Premium isn\'t available yet',
       body:
+          purchase.unavailableReason ??
           'Premium is not ready in Google Play yet. Pebble still works on this device.',
       statusLabel: 'Stored on this device',
       historyLabel: 'Stored on this device',
@@ -175,8 +177,9 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
       primaryActionLabel: null,
       secondaryAction: restoreAction,
       secondaryActionLabel: restoreLabel,
-      supportingDetail:
-          'You have not done anything wrong. This build is waiting for store setup.',
+      supportingDetail: purchase.unavailableReason != null
+          ? 'Check your connection or try again later.'
+          : 'You have not done anything wrong. This build is waiting for store setup.',
       tone: AccountStatusTone.neutral,
       icon: LucideIcons.clock3,
       isSyncRunning: false,
@@ -273,18 +276,18 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
         planLabel: planFacts.label,
         title: 'Not signed in yet',
         body:
-            'You are already getting Premium features on this device. Sign in for backup and 21-day history, or keep using Premium locally.',
+            'Premium is active on this device. Sign in only if you want backup and account recovery.',
         statusLabel: 'Backup is paused',
         historyLabel: 'Waiting for sign-in',
         limitChips: planFacts.chips,
         featureHighlights: const [
           AccountFeatureHighlight(
             emphasis: '21-day history',
-            detail: 'after sign-in and backup setup.',
+            detail: 'is active on this device.',
           ),
           AccountFeatureHighlight(
             emphasis: 'Cloud backup',
-            detail: 'keeps routines safer if you change phone.',
+            detail: 'is optional and needs sign-in.',
           ),
           AccountFeatureHighlight(
             emphasis: 'No account needed',
@@ -412,7 +415,6 @@ class _PlanFacts {
 _PlanFacts _planFacts({
   required UserTier tier,
   required SubscriptionLifecycle lifecycle,
-  required bool isSignedIn,
 }) {
   if (lifecycle.phase == SubscriptionLifecyclePhase.expiredGrace) {
     return const _PlanFacts(
@@ -428,15 +430,12 @@ _PlanFacts _planFacts({
   final hasPaidFeatures =
       tier == UserTier.personalPremium || tier == UserTier.pebbleHousehold;
   if (hasPaidFeatures) {
-    return _PlanFacts(
+    return const _PlanFacts(
       label: 'Premium active',
       chips: [
-        AccountPlanChip(
-          value: isSignedIn ? '21d' : '48h',
-          label: 'History kept',
-        ),
-        const AccountPlanChip(value: 'Unlimited', label: 'Routines'),
-        const AccountPlanChip(value: 'Unlimited', label: 'Steps each'),
+        AccountPlanChip(value: '21d', label: 'History kept'),
+        AccountPlanChip(value: 'Unlimited', label: 'Routines'),
+        AccountPlanChip(value: 'Unlimited', label: 'Steps each'),
       ],
     );
   }

@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
 import 'package:pebble_routines/features/subscription/data/revenuecat_purchase_repository.dart';
@@ -204,6 +203,5 @@ final entitlementStoreProvider = Provider<EntitlementStore>((ref) {
 final purchaseRepositoryProvider = ChangeNotifierProvider<PurchaseRepository>((
   ref,
 ) {
-  ref.watch(authSessionProvider);
   return RevenueCatPurchaseRepository(ref);
 });

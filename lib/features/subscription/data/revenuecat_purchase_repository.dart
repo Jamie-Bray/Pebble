@@ -82,12 +82,6 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
       return;
     }
     final userId = _currentUserId;
-    if (userId == null) {
-      _billingAvailable = false;
-      _unavailableReason = 'Sign in before loading store products.';
-      notifyListeners();
-      return;
-    }
     try {
       await _configureForUser(userId);
       await _loadOfferings();
@@ -106,7 +100,7 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
 
   @override
   Future<PurchaseResult> purchasePersonalPremium(BillingPlan plan) async {
-    final userId = _requireUserId();
+    final userId = _currentUserId;
     await _configureForUser(userId);
     if (_packagesByPlan.isEmpty) {
       await _loadOfferings();
@@ -139,7 +133,7 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
 
   @override
   Future<PurchaseResult> restorePurchases() async {
-    final userId = _requireUserId();
+    final userId = _currentUserId;
     await _configureForUser(userId);
     final customerInfo = await rc.Purchases.restorePurchases();
     return _applyCustomerInfo(
@@ -152,12 +146,11 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
   @override
   Future<void> syncPurchasesSilently() async {
     final userId = _currentUserId;
-    if (userId == null) return;
     await _configureForUser(userId);
     final customerInfo = await rc.Purchases.getCustomerInfo();
     final entitlement = _activeEntitlement(customerInfo);
     if (entitlement == null) {
-      if (_hasVerifiedPaidRevenueCatEntitlement()) {
+      if (userId != null && _hasVerifiedPaidRevenueCatEntitlement()) {
         await _ref.read(entitlementStoreProvider).applyExpiredEntitlement();
       }
       return;
@@ -170,19 +163,26 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     if (!_configured) return;
     await rc.Purchases.logOut();
     _configuredUserId = null;
-    _billingAvailable = false;
-    _packagesByPlan.clear();
-    _unavailableReason = 'Sign in before loading store products.';
-    notifyListeners();
+    try {
+      await _loadOfferings();
+    } catch (error) {
+      _billingAvailable = false;
+      _unavailableReason =
+          'Could not load store products. Check your connection and try again.';
+      debugPrint('Failed to refresh RevenueCat after sign-out: $error');
+      notifyListeners();
+    }
   }
 
-  Future<void> _configureForUser(String userId) async {
+  Future<void> _configureForUser(String? userId) async {
     if (_configured && _configuredUserId == userId) {
       return;
     }
     if (_configured) {
-      await rc.Purchases.logIn(userId);
-      _configuredUserId = userId;
+      if (userId != null && userId.isNotEmpty) {
+        await rc.Purchases.logIn(userId);
+        _configuredUserId = userId;
+      }
       return;
     }
     final config = _ref.read(revenueCatRuntimeConfigProvider);
@@ -190,8 +190,10 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     if (apiKey == null) {
       throw StateError('Purchases are not configured for this platform yet.');
     }
-    final purchasesConfig = rc.PurchasesConfiguration(apiKey)
-      ..appUserID = userId;
+    final purchasesConfig = rc.PurchasesConfiguration(apiKey);
+    if (userId != null && userId.isNotEmpty) {
+      purchasesConfig.appUserID = userId;
+    }
     await rc.Purchases.configure(purchasesConfig);
     _configured = true;
     _configuredUserId = userId;
@@ -258,6 +260,9 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
 
   Future<bool> _refreshServerMirror({required bool waitForServerMirror}) async {
     final entitlementStore = _ref.read(entitlementStoreProvider);
+    if (_currentUserId == null) {
+      return false;
+    }
     if (!waitForServerMirror) {
       try {
         return await entitlementStore.refreshServerVerifiedEntitlement();
@@ -312,14 +317,6 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
         ?.id;
     final userId = authUserId ?? supabaseUserId;
     return userId == null || userId.isEmpty ? null : userId;
-  }
-
-  String _requireUserId() {
-    final userId = _currentUserId;
-    if (userId == null) {
-      throw StateError('Sign in before starting checkout.');
-    }
-    return userId;
   }
 }
 

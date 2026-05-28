@@ -90,11 +90,13 @@ as a Supabase UUID, upserts `personal_entitlements`, and updates
 
 ## App Identity
 
-RevenueCat is configured with the Supabase user ID as the RevenueCat App User
-ID. Do not use email addresses as RevenueCat IDs.
+Signed-out users can start checkout and restore purchases. RevenueCat may use an
+anonymous App User ID for local Premium.
 
-Signed-out users cannot start checkout. Restore/sync runs after sign-in so the
-RevenueCat customer can be linked to the active Supabase account.
+When a user signs in for backup or account recovery, the app calls
+`Purchases.logIn(userId)` with the Supabase user ID so RevenueCat can connect
+the anonymous customer to the Pebble account. Do not use email addresses as
+RevenueCat IDs.
 
 Set RevenueCat restore behavior to match Pebble's account policy. If a store
 purchase must belong to only one Pebble account, RevenueCat should keep

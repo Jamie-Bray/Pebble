@@ -106,4 +106,34 @@ void main() {
       expect(reader.state.entitlementPeriodEndsAt, isNull);
     },
   );
+
+  test('signing out keeps local Premium entitlement', () async {
+    final database = LocalDb.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    final controller = SubscriptionAccountController(
+      database,
+      loadOnInit: false,
+    );
+
+    await controller.applyRevenueCatEntitlement(
+      UserTier.personalPremium,
+      periodEndsAt: DateTime.utc(2026, 6),
+    );
+    await controller.cacheAuthenticatedIdentity(
+      userId: 'user-1',
+      email: 'jamie@example.com',
+      authProvider: 'google',
+    );
+
+    await controller.signOutIdentity();
+
+    expect(controller.state.entitlementTier, UserTier.personalPremium);
+    expect(
+      controller.state.entitlementStatus,
+      EntitlementStatus.personalPremium,
+    );
+    expect(controller.state.entitlementSource, EntitlementSource.revenueCat);
+    expect(controller.state.userId, isNull);
+    expect(controller.state.email, isNull);
+  });
 }

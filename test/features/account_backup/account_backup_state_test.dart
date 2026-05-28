@@ -385,7 +385,7 @@ void main() {
 
       expect(presentation.planLabel, 'Premium active');
       expect(presentation.title, 'Not signed in yet');
-      expect(_chipValues(presentation), ['48h', 'Unlimited', 'Unlimited']);
+      expect(_chipValues(presentation), ['21d', 'Unlimited', 'Unlimited']);
       expect(presentation.primaryAction, AccountStatusAction.signIn);
     });
 

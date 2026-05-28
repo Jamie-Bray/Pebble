@@ -122,7 +122,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('YOUR NEXT RIPPLE'), findsOneWidget);
-    expect(find.text('Begin Routine'), findsOneWidget);
+    expect(find.text('Start'), findsOneWidget);
     expect(find.text('Last Run.'), findsOneWidget);
     expect(find.text('Settings'), findsNothing);
     expect(find.byTooltip('App settings'), findsOneWidget);
@@ -131,11 +131,11 @@ void main() {
     expect(find.byTooltip('Reminders'), findsOneWidget);
     expect(find.byTooltip('Email'), findsOneWidget);
     expect(find.text('2 steps'), findsNothing);
-    expect(find.text('Your routines'), findsOneWidget);
+    expect(find.text('Your Routines'), findsOneWidget);
     expect(find.text('2 routines'), findsOneWidget);
     expect(find.text('Last Run'), findsNothing);
     expect(find.text('Newest'), findsNothing);
-    await tester.tap(find.text('Your routines'));
+    await tester.tap(find.text('Your Routines'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
 
@@ -147,10 +147,10 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
-    expect(find.text('Your routines'), findsOneWidget);
-    expect(find.text('Your Routines'), findsNothing);
+    expect(find.text('Your Routines'), findsOneWidget);
+    expect(find.text('Newest'), findsNothing);
 
-    await tester.drag(find.text('Your routines'), const Offset(0, -90));
+    await tester.drag(find.text('Your Routines'), const Offset(0, -90));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
@@ -159,7 +159,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('Newest.'), findsOneWidget);
-    expect(find.text('Your routines'), findsOneWidget);
+    expect(find.text('Your Routines'), findsWidgets);
   });
 
   testWidgets('template handoff highlights the new routine on Home', (
@@ -193,13 +193,13 @@ void main() {
     expect(find.text('Small steps, big ripples'), findsOneWidget);
     expect(find.text('Leaving Home is ready'), findsNothing);
     expect(find.text('Leaving Home.'), findsOneWidget);
-    expect(find.text('Begin Routine'), findsOneWidget);
-    expect(find.text('Your routines'), findsOneWidget);
+    expect(find.text('Start'), findsOneWidget);
+    expect(find.text('Your Routines'), findsOneWidget);
     expect(find.text('Leaving Home'), findsNothing);
     expect(find.text('Add step'), findsNothing);
     expect(find.text('Style'), findsNothing);
 
-    await tester.tap(find.text('Your routines'));
+    await tester.tap(find.text('Your Routines'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
@@ -228,10 +228,10 @@ void main() {
     expect(find.text('Routine 1.'), findsOneWidget);
     expect(find.text('Routine 1'), findsNothing);
     expect(find.text('Ready when you are'), findsNothing);
-    expect(find.text('Your routines'), findsOneWidget);
+    expect(find.text('Your Routines'), findsOneWidget);
     expect(find.text('7 routines'), findsOneWidget);
 
-    await tester.tap(find.text('Your routines'));
+    await tester.tap(find.text('Your Routines'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
@@ -279,7 +279,7 @@ void main() {
     final titleTop = tester
         .getTopLeft(find.byKey(const ValueKey('home_hero_title')))
         .dy;
-    expect(titleTop - overlineBottom, closeTo(20, 1));
+    expect(titleTop - overlineBottom, closeTo(10, 1));
 
     final titleBottom = tester
         .getBottomLeft(find.byKey(const ValueKey('home_hero_title')))
@@ -323,13 +323,13 @@ void main() {
       of: find.byKey(const ValueKey('home_hero_preview_card')),
       matching: find.byType(ShaderMask),
     );
-    expect(find.text('STEPS PREVIEW'), findsOneWidget);
+    expect(find.text('Steps'), findsOneWidget);
     expect(settingsCog, findsOneWidget);
     expect(previewHeaderReminders, findsOneWidget);
     expect(previewHeaderEmail, findsOneWidget);
     expect(previewCardReminders, findsNothing);
     expect(previewCardEmail, findsNothing);
-    expect(previewMask, findsOneWidget);
+    expect(previewMask, findsNothing);
     expect(headerTop, greaterThanOrEqualTo(previewTop));
 
     final previewBottom = tester
@@ -340,7 +340,8 @@ void main() {
     final ctaTop = tester
         .getTopLeft(find.byKey(const ValueKey('home_hero_cta_box')))
         .dy;
-    expect(ctaTop, greaterThan(metaTop));
+    expect(ctaTop, greaterThan(previewBottom));
+    expect(metaTop, greaterThan(ctaTop));
 
     final ctaSize = tester.getSize(
       find.byKey(const ValueKey('home_hero_cta_box')),
@@ -350,7 +351,7 @@ void main() {
     final ctaBottom = tester
         .getBottomLeft(find.byKey(const ValueKey('home_hero_cta_box')))
         .dy;
-    final shelfTop = tester.getTopLeft(find.text('Your routines')).dy;
+    final shelfTop = tester.getTopLeft(find.text('Your Routines')).dy;
     expect(ctaBottom, lessThan(shelfTop));
     expect(tester.takeException(), isNull);
   });
@@ -366,6 +367,9 @@ void main() {
       ],
     );
 
+    await tester.tap(find.byTooltip('Show steps'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 220));
     final shortHeight = tester
         .getSize(find.byKey(const ValueKey('home_hero_preview_card')))
         .height;
@@ -420,7 +424,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('home steps preview collapses and expands', (tester) async {
+  testWidgets('home Steps collapses and expands', (tester) async {
     await _pumpHome(
       tester,
       routines: [
@@ -436,35 +440,33 @@ void main() {
       ],
     );
 
-    expect(find.text('STEPS PREVIEW'), findsOneWidget);
-    expect(find.text('Check windows'), findsOneWidget);
-    expect(find.text('Begin Routine'), findsOneWidget);
-    expect(find.byTooltip('Hide steps preview'), findsOneWidget);
-    expect(find.byType(ShaderMask), findsOneWidget);
-
-    await tester.tap(find.byTooltip('Hide steps preview'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 220));
-
-    expect(find.text('STEPS PREVIEW'), findsOneWidget);
+    expect(find.text('Steps'), findsOneWidget);
     expect(find.text('Check windows'), findsNothing);
-    expect(find.text('Begin Routine'), findsOneWidget);
-    expect(find.byTooltip('Show steps preview'), findsOneWidget);
+    expect(find.text('Start'), findsOneWidget);
+    expect(find.byTooltip('Show steps'), findsOneWidget);
     expect(find.byType(ShaderMask), findsNothing);
 
-    await tester.tap(find.byTooltip('Show steps preview'));
+    await tester.tap(find.byTooltip('Show steps'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 220));
 
+    expect(find.text('Steps'), findsOneWidget);
     expect(find.text('Check windows'), findsOneWidget);
-    expect(find.byTooltip('Hide steps preview'), findsOneWidget);
+    expect(find.text('Start'), findsOneWidget);
+    expect(find.byTooltip('Hide steps'), findsOneWidget);
     expect(find.byType(ShaderMask), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Hide steps'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 220));
+
+    expect(find.text('Check windows'), findsNothing);
+    expect(find.byTooltip('Show steps'), findsOneWidget);
+    expect(find.byType(ShaderMask), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('collapsed home steps preview persists after rebuild', (
-    tester,
-  ) async {
+  testWidgets('collapsed home Steps persists after rebuild', (tester) async {
     final routines = [
       _routine(
         id: 1,
@@ -474,9 +476,14 @@ void main() {
     ];
 
     await _pumpHome(tester, routines: routines);
+    expect(find.text('Check windows'), findsNothing);
+
+    await tester.tap(find.byTooltip('Show steps'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 220));
     expect(find.text('Check windows'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Hide steps preview'));
+    await tester.tap(find.byTooltip('Hide steps'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 220));
     expect(find.text('Check windows'), findsNothing);
@@ -485,10 +492,10 @@ void main() {
     await tester.pump();
     await _pumpHome(tester, routines: routines);
 
-    expect(find.text('STEPS PREVIEW'), findsOneWidget);
+    expect(find.text('Steps'), findsOneWidget);
     expect(find.text('Check windows'), findsNothing);
-    expect(find.text('Begin Routine'), findsOneWidget);
-    expect(find.byTooltip('Show steps preview'), findsOneWidget);
+    expect(find.text('Start'), findsOneWidget);
+    expect(find.byTooltip('Show steps'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -509,6 +516,10 @@ void main() {
         ),
       ],
     );
+
+    await tester.tap(find.byTooltip('Show steps'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 220));
 
     await tester.drag(
       find.byKey(const ValueKey('home_hero_preview_list')),
@@ -546,6 +557,10 @@ void main() {
         ),
       ],
     );
+
+    await tester.tap(find.byTooltip('Show steps'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 220));
 
     final previewHeightBefore = tester
         .getSize(find.byKey(const ValueKey('home_hero_preview_card')))
@@ -609,7 +624,7 @@ void main() {
       expect(find.text('The Anxiety-Free Departure'), findsNothing);
       expect(find.text('Car Security & Parking Peace'), findsNothing);
 
-      await tester.tap(find.text('Your routines'));
+      await tester.tap(find.text('Your Routines'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
 
@@ -651,7 +666,7 @@ void main() {
     expect(find.text('Email'), findsNothing);
     expect(find.byTooltip('Reminders'), findsOneWidget);
     expect(find.byTooltip('Email'), findsOneWidget);
-    expect(find.text('Begin Routine'), findsOneWidget);
+    expect(find.text('Start'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -670,11 +685,11 @@ void main() {
       ],
     );
 
-    expect(find.text('Begin Routine'), findsOneWidget);
+    expect(find.text('Start'), findsOneWidget);
     final ctaBottom = tester
         .getBottomLeft(find.byKey(const ValueKey('home_hero_cta_box')))
         .dy;
-    final shelfTop = tester.getTopLeft(find.text('Your routines')).dy;
+    final shelfTop = tester.getTopLeft(find.text('Your Routines')).dy;
     expect(ctaBottom, lessThan(shelfTop));
     expect(tester.takeException(), isNull);
   });
