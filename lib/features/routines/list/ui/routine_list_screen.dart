@@ -28,8 +28,7 @@ import 'package:pebble_routines/core/database/routine_step.dart';
 
 import 'package:pebble_routines/core/ui/zen_components.dart';
 import 'package:pebble_routines/features/routines/data/models/routine_icon_catalog.dart';
-import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
-import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
+import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 import 'package:pebble_routines/features/subscription/ui/subscription_guard.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -63,8 +62,9 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
 
   Future<void> _openStyleSheet(Routine routine, ThemeData themeData) async {
     final cs = themeData.colorScheme;
-    final hasPremiumStyleAccess =
-        ref.read(subscriptionProvider) != UserTier.personalFree;
+    final hasPremiumStyleAccess = ref
+        .read(premiumFeaturePolicyProvider)
+        .canUsePremiumThemes;
     if (!hasPremiumStyleAccess) {
       _showPremiumStyleUpsell(routine, themeData);
       return;
@@ -1453,8 +1453,9 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
     Routine routine,
     ThemeData themeData,
   ) {
-    final hasPremiumStyleAccess =
-        ref.read(subscriptionProvider) != UserTier.personalFree;
+    final hasPremiumStyleAccess = ref
+        .read(premiumFeaturePolicyProvider)
+        .canUsePremiumThemes;
     showModalBottomSheet(
       context: context,
       useRootNavigator: true,

@@ -62,6 +62,15 @@ class PurchaseCancelledException implements Exception {
   const PurchaseCancelledException();
 }
 
+class PurchaseFlowException implements Exception {
+  const PurchaseFlowException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 abstract class EntitlementStore {
   Future<void> applyRevenueCatEntitlement(
     UserTier tier, {
@@ -179,17 +188,17 @@ List<PremiumProduct> getPlaceholderPremiumCatalog({
       basePlanId: PebbleBasePlanIds.monthly,
       plan: BillingPlan.monthly,
       title: 'Monthly',
-      priceLabel: '\$0.99',
-      detailLabel: 'per month. Cancel anytime.',
+      priceLabel: '',
+      detailLabel: 'per month',
       isPurchasable: isPurchasable,
     ),
     PremiumProduct(
       productId: PebbleProductIds.personalPremium,
       basePlanId: PebbleBasePlanIds.yearly,
       plan: BillingPlan.yearly,
-      title: 'Yearly',
-      priceLabel: '\$6.99',
-      detailLabel: 'per year. About \$0.58 / month.',
+      title: 'Annual',
+      priceLabel: '',
+      detailLabel: 'per year',
       badgeLabel: 'Best value',
       isPurchasable: isPurchasable,
     ),

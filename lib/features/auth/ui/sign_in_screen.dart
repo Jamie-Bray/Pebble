@@ -28,10 +28,10 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     super.initState();
     ref.listenManual<AuthState>(authControllerProvider, (previous, next) {
       if (!mounted) return;
-      final cloudAccess = ref.read(personalCloudAccessProvider);
+      final accountState = ref.read(subscriptionAccountControllerProvider);
       final isReady =
           next.status == AuthStatus.signedIn &&
-          cloudAccess.status != PersonalCloudAccessStatus.syncing;
+          !_isBlockingBackupSetup(accountState);
       if (isReady) {
         HapticFeedback.mediumImpact();
         final isPremium = ref.read(entitlementStateProvider).isPersonalPaid;
@@ -73,7 +73,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         supabaseConfig.googleWebClientId?.isNotEmpty == true;
     final isBusy =
         authState.status == AuthStatus.authenticating ||
-        cloudAccess.status == PersonalCloudAccessStatus.syncing;
+        _isBlockingBackupSetup(accountState);
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -189,6 +189,11 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       case PersonalCloudAccessStatus.accountSwitchBlocked:
         return 'Getting everything ready...';
     }
+  }
+
+  bool _isBlockingBackupSetup(SubscriptionAccountState accountState) {
+    return accountState.bootstrapStatus == BootstrapStatus.preparing ||
+        accountState.bootstrapStatus == BootstrapStatus.syncing;
   }
 }
 

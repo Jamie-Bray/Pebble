@@ -54,6 +54,90 @@ String premiumRoute({PremiumEntrySource source = PremiumEntrySource.general}) {
       : '/premium?source=${source.queryValue}';
 }
 
+enum PlanType { monthly, annual }
+
+extension PlanTypeMapping on PlanType {
+  BillingPlan get billingPlan {
+    return switch (this) {
+      PlanType.monthly => BillingPlan.monthly,
+      PlanType.annual => BillingPlan.yearly,
+    };
+  }
+
+  String get label {
+    return switch (this) {
+      PlanType.monthly => 'Monthly',
+      PlanType.annual => 'Annual',
+    };
+  }
+
+  String get ctaCadence {
+    return switch (this) {
+      PlanType.monthly => 'month',
+      PlanType.annual => 'year',
+    };
+  }
+}
+
+final premiumPaywallPlanProvider = StateProvider.autoDispose<PlanType>(
+  (ref) => PlanType.annual,
+);
+
+enum StorePlatform { googlePlay, appStore, other }
+
+extension StorePlatformRuntime on StorePlatform {
+  static StorePlatform get current {
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.iOS => StorePlatform.appStore,
+      TargetPlatform.android => StorePlatform.googlePlay,
+      _ => StorePlatform.other,
+    };
+  }
+}
+
+class PremiumPaywallCopy {
+  const PremiumPaywallCopy._({
+    required this.storeName,
+    required this.renewalLine,
+    required this.purchaseErrorLine,
+    required this.consoleName,
+  });
+
+  final String storeName;
+  final String renewalLine;
+  final String purchaseErrorLine;
+  final String consoleName;
+
+  static PremiumPaywallCopy forPlatform(StorePlatform platform) {
+    return switch (platform) {
+      StorePlatform.appStore => const PremiumPaywallCopy._(
+        storeName: 'App Store',
+        renewalLine:
+            'Renews automatically. Cancel anytime in the App Store subscription settings. Pebble also works free without Premium.',
+        purchaseErrorLine:
+            'The App Store could not complete that request. Please try again.',
+        consoleName: 'App Store Connect',
+      ),
+      StorePlatform.googlePlay => const PremiumPaywallCopy._(
+        storeName: 'Google Play',
+        renewalLine:
+            'Renews automatically. Cancel anytime in Google Play subscription settings. Pebble also works free without Premium.',
+        purchaseErrorLine:
+            'Google Play could not complete that request. Please try again.',
+        consoleName: 'Play Console',
+      ),
+      StorePlatform.other => const PremiumPaywallCopy._(
+        storeName: 'the store',
+        renewalLine:
+            'Renews automatically. Cancel anytime through your app store subscription settings. Pebble also works free without Premium.',
+        purchaseErrorLine:
+            'The store could not complete that request. Please try again.',
+        consoleName: 'store console',
+      ),
+    };
+  }
+}
+
 class PebblePaywall extends ConsumerStatefulWidget {
   const PebblePaywall({
     super.key,
@@ -68,7 +152,6 @@ class PebblePaywall extends ConsumerStatefulWidget {
 
 class _PebblePaywallState extends ConsumerState<PebblePaywall> {
   final ScrollController _scrollController = ScrollController();
-  BillingPlan _selectedPlan = BillingPlan.yearly;
   bool _busy = false;
 
   @override
@@ -77,10 +160,20 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
     super.dispose();
   }
 
-  String get _storeName {
-    return defaultTargetPlatform == TargetPlatform.iOS
-        ? 'App Store'
-        : 'Google Play';
+  PremiumPaywallCopy get _platformCopy =>
+      PremiumPaywallCopy.forPlatform(StorePlatformRuntime.current);
+
+  void _dismissPaywall() {
+    HapticFeedback.selectionClick();
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+      return;
+    }
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    if (rootNavigator.canPop()) {
+      rootNavigator.pop();
+    }
   }
 
   Future<void> _startPremium() async {
@@ -90,7 +183,10 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
       final products = ref
           .read(purchaseRepositoryProvider)
           .personalPremiumProducts;
-      final selectedPlan = _effectiveSelectedPlan(products, _selectedPlan);
+      final selectedPlan = _effectiveSelectedPlan(
+        products,
+        ref.read(premiumPaywallPlanProvider).billingPlan,
+      );
       final result = await ref
           .read(purchaseRepositoryProvider)
           .purchasePersonalPremium(selectedPlan);
@@ -130,10 +226,30 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
       await ref
           .read(authControllerProvider.notifier)
           .refreshCloudAccessAfterEntitlementChange();
+      if (mounted) {
+        context.go('/account-hub');
+      }
+      return;
     }
     if (mounted) {
-      context.go('/account-hub');
+      await _showPostPurchaseSignInPrompt();
     }
+  }
+
+  Future<void> _showPostPurchaseSignInPrompt() async {
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.72),
+      isScrollControlled: true,
+      builder: (dialogContext) => const _PremiumActivatedSheet(),
+    );
+    if (!mounted) return;
+    if (result == true) {
+      context.go('/sign-in');
+      return;
+    }
+    context.go('/account-hub');
   }
 
   void _showSnackBar(String message) {
@@ -157,7 +273,13 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
   }
 
   String _purchaseErrorMessage(Object error) {
+    if (error is PurchaseFlowException) {
+      return error.message;
+    }
     var message = error.toString().replaceFirst('Exception: ', '').trim();
+    if (message.startsWith('PlatformException')) {
+      return _platformCopy.purchaseErrorLine;
+    }
     if (message.startsWith('Bad state: ')) {
       message = message.substring('Bad state: '.length).trim();
     } else if (message.startsWith('Bad state:')) {
@@ -166,42 +288,43 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
     if (message.isNotEmpty) {
       return message;
     }
-    return '$_storeName could not complete that request. Please try again.';
+    return _platformCopy.purchaseErrorLine;
   }
 
   @override
   Widget build(BuildContext context) {
     final parentTheme = Theme.of(context);
     final foundation = context.darkFoundation;
-    final cinemaTheme = parentTheme.copyWith(
+    final paywallTheme = parentTheme.copyWith(
       scaffoldBackgroundColor: foundation.bgBase,
       colorScheme: parentTheme.colorScheme.copyWith(
         surface: foundation.bgBase,
         onSurface: foundation.textPrimary,
       ),
-      textTheme: GoogleFonts.figtreeTextTheme(parentTheme.textTheme).apply(
+      textTheme: GoogleFonts.outfitTextTheme(parentTheme.textTheme).apply(
         bodyColor: foundation.textPrimary,
         displayColor: foundation.textPrimary,
       ),
     );
 
     return Theme(
-      data: cinemaTheme,
+      data: paywallTheme,
       child: Builder(
         builder: (context) {
           final purchaseRepository = ref.watch(purchaseRepositoryProvider);
           final products = purchaseRepository.personalPremiumProducts;
-          final selectedPlan = _effectiveSelectedPlan(products, _selectedPlan);
+          final selectedPlan = _effectiveSelectedPlan(
+            products,
+            ref.watch(premiumPaywallPlanProvider).billingPlan,
+          );
           final selectedProduct = _selectedProduct(products, selectedPlan);
-          final purchaseUnavailableReason =
-              purchaseRepository.unavailableReason;
           final selectedPlanPurchasable =
               selectedProduct.isPurchasable &&
               selectedProduct.hasValidOfferToken;
           final selectedPlanUnavailableReason =
-              purchaseUnavailableReason ??
+              purchaseRepository.unavailableReason ??
               (!selectedPlanPurchasable
-                  ? _planUnavailableMessage(selectedProduct.plan)
+                  ? _planUnavailableMessage(selectedProduct.plan, _platformCopy)
                   : null);
           final purchasesEnabled =
               purchaseRepository.isPurchaseAvailable && selectedPlanPurchasable;
@@ -213,59 +336,56 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
               child: SingleChildScrollView(
                 controller: _scrollController,
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+                padding: EdgeInsets.fromLTRB(
+                  24,
+                  52,
+                  24,
+                  28 + MediaQuery.paddingOf(context).bottom,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Align(
-                      alignment: Alignment.centerRight,
-                      child: PebbleBackButton(
-                        backgroundColor: Colors.transparent,
-                        iconColor: null,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _SimplePaywallHeader(entrySource: widget.entrySource),
-                    const SizedBox(height: 24),
+                    _PaywallHeader(entrySource: widget.entrySource),
+                    const SizedBox(height: 28),
+                    const _SectionLabel('What Premium gives you'),
+                    const SizedBox(height: 2),
                     const _FeaturesList(),
-                    const SizedBox(height: 24),
-                    _PlanSelection(
-                      products: products,
-                      selectedPlan: selectedPlan,
-                      onSelected: (plan) {
-                        HapticFeedback.selectionClick();
-                        setState(() => _selectedPlan = plan);
-                      },
-                    ),
-                    const SizedBox(height: 18),
-                    _PremiumActionButton(
-                      busy: _busy,
-                      enabled: purchasesEnabled,
-                      label: _ctaLabel(selectedProduct),
-                      onPressed: _startPremium,
-                    ),
-                    const SizedBox(height: 12),
-                    const _CancelNote(),
-                    const SizedBox(height: 8),
-                    _SubscriptionTermsLinks(onOpen: _openLegalUrl),
+                    const SizedBox(height: 20),
+                    const _TrustCard(),
                     if (selectedPlanUnavailableReason != null) ...[
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       _UnavailableNotice(
                         message: selectedPlanUnavailableReason,
                       ),
                     ],
-                    const SizedBox(height: 18),
-                    _RestoreLink(
-                      onTap: _busy || !purchaseRepository.isPurchaseAvailable
-                          ? null
-                          : _restorePurchase,
-                    ),
-                    const SizedBox(height: 22),
-                    const _DataSecurityNote(),
-                    const SizedBox(height: 12),
-                    const _FairUseNote(),
-                    SizedBox(height: MediaQuery.paddingOf(context).bottom + 20),
                   ],
+                ),
+              ),
+            ),
+            extendBody: false,
+            bottomNavigationBar: _PricingFooter(
+              products: products,
+              selectedPlan: selectedPlan,
+              busy: _busy,
+              purchasesEnabled: purchasesEnabled,
+              platformCopy: _platformCopy,
+              onStartPremium: _startPremium,
+              onRestorePurchase:
+                  _busy || !purchaseRepository.isPurchaseAvailable
+                  ? null
+                  : _restorePurchase,
+              onOpenLegalUrl: _openLegalUrl,
+            ),
+            floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
+            floatingActionButton: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8, right: 4),
+                child: PebbleBackButton(
+                  onPressed: _dismissPaywall,
+                  backgroundColor: foundation.textPrimary.withValues(
+                    alpha: 0.12,
+                  ),
+                  iconColor: foundation.textSecondary,
                 ),
               ),
             ),
@@ -276,47 +396,300 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
   }
 }
 
-class _SimplePaywallHeader extends StatelessWidget {
-  const _SimplePaywallHeader({required this.entrySource});
+class _PremiumActivatedSheet extends StatelessWidget {
+  const _PremiumActivatedSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+    final accent = _premiumGlow(context);
+    final mediaQuery = MediaQuery.of(context);
+    return Padding(
+      padding: EdgeInsets.only(bottom: mediaQuery.viewInsets.bottom),
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: foundation.surfaceLow,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            border: Border(
+              top: BorderSide(color: accent.withValues(alpha: 0.42), width: 1),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.34),
+                blurRadius: 34,
+                offset: const Offset(0, -12),
+              ),
+            ],
+          ),
+          child: SafeArea(
+            top: false,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(28, 14, 28, 28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: foundation.surfaceHigh,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  _PremiumActivatedIcon(accent: accent),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Premium activated',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: accent,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.25,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text.rich(
+                    TextSpan(
+                      style: _serifStyle(context, fontSize: 30, height: 1.12),
+                      children: [
+                        const TextSpan(text: 'One last thing\nto '),
+                        TextSpan(
+                          text: 'unlock it all.',
+                          style: TextStyle(
+                            color: accent,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    'Sign in to back up your history, routines, and photos, and keep them ready across devices. Totally optional; Premium works right now without it.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: foundation.textSecondary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w300,
+                      height: 1.62,
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  const Row(
+                    children: [
+                      Expanded(
+                        child: _PremiumActivatedPill(
+                          value: '21 days',
+                          label: 'History',
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: _PremiumActivatedPill(
+                          value: 'Cloud',
+                          label: 'Backup',
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: _PremiumActivatedPill(
+                          value: 'Recovery',
+                          label: 'Account',
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  Divider(
+                    height: 1,
+                    color: foundation.borderSubtle.withValues(alpha: 0.72),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: FilledButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: accent,
+                        foregroundColor: Theme.of(
+                          context,
+                        ).colorScheme.onPrimary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                      ),
+                      child: const Text(
+                        'Sign in to back up',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: foundation.textSecondary,
+                        side: BorderSide(
+                          color: foundation.borderSubtle.withValues(
+                            alpha: 0.86,
+                          ),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                      ),
+                      child: const Text('Continue without sign-in'),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    'You can always sign in later from Your Account.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: foundation.textMuted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w300,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PremiumActivatedIcon extends StatelessWidget {
+  const _PremiumActivatedIcon({required this.accent});
+
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 72,
+      height: 72,
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: accent.withValues(alpha: 0.3)),
+      ),
+      alignment: Alignment.center,
+      child: Icon(LucideIcons.shieldCheck, color: accent, size: 34),
+    );
+  }
+}
+
+class _PremiumActivatedPill extends StatelessWidget {
+  const _PremiumActivatedPill({required this.value, required this.label});
+
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: foundation.surfaceHigh,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: foundation.borderSubtle.withValues(alpha: 0.62),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 11),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                maxLines: 1,
+                style: _serifStyle(context, fontSize: 18, height: 1),
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              label.toUpperCase(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: foundation.textSecondary,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.4,
+                height: 1,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PaywallHeader extends StatelessWidget {
+  const _PaywallHeader({required this.entrySource});
+
   final PremiumEntrySource entrySource;
 
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
-    final title = switch (entrySource) {
-      PremiumEntrySource.routineLimit ||
-      PremiumEntrySource.stepLimit => 'Routines without limits',
-      PremiumEntrySource.proofPhotoLimit => 'More proof when you need it',
-      PremiumEntrySource.guidanceAudio => 'Your routines, in your voice',
-      PremiumEntrySource.backup => 'Keep your history longer',
-      PremiumEntrySource.premiumTheme => 'Make Pebble feel like yours',
-      _ => 'Routines without limits',
-    };
+    final accent = _premiumGlow(context);
     final body = switch (entrySource) {
-      PremiumEntrySource.routineLimit || PremiumEntrySource.stepLimit =>
-        'Free includes 2 routines and 10 steps per routine. Premium removes the caps, keeps your history longer, and unlocks the practical extras.',
-      PremiumEntrySource.proofPhotoLimit =>
-        'Premium lets you save up to 4 proof photos per step, with longer history and private backup for the proof you choose.',
-      PremiumEntrySource.guidanceAudio =>
-        'Add short voice tips to steps, unlock every routine limit, and keep your evidence and history available for longer.',
       PremiumEntrySource.backup =>
-        'Free keeps recent history on this device for 48 hours. Premium keeps recent history for 21 days, with optional backup after sign-in.',
+        'Free keeps recent history on this device for 48 hours. Premium keeps recent checks for up to 21 days, with backup when you choose to turn it on.',
+      PremiumEntrySource.proofPhotoLimit =>
+        'Free includes one photo per step. Premium gives you more proof when one picture does not capture the full check.',
+      PremiumEntrySource.guidanceAudio =>
+        'Add a short voice prompt to a step, so future-you knows exactly what to check.',
       _ =>
-        'Everything in Free, plus the tools that make Pebble genuinely yours.',
+        'Free includes 2 routines and 10 steps each. Premium gives you unlimited routines, longer recent history, and backup when you choose to turn it on.',
     };
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const _PremiumBadge(),
-        const SizedBox(height: 16),
-        Text(title, style: _serifStyle(context, fontSize: 40, height: 1.08)),
-        const SizedBox(height: 12),
+        const SizedBox(height: 18),
+        Text.rich(
+          TextSpan(
+            style: _serifStyle(context, fontSize: 42, height: 1.05),
+            children: [
+              const TextSpan(text: 'Build more.\n'),
+              TextSpan(
+                text: 'Worry less.',
+                style: TextStyle(color: accent, fontStyle: FontStyle.italic),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
         Text(
           body,
           style: TextStyle(
-            fontSize: 15,
-            height: 1.48,
             color: foundation.textSecondary,
+            fontSize: 14,
+            fontWeight: FontWeight.w300,
+            height: 1.65,
           ),
         ),
       ],
@@ -324,45 +697,452 @@ class _SimplePaywallHeader extends StatelessWidget {
   }
 }
 
-class _PlanSelection extends StatelessWidget {
-  const _PlanSelection({
-    required this.products,
-    required this.selectedPlan,
-    required this.onSelected,
-  });
-
-  final List<PremiumProduct> products;
-  final BillingPlan selectedPlan;
-  final ValueChanged<BillingPlan> onSelected;
+class _PremiumBadge extends StatelessWidget {
+  const _PremiumBadge();
 
   @override
   Widget build(BuildContext context) {
-    final sorted = _sortedProducts(products);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _Eyebrow('CHOOSE YOUR PLAN'),
-        const SizedBox(height: 14),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
+    final accent = _premiumGlow(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.13),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: accent.withValues(alpha: 0.26)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(9, 5, 12, 5),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            for (final product in sorted)
-              _CompactPlanCard(
-                product: product,
-                selected: product.plan == selectedPlan,
-                onTap: () => onSelected(product.plan),
+            Icon(LucideIcons.sparkles, color: accent, size: 12),
+            const SizedBox(width: 6),
+            Text(
+              'Pebble Premium',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: accent,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.3,
               ),
+            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+    return Text(
+      text.toUpperCase(),
+      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+        color: foundation.textMuted.withValues(alpha: 0.72),
+        fontSize: 10,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 1.4,
+      ),
+    );
+  }
+}
+
+class _PremiumFeature {
+  const _PremiumFeature({
+    required this.icon,
+    required this.tint,
+    required this.title,
+    required this.description,
+    required this.freeLabel,
+    required this.premiumLabel,
+  });
+
+  final IconData icon;
+  final _PremiumTint tint;
+  final String title;
+  final String description;
+  final String freeLabel;
+  final String premiumLabel;
+}
+
+const _premiumFeatures = [
+  _PremiumFeature(
+    icon: LucideIcons.infinity,
+    tint: _PremiumTint.primary,
+    title: 'Unlimited routines and steps',
+    description:
+        'Create checks for home, work, travel, pets, and everything else you want to run clearly.',
+    freeLabel: '2 routines, 10 steps',
+    premiumLabel: 'Unlimited',
+  ),
+  _PremiumFeature(
+    icon: LucideIcons.cloud,
+    tint: _PremiumTint.green,
+    title: 'Longer history and backup',
+    description:
+        'Keep recent checks for up to 21 days, and turn on backup so your routines can come with you if you reinstall Pebble or change phone.',
+    freeLabel: '48 hours',
+    premiumLabel: '21 days + backup',
+  ),
+  _PremiumFeature(
+    icon: LucideIcons.camera,
+    tint: _PremiumTint.blue,
+    title: 'More photos per step',
+    description:
+        'Add up to four photos when one picture does not capture the full check.',
+    freeLabel: '1 photo',
+    premiumLabel: 'Up to 4',
+  ),
+  _PremiumFeature(
+    icon: LucideIcons.mic,
+    tint: _PremiumTint.rose,
+    title: 'Voice tips',
+    description:
+        'Add a short voice prompt to a step, so future-you knows exactly what to check.',
+    freeLabel: 'Not available',
+    premiumLabel: 'Included',
+  ),
+];
+
+class _FeaturesList extends StatelessWidget {
+  const _FeaturesList();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (final feature in _premiumFeatures) _FeatureListItem(feature),
       ],
     );
   }
 }
 
-class _CompactPlanCard extends StatelessWidget {
-  const _CompactPlanCard({
+class _FeatureListItem extends StatelessWidget {
+  const _FeatureListItem(this.feature);
+
+  final _PremiumFeature feature;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = _tintColors(context, feature.tint);
+    final foundation = context.darkFoundation;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: foundation.borderSubtle.withValues(alpha: 0.64),
+          ),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 18),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              margin: const EdgeInsets.only(top: 1),
+              decoration: BoxDecoration(
+                color: colors.accent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(13),
+              ),
+              alignment: Alignment.center,
+              child: Icon(feature.icon, color: colors.accent, size: 20),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    feature.title,
+                    style: TextStyle(
+                      color: foundation.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      height: 1.3,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    feature.description,
+                    style: TextStyle(
+                      color: foundation.textSecondary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w300,
+                      height: 1.6,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _UpgradeChip(
+                    freeLabel: feature.freeLabel,
+                    premiumLabel: feature.premiumLabel,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _UpgradeChip extends StatelessWidget {
+  const _UpgradeChip({required this.freeLabel, required this.premiumLabel});
+
+  final String freeLabel;
+  final String premiumLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+    final accent = _premiumGlow(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: accent.withValues(alpha: 0.26)),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(19),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _ChipSegment(
+              label: freeLabel,
+              color: foundation.textSecondary,
+              background: foundation.textPrimary.withValues(alpha: 0.06),
+              leftPadding: 11,
+              rightPadding: 8,
+              fontWeight: FontWeight.w400,
+            ),
+            _ChipSegment(
+              label: '->',
+              color: foundation.textMuted,
+              background: foundation.textPrimary.withValues(alpha: 0.06),
+              leftPadding: 3,
+              rightPadding: 3,
+              fontWeight: FontWeight.w400,
+            ),
+            _ChipSegment(
+              label: premiumLabel,
+              color: Theme.of(context).colorScheme.onPrimary,
+              background: accent,
+              leftPadding: 8,
+              rightPadding: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ChipSegment extends StatelessWidget {
+  const _ChipSegment({
+    required this.label,
+    required this.color,
+    required this.background,
+    required this.leftPadding,
+    required this.rightPadding,
+    required this.fontWeight,
+  });
+
+  final String label;
+  final Color color;
+  final Color background;
+  final double leftPadding;
+  final double rightPadding;
+  final FontWeight fontWeight;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: background,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(leftPadding, 5, rightPadding, 5),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 11.5,
+            fontWeight: fontWeight,
+            height: 1,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TrustCard extends StatelessWidget {
+  const _TrustCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+    final accent = _premiumGlow(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: foundation.textPrimary.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: foundation.borderSubtle.withValues(alpha: 0.64),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              margin: const EdgeInsets.only(top: 1),
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.13),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: accent.withValues(alpha: 0.26)),
+              ),
+              alignment: Alignment.center,
+              child: Icon(LucideIcons.lock, size: 15, color: accent),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Private by default',
+                    style: TextStyle(
+                      color: foundation.textPrimary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    'Pebble has no ads, does not sell your data, and backup only starts when you choose to turn it on.',
+                    style: TextStyle(
+                      color: foundation.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w300,
+                      height: 1.6,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PricingFooter extends ConsumerWidget {
+  const _PricingFooter({
+    required this.products,
+    required this.selectedPlan,
+    required this.busy,
+    required this.purchasesEnabled,
+    required this.platformCopy,
+    required this.onStartPremium,
+    required this.onRestorePurchase,
+    required this.onOpenLegalUrl,
+  });
+
+  final List<PremiumProduct> products;
+  final BillingPlan selectedPlan;
+  final bool busy;
+  final bool purchasesEnabled;
+  final PremiumPaywallCopy platformCopy;
+  final VoidCallback onStartPremium;
+  final VoidCallback? onRestorePurchase;
+  final ValueChanged<String> onOpenLegalUrl;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final foundation = context.darkFoundation;
+    final selectedProduct = _selectedProduct(products, selectedPlan);
+    return SafeArea(
+      top: false,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: foundation.bgBase,
+          border: Border(
+            top: BorderSide(
+              color: foundation.borderSubtle.withValues(alpha: 0.64),
+            ),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _PlanToggle(products: products, selectedPlan: selectedPlan),
+              const SizedBox(height: 14),
+              _PremiumActionButton(
+                busy: busy,
+                enabled: purchasesEnabled,
+                label: _ctaLabel(selectedProduct),
+                onPressed: onStartPremium,
+              ),
+              const SizedBox(height: 11),
+              _FinePrint(platformCopy: platformCopy),
+              const SizedBox(height: 6),
+              _FooterLinks(
+                onRestorePurchase: onRestorePurchase,
+                onOpenLegalUrl: onOpenLegalUrl,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PlanToggle extends ConsumerWidget {
+  const _PlanToggle({required this.products, required this.selectedPlan});
+
+  final List<PremiumProduct> products;
+  final BillingPlan selectedPlan;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sorted = _sortedProducts(products);
+    return Row(
+      children: [
+        for (final product in sorted) ...[
+          Expanded(
+            child: _PlanOption(
+              product: product,
+              selected: product.plan == selectedPlan,
+              onTap: () {
+                HapticFeedback.selectionClick();
+                ref.read(premiumPaywallPlanProvider.notifier).state =
+                    _planTypeForBillingPlan(product.plan);
+              },
+            ),
+          ),
+          if (product != sorted.last) const SizedBox(width: 8),
+        ],
+      ],
+    );
+  }
+}
+
+class _PlanOption extends StatelessWidget {
+  const _PlanOption({
     required this.product,
     required this.selected,
     required this.onTap,
@@ -374,141 +1154,109 @@ class _CompactPlanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isYearly = product.plan == BillingPlan.yearly;
     final foundation = context.darkFoundation;
-    final cs = Theme.of(context).colorScheme;
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // If we have 2 plans, each gets half minus spacing.
-        // If more, they wrap naturally.
-        final cardWidth = (constraints.maxWidth - 12) / 2;
-
-        return GestureDetector(
-          onTap: onTap,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: cardWidth > 140 ? cardWidth : double.infinity,
-            padding: const EdgeInsets.fromLTRB(14, 17, 14, 14),
-            decoration: BoxDecoration(
-              color: selected
-                  ? Color.lerp(foundation.surfaceLow, cs.primary, 0.06)
-                  : foundation.surfaceLow.withValues(alpha: 0.78),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: selected
-                    ? cs.primary.withValues(alpha: 0.68)
-                    : foundation.borderSubtle,
-                width: selected ? 1.5 : 1,
+    final accent = _premiumGlow(context);
+    final isAnnual = product.plan == BillingPlan.yearly;
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected
+              ? accent.withValues(alpha: 0.13)
+              : foundation.textPrimary.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected
+                ? accent.withValues(alpha: 0.38)
+                : foundation.borderSubtle.withValues(alpha: 0.68),
+            width: 1.5,
+          ),
+        ),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            if (isAnnual)
+              Positioned(
+                top: -21,
+                right: -4,
+                child: _PlanBadge(product.badgeLabel ?? 'Best value'),
               ),
-              boxShadow: selected
-                  ? [
-                      BoxShadow(
-                        color: cs.primary.withValues(alpha: 0.10),
-                        blurRadius: 18,
-                        offset: const Offset(0, 7),
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        product.plan == BillingPlan.yearly
-                            ? 'YEARLY'
-                            : 'MONTHLY',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.7,
-                          color: foundation.textMuted,
-                        ),
-                      ),
-                    ),
-                    _PlanRadio(selected: selected, color: cs.primary),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.center,
-                  child: Text(
-                    product.priceLabel,
-                    style: _serifStyle(context, fontSize: 32, height: 1.1),
+                Text(
+                  isAnnual ? 'Annual' : 'Monthly',
+                  style: TextStyle(
+                    color: selected ? accent : foundation.textSecondary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  isYearly ? 'per year' : 'per month',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: foundation.textMuted,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    _displayPrice(product),
+                    style: _serifStyle(context, fontSize: 24, height: 1),
                   ),
                 ),
-                if (isYearly) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    _yearlyPerMonthLabel(product),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12, color: foundation.textMuted),
+                const SizedBox(height: 3),
+                Text(
+                  isAnnual ? _annualPerLine(product) : 'per month',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: foundation.textSecondary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w300,
+                    height: 1.4,
                   ),
-                  const SizedBox(height: 10),
-                  const _SmallSaveBadge(label: 'BEST VALUE'),
-                ] else ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Cancel anytime.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 13, color: foundation.textMuted),
-                  ),
-                  const SizedBox(height: 28), // Spacer to match yearly height
-                ],
+                ),
               ],
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 }
 
-class _PlanRadio extends StatelessWidget {
-  const _PlanRadio({required this.selected, required this.color});
-  final bool selected;
-  final Color color;
+class _PlanBadge extends StatelessWidget {
+  const _PlanBadge(this.label);
+
+  final String label;
 
   @override
   Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
-    return Container(
-      width: 20,
-      height: 20,
+    final accent = _premiumGlow(context);
+    return DecoratedBox(
       decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: selected ? color : foundation.borderSubtle,
-          width: 2,
-        ),
+        color: accent,
+        borderRadius: BorderRadius.circular(10),
       ),
-      padding: const EdgeInsets.all(3),
-      child: AnimatedScale(
-        scale: selected ? 1.0 : 0.0,
-        duration: const Duration(milliseconds: 200),
-        child: Container(
-          decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        child: Text(
+          label.toUpperCase(),
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: Theme.of(context).colorScheme.onPrimary,
+            fontSize: 9,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.5,
+          ),
         ),
       ),
     );
   }
 }
 
-class _PremiumActionButton extends StatelessWidget {
+class _PremiumActionButton extends StatefulWidget {
   const _PremiumActionButton({
     required this.busy,
     required this.enabled,
@@ -522,456 +1270,148 @@ class _PremiumActionButton extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
+  State<_PremiumActionButton> createState() => _PremiumActionButtonState();
+}
+
+class _PremiumActionButtonState extends State<_PremiumActionButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 90),
+    lowerBound: 0.99,
+    upperBound: 1,
+    value: 1,
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return FilledButton(
-      onPressed: busy || !enabled ? null : onPressed,
-      style: FilledButton.styleFrom(
-        minimumSize: const Size.fromHeight(64),
-        backgroundColor: cs.primary,
-        foregroundColor: cs.onPrimary,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+    final accent = _premiumGlow(context);
+    final enabled = widget.enabled && !widget.busy;
+    return GestureDetector(
+      onTapDown: enabled ? (_) => _controller.reverse() : null,
+      onTapCancel: enabled ? () => _controller.forward() : null,
+      onTapUp: enabled
+          ? (_) {
+              _controller.forward();
+              widget.onPressed();
+            }
+          : null,
+      child: ScaleTransition(
+        scale: _controller,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          width: double.infinity,
+          height: 58,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: enabled ? accent : accent.withValues(alpha: 0.38),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: enabled
+                ? [
+                    BoxShadow(
+                      color: accent.withValues(alpha: 0.28),
+                      blurRadius: 28,
+                      offset: const Offset(0, 6),
+                    ),
+                  ]
+                : null,
+          ),
+          child: widget.busy
+              ? SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator.adaptive(
+                    strokeWidth: 2.4,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Theme.of(context).colorScheme.onPrimary,
+                    ),
+                  ),
+                )
+              : Text(
+                  widget.label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    height: 1,
+                  ),
+                ),
+        ),
       ),
-      child: busy
-          ? const SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator.adaptive(
-                strokeWidth: 2.5,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              ),
-            )
-          : Text(label),
     );
   }
 }
 
-class _CancelNote extends StatelessWidget {
-  const _CancelNote();
+class _FinePrint extends StatelessWidget {
+  const _FinePrint({required this.platformCopy});
+
+  final PremiumPaywallCopy platformCopy;
+
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
     return Text(
-      'Cancel anytime. No free-trial small print.',
+      platformCopy.renewalLine,
       textAlign: TextAlign.center,
       style: TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
         color: foundation.textMuted,
+        fontSize: 11,
+        fontWeight: FontWeight.w300,
+        height: 1.6,
+        letterSpacing: 0.1,
       ),
     );
   }
 }
 
-class _SubscriptionTermsLinks extends StatelessWidget {
-  const _SubscriptionTermsLinks({required this.onOpen});
+class _FooterLinks extends StatelessWidget {
+  const _FooterLinks({
+    required this.onRestorePurchase,
+    required this.onOpenLegalUrl,
+  });
 
-  final ValueChanged<String> onOpen;
+  final VoidCallback? onRestorePurchase;
+  final ValueChanged<String> onOpenLegalUrl;
 
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
+    final style = TextButton.styleFrom(
+      foregroundColor: foundation.textSecondary,
+      visualDensity: VisualDensity.compact,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w400),
+    );
     return Wrap(
       alignment: WrapAlignment.center,
       crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 4,
       children: [
-        Text(
-          'Auto-renews until canceled.',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: foundation.textMuted,
-          ),
-        ),
         TextButton(
-          onPressed: () => onOpen('https://pebbleroutines.com/terms'),
+          onPressed: onRestorePurchase,
+          style: style,
+          child: const Text('Restore purchase'),
+        ),
+        Text('|', style: TextStyle(color: foundation.textMuted, fontSize: 11)),
+        TextButton(
+          onPressed: () => onOpenLegalUrl('https://pebbleroutines.com/terms'),
+          style: style,
           child: const Text('Terms'),
         ),
+        Text('|', style: TextStyle(color: foundation.textMuted, fontSize: 11)),
         TextButton(
-          onPressed: () => onOpen('https://pebbleroutines.com/privacy'),
+          onPressed: () => onOpenLegalUrl('https://pebbleroutines.com/privacy'),
+          style: style,
           child: const Text('Privacy'),
         ),
       ],
-    );
-  }
-}
-
-class _FeaturesList extends StatelessWidget {
-  const _FeaturesList();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _Eyebrow('PEBBLE PREMIUM INCLUDES'),
-        SizedBox(height: 16),
-        _FeatureListItem(
-          icon: LucideIcons.infinity,
-          tint: _PremiumTint.blue,
-          title: 'Unlimited routines & steps',
-          body:
-              'Build every routine you actually need, with no cap on routines and no cap on steps.',
-          upgradeLabel: 'Free: 2 routines / 10 steps -> Premium: unlimited',
-        ),
-        _FeatureListItem(
-          icon: LucideIcons.cloud,
-          tint: _PremiumTint.green,
-          title: 'Backup & longer history',
-          body:
-              'Keep recent history longer on this device. Sign in later if you want supported backup for reinstalling or changing phone.',
-          upgradeLabel: 'Free: 48 hrs -> Premium: 21 days',
-        ),
-        _FeatureListItem(
-          icon: LucideIcons.audioLines,
-          tint: _PremiumTint.amber,
-          title: 'Voice tips on steps',
-          body:
-              'Record short step guidance and play it back during the routine.',
-        ),
-        _FeatureListItem(
-          icon: LucideIcons.images,
-          tint: _PremiumTint.purple,
-          title: 'More proof photos',
-          body:
-              'Save up to 4 photos per step when one angle is not enough reassurance.',
-          upgradeLabel: 'Free: 1 photo -> Premium: 4 per step',
-        ),
-        _FeatureListItem(
-          icon: LucideIcons.bell,
-          tint: _PremiumTint.green,
-          title: 'Shared reminders',
-          body:
-              'Let a trusted person know when a routine is done or missed. Automatic, quiet, and in your control.',
-        ),
-        _FeatureListItem(
-          icon: LucideIcons.palette,
-          tint: _PremiumTint.purple,
-          title: 'Premium themes & style',
-          body:
-              'Unlock every premium theme, icon set, and accent colour so Pebble feels genuinely yours.',
-        ),
-      ],
-    );
-  }
-}
-
-class _FeatureListItem extends StatelessWidget {
-  const _FeatureListItem({
-    required this.icon,
-    required this.tint,
-    required this.title,
-    required this.body,
-    this.upgradeLabel,
-  });
-
-  final IconData icon;
-  final _PremiumTint tint;
-  final String title;
-  final String body;
-  final String? upgradeLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = _tintColors(context, tint);
-    final foundation = context.darkFoundation;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 10),
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(14)),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 54,
-            height: 54,
-            decoration: BoxDecoration(
-              color: colors.accent.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            alignment: Alignment.center,
-            child: Icon(icon, color: colors.accent, size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          color: foundation.textPrimary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  body,
-                  style: TextStyle(
-                    fontSize: 14,
-                    height: 1.45,
-                    color: foundation.textSecondary,
-                  ),
-                ),
-                if (upgradeLabel != null) ...[
-                  const SizedBox(height: 7),
-                  _UpgradePill(label: upgradeLabel!),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _UpgradePill extends StatelessWidget {
-  const _UpgradePill({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: cs.primary.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: cs.primary.withValues(alpha: 0.16)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            height: 1.15,
-            fontWeight: FontWeight.w800,
-            color: cs.primary,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _RestoreLink extends StatelessWidget {
-  const _RestoreLink({this.onTap});
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
-    return Center(
-      child: TextButton(
-        onPressed: onTap,
-        child: Text(
-          'Restore purchase \u00B7 I already have Premium',
-          style: TextStyle(color: foundation.textSecondary, fontSize: 14),
-        ),
-      ),
-    );
-  }
-}
-
-class _DataSecurityNote extends StatelessWidget {
-  const _DataSecurityNote();
-  @override
-  Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(LucideIcons.info, size: 16, color: foundation.textMuted),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            'Pebble only backs up routine data and proof photos you choose. Your camera roll is never scanned.',
-            style: TextStyle(
-              fontSize: 13,
-              fontStyle: FontStyle.italic,
-              color: foundation.textMuted,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _PremiumBadge extends StatelessWidget {
-  const _PremiumBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: _CinemaColors.gold.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: _CinemaColors.gold.withValues(alpha: 0.28)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            const Icon(
-              LucideIcons.sparkles,
-              color: _CinemaColors.gold,
-              size: 13,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              'Pebble Premium',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: foundation.textPrimary,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.2,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Eyebrow extends StatelessWidget {
-  const _Eyebrow(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
-    return Text(
-      text.toUpperCase(),
-      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-        color: foundation.textMuted,
-        fontWeight: FontWeight.w900,
-        letterSpacing: 1.5,
-      ),
-    );
-  }
-}
-
-enum _PremiumTint { amber, blue, green, purple }
-
-class _TintColors {
-  const _TintColors({required this.accent, required this.accentAlt});
-
-  final Color accent;
-  final Color accentAlt;
-}
-
-class _CinemaColors {
-  static const amber = Color(0xFFFF8C42);
-  static const blue = Color(0xFF7C9EFF);
-  static const green = Color(0xFF4ADE80);
-  static const purple = Color(0xFFC084FC);
-  static const gold = Color(0xFFF0C060);
-}
-
-TextStyle _serifStyle(
-  BuildContext context, {
-  required double fontSize,
-  double height = 1.0,
-}) {
-  final foundation = context.darkFoundation;
-  return GoogleFonts.dmSerifDisplay(
-    color: foundation.textPrimary,
-    fontSize: fontSize,
-    fontWeight: FontWeight.w400,
-    letterSpacing: 0,
-    height: height,
-  );
-}
-
-_TintColors _tintColors(BuildContext context, _PremiumTint tint) {
-  final tokens = Theme.of(context).extension<PebbleTemplatesTokens>();
-  return switch (tint) {
-    _PremiumTint.amber => _TintColors(
-      accent: tokens?.templatesAccentGroup3 ?? _CinemaColors.amber,
-      accentAlt: _CinemaColors.amber,
-    ),
-    _PremiumTint.blue => const _TintColors(
-      accent: _CinemaColors.blue,
-      accentAlt: Color(0xFF5B7BFF),
-    ),
-    _PremiumTint.green => const _TintColors(
-      accent: _CinemaColors.green,
-      accentAlt: Color(0xFF22C55E),
-    ),
-    _PremiumTint.purple => _TintColors(
-      accent: tokens?.templatesAccentGroup2 ?? _CinemaColors.purple,
-      accentAlt: _CinemaColors.blue,
-    ),
-  };
-}
-
-class _SmallSaveBadge extends StatelessWidget {
-  const _SmallSaveBadge({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: _CinemaColors.gold.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: _CinemaColors.gold.withValues(alpha: 0.24)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Text(
-          label.toUpperCase(),
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: foundation.textPrimary,
-            fontSize: 9.5,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 0.3,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _FairUseNote extends StatelessWidget {
-  const _FairUseNote();
-
-  @override
-  Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: foundation.surfaceLow.withValues(alpha: 0.62),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: foundation.borderSubtle),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Text(
-          'Fair use: Photo uploads pause at 1 GB active storage or 500 uploads per 30 days. Routine sync keeps working regardless. Your camera roll is not scanned.',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: foundation.textMuted,
-            fontWeight: FontWeight.w600,
-            height: 1.55,
-          ),
-        ),
-      ),
     );
   }
 }
@@ -994,7 +1434,7 @@ class _UnavailableNotice extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
+          children: [
             Icon(LucideIcons.info, color: foundation.textMuted, size: 16),
             const SizedBox(width: 10),
             Expanded(
@@ -1013,10 +1453,67 @@ class _UnavailableNotice extends StatelessWidget {
   }
 }
 
+enum _PremiumTint { primary, green, blue, rose }
+
+class _TintColors {
+  const _TintColors({required this.accent});
+
+  final Color accent;
+}
+
+TextStyle _serifStyle(
+  BuildContext context, {
+  required double fontSize,
+  double height = 1,
+}) {
+  final foundation = context.darkFoundation;
+  return GoogleFonts.dmSerifDisplay(
+    color: foundation.textPrimary,
+    fontSize: fontSize,
+    fontWeight: FontWeight.w400,
+    letterSpacing: 0,
+    height: height,
+  );
+}
+
+_TintColors _tintColors(BuildContext context, _PremiumTint tint) {
+  final theme = Theme.of(context);
+  final cs = theme.colorScheme;
+  final secondary = cs.secondary == cs.primary
+      ? _shiftThemeHue(cs.primary, 18)
+      : cs.secondary;
+  final base = switch (tint) {
+    _PremiumTint.primary => cs.primary,
+    _PremiumTint.green => Color.lerp(cs.primary, secondary, 0.62)!,
+    _PremiumTint.blue => _shiftThemeHue(cs.primary, -24),
+    _PremiumTint.rose => _shiftThemeHue(cs.primary, 30),
+  };
+  return _TintColors(accent: _legibleThemeAccent(theme, base));
+}
+
+Color _premiumGlow(BuildContext context) {
+  final theme = Theme.of(context);
+  return _legibleThemeAccent(theme, theme.colorScheme.primary);
+}
+
+Color _shiftThemeHue(Color color, double amount) {
+  final hsl = HSLColor.fromColor(color);
+  return hsl.withHue((hsl.hue + amount) % 360).toColor();
+}
+
+Color _legibleThemeAccent(ThemeData theme, Color color) {
+  final hsl = HSLColor.fromColor(color);
+  final saturation = (hsl.saturation * 1.08).clamp(0.36, 0.88).toDouble();
+  final lightness = theme.brightness == Brightness.dark
+      ? hsl.lightness.clamp(0.58, 0.76).toDouble()
+      : hsl.lightness.clamp(0.34, 0.50).toDouble();
+  return hsl.withSaturation(saturation).withLightness(lightness).toColor();
+}
+
 List<PremiumProduct> _sortedProducts(List<PremiumProduct> products) {
-  return <PremiumProduct>[
-    ...products.where((product) => product.plan == BillingPlan.yearly),
+  return [
     ...products.where((product) => product.plan == BillingPlan.monthly),
+    ...products.where((product) => product.plan == BillingPlan.yearly),
   ];
 }
 
@@ -1026,9 +1523,13 @@ PremiumProduct _selectedProduct(
 ) {
   return products.firstWhere(
     (product) => product.plan == selectedPlan,
-    orElse: () => selectedPlan == BillingPlan.yearly
-        ? _fallbackYearlyProduct
-        : _fallbackMonthlyProduct,
+    orElse: () {
+      final sorted = _sortedProducts(products);
+      if (sorted.isNotEmpty) return sorted.first;
+      return selectedPlan == BillingPlan.yearly
+          ? _fallbackYearlyProduct
+          : _fallbackMonthlyProduct;
+    },
   );
 }
 
@@ -1036,12 +1537,6 @@ BillingPlan _effectiveSelectedPlan(
   List<PremiumProduct> products,
   BillingPlan selectedPlan,
 ) {
-  final hasSelectedProduct = products.any(
-    (product) => product.plan == selectedPlan,
-  );
-  if (!hasSelectedProduct && products.isNotEmpty) {
-    return _sortedProducts(products).first.plan;
-  }
   final hasSelectedPlan = products.any(
     (product) =>
         product.plan == selectedPlan &&
@@ -1056,27 +1551,58 @@ BillingPlan _effectiveSelectedPlan(
         .where((product) => product.isPurchasable && product.hasValidOfferToken)
         .toList(),
   );
-  if (purchasableProducts.isEmpty) {
+  if (purchasableProducts.isNotEmpty) {
+    return purchasableProducts.first.plan;
+  }
+  final hasSelectedProduct = products.any(
+    (product) => product.plan == selectedPlan,
+  );
+  if (hasSelectedProduct) {
     return selectedPlan;
   }
-  return purchasableProducts.first.plan;
+  return products.isEmpty ? selectedPlan : _sortedProducts(products).first.plan;
+}
+
+PlanType _planTypeForBillingPlan(BillingPlan plan) {
+  return switch (plan) {
+    BillingPlan.monthly => PlanType.monthly,
+    BillingPlan.yearly => PlanType.annual,
+  };
+}
+
+String _displayPrice(PremiumProduct product) {
+  if (product.isPurchasable && product.priceLabel.trim().isNotEmpty) {
+    return product.priceLabel;
+  }
+  return 'Loading';
 }
 
 String _ctaLabel(PremiumProduct product) {
-  final cadence = product.plan == BillingPlan.yearly ? 'yearly' : 'monthly';
-  return 'Start $cadence - ${product.priceLabel}';
+  if (!product.isPurchasable || product.priceLabel.trim().isEmpty) {
+    return 'Loading store price';
+  }
+  final plan = _planTypeForBillingPlan(product.plan);
+  return 'Continue with ${product.priceLabel}/${plan.ctaCadence}';
 }
 
-String _yearlyPerMonthLabel(PremiumProduct product) {
+String _annualPerLine(PremiumProduct product) {
+  final monthly = _yearlyPerMonthLabel(product);
+  return monthly == null ? 'per year' : 'per year · $monthly';
+}
+
+String? _yearlyPerMonthLabel(PremiumProduct product) {
+  if (!product.isPurchasable) {
+    return null;
+  }
   final parsed = _parsePrice(product.priceLabel);
   if (parsed == null) {
-    return 'best annual value';
+    return null;
   }
   final monthly = parsed.value / 12;
   if (parsed.suffix == 'p') {
-    return 'about ${monthly.round()}p / month';
+    return '${monthly.round()}p/month';
   }
-  return 'about ${parsed.prefix}${monthly.toStringAsFixed(2)} / month';
+  return '${parsed.prefix}${monthly.toStringAsFixed(2)}${parsed.suffix}/month';
 }
 
 _ParsedPrice? _parsePrice(String label) {
@@ -1113,16 +1639,10 @@ class _ParsedPrice {
   final String suffix;
 }
 
-String _planUnavailableMessage(BillingPlan plan) {
-  final storeName = defaultTargetPlatform == TargetPlatform.iOS
-      ? 'App Store'
-      : 'Google Play';
-  final consoleName = defaultTargetPlatform == TargetPlatform.iOS
-      ? 'App Store Connect'
-      : 'Play Console';
-  final cadence = plan == BillingPlan.yearly ? 'Yearly' : 'Monthly';
-  final lowerCadence = plan == BillingPlan.yearly ? 'yearly' : 'monthly';
-  return '$cadence Pebble Premium is not available from $storeName yet. Check the $lowerCadence base plan offer token in $consoleName.';
+String _planUnavailableMessage(BillingPlan plan, PremiumPaywallCopy copy) {
+  final cadence = plan == BillingPlan.yearly ? 'Annual' : 'Monthly';
+  final lowerCadence = plan == BillingPlan.yearly ? 'annual' : 'monthly';
+  return '$cadence Pebble Premium is not available from ${copy.storeName} yet. Check the $lowerCadence base plan offer token in ${copy.consoleName}.';
 }
 
 const _fallbackMonthlyProduct = PremiumProduct(
@@ -1130,8 +1650,8 @@ const _fallbackMonthlyProduct = PremiumProduct(
   basePlanId: PebbleBasePlanIds.monthly,
   plan: BillingPlan.monthly,
   title: 'Monthly',
-  priceLabel: '\$0.99',
-  detailLabel: 'per month. Cancel anytime.',
+  priceLabel: '',
+  detailLabel: 'per month',
   isPurchasable: false,
 );
 
@@ -1139,9 +1659,9 @@ const _fallbackYearlyProduct = PremiumProduct(
   productId: PebbleProductIds.personalPremium,
   basePlanId: PebbleBasePlanIds.yearly,
   plan: BillingPlan.yearly,
-  title: 'Yearly',
-  priceLabel: '\$6.99',
-  detailLabel: 'per year. About \$0.58 / month.',
+  title: 'Annual',
+  priceLabel: '',
+  detailLabel: 'per year',
   badgeLabel: 'Best value',
   isPurchasable: false,
 );

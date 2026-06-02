@@ -87,6 +87,65 @@ create index if not exists shared_alert_invites_token_active_idx
 
 alter table public.shared_alert_invites enable row level security;
 
+drop policy if exists shared_alert_invites_select_own
+  on public.shared_alert_invites;
+create policy shared_alert_invites_select_own
+on public.shared_alert_invites
+for select using (
+  exists (
+    select 1
+    from public.shared_alert_contacts c
+    where c.id = shared_alert_invites.contact_id
+      and c.owner_user_id = auth.uid()
+  )
+);
+
+drop policy if exists shared_alert_invites_insert_own
+  on public.shared_alert_invites;
+create policy shared_alert_invites_insert_own
+on public.shared_alert_invites
+for insert with check (
+  exists (
+    select 1
+    from public.shared_alert_contacts c
+    where c.id = shared_alert_invites.contact_id
+      and c.owner_user_id = auth.uid()
+  )
+);
+
+drop policy if exists shared_alert_invites_update_own
+  on public.shared_alert_invites;
+create policy shared_alert_invites_update_own
+on public.shared_alert_invites
+for update using (
+  exists (
+    select 1
+    from public.shared_alert_contacts c
+    where c.id = shared_alert_invites.contact_id
+      and c.owner_user_id = auth.uid()
+  )
+) with check (
+  exists (
+    select 1
+    from public.shared_alert_contacts c
+    where c.id = shared_alert_invites.contact_id
+      and c.owner_user_id = auth.uid()
+  )
+);
+
+drop policy if exists shared_alert_invites_delete_own
+  on public.shared_alert_invites;
+create policy shared_alert_invites_delete_own
+on public.shared_alert_invites
+for delete using (
+  exists (
+    select 1
+    from public.shared_alert_contacts c
+    where c.id = shared_alert_invites.contact_id
+      and c.owner_user_id = auth.uid()
+  )
+);
+
 create table if not exists public.shared_alert_blocks (
   id uuid primary key default gen_random_uuid(),
   sender_user_id uuid not null references auth.users(id) on delete cascade,
@@ -107,6 +166,12 @@ before update on public.shared_alert_blocks
 for each row execute function public.tg_set_updated_at();
 
 alter table public.shared_alert_blocks enable row level security;
+
+drop policy if exists shared_alert_blocks_select_own
+  on public.shared_alert_blocks;
+create policy shared_alert_blocks_select_own
+on public.shared_alert_blocks
+for select using (auth.uid() = sender_user_id);
 
 create table if not exists public.shared_alert_events (
   id uuid primary key default gen_random_uuid(),

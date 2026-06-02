@@ -28,11 +28,9 @@ serve(async (req) => {
   }
 
   const schedulerSecret = Deno.env.get('CLEANUP_PROOF_RETENTION_SECRET');
-  if (schedulerSecret) {
-    const provided = req.headers.get('x-cleanup-secret') ?? '';
-    if (provided !== schedulerSecret) {
-      return json({ error: 'Unauthorized' }, 401);
-    }
+  const provided = req.headers.get('x-cleanup-secret') ?? '';
+  if (!schedulerSecret || provided !== schedulerSecret) {
+    return json({ error: 'Unauthorized' }, 401);
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');

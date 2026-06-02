@@ -69,7 +69,7 @@ const _starterRoutines = [
   _StarterRoutine(
     cardTitle: 'No Item Left Behind Hotel Checkout',
     subtitle:
-        'A calm hotel-room sweep for passports, chargers, drawers, and the safe.',
+        'A quick hotel-room sweep for passports, chargers, drawers, and the safe.',
     previewTitle: 'No Item Left Behind Hotel Checkout',
     icon: LucideIcons.luggage,
     steps: [

@@ -6,8 +6,11 @@ import 'package:pebble_routines/features/settings/data/player_settings_provider.
 import 'package:pebble_routines/features/settings/ui/appearance_screen.dart';
 import 'package:pebble_routines/features/settings/ui/settings_screen.dart';
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
+import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../support/premium_policy_test_utils.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -89,6 +92,9 @@ void main() {
       ProviderScope(
         overrides: <Override>[
           subscriptionProvider.overrideWithValue(UserTier.personalFree),
+          premiumFeaturePolicyProvider.overrideWithValue(
+            premiumFeaturePolicyForTier(UserTier.personalFree),
+          ),
         ],
         child: MaterialApp(
           theme: AppTheme.fromId(ThemeId.highNoon),
@@ -140,6 +146,9 @@ void main() {
       ProviderScope(
         overrides: <Override>[
           subscriptionProvider.overrideWithValue(UserTier.personalFree),
+          premiumFeaturePolicyProvider.overrideWithValue(
+            premiumFeaturePolicyForTier(UserTier.personalFree),
+          ),
         ],
         child: MaterialApp(
           theme: AppTheme.fromId(ThemeId.highNoon),

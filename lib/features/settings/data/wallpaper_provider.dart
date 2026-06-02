@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
-import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
+import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/core/ui/background_pattern.dart';
 
 final wallpaperProvider =
@@ -14,8 +13,11 @@ class WallpaperNotifier extends StateNotifier<WallpaperType> {
   static const String _key = 'selected_wallpaper';
 
   WallpaperNotifier(this._ref) : super(WallpaperType.none) {
-    _ref.listen<UserTier>(subscriptionProvider, (previous, next) async {
-      if (!next.hasWallpapers && state != WallpaperType.none) {
+    _ref.listen<PremiumFeaturePolicy>(premiumFeaturePolicyProvider, (
+      previous,
+      next,
+    ) async {
+      if (!next.canUsePremiumThemes && state != WallpaperType.none) {
         state = WallpaperType.none;
         final prefs = await SharedPreferences.getInstance();
         await prefs.setInt(_key, WallpaperType.none.index);
@@ -29,8 +31,8 @@ class WallpaperNotifier extends StateNotifier<WallpaperType> {
     final index = prefs.getInt(_key) ?? 0;
 
     // Check if user still has access
-    final tier = _ref.read(subscriptionProvider);
-    if (!tier.hasWallpapers && index != 0) {
+    final policy = _ref.read(premiumFeaturePolicyProvider);
+    if (!policy.canUsePremiumThemes && index != 0) {
       state = WallpaperType.none;
       return;
     }
@@ -41,8 +43,8 @@ class WallpaperNotifier extends StateNotifier<WallpaperType> {
   }
 
   Future<void> setWallpaper(WallpaperType type) async {
-    final tier = _ref.read(subscriptionProvider);
-    if (!tier.hasWallpapers && type != WallpaperType.none) {
+    final policy = _ref.read(premiumFeaturePolicyProvider);
+    if (!policy.canUsePremiumThemes && type != WallpaperType.none) {
       return;
     }
 

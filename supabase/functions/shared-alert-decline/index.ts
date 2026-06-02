@@ -30,6 +30,14 @@ serve(async (req) => {
   const invite = await findInvite(serviceClient, token);
   if (!invite.ok) return redirectTo(redirectTargets.problem);
 
+  if (req.method === 'GET') {
+    return confirmationPage(req, {
+      title: 'Decline Pebble alerts?',
+      message: 'This will turn down this Pebble Routines alert invitation.',
+      buttonLabel: 'Decline invite',
+    });
+  }
+
   const now = new Date().toISOString();
   const { error: contactError } = await serviceClient
     .from('shared_alert_contacts')
@@ -97,4 +105,53 @@ function redirectTo(location: string): Response {
       'Cache-Control': 'no-store',
     },
   });
+}
+
+function confirmationPage(
+  req: Request,
+  input: { title: string; message: string; buttonLabel: string },
+): Response {
+  const action = new URL(req.url).toString();
+  return new Response(`<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escapeHtml(input.title)}</title>
+  <style>
+    body { margin: 0; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f6f4ef; color: #202124; }
+    main { min-height: 100vh; display: grid; place-items: center; padding: 24px; box-sizing: border-box; }
+    section { width: min(100%, 420px); background: #ffffff; border: 1px solid #ded8cd; border-radius: 8px; padding: 28px; box-sizing: border-box; box-shadow: 0 12px 34px rgba(32, 33, 36, 0.08); }
+    h1 { margin: 0 0 12px; font-size: 24px; line-height: 1.2; }
+    p { margin: 0 0 24px; font-size: 15px; line-height: 1.5; color: #54524c; }
+    button { width: 100%; border: 0; border-radius: 6px; padding: 14px 18px; background: #7f1d1d; color: #ffffff; font-size: 16px; font-weight: 700; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <main>
+    <section>
+      <h1>${escapeHtml(input.title)}</h1>
+      <p>${escapeHtml(input.message)}</p>
+      <form method="post" action="${escapeHtml(action)}">
+        <button type="submit">${escapeHtml(input.buttonLabel)}</button>
+      </form>
+    </section>
+  </main>
+</body>
+</html>`, {
+    headers: {
+      ...corsHeaders,
+      'content-type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-store',
+    },
+  });
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
 }

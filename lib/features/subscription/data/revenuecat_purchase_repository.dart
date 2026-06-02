@@ -117,11 +117,22 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     try {
       result = await rc.Purchases.purchase(rc.PurchaseParams.package(package));
     } on PlatformException catch (error) {
-      if (rc.PurchasesErrorHelper.getErrorCode(error) ==
-          rc.PurchasesErrorCode.purchaseCancelledError) {
+      final errorCode = rc.PurchasesErrorHelper.getErrorCode(error);
+      if (errorCode == rc.PurchasesErrorCode.purchaseCancelledError) {
         throw const PurchaseCancelledException();
       }
-      rethrow;
+      if (errorCode == rc.PurchasesErrorCode.productAlreadyPurchasedError) {
+        final restored = await restorePurchases();
+        return PurchaseResult(
+          tier: restored.tier,
+          plan: plan,
+          requiresSignIn: false,
+          message: 'Premium is already active on this store account.',
+        );
+      }
+      throw PurchaseFlowException(
+        revenueCatMessageForPurchasesError(errorCode),
+      );
     }
     return _applyCustomerInfo(
       result.customerInfo,
@@ -135,7 +146,16 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
   Future<PurchaseResult> restorePurchases() async {
     final userId = _currentUserId;
     await _configureForUser(userId);
-    final customerInfo = await rc.Purchases.restorePurchases();
+    late final rc.CustomerInfo customerInfo;
+    try {
+      customerInfo = await rc.Purchases.restorePurchases();
+    } on PlatformException catch (error) {
+      throw PurchaseFlowException(
+        revenueCatMessageForPurchasesError(
+          rc.PurchasesErrorHelper.getErrorCode(error),
+        ),
+      );
+    }
     return _applyCustomerInfo(
       customerInfo,
       plan: BillingPlan.monthly,
@@ -147,7 +167,16 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
   Future<void> syncPurchasesSilently() async {
     final userId = _currentUserId;
     await _configureForUser(userId);
-    final customerInfo = await rc.Purchases.getCustomerInfo();
+    late final rc.CustomerInfo customerInfo;
+    try {
+      customerInfo = await rc.Purchases.getCustomerInfo();
+    } on PlatformException catch (error) {
+      throw PurchaseFlowException(
+        revenueCatMessageForPurchasesError(
+          rc.PurchasesErrorHelper.getErrorCode(error),
+        ),
+      );
+    }
     final entitlement = _activeEntitlement(customerInfo);
     if (entitlement == null) {
       if (userId != null && _hasVerifiedPaidRevenueCatEntitlement()) {
@@ -175,13 +204,17 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
   }
 
   Future<void> _configureForUser(String? userId) async {
-    if (_configured && _configuredUserId == userId) {
+    final normalizedUserId = userId == null || userId.isEmpty ? null : userId;
+    if (_configured && _configuredUserId == normalizedUserId) {
       return;
     }
     if (_configured) {
-      if (userId != null && userId.isNotEmpty) {
-        await rc.Purchases.logIn(userId);
-        _configuredUserId = userId;
+      if (normalizedUserId != null) {
+        await rc.Purchases.logIn(normalizedUserId);
+        _configuredUserId = normalizedUserId;
+      } else {
+        await rc.Purchases.logOut();
+        _configuredUserId = null;
       }
       return;
     }
@@ -191,12 +224,12 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
       throw StateError('Purchases are not configured for this platform yet.');
     }
     final purchasesConfig = rc.PurchasesConfiguration(apiKey);
-    if (userId != null && userId.isNotEmpty) {
-      purchasesConfig.appUserID = userId;
+    if (normalizedUserId != null) {
+      purchasesConfig.appUserID = normalizedUserId;
     }
     await rc.Purchases.configure(purchasesConfig);
     _configured = true;
-    _configuredUserId = userId;
+    _configuredUserId = normalizedUserId;
   }
 
   Future<void> _loadOfferings() async {
@@ -317,6 +350,33 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
         ?.id;
     final userId = authUserId ?? supabaseUserId;
     return userId == null || userId.isEmpty ? null : userId;
+  }
+}
+
+@visibleForTesting
+String revenueCatMessageForPurchasesError(rc.PurchasesErrorCode code) {
+  switch (code) {
+    case rc.PurchasesErrorCode.paymentPendingError:
+      return 'Your purchase is pending. Premium will unlock after the store confirms it.';
+    case rc.PurchasesErrorCode.productAlreadyPurchasedError:
+      return 'Premium is already active on this store account.';
+    case rc.PurchasesErrorCode.networkError:
+    case rc.PurchasesErrorCode.offlineConnectionError:
+      return 'Could not reach the store. Check your connection and try again.';
+    case rc.PurchasesErrorCode.productNotAvailableForPurchaseError:
+      return 'This Premium plan is not available from the store yet.';
+    case rc.PurchasesErrorCode.purchaseNotAllowedError:
+    case rc.PurchasesErrorCode.insufficientPermissionsError:
+      return 'Purchases are not allowed on this store account.';
+    case rc.PurchasesErrorCode.configurationError:
+    case rc.PurchasesErrorCode.invalidCredentialsError:
+      return 'Premium is not configured correctly yet. Please try again later.';
+    case rc.PurchasesErrorCode.operationAlreadyInProgressError:
+      return 'A store request is already in progress.';
+    case rc.PurchasesErrorCode.storeProblemError:
+      return 'The store could not complete that request. Please try again.';
+    default:
+      return 'The store could not complete that request. Please try again.';
   }
 }
 

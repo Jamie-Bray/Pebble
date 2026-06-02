@@ -66,7 +66,8 @@ SubscriptionLifecycle subscriptionLifecycleForAccount(
 
   if (isPaidTier &&
       (account.entitlementStatus == EntitlementStatus.personalPremium ||
-          account.entitlementStatus == EntitlementStatus.household)) {
+          account.entitlementStatus == EntitlementStatus.household ||
+          account.entitlementStatus == EntitlementStatus.free)) {
     return const SubscriptionLifecycle(
       phase: SubscriptionLifecyclePhase.activePremium,
       expiredAt: null,

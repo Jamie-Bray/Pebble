@@ -13,6 +13,8 @@ import 'package:pebble_routines/data/local/sync_outbox_dao.dart';
 
 part 'local_db.g.dart';
 
+// Pebble's app database is mobile/desktop-only. Flutter web is intentionally
+// unsupported until a Drift web storage backend is added.
 @DataClassName('Routine')
 class Routines extends Table {
   IntColumn get id => integer().autoIncrement()(); // primary key

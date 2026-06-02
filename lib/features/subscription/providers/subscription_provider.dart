@@ -355,8 +355,24 @@ class SubscriptionAccountController
     await _persistEntitlementMetadata(next);
   }
 
-  Future<void> resetAfterAccountDeletion() async {
-    state = const SubscriptionAccountState.initial();
+  Future<void> resetAfterAccountDeletion({
+    bool preserveStoreEntitlement = false,
+  }) async {
+    if (!preserveStoreEntitlement) {
+      state = const SubscriptionAccountState.initial();
+      await _persist(state);
+      await _persistEntitlementMetadata(state);
+      return;
+    }
+
+    state = state.copyWith(
+      clearPendingTier: true,
+      clearUserId: true,
+      clearEmail: true,
+      clearAuthProvider: true,
+      clearLastSyncError: true,
+      bootstrapStatus: BootstrapStatus.idle,
+    );
     await _persist(state);
     await _persistEntitlementMetadata(state);
   }

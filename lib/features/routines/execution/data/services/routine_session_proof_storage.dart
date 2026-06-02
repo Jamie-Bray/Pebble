@@ -192,6 +192,10 @@ class LocalRoutineSessionProofStorage implements RoutineSessionProofStorage {
       objectKey: objectKey,
       bytes: bytes,
       contentType: _contentTypeForPath(file.path),
+      ownerUserId: ownerUserId,
+      entityType: entityType,
+      entityId: entityId,
+      capturedAt: asset.capturedAt,
     );
     await _fairUseStore.recordProofUpload(byteCount: bytes.length);
     return asset.copyWith(

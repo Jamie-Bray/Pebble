@@ -55,6 +55,31 @@ void main() {
       );
       expect(revenueCatActiveEntitlement(customerInfo, 'other'), isNull);
     });
+
+    test('maps purchase errors to friendly user-facing copy', () {
+      expect(
+        revenueCatMessageForPurchasesError(
+          rc.PurchasesErrorCode.productAlreadyPurchasedError,
+        ),
+        'Premium is already active on this store account.',
+      );
+      expect(
+        revenueCatMessageForPurchasesError(
+          rc.PurchasesErrorCode.paymentPendingError,
+        ),
+        contains('pending'),
+      );
+      expect(
+        revenueCatMessageForPurchasesError(rc.PurchasesErrorCode.networkError),
+        contains('connection'),
+      );
+      expect(
+        revenueCatMessageForPurchasesError(
+          rc.PurchasesErrorCode.configurationError,
+        ),
+        contains('not configured'),
+      );
+    });
   });
 }
 

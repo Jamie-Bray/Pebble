@@ -24,8 +24,7 @@ import 'package:pebble_routines/features/routines/execution/providers/player_sta
 import 'package:pebble_routines/features/routines/composer/data/guidance_audio_storage.dart';
 import 'package:pebble_routines/features/routines/shared/ui/guidance_audio_play_button.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
-import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
-import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
+import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 
 class RoutinePlayerScreen extends ConsumerStatefulWidget {
@@ -189,7 +188,7 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
 
     final proofStorage = ref.read(routineSessionProofStorageProvider);
     final guidanceAudioStorage = ref.read(guidanceAudioStorageProvider);
-    final userTier = ref.watch(subscriptionProvider);
+    final premiumPolicy = ref.watch(premiumFeaturePolicyProvider);
     final playerSettings = ref.read(playerSettingsControllerProvider);
     final showGalleryAction =
         playerState.hasPhotoRequirement &&
@@ -223,10 +222,10 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
               capturedPhotoCount: playerState.capturedPhotoCount,
               requiredPhotoCount: playerState.requiredPhotoCount,
               maxPhotoCount: playerState.maxProofPhotosPerStep,
-              isFreeTier: userTier == UserTier.personalFree,
+              isFreeTier: !premiumPolicy.canUseExtraProofPhotos,
               resolveProofPath: proofStorage.resolveStoredPath,
               onPhotoLimitUpgrade:
-                  userTier == UserTier.personalFree &&
+                  !premiumPolicy.canUseExtraProofPhotos &&
                       playerState.capturedPhotoCount >=
                           playerState.maxProofPhotosPerStep
                   ? _openProofPhotoLimitPaywall
@@ -400,8 +399,9 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
   }
 
   void _showPhotoLimitReachedMessage() {
-    final userTier = ref.read(subscriptionProvider);
-    final isFreeTier = userTier == UserTier.personalFree;
+    final isFreeTier = !ref
+        .read(premiumFeaturePolicyProvider)
+        .canUseExtraProofPhotos;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
@@ -437,6 +437,10 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
 
   Future<void> _enqueueSharedReminderIfNeeded(RoutineRun run) async {
     if (_lastReminderSentRunId == run.id) {
+      return;
+    }
+    if (!ref.read(premiumFeaturePolicyProvider).canUseSharedAlerts) {
+      _lastReminderSentRunId = run.id;
       return;
     }
     final playerState = ref.read(routinePlayerProvider(widget.sessionId));

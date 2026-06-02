@@ -6,8 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
-import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
-import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
+import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 
 class AppearanceScreen extends ConsumerWidget {
@@ -18,7 +17,9 @@ class AppearanceScreen extends ConsumerWidget {
     final foundation = context.darkFoundation;
     final currentThemeId = ref.watch(currentColorThemeProvider);
     final currentMeta = ThemeMetadata.get(currentThemeId);
-    final tier = ref.watch(subscriptionProvider);
+    final canUsePremiumThemes = ref
+        .watch(premiumFeaturePolicyProvider)
+        .canUsePremiumThemes;
     final included = ThemeMetadata.byCategory(ThemePickerCategory.included);
     final accessibility = ThemeMetadata.byCategory(
       ThemePickerCategory.accessibility,
@@ -98,7 +99,7 @@ class AppearanceScreen extends ConsumerWidget {
                     const SizedBox(height: 12),
                     _ThemeGrid(
                       themes: included,
-                      tier: tier,
+                      canUsePremiumThemes: canUsePremiumThemes,
                       currentThemeId: currentThemeId,
                       onThemeTap: (meta) =>
                           _openThemePreview(context, ref, meta),
@@ -111,7 +112,7 @@ class AppearanceScreen extends ConsumerWidget {
                     const SizedBox(height: 12),
                     _ThemeGrid(
                       themes: accessibility,
-                      tier: tier,
+                      canUsePremiumThemes: canUsePremiumThemes,
                       currentThemeId: currentThemeId,
                       onThemeTap: (meta) =>
                           _openThemePreview(context, ref, meta),
@@ -121,7 +122,7 @@ class AppearanceScreen extends ConsumerWidget {
                     const SizedBox(height: 12),
                     _PremiumCarousel(
                       themes: premium,
-                      tier: tier,
+                      canUsePremiumThemes: canUsePremiumThemes,
                       currentThemeId: currentThemeId,
                       onThemeTap: (meta) =>
                           _openThemePreview(context, ref, meta),
@@ -345,13 +346,13 @@ class _SectionHeader extends StatelessWidget {
 class _ThemeGrid extends StatelessWidget {
   const _ThemeGrid({
     required this.themes,
-    required this.tier,
+    required this.canUsePremiumThemes,
     required this.currentThemeId,
     required this.onThemeTap,
   });
 
   final List<ThemeMetadata> themes;
-  final UserTier tier;
+  final bool canUsePremiumThemes;
   final ThemeId currentThemeId;
   final ValueChanged<ThemeMetadata> onThemeTap;
 
@@ -372,7 +373,7 @@ class _ThemeGrid extends StatelessWidget {
         return _ThemeGridCard(
           meta: meta,
           isCurrent: meta.id == currentThemeId,
-          isLocked: _isLocked(meta, tier),
+          isLocked: _isLocked(meta, canUsePremiumThemes),
           onTap: () => onThemeTap(meta),
         );
       },
@@ -541,13 +542,13 @@ class _ThemeGridCard extends StatelessWidget {
 class _PremiumCarousel extends StatelessWidget {
   const _PremiumCarousel({
     required this.themes,
-    required this.tier,
+    required this.canUsePremiumThemes,
     required this.currentThemeId,
     required this.onThemeTap,
   });
 
   final List<ThemeMetadata> themes;
-  final UserTier tier;
+  final bool canUsePremiumThemes;
   final ThemeId currentThemeId;
   final ValueChanged<ThemeMetadata> onThemeTap;
 
@@ -565,7 +566,7 @@ class _PremiumCarousel extends StatelessWidget {
           return _PremiumThemeCard(
             meta: meta,
             isCurrent: meta.id == currentThemeId,
-            isLocked: _isLocked(meta, tier),
+            isLocked: _isLocked(meta, canUsePremiumThemes),
             onTap: () => onThemeTap(meta),
           );
         },
@@ -981,8 +982,10 @@ class _ThemePreviewSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final currentTheme = Theme.of(context);
     final foundation = currentTheme.extension<PebbleDarkFoundation>()!;
-    final tier = ref.watch(subscriptionProvider);
-    final isLocked = _isLocked(meta, tier);
+    final canUsePremiumThemes = ref
+        .watch(premiumFeaturePolicyProvider)
+        .canUsePremiumThemes;
+    final isLocked = _isLocked(meta, canUsePremiumThemes);
     final isCurrent = ref.watch(currentColorThemeProvider) == meta.id;
     final previewTheme = AppTheme.fromId(meta.id);
     final previewFoundation =
@@ -1278,8 +1281,8 @@ void _showThemeInfoSheet(BuildContext context) {
   );
 }
 
-bool _isLocked(ThemeMetadata meta, UserTier tier) {
-  return meta.isPremium && !tier.hasPremiumThemes;
+bool _isLocked(ThemeMetadata meta, bool canUsePremiumThemes) {
+  return meta.isPremium && !canUsePremiumThemes;
 }
 
 bool _isCompatibilityPremiumTheme(ThemeMetadata meta) {

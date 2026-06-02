@@ -344,3 +344,9 @@ final cloudBackupConsentControllerProvider =
         auth: ref.watch(authSessionProvider),
       );
     });
+
+final cloudBackupConsentStateProvider = Provider<CloudBackupConsentState>((
+  ref,
+) {
+  return ref.watch(cloudBackupConsentControllerProvider);
+});

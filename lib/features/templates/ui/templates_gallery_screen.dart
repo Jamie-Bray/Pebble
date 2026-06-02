@@ -108,7 +108,7 @@ class _TemplatesHeader extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Ready-made checklists for routines you repeat.',
+            'Add a ready-made checklist, then personalise the steps any way you want.',
             style: theme.textTheme.titleMedium?.copyWith(
               color: tokens.templatesTextSecondary,
               height: 1.36,
@@ -285,12 +285,9 @@ class _TemplateCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          '${template.stepCount}',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: tokens.templatesTextSecondary,
-                            fontWeight: FontWeight.w800,
-                          ),
+                        _TemplateCardChipRow(
+                          stepCount: template.stepCount,
+                          photoRequiredCount: template.photoRequiredCount,
                         ),
                       ],
                     ),
@@ -305,6 +302,82 @@ class _TemplateCard extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TemplateCardChipRow extends StatelessWidget {
+  const _TemplateCardChipRow({
+    required this.stepCount,
+    required this.photoRequiredCount,
+  });
+
+  final int stepCount;
+  final int photoRequiredCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: <Widget>[
+        _TemplateCardChip(
+          icon: LucideIcons.listChecks,
+          label: '$stepCount steps',
+        ),
+        if (photoRequiredCount > 0)
+          _TemplateCardChip(
+            icon: LucideIcons.camera,
+            label: '$photoRequiredCount photo evidence required',
+            emphasized: true,
+          ),
+      ],
+    );
+  }
+}
+
+class _TemplateCardChip extends StatelessWidget {
+  const _TemplateCardChip({
+    required this.icon,
+    required this.label,
+    this.emphasized = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool emphasized;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tokens = _templateTokensFor(context);
+    final color = emphasized
+        ? Theme.of(context).colorScheme.primary
+        : tokens.templatesTextSecondary;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: emphasized ? 0.12 : 0.08),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.14)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(icon, size: 12, color: color.withValues(alpha: 0.88)),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: color.withValues(alpha: 0.88),
+                fontWeight: FontWeight.w800,
+                height: 1,
+              ),
+            ),
+          ],
         ),
       ),
     );

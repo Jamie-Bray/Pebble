@@ -210,12 +210,12 @@ class _TemplateDetailContent extends ConsumerWidget {
                       context.go('/');
                     },
                     icon: const Icon(LucideIcons.plus, size: 18),
-                    label: const Text('Use this template'),
+                    label: const Text('Add this template'),
                   ),
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'You can edit any step to make it yours',
+                  'Add it to your routines first, then personalise the steps any way you want.',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: foundation.textMuted,

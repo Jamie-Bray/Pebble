@@ -791,6 +791,15 @@ class _FakeRoutineRepository implements RoutineRepository {
   }
 
   @override
+  Future<void> deleteRoutineReminder(RoutineReminder reminder) async {}
+
+  @override
+  Future<void> deleteRoutineRemindersForRoutine(int routineId) async {}
+
+  @override
+  Future<void> deleteAllRoutineReminders() async {}
+
+  @override
   Future<Routine> duplicateRoutine(int id) async => _routines[id]!;
 
   @override

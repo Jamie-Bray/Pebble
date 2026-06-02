@@ -18,8 +18,7 @@ import 'package:pebble_routines/features/history/providers/routine_history_vm.da
 import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
-import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
-import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
+import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/ui/zen_error_view.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
@@ -61,7 +60,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
     final viewMode = ref.watch(historyViewModeProvider);
     final isSearchVisible = ref.watch(isSearchVisibleProvider);
     final proofStorage = ref.watch(routineSessionProofStorageProvider);
-    final userTier = ref.watch(subscriptionProvider);
+    final premiumPolicy = ref.watch(premiumFeaturePolicyProvider);
     final backupStatus = ref.watch(accountStatusPresentationProvider);
 
     return runsAsync.when(
@@ -122,7 +121,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
                             filtered,
                             byId,
                             proofStorage,
-                            userTier,
+                            premiumPolicy,
                             backupStatus,
                           )
                         : _buildVaultView(filtered, byId, proofStorage),
@@ -216,10 +215,10 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
     List<RoutineRun> filtered,
     Map<String, Routine> byId,
     RoutineSessionProofStorage proofStorage,
-    UserTier userTier,
+    PremiumFeaturePolicy premiumPolicy,
     AccountStatusPresentation backupStatus,
   ) {
-    if (filtered.isEmpty) return _buildEmptyState(context, userTier);
+    if (filtered.isEmpty) return _buildEmptyState(context, premiumPolicy);
 
     final grouped = _groupRuns(filtered);
 
@@ -487,7 +486,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
     }
   }
 
-  Widget _buildEmptyState(BuildContext context, UserTier userTier) {
+  Widget _buildEmptyState(BuildContext context, PremiumFeaturePolicy policy) {
     final foundation = context.darkFoundation;
     return Center(
       child: Padding(
@@ -507,7 +506,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              userTier.hasCloud
+              policy.canUseCloudBackup
                   ? 'Completed routine runs will appear here and back up quietly.'
                   : 'Complete a routine and Pebble will keep the record here.',
               textAlign: TextAlign.center,
@@ -1073,20 +1072,27 @@ class _HistoryRunTimeBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
     return SizedBox(
-      width: 52,
+      width: 68,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Text(
-            DateFormat('h:mm').format(time),
-            maxLines: 1,
-            textAlign: TextAlign.right,
-            style: GoogleFonts.dmSerifDisplay(
-              fontSize: 26,
-              height: 1,
-              fontWeight: FontWeight.w400,
-              color: foundation.textPrimary,
+          Align(
+            alignment: Alignment.centerRight,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(
+                DateFormat('h:mm').format(time),
+                maxLines: 1,
+                textAlign: TextAlign.right,
+                style: GoogleFonts.dmSerifDisplay(
+                  fontSize: 26,
+                  height: 1,
+                  fontWeight: FontWeight.w400,
+                  color: foundation.textPrimary,
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 2),

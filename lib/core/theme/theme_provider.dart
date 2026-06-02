@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pebble_routines/data/repositories/theme_repository.dart';
-import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
+import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'colors.dart';
 
 /// Clean theme state class - just color theme selection
@@ -94,9 +94,13 @@ final currentColorThemeProvider = Provider<ThemeId>((ref) {
 });
 
 final availableThemesProvider = Provider<List<ThemeMetadata>>((ref) {
-  final currentTier = ref.watch(subscriptionProvider);
+  final canUsePremiumThemes = ref
+      .watch(premiumFeaturePolicyProvider)
+      .canUsePremiumThemes;
   final repository = ref.watch(themeRepositoryProvider);
-  return repository.getAvailableThemes(currentTier);
+  return repository.getAvailableThemes(
+    canUsePremiumThemes: canUsePremiumThemes,
+  );
 });
 
 final mainPickerThemesProvider =

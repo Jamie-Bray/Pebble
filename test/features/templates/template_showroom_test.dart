@@ -13,6 +13,7 @@ import 'package:pebble_routines/features/onboarding/ui/onboarding_screen.dart';
 import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
+import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
 import 'package:pebble_routines/features/templates/data/models/template.dart';
 import 'package:pebble_routines/features/templates/domain/usecases/use_template_usecase.dart';
@@ -20,6 +21,8 @@ import 'package:pebble_routines/features/templates/ui/template_detail_screen.dar
 import 'package:pebble_routines/features/templates/ui/templates_gallery_screen.dart';
 import 'package:pebble_routines/features/templates/ui/templates_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../support/premium_policy_test_utils.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -164,7 +167,9 @@ void main() {
 
       expect(find.text('Templates'), findsOneWidget);
       expect(
-        find.text('Ready-made checklists for routines you repeat.'),
+        find.text(
+          'Add a ready-made checklist, then personalise the steps any way you want.',
+        ),
         findsOneWidget,
       );
       expect(find.text('LEAVING & LOCKING UP'), findsOneWidget);
@@ -172,7 +177,8 @@ void main() {
       expect(find.text('TRAVEL & HANDOVERS'), findsOneWidget);
       expect(find.text('The Everyday Departure'), findsOneWidget);
       expect(find.text('5 checks'), findsNothing);
-      expect(find.text('5'), findsNWidgets(3));
+      expect(find.text('5 steps'), findsNWidgets(3));
+      expect(find.text('1 photo evidence required'), findsOneWidget);
       expect(find.text('Featured'), findsNothing);
       expect(find.textContaining('Search'), findsNothing);
       expect(find.textContaining('Preview first'), findsNothing);
@@ -390,6 +396,9 @@ void main() {
               (ref) => Stream<List<Routine>>.value(const <Routine>[]),
             ),
             subscriptionProvider.overrideWithValue(UserTier.personalPremium),
+            premiumFeaturePolicyProvider.overrideWithValue(
+              premiumFeaturePolicyForTier(UserTier.personalPremium),
+            ),
           ],
           child: MaterialApp.router(
             theme: AppTheme.fromId(ThemeId.amberResin),
@@ -454,6 +463,9 @@ void main() {
               (ref) => Stream<List<Routine>>.value(const <Routine>[]),
             ),
             subscriptionProvider.overrideWithValue(UserTier.personalPremium),
+            premiumFeaturePolicyProvider.overrideWithValue(
+              premiumFeaturePolicyForTier(UserTier.personalPremium),
+            ),
           ],
           child: MaterialApp.router(
             theme: AppTheme.fromId(ThemeId.amberResin),
@@ -463,7 +475,7 @@ void main() {
       );
 
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Use this template'));
+      await tester.tap(find.text('Add this template'));
       await tester.pumpAndSettle();
 
       expect(prefs.getBool('has_completed_onboarding'), isTrue);
@@ -512,6 +524,9 @@ void main() {
               (ref) => Stream<List<Routine>>.value(const <Routine>[]),
             ),
             subscriptionProvider.overrideWithValue(UserTier.personalPremium),
+            premiumFeaturePolicyProvider.overrideWithValue(
+              premiumFeaturePolicyForTier(UserTier.personalPremium),
+            ),
           ],
           child: MaterialApp.router(
             theme: ThemeData(
@@ -535,14 +550,16 @@ void main() {
       expect(find.text('Good for'), findsNothing);
       expect(find.textContaining('Preview first'), findsNothing);
       expect(find.text('5 steps'), findsOneWidget);
-      expect(find.text('Use this template'), findsOneWidget);
+      expect(find.text('Add this template'), findsOneWidget);
       expect(
-        find.text('You can edit any step to make it yours'),
+        find.text(
+          'Add it to your routines first, then personalise the steps any way you want.',
+        ),
         findsOneWidget,
       );
       expect(find.text('Check the hob and oven are off.'), findsOneWidget);
 
-      await tester.tap(find.text('Use this template'));
+      await tester.tap(find.text('Add this template'));
       await tester.pumpAndSettle();
 
       expect(routineRepository.savedRoutines, hasLength(1));
@@ -612,6 +629,15 @@ class _FakeRoutineRepository implements RoutineRepository {
 
   @override
   Future<void> deleteRoutine(int id) async {}
+
+  @override
+  Future<void> deleteRoutineReminder(RoutineReminder reminder) async {}
+
+  @override
+  Future<void> deleteRoutineRemindersForRoutine(int routineId) async {}
+
+  @override
+  Future<void> deleteAllRoutineReminders() async {}
 
   @override
   Future<Routine> duplicateRoutine(int id) {
@@ -689,7 +715,7 @@ const List<Template> _sampleTemplates = <Template>[
       'Check wallet, phone, and charger are packed.',
       'Make boarding pass or booking details easy to reach.',
       'Zip and count your bags.',
-      'Lock the door and put keys in their travel place.',
+      'Lock the door and put keys in their travel place. (Take a photo of the room)',
     ],
   ),
   Template(

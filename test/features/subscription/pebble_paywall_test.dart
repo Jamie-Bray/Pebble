@@ -12,52 +12,63 @@ void main() {
   testWidgets('premium page renders the annual-first value screen', (
     tester,
   ) async {
-    await _pumpPaywall(tester, entrySource: PremiumEntrySource.premiumTheme);
+    await _pumpPaywall(
+      tester,
+      entrySource: PremiumEntrySource.premiumTheme,
+      overrides: [
+        purchaseRepositoryProvider.overrideWith(
+          (ref) => _PlanPurchaseRepository.both(),
+        ),
+      ],
+    );
 
     expect(find.byType(PageView), findsNothing);
     expect(find.text('Pebble Premium'), findsOneWidget);
-    expect(find.text('Make Pebble feel like yours'), findsOneWidget);
+    expect(find.text('Build more.\nWorry less.'), findsOneWidget);
 
-    await _scrollUntilVisible(tester, find.text('PEBBLE PREMIUM INCLUDES'));
-    expect(find.text('PEBBLE PREMIUM INCLUDES'), findsOneWidget);
+    await _scrollUntilVisible(tester, find.text('WHAT PREMIUM GIVES YOU'));
+    expect(find.text('WHAT PREMIUM GIVES YOU'), findsOneWidget);
 
-    await _scrollUntilVisible(tester, find.text('Unlimited routines & steps'));
-    expect(find.text('Unlimited routines & steps'), findsOneWidget);
-    expect(
-      find.text('Free: 2 routines / 10 steps -> Premium: unlimited'),
-      findsOneWidget,
+    await _scrollUntilVisible(
+      tester,
+      find.text('Unlimited routines and steps'),
     );
+    expect(find.text('Unlimited routines and steps'), findsOneWidget);
+    expect(find.text('2 routines, 10 steps'), findsOneWidget);
+    expect(find.text('Unlimited'), findsOneWidget);
 
-    await _scrollUntilVisible(tester, find.text('Backup & longer history'));
-    expect(find.text('Backup & longer history'), findsOneWidget);
-    expect(find.text('Free: 48 hrs -> Premium: 21 days'), findsOneWidget);
+    await _scrollUntilVisible(tester, find.text('Longer history and backup'));
+    expect(find.text('Longer history and backup'), findsOneWidget);
+    expect(find.text('48 hours'), findsOneWidget);
+    expect(find.text('21 days + backup'), findsOneWidget);
 
-    await _scrollUntilVisible(tester, find.text('Voice tips on steps'));
-    expect(find.text('Voice tips on steps'), findsOneWidget);
+    await _scrollUntilVisible(tester, find.text('More photos per step'));
+    expect(find.text('More photos per step'), findsOneWidget);
+    expect(find.text('1 photo'), findsOneWidget);
+    expect(find.text('Up to 4'), findsOneWidget);
 
-    await _scrollUntilVisible(tester, find.text('More proof photos'));
-    expect(find.text('More proof photos'), findsOneWidget);
-    expect(find.text('Free: 1 photo -> Premium: 4 per step'), findsOneWidget);
+    await _scrollUntilVisible(tester, find.text('Voice tips'));
+    expect(find.text('Voice tips'), findsOneWidget);
+    expect(find.text('Not available'), findsOneWidget);
+    expect(find.text('Included'), findsOneWidget);
 
-    await _scrollUntilVisible(tester, find.text('Shared reminders'));
-    expect(find.text('Shared reminders'), findsOneWidget);
+    expect(find.text('Private by default'), findsOneWidget);
 
-    await _scrollUntilVisible(tester, find.text('Premium themes & style'));
-    expect(find.text('Premium themes & style'), findsOneWidget);
-
-    await _scrollUntilVisible(tester, find.text('MONTHLY'));
-    expect(find.text('MONTHLY'), findsOneWidget);
+    expect(find.text('Monthly'), findsOneWidget);
+    expect(find.text('Annual'), findsOneWidget);
     expect(find.text('\$0.99'), findsWidgets);
     expect(find.text('\$6.99'), findsWidgets);
 
-    expect(find.text('Start yearly - \$6.99'), findsOneWidget);
+    expect(find.text('Continue with \$6.99/year'), findsOneWidget);
     expect(find.textContaining('7-day free trial'), findsNothing);
 
+    expect(find.text('Restore purchase'), findsOneWidget);
+    expect(find.text('|'), findsNWidgets(2));
+    expect(find.text('\u00c2\u00b7'), findsNothing);
     expect(
-      find.text('Restore purchase \u00B7 I already have Premium'),
+      find.textContaining('Cancel anytime in Google Play'),
       findsOneWidget,
     );
-    expect(find.textContaining('camera roll is never scanned'), findsWidgets);
   });
 
   testWidgets('premium CTA shows the monthly Google Play plan', (tester) async {
@@ -70,9 +81,7 @@ void main() {
       ],
     );
 
-    expect(find.text('Start monthly - \$0.99'), findsOneWidget);
-    final button = tester.widget<FilledButton>(find.byType(FilledButton).first);
-    expect(button.onPressed, isNotNull);
+    expect(find.text('Continue with \$0.99/month'), findsOneWidget);
   });
 
   testWidgets('premium CTA shows the yearly Google Play plan', (tester) async {
@@ -85,9 +94,7 @@ void main() {
       ],
     );
 
-    expect(find.text('Start yearly - \$6.99'), findsOneWidget);
-    final button = tester.widget<FilledButton>(find.byType(FilledButton).first);
-    expect(button.onPressed, isNotNull);
+    expect(find.text('Continue with \$6.99/year'), findsOneWidget);
   });
 
   testWidgets('premium defaults to yearly when both base plans are available', (
@@ -102,9 +109,7 @@ void main() {
       ],
     );
 
-    expect(find.text('Start yearly - \$6.99'), findsOneWidget);
-    final button = tester.widget<FilledButton>(find.byType(FilledButton).first);
-    expect(button.onPressed, isNotNull);
+    expect(find.text('Continue with \$6.99/year'), findsOneWidget);
   });
 
   testWidgets('premium CTA disables when selected plan has no offer token', (
@@ -128,8 +133,7 @@ void main() {
       find.textContaining('monthly base plan offer token'),
       findsOneWidget,
     );
-    final button = tester.widget<FilledButton>(find.byType(FilledButton).first);
-    expect(button.onPressed, isNull);
+    expect(find.text('Continue with \$0.99/month'), findsOneWidget);
   });
 
   testWidgets('premium CTA disables when store products are unavailable', (
@@ -147,8 +151,7 @@ void main() {
     await _scrollUntilVisible(tester, find.text('Store is not ready yet.'));
 
     expect(find.text('Store is not ready yet.'), findsOneWidget);
-    final button = tester.widget<FilledButton>(find.byType(FilledButton).first);
-    expect(button.onPressed, isNull);
+    expect(find.text('Loading store price'), findsOneWidget);
   });
 
   testWidgets('purchase cancellation quietly returns to the paywall', (
@@ -171,13 +174,58 @@ void main() {
       ],
     );
 
-    final startButton = find.text('Start yearly - \$6.99');
+    final startButton = find.text('Continue with \$6.99/year');
     await _scrollUntilVisible(tester, startButton);
     await tester.tap(startButton);
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.byType(SnackBar), findsNothing);
     expect(find.text('Pebble Premium'), findsOneWidget);
+  });
+
+  testWidgets('purchase success while signed out explains local Premium', (
+    tester,
+  ) async {
+    await _pumpPaywall(
+      tester,
+      overrides: [
+        authSessionProvider.overrideWithValue(
+          const AuthSessionSummary(
+            isSignedIn: false,
+            userId: null,
+            email: null,
+            provider: null,
+          ),
+        ),
+        purchaseRepositoryProvider.overrideWith(
+          (ref) => _PlanPurchaseRepository.both(),
+        ),
+      ],
+    );
+
+    final startButton = find.text('Continue with \$6.99/year');
+    await _scrollUntilVisible(tester, startButton);
+    await tester.tap(startButton);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('Premium activated'), findsOneWidget);
+    expect(find.textContaining('One last thing'), findsOneWidget);
+    expect(
+      find.text(
+        'Sign in to back up your history, routines, and photos, and keep them ready across devices. Totally optional; Premium works right now without it.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('21 days'), findsOneWidget);
+    expect(find.text('21d'), findsNothing);
+    expect(find.text('21D'), findsNothing);
+    expect(find.text('Cloud'), findsOneWidget);
+    expect(find.text('Recovery'), findsOneWidget);
+    expect(find.text('Sign in to back up'), findsOneWidget);
+    expect(find.text('Continue without sign-in'), findsOneWidget);
+    expect(find.textContaining('PlatformException'), findsNothing);
   });
 
   testWidgets('premium page dynamically displays App Store references on iOS', (

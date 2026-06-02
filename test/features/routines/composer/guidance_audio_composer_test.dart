@@ -9,8 +9,10 @@ import 'package:pebble_routines/features/routines/composer/data/routine_composer
 
 import 'package:pebble_routines/features/routines/composer/ui/routine_composer_screen.dart';
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
+import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
 
+import '../../../support/premium_policy_test_utils.dart';
 import 'fake_routine_composer_draft_repository.dart';
 
 void main() {
@@ -43,6 +45,9 @@ void main() {
             FakeRoutineComposerDraftRepository(),
           ),
           subscriptionProvider.overrideWithValue(tier),
+          premiumFeaturePolicyProvider.overrideWithValue(
+            premiumFeaturePolicyForTier(tier),
+          ),
           guidanceAudioStorageProvider.overrideWithValue(
             const _FakeGuidanceAudioStorage(),
           ),

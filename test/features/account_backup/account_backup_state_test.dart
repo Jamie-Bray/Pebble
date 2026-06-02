@@ -23,6 +23,7 @@ import 'package:pebble_routines/features/subscription/data/fair_use_policy.dart'
 import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
 import 'package:pebble_routines/features/subscription/data/models/subscription_account_state.dart';
 import 'package:pebble_routines/features/subscription/data/purchase_repository.dart';
+import 'package:pebble_routines/features/subscription/providers/cloud_backup_consent_provider.dart';
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
 import 'package:pebble_routines/features/subscription/providers/cloud_access_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
@@ -181,6 +182,22 @@ class _AccountTestPurchaseRepository extends ChangeNotifier
   Future<void> logOut() async {}
 }
 
+class _UnavailableAccountTestPurchaseRepository
+    extends _AccountTestPurchaseRepository {
+  @override
+  bool get isPurchaseAvailable => false;
+
+  @override
+  bool get billingAvailable => false;
+
+  @override
+  List<PremiumProduct> get personalPremiumProducts =>
+      getPlaceholderPremiumCatalog(isPurchasable: false);
+
+  @override
+  String? get unavailableReason => 'Store is not ready yet.';
+}
+
 _UiHarness _buildUiContainer({
   required AuthSessionSummary auth,
   required EntitlementState entitlement,
@@ -205,6 +222,14 @@ _UiHarness _buildUiContainer({
         authSessionProvider.overrideWithValue(auth),
         entitlementStateProvider.overrideWithValue(entitlement),
         personalCloudAccessProvider.overrideWithValue(cloudAccess),
+        cloudBackupConsentStateProvider.overrideWithValue(
+          const CloudBackupConsentState(
+            isLoading: false,
+            record: null,
+            lastError: null,
+            isRemoteConfirmed: false,
+          ),
+        ),
         subscriptionAccountControllerProvider.overrideWith(
           (ref) => _TestSubscriptionAccountController(database, account),
         ),
@@ -337,6 +362,49 @@ void main() {
       expect(presentation.secondaryAction, AccountStatusAction.restorePurchase);
     });
 
+    test(
+      'signed-out store unavailable state explains missing Premium',
+      () async {
+        final harness = _buildUiContainer(
+          auth: const AuthSessionSummary(
+            isSignedIn: false,
+            userId: null,
+            email: null,
+            provider: null,
+          ),
+          entitlement: const EntitlementState(
+            personalTier: UserTier.personalFree,
+            source: EntitlementSource.localCache,
+            lastCheckedAt: null,
+            isRefreshing: false,
+            lastError: null,
+          ),
+          cloudAccess: const PersonalCloudAccessState(
+            status: PersonalCloudAccessStatus.offFree,
+            label: 'Cloud backup is off',
+            detail: 'Local only.',
+          ),
+          account: const SubscriptionAccountState.initial(),
+          pendingCount: 0,
+          purchaseRepository: _UnavailableAccountTestPurchaseRepository(),
+        );
+        addTearDown(() async {
+          harness.container.dispose();
+          await harness.database.close();
+        });
+        await _primeUiState(harness.container);
+
+        final presentation = harness.container.read(
+          accountStatusPresentationProvider,
+        );
+
+        expect(presentation.title, 'Premium isn\'t available yet');
+        expect(presentation.body, 'Store is not ready yet.');
+        expect(presentation.primaryAction, AccountStatusAction.none);
+        expect(presentation.secondaryAction, AccountStatusAction.none);
+      },
+    );
+
     test('account card shows paid signed-out plan facts', () async {
       final harness = _buildUiContainer(
         auth: const AuthSessionSummary(
@@ -384,7 +452,7 @@ void main() {
       );
 
       expect(presentation.planLabel, 'Premium active');
-      expect(presentation.title, 'Not signed in yet');
+      expect(presentation.title, 'Premium is on this device');
       expect(_chipValues(presentation), ['21d', 'Unlimited', 'Unlimited']);
       expect(presentation.primaryAction, AccountStatusAction.signIn);
     });

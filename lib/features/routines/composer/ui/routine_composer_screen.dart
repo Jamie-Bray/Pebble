@@ -17,8 +17,7 @@ import 'package:pebble_routines/features/routines/composer/providers/routine_com
 import 'package:pebble_routines/features/routines/composer/ui/routine_composer_step_row.dart';
 import 'package:pebble_routines/features/routines/shared/ui/guidance_audio_play_button.dart';
 import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
-import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
-import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
+import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 import 'package:pebble_routines/features/subscription/ui/subscription_guard.dart';
 import 'package:record/record.dart';
@@ -753,7 +752,9 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
           builder: (context, setModalState) {
             _guidanceAudioSheetSetState = setModalState;
             final latestStep = _latestStepById(step.id) ?? step;
-            final canUseGuidanceAudio = !ref.read(subscriptionProvider).isFree;
+            final canUseGuidanceAudio = ref
+                .read(premiumFeaturePolicyProvider)
+                .canUseGuidanceAudio;
             final progress =
                 (_guidanceRecordingElapsed.inMilliseconds /
                         GuidanceAudioStorage.maxDuration.inMilliseconds)
@@ -802,7 +803,7 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
   }
 
   void _handleGuidanceAudioPressStart(RoutineComposerStepDraft step) {
-    if (ref.read(subscriptionProvider).isFree) {
+    if (!ref.read(premiumFeaturePolicyProvider).canUseGuidanceAudio) {
       GoRouter.of(
         context,
       ).push(premiumRoute(source: PremiumEntrySource.guidanceAudio));

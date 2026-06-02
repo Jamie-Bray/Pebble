@@ -3,8 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
-import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
+import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 
 class SubscriptionGuard {
@@ -14,13 +13,13 @@ class SubscriptionGuard {
     int currentRoutineCount, {
     int? stepCount,
   }) {
-    final currentTier = ref.read(subscriptionProvider);
-    final routineLimit = currentTier.maxRoutineCount;
+    final policy = ref.read(premiumFeaturePolicyProvider);
+    final routineLimit = policy.canUseUnlimitedRoutines ? null : 2;
     if (routineLimit != null && currentRoutineCount >= routineLimit) {
       _showRoutineLimitExplanation(context, routineLimit);
       return false;
     }
-    final stepLimit = currentTier.maxStepCount;
+    final stepLimit = policy.canUseUnlimitedRoutines ? null : 10;
     if (stepCount != null && stepLimit != null && stepCount > stepLimit) {
       _showStepLimitExplanation(context, stepLimit);
       return false;
@@ -33,8 +32,8 @@ class SubscriptionGuard {
     WidgetRef ref,
     int currentStepCount,
   ) {
-    final currentTier = ref.read(subscriptionProvider);
-    final limit = currentTier.maxStepCount;
+    final policy = ref.read(premiumFeaturePolicyProvider);
+    final limit = policy.canUseUnlimitedRoutines ? null : 10;
     if (limit != null && currentStepCount >= limit) {
       _showStepLimitExplanation(context, limit);
       return false;

@@ -8,7 +8,10 @@ import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/features/routines/composer/data/routine_composer_draft_repository.dart';
 
 import 'package:pebble_routines/features/routines/composer/ui/routine_composer_screen.dart';
+import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
+import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 
+import '../../../support/premium_policy_test_utils.dart';
 import 'fake_routine_composer_draft_repository.dart';
 
 void main() {
@@ -31,6 +34,16 @@ void main() {
         (widget) => widget is TextField && widget.controller?.text == value,
         skipOffstage: skipOffstage,
       );
+  List<Override> composerOverrides(
+    FakeRoutineComposerDraftRepository repository,
+  ) {
+    return [
+      routineComposerDraftRepositoryProvider.overrideWithValue(repository),
+      premiumFeaturePolicyProvider.overrideWithValue(
+        premiumFeaturePolicyForTier(UserTier.personalPremium),
+      ),
+    ];
+  }
 
   testWidgets('blank routine auto-focuses the first step on open', (
     tester,
@@ -39,9 +52,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          routineComposerDraftRepositoryProvider.overrideWithValue(repository),
-        ],
+        overrides: composerOverrides(repository),
         child: MaterialApp(
           theme: ThemeData(
             colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
@@ -67,9 +78,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          routineComposerDraftRepositoryProvider.overrideWithValue(repository),
-        ],
+        overrides: composerOverrides(repository),
         child: MaterialApp(
           theme: ThemeData(
             colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
@@ -106,11 +115,7 @@ void main() {
 
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            routineComposerDraftRepositoryProvider.overrideWithValue(
-              repository,
-            ),
-          ],
+          overrides: composerOverrides(repository),
           child: MaterialApp(
             theme: ThemeData(
               colorScheme: ColorScheme.fromSeed(seedColor: Colors.orange),
@@ -140,9 +145,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          routineComposerDraftRepositoryProvider.overrideWithValue(repository),
-        ],
+        overrides: composerOverrides(repository),
         child: MaterialApp(
           theme: ThemeData(
             colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
@@ -180,9 +183,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          routineComposerDraftRepositoryProvider.overrideWithValue(repository),
-        ],
+        overrides: composerOverrides(repository),
         child: MaterialApp(
           theme: ThemeData(
             colorScheme: ColorScheme.fromSeed(seedColor: Colors.blueGrey),
@@ -227,9 +228,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          routineComposerDraftRepositoryProvider.overrideWithValue(repository),
-        ],
+        overrides: composerOverrides(repository),
         child: MaterialApp(
           theme: ThemeData(
             colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
@@ -272,9 +271,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          routineComposerDraftRepositoryProvider.overrideWithValue(repository),
-        ],
+        overrides: composerOverrides(repository),
         child: MaterialApp(
           theme: ThemeData(
             colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
@@ -315,9 +312,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          routineComposerDraftRepositoryProvider.overrideWithValue(repository),
-        ],
+        overrides: composerOverrides(repository),
         child: MaterialApp(
           theme: ThemeData(
             colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
@@ -354,9 +349,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          routineComposerDraftRepositoryProvider.overrideWithValue(repository),
-        ],
+        overrides: composerOverrides(repository),
         child: MaterialApp(
           theme: ThemeData(
             colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),

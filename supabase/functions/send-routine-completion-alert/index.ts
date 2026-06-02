@@ -95,12 +95,24 @@ serve(async (req) => {
   }
 
   const token = createToken();
+  const now = Date.now();
+
+  // Clean up older tokens for this contact to prevent accumulation.
+  // We delete tokens created more than 14 days ago. This ensures the recipient
+  // always has a working link in recent emails, without unbounded token growth.
+  const cleanupThreshold = new Date(now - 14 * 24 * 60 * 60 * 1000).toISOString();
+  await serviceClient
+    .from('shared_alert_invites')
+    .delete()
+    .eq('contact_id', contact.id)
+    .lt('created_at', cleanupThreshold);
+
   await serviceClient
     .from('shared_alert_invites')
     .insert({
       contact_id: contact.id,
       token_hash: await sha256Hex(token),
-      expires_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+      expires_at: new Date(now + 90 * 24 * 60 * 60 * 1000).toISOString(),
     });
 
   const emailResult = await sendCompletionEmail({

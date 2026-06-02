@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
@@ -164,7 +165,7 @@ class AuthController extends StateNotifier<AuthState> {
 
   Future<void> signOut() async {
     await _repository.signOut();
-    await _ref.read(purchaseRepositoryProvider).logOut();
+    await _logOutPurchaseSession('sign-out');
     await _ref
         .read(subscriptionAccountControllerProvider.notifier)
         .signOutIdentity();
@@ -183,16 +184,31 @@ class AuthController extends StateNotifier<AuthState> {
     state = state.copyWith(status: AuthStatus.authenticating, clearError: true);
     try {
       await _repository.deleteAccount();
+      await _logOutPurchaseSession('account deletion');
       await _ref
           .read(subscriptionAccountControllerProvider.notifier)
-          .resetAfterAccountDeletion();
+          .resetAfterAccountDeletion(preserveStoreEntitlement: true);
       state = const AuthState.initial();
+      try {
+        await _ref.read(purchaseRepositoryProvider).syncPurchasesSilently();
+      } catch (_) {
+        // Account deletion succeeded. Purchase refresh can be retried from
+        // account restore without bringing back the deleted identity.
+      }
     } catch (error) {
       state = state.copyWith(
         status: hadActiveUser ? AuthStatus.signedIn : AuthStatus.signedOut,
         errorMessage: error.toString(),
       );
       rethrow;
+    }
+  }
+
+  Future<void> _logOutPurchaseSession(String context) async {
+    try {
+      await _ref.read(purchaseRepositoryProvider).logOut();
+    } catch (error) {
+      debugPrint('Failed to clear RevenueCat session after $context: $error');
     }
   }
 
@@ -211,7 +227,7 @@ class AuthController extends StateNotifier<AuthState> {
             authProvider: identity.provider,
           );
       state = state.copyWith(
-        status: AuthStatus.signedIn,
+        status: AuthStatus.authenticating,
         activeUserId: identity.userId,
         activeEmail: identity.email,
         activeProvider: identity.provider,

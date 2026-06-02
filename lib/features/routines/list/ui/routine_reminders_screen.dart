@@ -1,13 +1,16 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/notifications/notification_service.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/features/routines/data/shared_reminder_preferences_repository.dart';
-import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
-import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
+import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
+import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
@@ -70,7 +73,8 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
 
     SharedReminderContact? sharedContact;
     String? sharedContactError;
-    if (widget.routine != null) {
+    final premiumPolicy = ref.read(premiumFeaturePolicyProvider);
+    if (widget.routine != null && premiumPolicy.canUseSharedAlerts) {
       try {
         sharedContact = await reminderRepo.getForRoutine(
           routineId: widget.routine!.id,
@@ -97,6 +101,16 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<PremiumFeaturePolicy>(premiumFeaturePolicyProvider, (
+      previous,
+      next,
+    ) {
+      if (widget.routine == null) return;
+      if (next.canUseSharedAlerts && previous?.canUseSharedAlerts != true) {
+        _loadData();
+      }
+    });
+
     final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -178,117 +192,818 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
-        _buildSectionTitle(cs, 'Reminders', LucideIcons.bell),
-        const SizedBox(height: 12),
-        if (_allReminders.isEmpty)
-          _buildInlineEmptyState(
-            cs,
-            'No reminders set for this routine.',
-            actionLabel: 'Add reminder',
-            onAction: _openAddReminderFlow,
-          )
-        else
-          ..._allReminders.map((r) => _buildReminderCard(r, cs)),
-
+        _buildRoutineReminderExperience(cs),
         const SizedBox(height: 100),
       ],
     );
   }
 
-  Widget _buildSharedRemindersCard(ColorScheme cs) {
-    final isLocked = !ref.watch(subscriptionProvider).hasSharedReminders;
-    final contact = _sharedContact;
+  Widget _buildRoutineReminderExperience(ColorScheme cs) {
+    final reminders = _allReminders;
+    final hasReminders = reminders.isNotEmpty;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildRoutineReminderHero(cs, hasReminders: hasReminders),
+        const SizedBox(height: 30),
+        if (!hasReminders) ...[
+          _buildReminderFeatureList(cs),
+          const SizedBox(height: 38),
+          _buildAddReminderGhostCard(cs),
+        ] else ...[
+          _buildReminderOverviewStrip(cs, reminders),
+          const SizedBox(height: 24),
+          _buildSectionTitle(cs, 'Scheduled Nudges', LucideIcons.calendarClock),
+          const SizedBox(height: 12),
+          ...reminders.map(
+            (reminder) => _buildRoutineReminderCard(reminder, cs),
+          ),
+          const SizedBox(height: 14),
+          _buildAddReminderGhostCard(cs, compact: true),
+        ],
+      ],
+    );
+  }
 
+  Widget _buildRoutineReminderHero(
+    ColorScheme cs, {
+    required bool hasReminders,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: cs.primary.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Icon(LucideIcons.bell, size: 28, color: cs.primary),
+        ),
+        const SizedBox(height: 20),
+        Text(
+          hasReminders ? 'Reminder rhythm.' : 'Stay on track.',
+          style: TextStyle(
+            fontSize: 28,
+            height: 1.15,
+            fontWeight: FontWeight.w800,
+            color: cs.onSurface,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          hasReminders
+              ? 'Your local prompts for "${widget.routine?.title ?? 'this routine'}" are ready to keep the habit visible.'
+              : 'Set up local, secure nudges to ensure your essential routines never slip your mind.',
+          style: TextStyle(
+            fontSize: 15,
+            height: 1.5,
+            color: cs.onSurface.withValues(alpha: 0.66),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReminderFeatureList(ColorScheme cs) {
+    return Column(
+      children: [
+        _buildReminderFeatureItem(
+          cs,
+          icon: LucideIcons.clock,
+          title: 'Pinpoint timing',
+          body: 'Choose the exact hour and minute you want to be prompted.',
+        ),
+        const SizedBox(height: 18),
+        _buildReminderFeatureItem(
+          cs,
+          icon: LucideIcons.calendarDays,
+          title: 'Flexible scheduling',
+          body:
+              'Repeat your reminders daily, on weekdays, or select specific days of the week.',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReminderFeatureItem(
+    ColorScheme cs, {
+    required IconData icon,
+    required String title,
+    required String body,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 24,
+          height: 24,
+          child: Icon(icon, size: 22, color: cs.primary),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.25,
+                  fontWeight: FontWeight.w800,
+                  color: cs.onSurface,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                body,
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.45,
+                  color: cs.onSurface.withValues(alpha: 0.64),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReminderOverviewStrip(
+    ColorScheme cs,
+    List<RoutineReminder> reminders,
+  ) {
+    final activeCount = reminders
+        .where((reminder) => reminder.isEnabled)
+        .length;
+    final inactiveCount = reminders.length - activeCount;
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: cs.outline.withValues(alpha: 0.1)),
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.12)),
       ),
-      child: _buildTrustedContactCardContent(
-        cs,
-        contact: contact,
-        isLocked: isLocked,
+      child: Row(
+        children: [
+          _buildReminderStat(cs, value: '$activeCount', label: 'Active'),
+          Container(
+            width: 1,
+            height: 38,
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            color: cs.outline.withValues(alpha: 0.12),
+          ),
+          _buildReminderStat(cs, value: '$inactiveCount', label: 'Paused'),
+          const Spacer(),
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: cs.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(LucideIcons.clockCheck, size: 20, color: cs.primary),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildTrustedContactCardContent(
+  Widget _buildReminderStat(
     ColorScheme cs, {
-    required SharedReminderContact? contact,
-    required bool isLocked,
+    required String value,
+    required String label,
   }) {
-    if (isLocked) {
-      return Row(
-        children: [
-          Icon(LucideIcons.lock, color: cs.primary.withValues(alpha: 0.48)),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Text(
-              'Upgrade to add trusted contacts.',
-              style: TextStyle(
-                color: cs.onSurface.withValues(alpha: 0.62),
-                fontWeight: FontWeight.w600,
-              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 22,
+            height: 1,
+            fontWeight: FontWeight.w900,
+            color: cs.onSurface,
+          ),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: cs.onSurface.withValues(alpha: 0.52),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAddReminderGhostCard(ColorScheme cs, {bool compact = false}) {
+    return CustomPaint(
+      painter: _DashedRRectPainter(
+        color: cs.outline.withValues(alpha: 0.32),
+        radius: 16,
+        strokeWidth: 2,
+      ),
+      child: Material(
+        color: cs.onSurface.withValues(alpha: 0.02),
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: _openAddReminderFlow,
+          child: Padding(
+            padding: EdgeInsets.all(compact ? 16 : 20),
+            child: Row(
+              children: [
+                Container(
+                  width: compact ? 36 : 40,
+                  height: compact ? 36 : 40,
+                  decoration: BoxDecoration(
+                    color: cs.onSurface.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    LucideIcons.plus,
+                    size: compact ? 18 : 20,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        compact
+                            ? 'Add another reminder'
+                            : 'Add your first reminder',
+                        style: TextStyle(
+                          fontSize: 15,
+                          height: 1.25,
+                          fontWeight: FontWeight.w800,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Tap to schedule',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: cs.onSurface.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
-      );
-    }
-
-    if (contact == null) {
-      return InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: _isSharedContactSaving ? null : _showTrustedContactSheet,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildContactCardHeading(
-              cs,
-              icon: LucideIcons.mailPlus,
-              title: 'Add trusted contact',
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Email someone when this routine is completed.',
-              style: TextStyle(
-                fontSize: 15,
-                height: 1.45,
-                color: cs.onSurface.withValues(alpha: 0.72),
-              ),
-            ),
-            const SizedBox(height: 18),
-            _buildFlowSteps(cs),
-            if (_sharedContactError != null) ...[
-              const SizedBox(height: 14),
-              _buildInlineMessage(cs, _sharedContactError!, isError: true),
-            ],
-          ],
         ),
-      );
-    }
+      ),
+    );
+  }
+
+  Widget _buildRoutineReminderCard(RoutineReminder reminder, ColorScheme cs) {
+    final isEnabled = reminder.isEnabled;
+    final foreground = isEnabled
+        ? cs.onSurface
+        : cs.onSurface.withValues(alpha: 0.5);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(
+          alpha: isEnabled ? 0.52 : 0.26,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isEnabled
+              ? cs.primary.withValues(alpha: 0.24)
+              : cs.outline.withValues(alpha: 0.12),
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => _editReminder(reminder),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: isEnabled
+                        ? cs.primary.withValues(alpha: 0.12)
+                        : cs.onSurface.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(
+                    isEnabled ? LucideIcons.bell : LucideIcons.bellOff,
+                    size: 19,
+                    color: isEnabled
+                        ? cs.primary
+                        : cs.onSurface.withValues(alpha: 0.42),
+                  ),
+                ),
+                const SizedBox(width: 13),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        reminder.time,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 17,
+                          height: 1.12,
+                          fontWeight: FontWeight.w900,
+                          color: foreground,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${_weekdayLabel(reminder.dayOfWeek)} · ${isEnabled ? 'On' : 'Paused'}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: isEnabled
+                              ? cs.primary
+                              : cs.onSurface.withValues(alpha: 0.42),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Delete reminder',
+                  icon: Icon(LucideIcons.trash2, color: cs.error, size: 18),
+                  onPressed: () => _deleteReminder(reminder),
+                ),
+                Switch(
+                  value: isEnabled,
+                  onChanged: (enabled) => _toggleReminder(reminder, enabled),
+                  activeThumbColor: cs.primary,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSharedRemindersCard(ColorScheme cs) {
+    final premiumPolicy = ref.watch(premiumFeaturePolicyProvider);
+    final isLocked = !premiumPolicy.canUseSharedAlerts;
+    final contact = _sharedContact;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildContactStateHeader(cs, contact),
-        const SizedBox(height: 14),
-        _buildEmailAddressPanel(cs, contact),
-        const SizedBox(height: 14),
-        if (contact.status == SharedReminderContactStatus.accepted) ...[
-          _buildCompletionEmailToggle(cs, contact),
-          const SizedBox(height: 14),
+        _buildTrustedContactHero(cs),
+        const SizedBox(height: 26),
+        if (isLocked) ...[
+          _buildEmailFeatureList(cs),
+          const SizedBox(height: 28),
+          _buildSectionTitle(cs, 'Report Preview', LucideIcons.mailCheck),
+          const SizedBox(height: 12),
+          _buildCompletionEmailPreview(cs, contact: contact),
+          const SizedBox(height: 28),
+          _buildLockedEmailCta(cs, premiumPolicy),
+        ] else if (contact == null) ...[
+          _buildEmailFeatureList(cs),
+          const SizedBox(height: 28),
+          _buildSetupTrustedContactPanel(cs),
+          const SizedBox(height: 28),
+          _buildSectionTitle(cs, 'Report Preview', LucideIcons.mailCheck),
+          const SizedBox(height: 12),
+          _buildCompletionEmailPreview(cs, contact: contact),
+        ] else ...[
+          _buildConfiguredTrustedContactPanel(cs, contact),
+          const SizedBox(height: 28),
+          _buildSectionTitle(cs, 'Report Preview', LucideIcons.mailCheck),
+          const SizedBox(height: 12),
+          _buildCompletionEmailPreview(cs, contact: contact),
         ],
-        _buildInlineMessage(
-          cs,
-          _sharedContactError ??
-              _sharedReminderContactHelper(contact.status, contact),
-          isError: _sharedContactError != null,
-        ),
-        const SizedBox(height: 18),
-        _buildTrustedContactActions(cs, contact),
       ],
+    );
+  }
+
+  Widget _buildTrustedContactHero(ColorScheme cs) {
+    return Align(alignment: Alignment.centerLeft, child: _buildPremiumPill(cs));
+  }
+
+  Widget _buildPremiumPill(ColorScheme cs) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+      decoration: BoxDecoration(
+        color: cs.primary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.24)),
+      ),
+      child: Text(
+        'Premium'.toUpperCase(),
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.6,
+          color: cs.primary,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmailFeatureList(ColorScheme cs) {
+    return Column(
+      children: [
+        _buildEmailFeatureItem(
+          cs,
+          icon: LucideIcons.send,
+          title: 'Effortless reassurance',
+          body:
+              'Automatically send a quick completion note to a partner or colleague, saving you a manual text.',
+        ),
+        const SizedBox(height: 16),
+        _buildEmailFeatureItem(
+          cs,
+          icon: LucideIcons.fileClock,
+          title: 'Personal record',
+          body:
+              'Forward updates to your own inbox to keep a quiet, timestamped log of your consistency.',
+        ),
+        const SizedBox(height: 16),
+        _buildEmailFeatureItem(
+          cs,
+          icon: LucideIcons.shieldCheck,
+          title: 'Private by design',
+          body:
+              'Reports share the final time and step count. Photos and specific checklist details are never included.',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmailFeatureItem(
+    ColorScheme cs, {
+    required IconData icon,
+    required String title,
+    required String body,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 22,
+          height: 22,
+          child: Icon(icon, size: 20, color: cs.primary),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: '$title: ',
+                  style: TextStyle(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                TextSpan(text: body),
+              ],
+            ),
+            style: TextStyle(
+              fontSize: 13.5,
+              height: 1.5,
+              color: cs.onSurface.withValues(alpha: 0.66),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLockedEmailCta(
+    ColorScheme cs,
+    PremiumFeaturePolicy premiumPolicy,
+  ) {
+    final locked = _sharedAlertLockedMessage(premiumPolicy);
+    final actionLabel = locked.actionLabel ?? 'Unlocking soon';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        FilledButton.icon(
+          onPressed: locked.onAction,
+          icon: Icon(
+            actionLabel == 'Sign in'
+                ? LucideIcons.logIn
+                : locked.onAction == null
+                ? LucideIcons.clock
+                : LucideIcons.sparkles,
+            size: 18,
+          ),
+          label: Text(actionLabel),
+          style: FilledButton.styleFrom(
+            minimumSize: const Size.fromHeight(52),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          locked.message,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 11.5,
+            height: 1.4,
+            color: cs.onSurface.withValues(alpha: 0.46),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSetupTrustedContactPanel(ColorScheme cs) {
+    return Material(
+      color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: cs.outline.withValues(alpha: 0.12)),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: _isSharedContactSaving ? null : _showTrustedContactSheet,
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildContactCardHeading(
+                cs,
+                icon: LucideIcons.mailPlus,
+                title: 'Set up a trusted contact',
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Pebble sends an invite first. Completion emails only start after they accept.',
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.45,
+                  color: cs.onSurface.withValues(alpha: 0.68),
+                ),
+              ),
+              const SizedBox(height: 18),
+              _buildFlowSteps(cs),
+              if (_sharedContactError != null) ...[
+                const SizedBox(height: 14),
+                _buildInlineMessage(cs, _sharedContactError!, isError: true),
+              ],
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _isSharedContactSaving
+                      ? null
+                      : _showTrustedContactSheet,
+                  icon: const Icon(LucideIcons.send, size: 17),
+                  label: const Text('Add trusted contact'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(50),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConfiguredTrustedContactPanel(
+    ColorScheme cs,
+    SharedReminderContact contact,
+  ) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildContactStateHeader(cs, contact),
+          const SizedBox(height: 14),
+          _buildEmailAddressPanel(cs, contact),
+          const SizedBox(height: 14),
+          if (contact.status == SharedReminderContactStatus.accepted) ...[
+            _buildCompletionEmailToggle(cs, contact),
+            const SizedBox(height: 14),
+          ],
+          _buildInlineMessage(
+            cs,
+            _sharedContactError ??
+                _sharedReminderContactHelper(contact.status, contact),
+            isError: _sharedContactError != null,
+          ),
+          const SizedBox(height: 18),
+          _buildTrustedContactActions(cs, contact),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompletionEmailPreview(
+    ColorScheme cs, {
+    required SharedReminderContact? contact,
+  }) {
+    final routineTitle = widget.routine?.title.trim();
+    final title = routineTitle == null || routineTitle.isEmpty
+        ? 'Bedtime House Check'
+        : routineTitle;
+    final status = contact == null
+        ? 'Verified & Complete'
+        : contact.canSendCompletionEmail
+        ? 'Email enabled'
+        : _sharedReminderContactStatusLabel(contact.status);
+    final completion = _completionPreviewLine();
+    final sentTo = contact?.recipientEmail;
+
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.2)),
+        boxShadow: [
+          BoxShadow(
+            color: cs.shadow.withValues(alpha: 0.12),
+            blurRadius: 30,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest.withValues(alpha: 0.72),
+              border: Border(
+                bottom: BorderSide(color: cs.outline.withValues(alpha: 0.12)),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: cs.primary,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    LucideIcons.mailCheck,
+                    size: 16,
+                    color: cs.onPrimary,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Pebble Verification',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Log: Routine Complete',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: cs.onSurface.withValues(alpha: 0.62),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  '21:07',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: cs.onSurface.withValues(alpha: 0.42),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                _buildPreviewLogRow(cs, label: 'Routine', value: title),
+                _buildPreviewLogRow(
+                  cs,
+                  label: 'Status',
+                  value: status,
+                  highlight: true,
+                ),
+                _buildPreviewLogRow(
+                  cs,
+                  label: 'Time',
+                  value: '09 May 2026, 21:07',
+                ),
+                _buildPreviewLogRow(
+                  cs,
+                  label: 'Completion',
+                  value: completion,
+                  isLast: sentTo == null || sentTo.isEmpty,
+                ),
+                if (sentTo != null && sentTo.isNotEmpty)
+                  _buildPreviewLogRow(
+                    cs,
+                    label: 'To',
+                    value: sentTo,
+                    isLast: true,
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPreviewLogRow(
+    ColorScheme cs, {
+    required String label,
+    required String value,
+    bool highlight = false,
+    bool isLast = false,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: isLast
+              ? BorderSide.none
+              : BorderSide(color: cs.outline.withValues(alpha: 0.08)),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 88,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: cs.onSurface.withValues(alpha: 0.44),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.25,
+                fontWeight: FontWeight.w700,
+                color: highlight ? cs.primary : cs.onSurface,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1077,6 +1792,30 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
     };
   }
 
+  String _sharedReminderContactStatusLabel(SharedReminderContactStatus status) {
+    return switch (status) {
+      SharedReminderContactStatus.pending => 'Pending invite',
+      SharedReminderContactStatus.accepted => 'Accepted',
+      SharedReminderContactStatus.declined => 'Declined',
+      SharedReminderContactStatus.blocked => 'Blocked',
+      SharedReminderContactStatus.disabled => 'Off',
+    };
+  }
+
+  String _completionPreviewLine() {
+    final stepsJson = widget.routine?.stepsJson;
+    if (stepsJson == null || stepsJson.isEmpty) return '10 of 10 steps';
+    try {
+      final decoded = jsonDecode(stepsJson);
+      if (decoded is List && decoded.isNotEmpty) {
+        return '${decoded.length} of ${decoded.length} steps';
+      }
+    } catch (_) {
+      // Keep the preview resilient if a local draft has malformed step data.
+    }
+    return '10 of 10 steps';
+  }
+
   String _sharedReminderContactHelper(
     SharedReminderContactStatus status,
     SharedReminderContact contact,
@@ -1115,8 +1854,36 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
   }
 
   String _friendlySharedReminderError(Object error) {
-    final message = error.toString().replaceFirst('Exception: ', '').trim();
-    return message.isEmpty ? 'Could not update shared notification.' : message;
+    return friendlySharedReminderErrorMessage(error);
+  }
+
+  _LockedSharedAlertMessage _sharedAlertLockedMessage(
+    PremiumFeaturePolicy policy,
+  ) {
+    if (!policy.hasActiveLocalPremium) {
+      return _LockedSharedAlertMessage(
+        message: 'Upgrade to add trusted contacts.',
+        actionLabel: 'View Premium',
+        onAction: () =>
+            context.push(premiumRoute(source: PremiumEntrySource.general)),
+      );
+    }
+    if (policy.needsSignInForServerFeatures) {
+      return _LockedSharedAlertMessage(
+        message: 'Sign in to add trusted contacts.',
+        actionLabel: 'Sign in',
+        onAction: () => context.push('/sign-in'),
+      );
+    }
+    if (!policy.hasServerVerifiedPremium) {
+      return const _LockedSharedAlertMessage(
+        message:
+            'Premium is on for this device. Email alerts will unlock after server verification finishes.',
+      );
+    }
+    return const _LockedSharedAlertMessage(
+      message: 'Email alerts are not ready yet. Please try again later.',
+    );
   }
 
   Widget _buildSectionTitle(ColorScheme cs, String title, IconData icon) {
@@ -1134,42 +1901,6 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildInlineEmptyState(
-    ColorScheme cs,
-    String message, {
-    String? actionLabel,
-    VoidCallback? onAction,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: cs.outline.withValues(alpha: 0.05),
-          style: BorderStyle.solid,
-        ),
-      ),
-      child: Column(
-        children: [
-          Text(
-            message,
-            style: TextStyle(color: cs.onSurface.withValues(alpha: 0.62)),
-            textAlign: TextAlign.center,
-          ),
-          if (actionLabel != null && onAction != null) ...[
-            const SizedBox(height: 14),
-            FilledButton.icon(
-              onPressed: onAction,
-              icon: const Icon(LucideIcons.plus, size: 16),
-              label: Text(actionLabel),
-            ),
-          ],
-        ],
-      ),
     );
   }
 
@@ -1281,20 +2012,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
             size: 16,
           ),
         ),
-        onTap: () async {
-          final db = ref.read(localDbProvider);
-          final routine = await db.routineDao.getRoutineById(
-            reminder.routineId,
-          );
-          if (routine != null && mounted) {
-            await ReminderSheet.show(
-              context,
-              routine,
-              reminderToEdit: reminder,
-            );
-            await _loadData();
-          }
-        },
+        onTap: () => _editReminder(reminder),
         title: Text(
           '${reminder.time} - ${_weekdayLabel(reminder.dayOfWeek)}',
           style: TextStyle(
@@ -1378,6 +2096,14 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
     await _loadData();
   }
 
+  Future<void> _editReminder(RoutineReminder reminder) async {
+    final db = ref.read(localDbProvider);
+    final routine = await db.routineDao.getRoutineById(reminder.routineId);
+    if (routine == null || !mounted) return;
+    await ReminderSheet.show(context, routine, reminderToEdit: reminder);
+    await _loadData();
+  }
+
   Future<Routine?> _pickRoutineForNewReminder() async {
     final db = ref.read(localDbProvider);
     final routines = await db.routineDao.watchAllRoutines().first;
@@ -1422,16 +2148,16 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
 
   Future<void> _deleteReminder(RoutineReminder reminder) async {
     final db = ref.read(localDbProvider);
+    final repo = ref.read(routineRepositoryProvider);
     await NotificationService().cancelRoutineReminder(
       reminder.routineId,
       reminderId: reminder.id,
     );
-    await db.routineReminderDao.deleteReminder(reminder.id);
+    await repo.deleteRoutineReminder(reminder);
     final remaining = await db.routineReminderDao.getRemindersForRoutine(
       reminder.routineId,
     );
     if (remaining.isEmpty) {
-      final repo = ref.read(routineRepositoryProvider);
       await repo.updateRoutineReminder(
         id: reminder.routineId,
         reminderDay: null,
@@ -1576,16 +2302,31 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
 
     if (ok != true) return;
 
-    final db = ref.read(localDbProvider);
+    final repo = ref.read(routineRepositoryProvider);
+    final affectedRoutineIds = _allReminders
+        .map((reminder) => reminder.routineId)
+        .toSet();
     if (isRoutineSpecific) {
-      await db.routineReminderDao.deleteRemindersForRoutine(widget.routine!.id);
+      await repo.deleteRoutineRemindersForRoutine(widget.routine!.id);
       await NotificationService().cancelAllNotificationsForRoutine(
         widget.routine!.id,
         _allReminders,
       );
+      await repo.updateRoutineReminder(
+        id: widget.routine!.id,
+        reminderDay: null,
+        reminderTime: null,
+      );
     } else {
-      await db.routineReminderDao.deleteAllReminders();
+      await repo.deleteAllRoutineReminders();
       await NotificationService().cancelAllScheduledNotifications();
+      for (final routineId in affectedRoutineIds) {
+        await repo.updateRoutineReminder(
+          id: routineId,
+          reminderDay: null,
+          reminderTime: null,
+        );
+      }
     }
 
     if (!mounted) return;
@@ -1623,4 +2364,87 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
       return null;
     }
   }
+}
+
+class _LockedSharedAlertMessage {
+  const _LockedSharedAlertMessage({
+    required this.message,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final String message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+}
+
+class _DashedRRectPainter extends CustomPainter {
+  const _DashedRRectPainter({
+    required this.color,
+    required this.radius,
+    required this.strokeWidth,
+  });
+
+  final Color color;
+  final double radius;
+  final double strokeWidth;
+  static const double _dashLength = 7;
+  static const double _gapLength = 6;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = (Offset.zero & size).deflate(strokeWidth / 2);
+    final path = Path()
+      ..addRRect(RRect.fromRectAndRadius(rect, Radius.circular(radius)));
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        final next = distance + _dashLength;
+        canvas.drawPath(
+          metric.extractPath(
+            distance,
+            next < metric.length ? next : metric.length,
+          ),
+          paint,
+        );
+        distance += _dashLength + _gapLength;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedRRectPainter oldDelegate) {
+    return color != oldDelegate.color ||
+        radius != oldDelegate.radius ||
+        strokeWidth != oldDelegate.strokeWidth;
+  }
+}
+
+String friendlySharedReminderErrorMessage(Object error) {
+  final raw = error.toString();
+  var message = raw
+      .replaceFirst('Exception: ', '')
+      .replaceFirst('SharedReminderRepositoryException: ', '')
+      .replaceFirst('FunctionException', '')
+      .trim();
+  if (message.contains('Shared alert environment is not configured')) {
+    return 'Email alerts are not ready yet. Please try again later.';
+  }
+  if (message.contains('Personal Premium is required')) {
+    return 'Premium is required for trusted contacts.';
+  }
+  if (message.contains('Missing user authorization') ||
+      message.contains('Invalid user authorization')) {
+    return 'Sign in again to manage trusted contacts.';
+  }
+  if (message.startsWith('(status:') || message.startsWith('status:')) {
+    return 'Could not update shared notification.';
+  }
+  return message.isEmpty ? 'Could not update shared notification.' : message;
 }

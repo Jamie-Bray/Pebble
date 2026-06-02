@@ -5,8 +5,7 @@ import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/repositories/routine_session_repository.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
-import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
-import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
+import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 
 enum RoutinePlayerScreenPhase {
   loading,
@@ -791,6 +790,6 @@ final routinePlayerProvider = StateNotifierProvider.autoDispose
     });
 
 final maxProofPhotosPerStepProvider = Provider<int>((ref) {
-  final tier = ref.watch(subscriptionProvider);
-  return tier == UserTier.personalFree ? 1 : 4;
+  final policy = ref.watch(premiumFeaturePolicyProvider);
+  return policy.canUseExtraProofPhotos ? 4 : 1;
 });

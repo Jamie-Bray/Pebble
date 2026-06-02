@@ -985,6 +985,7 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
       }
 
       final db = ref.read(localDbProvider);
+      final repo = ref.read(routineRepositoryProvider);
       final editingReminder = widget.reminderToEdit;
       final selectedDays = _selectedDays.toList()..sort();
       if (editingReminder != null) {
@@ -1032,7 +1033,12 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
           }
         } catch (e) {
           for (final reminderId in insertedReminderIds) {
-            await db.routineReminderDao.deleteReminder(reminderId);
+            final reminder = await db.routineReminderDao.getReminderById(
+              reminderId,
+            );
+            if (reminder != null) {
+              await repo.deleteRoutineReminder(reminder);
+            }
             await NotificationService().cancelRoutineReminder(
               widget.routine.id,
               reminderId: reminderId,
@@ -1065,7 +1071,12 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
           }
         } catch (e) {
           for (final reminderId in insertedReminderIds) {
-            await db.routineReminderDao.deleteReminder(reminderId);
+            final reminder = await db.routineReminderDao.getReminderById(
+              reminderId,
+            );
+            if (reminder != null) {
+              await repo.deleteRoutineReminder(reminder);
+            }
             await NotificationService().cancelRoutineReminder(
               widget.routine.id,
               reminderId: reminderId,
@@ -1165,6 +1176,7 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
 
     try {
       final db = ref.read(localDbProvider);
+      final repo = ref.read(routineRepositoryProvider);
       final editingReminder = widget.reminderToEdit;
 
       if (editingReminder != null) {
@@ -1172,14 +1184,13 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
           widget.routine.id,
           reminderId: editingReminder.id,
         );
-        await db.routineReminderDao.deleteReminder(editingReminder.id);
+        await repo.deleteRoutineReminder(editingReminder);
 
         final remaining = await db.routineReminderDao.getRemindersForRoutine(
           widget.routine.id,
         );
         if (remaining.isEmpty) {
           // Keep the legacy routine-level reminder fields cleared too.
-          final repo = ref.read(routineRepositoryProvider);
           await repo.updateRoutineReminder(
             id: widget.routine.id,
             reminderDay: null,
@@ -1216,10 +1227,9 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
           reminderId: reminder.id,
         );
       }
-      await db.routineReminderDao.deleteRemindersForRoutine(widget.routine.id);
+      await repo.deleteRoutineRemindersForRoutine(widget.routine.id);
 
       // Keep the legacy routine-level reminder fields cleared too.
-      final repo = ref.read(routineRepositoryProvider);
       await repo.updateRoutineReminder(
         id: widget.routine.id,
         reminderDay: null,

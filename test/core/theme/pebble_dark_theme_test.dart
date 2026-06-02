@@ -5,7 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
+import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
+
+import '../../support/premium_policy_test_utils.dart';
 
 void main() {
   test('nordicNight id is wired to the Pebble Dark palette constants', () {
@@ -26,6 +29,9 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         subscriptionProvider.overrideWithValue(UserTier.personalFree),
+        premiumFeaturePolicyProvider.overrideWithValue(
+          premiumFeaturePolicyForTier(UserTier.personalFree),
+        ),
       ],
     );
     addTearDown(container.dispose);

@@ -7,8 +7,8 @@ import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart
 import 'package:pebble_routines/features/subscription/data/fair_use_policy.dart';
 import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
 import 'package:pebble_routines/features/subscription/domain/subscription_lifecycle.dart';
-import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
 import 'package:pebble_routines/features/subscription/providers/cloud_access_provider.dart';
+import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
 import 'package:pebble_routines/features/subscription/data/purchase_repository.dart';
 import 'package:pebble_routines/features/sync/cloud_sync_coordinator.dart';
@@ -90,6 +90,7 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
   final account = ref.watch(subscriptionAccountControllerProvider);
   final entitlement = ref.watch(entitlementStateProvider);
   final lifecycle = ref.watch(subscriptionLifecycleProvider);
+  final premiumPolicy = ref.watch(premiumFeaturePolicyProvider);
   final status = ref.watch(effectivePersonalCloudStatusProvider);
   final runtime = ref.watch(cloudSyncRuntimeStateProvider);
   final purchase = ref.watch(purchaseRepositoryProvider);
@@ -104,10 +105,7 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
       ? AccountStatusAction.restorePurchase
       : AccountStatusAction.none;
   final restoreLabel = purchase.isPurchaseAvailable ? 'Restore purchase' : null;
-  final planFacts = _planFacts(
-    tier: account.entitlementTier,
-    lifecycle: lifecycle,
-  );
+  final planFacts = _planFacts(policy: premiumPolicy);
 
   if (runtime.isRunning) {
     return AccountStatusPresentation(
@@ -160,9 +158,9 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
     );
   }
 
-  if (auth.isSignedIn &&
-      !purchase.isPurchaseAvailable &&
-      !entitlement.isPersonalPaid) {
+  if (!purchase.isPurchaseAvailable &&
+      !entitlement.isPersonalPaid &&
+      purchase.unavailableReason != null) {
     return AccountStatusPresentation(
       planLabel: planFacts.label,
       title: 'Premium isn\'t available yet',
@@ -193,7 +191,7 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
       planLabel: planFacts.label,
       title: 'Premium recently ended',
       body:
-          'Your extended history is still available for now. Renew Premium to keep backup on.',
+          'Your extended history is still available for now. Free limits are back for new routines and steps.',
       statusLabel: 'Backup is paused',
       historyLabel: 'Backup is paused',
       limitChips: planFacts.chips,
@@ -274,7 +272,7 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
     case PersonalCloudAccessStatus.pausedSignedOut:
       return AccountStatusPresentation(
         planLabel: planFacts.label,
-        title: 'Not signed in yet',
+        title: 'Premium is on this device',
         body:
             'Premium is active on this device. Sign in only if you want backup and account recovery.',
         statusLabel: 'Backup is paused',
@@ -412,24 +410,19 @@ class _PlanFacts {
   final List<AccountPlanChip> chips;
 }
 
-_PlanFacts _planFacts({
-  required UserTier tier,
-  required SubscriptionLifecycle lifecycle,
-}) {
-  if (lifecycle.phase == SubscriptionLifecyclePhase.expiredGrace) {
+_PlanFacts _planFacts({required PremiumFeaturePolicy policy}) {
+  if (policy.localPremiumAccess == LocalPremiumAccess.historyGrace) {
     return const _PlanFacts(
-      label: 'Premium grace',
+      label: 'History grace',
       chips: [
         AccountPlanChip(value: '21d', label: 'History kept'),
-        AccountPlanChip(value: 'Unlimited', label: 'Routines'),
-        AccountPlanChip(value: 'Unlimited', label: 'Steps each'),
+        AccountPlanChip(value: '2', label: 'Routines'),
+        AccountPlanChip(value: '10', label: 'Steps each'),
       ],
     );
   }
 
-  final hasPaidFeatures =
-      tier == UserTier.personalPremium || tier == UserTier.pebbleHousehold;
-  if (hasPaidFeatures) {
+  if (policy.hasActiveLocalPremium) {
     return const _PlanFacts(
       label: 'Premium active',
       chips: [

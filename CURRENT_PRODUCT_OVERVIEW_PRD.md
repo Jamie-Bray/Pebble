@@ -12,7 +12,7 @@ Pebble Routines is a local-first routine support app for everyday checks. Users
 can create reusable routines, run them step by step, keep recent completion
 history, and optionally add proof photos when a visual record helps.
 
-Pebble should feel calm, private, and simple. Internally it has careful account,
+Pebble should feel private and simple. Internally it has careful account,
 subscription, history, proof-photo, and backup rules, but users should see one
 clear current state and one obvious next action.
 

@@ -1,14 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
-import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
 
 class ThemeRepository {
   final Ref ref;
 
   ThemeRepository(this.ref);
 
-  List<ThemeMetadata> getAvailableThemes(UserTier currentTier) {
-    if (currentTier.hasPremiumThemes) {
+  List<ThemeMetadata> getAvailableThemes({required bool canUsePremiumThemes}) {
+    if (canUsePremiumThemes) {
       return ThemeMetadata.all;
     }
 

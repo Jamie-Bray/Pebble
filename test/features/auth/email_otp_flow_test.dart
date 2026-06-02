@@ -1,4 +1,5 @@
 import 'package:drift/native.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,7 +10,9 @@ import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/features/auth/data/auth_repository.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
+import 'package:pebble_routines/features/subscription/data/purchase_repository.dart';
 import 'package:pebble_routines/features/subscription/data/models/subscription_account_state.dart';
+import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
 
 void main() {
@@ -66,9 +69,35 @@ void main() {
       contains('Bad code'),
     );
   });
+
+  test(
+    'account deletion clears store identity and refreshes purchases',
+    () async {
+      final purchases = _FakePurchaseRepository();
+      final container = await _container(
+        _FakeAuthRepository(),
+        purchaseRepository: purchases,
+      );
+      addTearDown(container.dispose);
+
+      final controller = container.read(authControllerProvider.notifier);
+
+      await controller.deleteAccount();
+
+      expect(purchases.logOutCalled, isTrue);
+      expect(purchases.syncCalled, isTrue);
+      expect(
+        container.read(authControllerProvider).status,
+        AuthStatus.signedOut,
+      );
+    },
+  );
 }
 
-Future<ProviderContainer> _container(AuthRepository repository) async {
+Future<ProviderContainer> _container(
+  AuthRepository repository, {
+  PurchaseRepository? purchaseRepository,
+}) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
   final database = LocalDb.forTesting(NativeDatabase.memory());
@@ -81,6 +110,9 @@ Future<ProviderContainer> _container(AuthRepository repository) async {
       ),
       supabaseClientProvider.overrideWithValue(null),
       authRepositoryProvider.overrideWithValue(repository),
+      purchaseRepositoryProvider.overrideWith(
+        (ref) => purchaseRepository ?? _FakePurchaseRepository(),
+      ),
       subscriptionAccountControllerProvider.overrideWith(
         (ref) => _TestSubscriptionAccountController(database),
       ),
@@ -142,4 +174,62 @@ class _FakeAuthRepository implements AuthRepository {
 
   @override
   Future<void> signOut() async {}
+}
+
+class _FakePurchaseRepository extends ChangeNotifier
+    implements PurchaseRepository {
+  bool logOutCalled = false;
+  bool syncCalled = false;
+
+  @override
+  bool get billingAvailable => false;
+
+  @override
+  bool get isPurchaseAvailable => false;
+
+  @override
+  DateTime? get lastPurchaseCheckAt => null;
+
+  @override
+  Set<String> get loadedProductIds => const <String>{};
+
+  @override
+  String? get manageSubscriptionsUrl => null;
+
+  @override
+  List<PremiumProduct> get personalPremiumProducts =>
+      getPlaceholderPremiumCatalog(isPurchasable: false);
+
+  @override
+  String? get unavailableReason => null;
+
+  @override
+  Future<void> logOut() async {
+    logOutCalled = true;
+  }
+
+  @override
+  Future<PurchaseResult> purchasePersonalPremium(BillingPlan plan) async {
+    return PurchaseResult(
+      tier: UserTier.personalPremium,
+      plan: plan,
+      requiresSignIn: false,
+      message: 'Purchased',
+    );
+  }
+
+  @override
+  Future<PurchaseResult> restorePurchases() async {
+    return const PurchaseResult(
+      tier: UserTier.personalPremium,
+      plan: BillingPlan.monthly,
+      requiresSignIn: false,
+      message: 'Restored',
+    );
+  }
+
+  @override
+  Future<void> syncPurchasesSilently() async {
+    syncCalled = true;
+  }
 }

@@ -19,8 +19,11 @@ import 'package:pebble_routines/features/routines/execution/providers/player_sta
 import 'package:pebble_routines/features/routines/execution/ui/routine_player_screen.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
+import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../../support/premium_policy_test_utils.dart';
 
 void main() {
   setUp(() {
@@ -47,6 +50,9 @@ void main() {
         const _FakeGuidanceAudioStorage(),
       ),
       subscriptionProvider.overrideWithValue(tier),
+      premiumFeaturePolicyProvider.overrideWithValue(
+        premiumFeaturePolicyForTier(tier),
+      ),
       currentThemeDataProvider.overrideWithValue(
         AppTheme.fromId(ThemeId.nordicNight),
       ),

@@ -15,6 +15,9 @@ abstract class RoutineRepository {
   Stream<List<Routine>> watchRoutines();
   Future<void> saveRoutine(Routine routine);
   Future<void> deleteRoutine(int id);
+  Future<void> deleteRoutineReminder(RoutineReminder reminder);
+  Future<void> deleteRoutineRemindersForRoutine(int routineId);
+  Future<void> deleteAllRoutineReminders();
   Future<void> updateRoutinePinned(int id, bool isPinned);
   Future<bool> moveRoutine(int id, RoutineMoveDirection direction);
   Future<Routine?> getRoutineById(int id);
@@ -87,17 +90,7 @@ class RoutineRepositoryImpl implements RoutineRepository {
       final reminderDao = _dao.attachedDatabase.routineReminderDao;
       final reminders = await reminderDao.getRemindersForRoutine(id);
       for (final reminder in reminders) {
-        final cloudId = reminder.cloudId;
-        if (cloudId != null && cloudId.isNotEmpty) {
-          await _ref
-              .read(syncOutboxRepositoryProvider)
-              .enqueue(
-                entityType: SyncEntityType.reminder,
-                entityId: reminder.id.toString(),
-                operation: SyncOperation.delete,
-                payload: {'cloudId': cloudId},
-              );
-        }
+        await _enqueueReminderDelete(reminder);
       }
       await reminderDao.deleteRemindersForRoutine(id);
 
@@ -121,6 +114,87 @@ class RoutineRepositoryImpl implements RoutineRepository {
         .deleteEditDraftsForRoutine(id);
     await _dao.deleteRoutine(id);
     await _ref.read(cloudSyncCoordinatorProvider).kick();
+  }
+
+  @override
+  Future<void> deleteRoutineReminder(RoutineReminder reminder) async {
+    final db = _dao.attachedDatabase;
+    final policy = _ref.read(cloudAccessPolicyProvider);
+    var shouldKick = false;
+    await db.transaction(() async {
+      if (_shouldQueueReminderDelete(policy.canQueuePersonalSync, reminder)) {
+        await _enqueueReminderDelete(reminder);
+        shouldKick = true;
+      }
+      await db.routineReminderDao.deleteReminder(reminder.id);
+    });
+    if (shouldKick) {
+      await _ref.read(cloudSyncCoordinatorProvider).kick();
+    }
+  }
+
+  @override
+  Future<void> deleteRoutineRemindersForRoutine(int routineId) async {
+    final db = _dao.attachedDatabase;
+    final reminderDao = db.routineReminderDao;
+    final reminders = await reminderDao.getRemindersForRoutine(routineId);
+    final policy = _ref.read(cloudAccessPolicyProvider);
+    var shouldKick = false;
+    await db.transaction(() async {
+      for (final reminder in reminders) {
+        if (_shouldQueueReminderDelete(policy.canQueuePersonalSync, reminder)) {
+          await _enqueueReminderDelete(reminder);
+          shouldKick = true;
+        }
+      }
+      await reminderDao.deleteRemindersForRoutine(routineId);
+    });
+    if (shouldKick) {
+      await _ref.read(cloudSyncCoordinatorProvider).kick();
+    }
+  }
+
+  @override
+  Future<void> deleteAllRoutineReminders() async {
+    final db = _dao.attachedDatabase;
+    final reminderDao = db.routineReminderDao;
+    final reminders = await reminderDao.getAllReminders();
+    final policy = _ref.read(cloudAccessPolicyProvider);
+    var shouldKick = false;
+    await db.transaction(() async {
+      for (final reminder in reminders) {
+        if (_shouldQueueReminderDelete(policy.canQueuePersonalSync, reminder)) {
+          await _enqueueReminderDelete(reminder);
+          shouldKick = true;
+        }
+      }
+      await reminderDao.deleteAllReminders();
+    });
+    if (shouldKick) {
+      await _ref.read(cloudSyncCoordinatorProvider).kick();
+    }
+  }
+
+  Future<void> _enqueueReminderDelete(RoutineReminder reminder) {
+    final cloudId = reminder.cloudId;
+    return _ref
+        .read(syncOutboxRepositoryProvider)
+        .enqueue(
+          entityType: SyncEntityType.reminder,
+          entityId: reminder.id.toString(),
+          operation: SyncOperation.delete,
+          payload: cloudId == null || cloudId.isEmpty
+              ? null
+              : {'cloudId': cloudId},
+        );
+  }
+
+  bool _shouldQueueReminderDelete(
+    bool canQueuePersonalSync,
+    RoutineReminder reminder,
+  ) {
+    final cloudId = reminder.cloudId;
+    return canQueuePersonalSync || (cloudId != null && cloudId.isNotEmpty);
   }
 
   @override

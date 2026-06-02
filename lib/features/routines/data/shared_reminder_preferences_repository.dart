@@ -294,31 +294,9 @@ class SharedReminderPreferencesRepository {
 
   Future<void> _ensureSession(SupabaseClient client) async {
     if (client.auth.currentSession != null) return;
-    try {
-      final response = await client.auth.signInAnonymously().timeout(
-        const Duration(seconds: 10),
-      );
-      if (response.session == null) {
-        throw SharedReminderRepositoryException(
-          'Could not start email setup. Please try again.',
-        );
-      }
-    } on AuthException catch (error) {
-      if (error.code == 'anonymous_provider_disabled') {
-        throw SharedReminderRepositoryException(
-          'Email setup needs anonymous access enabled in Supabase.',
-        );
-      }
-      throw SharedReminderRepositoryException(
-        'Could not start email setup. Please try again.',
-      );
-    } on SharedReminderRepositoryException {
-      rethrow;
-    } catch (_) {
-      throw SharedReminderRepositoryException(
-        'Could not start email setup. Please try again.',
-      );
-    }
+    throw SharedReminderRepositoryException(
+      'Sign in to manage trusted contacts.',
+    );
   }
 
   void _throwIfFailed(FunctionResponse response) {
