@@ -39,12 +39,26 @@ class _StarterRoutine {
   final List<_StarterStep> steps;
 }
 
+class _PebblePossibility {
+  const _PebblePossibility({
+    required this.title,
+    required this.prompt,
+    required this.icon,
+    required this.accent,
+  });
+
+  final String title;
+  final String prompt;
+  final IconData icon;
+  final Color accent;
+}
+
 const _starterRoutines = [
   _StarterRoutine(
-    cardTitle: 'The Everyday Departure',
+    cardTitle: 'Everyday Departure Check',
     subtitle:
-        'For the "Did I leave the stove on?" moment. Capture a quick photo so you can leave the house with confidence.',
-    previewTitle: 'The Everyday Departure',
+        'Check heat tools, stove, windows, lights, keys, and the final lock before you leave.',
+    previewTitle: 'Everyday Departure Check',
     icon: LucideIcons.house,
     steps: [
       _StarterStep('Hair tools unplugged', requiresPhoto: true),
@@ -54,15 +68,15 @@ const _starterRoutines = [
     ],
   ),
   _StarterRoutine(
-    cardTitle: 'Did I take it? Med Check',
+    cardTitle: 'Medication Check',
     subtitle:
-        'For autopilot moments where you need a clear, timestamped medication check.',
-    previewTitle: 'Did I take it? Med Check',
+        'A simple routine for checking medication before you mark it done.',
+    previewTitle: 'Medication Check',
     icon: LucideIcons.pill,
     steps: [
       _StarterStep('Go to your medication spot'),
       _StarterStep('Fill a glass of water'),
-      _StarterStep('Count out the dose', requiresPhoto: true),
+      _StarterStep('Set out what you need', requiresPhoto: true),
       _StarterStep('Mark it done straight away'),
     ],
   ),
@@ -82,7 +96,7 @@ const _starterRoutines = [
   _StarterRoutine(
     cardTitle: 'Car Lock & Parking Check',
     subtitle:
-        'Never second-guess if you locked the car. Get visual reassurance of your locks and your parking spot.',
+        'Check the windows, lights, valuables, lock, parking spot, and keys.',
     previewTitle: 'Car Lock & Parking Check',
     icon: LucideIcons.car,
     steps: [
@@ -95,7 +109,7 @@ const _starterRoutines = [
   _StarterRoutine(
     cardTitle: 'Morning Pet Routine',
     subtitle:
-        'Food, water, gates, medication, and evidence that your pet is set.',
+        'Check food, water, medication, gates, doors, and collar before you leave.',
     previewTitle: 'Morning Pet Routine',
     icon: LucideIcons.heart,
     steps: [
@@ -117,6 +131,49 @@ const _starterRoutines = [
       _StarterStep('Padlock checked', requiresPhoto: true),
       _StarterStep('Bottle filled and sealed'),
     ],
+  ),
+];
+
+const _pebblePossibilities = [
+  _PebblePossibility(
+    title: 'The thing you only do sometimes',
+    prompt:
+        'Travel days, big appointments, setting up for a class, or getting ready for a one-off event.',
+    icon: LucideIcons.calendarClock,
+    accent: Color(0xFFC27D38),
+  ),
+  _PebblePossibility(
+    title: 'The closing-down sweep',
+    prompt:
+        'Doors, tools, water, lights, chargers, and the small checks before you finish.',
+    icon: LucideIcons.keyRound,
+    accent: Color(0xFF4A7C74),
+  ),
+  _PebblePossibility(
+    title: 'The handover',
+    prompt: 'Notes, photos, and steps for the person who takes over next.',
+    icon: LucideIcons.heartHandshake,
+    accent: Color(0xFFA36F7B),
+  ),
+  _PebblePossibility(
+    title: 'The reset after a messy task',
+    prompt:
+        'Clean, refill, put away, check the last detail, and know the job is actually finished.',
+    icon: LucideIcons.paintbrush,
+    accent: Color(0xFF7E7BB8),
+  ),
+  _PebblePossibility(
+    title: 'The day with too many moving parts',
+    prompt:
+        'Documents, timings, supplies, handoffs, reminders, and other details to check.',
+    icon: LucideIcons.route,
+    accent: Color(0xFF5B8FD4),
+  ),
+  _PebblePossibility(
+    title: 'The photo record',
+    prompt: 'A finished setup, packed item, or locked space saved as a photo.',
+    icon: LucideIcons.badgeCheck,
+    accent: Color(0xFF8DA174),
   ),
 ];
 
@@ -166,6 +223,21 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       duration: const Duration(milliseconds: 420),
       curve: Curves.easeOutCubic,
     );
+  }
+
+  Future<void> _openPebblePossibilities() async {
+    HapticFeedback.lightImpact();
+    final shouldContinue = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (context) => _PebblePossibilitiesScreen(
+          onContinue: () => Navigator.of(context).pop(true),
+        ),
+      ),
+    );
+
+    if (shouldContinue == true && mounted) {
+      _goToPage(1);
+    }
   }
 
   Future<void> _markOnboardingComplete() async {
@@ -345,6 +417,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       children: [
                         _WelcomePage(
                           onContinue: () => _goToPage(1),
+                          onExplore: _openPebblePossibilities,
                           onSkip: _completeToHome,
                         ),
                         _ThemePickerPage(
@@ -388,9 +461,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 }
 
 class _WelcomePage extends StatelessWidget {
-  const _WelcomePage({required this.onContinue, required this.onSkip});
+  const _WelcomePage({
+    required this.onContinue,
+    required this.onExplore,
+    required this.onSkip,
+  });
 
   final VoidCallback onContinue;
+  final VoidCallback onExplore;
   final VoidCallback onSkip;
 
   @override
@@ -460,7 +538,7 @@ class _WelcomePage extends StatelessWidget {
                               ),
                               const TextSpan(
                                 text:
-                                    'The ones you do every day, once a month, or whenever life calls for them. Follow the steps, check them off, and free up your mind so you can get on with your day',
+                                    'The ones you do every day, once a month, or whenever the task comes up. Follow the steps, check them off, and move on with your day.',
                               ),
                             ],
                           ),
@@ -480,7 +558,11 @@ class _WelcomePage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 18),
-          _WelcomeActions(onContinue: onContinue, onSkip: onSkip),
+          _WelcomeActions(
+            onContinue: onContinue,
+            onExplore: onExplore,
+            onSkip: onSkip,
+          ),
         ],
       ),
     );
@@ -622,9 +704,14 @@ class _WelcomeRule extends StatelessWidget {
 }
 
 class _WelcomeActions extends StatelessWidget {
-  const _WelcomeActions({required this.onContinue, required this.onSkip});
+  const _WelcomeActions({
+    required this.onContinue,
+    required this.onExplore,
+    required this.onSkip,
+  });
 
   final VoidCallback onContinue;
+  final VoidCallback onExplore;
   final VoidCallback onSkip;
 
   @override
@@ -656,6 +743,35 @@ class _WelcomeActions extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
+        OutlinedButton(
+          onPressed: onExplore,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: foundation.textPrimary,
+            side: BorderSide(
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.24),
+              width: 1.2,
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 15),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            textStyle: GoogleFonts.outfit(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(LucideIcons.sparkles, size: 17),
+              SizedBox(width: 8),
+              Text('What can Pebble do?'),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
         TextButton(
           onPressed: onSkip,
           style: TextButton.styleFrom(
@@ -672,6 +788,506 @@ class _WelcomeActions extends StatelessWidget {
           child: const Text('Skip setup, go straight in'),
         ),
       ],
+    );
+  }
+}
+
+class _PebblePossibilitiesScreen extends StatelessWidget {
+  const _PebblePossibilitiesScreen({required this.onContinue});
+
+  final VoidCallback onContinue;
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+
+    return Scaffold(
+      backgroundColor: foundation.bgBase,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                height: 40,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: Icon(
+                      LucideIcons.arrowLeft,
+                      size: 16,
+                      color: foundation.textSecondary,
+                    ),
+                    label: Text(
+                      'Back',
+                      style: GoogleFonts.outfit(
+                        color: foundation.textSecondary,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: Size.zero,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const _PossibilitiesHero(),
+                      const SizedBox(height: 18),
+                      Text(
+                        'Use it for checks that are personal, occasional, or specific to how you do a task.',
+                        style: GoogleFonts.outfit(
+                          color: foundation.textSecondary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w300,
+                          height: 1.55,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const _PossibilityTags(),
+                      const SizedBox(height: 20),
+                      Text(
+                        'Example checks',
+                        style: GoogleFonts.dmSerifDisplay(
+                          color: foundation.textPrimary,
+                          fontSize: 25,
+                          fontWeight: FontWeight.w400,
+                          height: 1.1,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      const _PossibilityGrid(),
+                      const SizedBox(height: 18),
+                      const _PossibilityClosingThought(
+                        text:
+                            'If a check keeps coming back, Pebble can turn it into a routine you can run again.',
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: onContinue,
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  textStyle: GoogleFonts.outfit(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('Continue onboarding'),
+                    SizedBox(width: 8),
+                    Icon(LucideIcons.arrowRight, size: 18),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PossibilitiesHero extends StatelessWidget {
+  const _PossibilitiesHero();
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+    final accent = Theme.of(context).colorScheme.primary;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+      decoration: BoxDecoration(
+        color: foundation.surfaceLow,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: accent.withValues(alpha: 0.18), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: foundation.shadowSoft,
+            blurRadius: 38,
+            offset: const Offset(0, 18),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.13),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(LucideIcons.lightbulb, color: accent, size: 18),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'WHAT CAN PEBBLE DO?',
+                style: GoogleFonts.outfit(
+                  color: accent,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'Checks you only need sometimes.',
+            style: GoogleFonts.dmSerifDisplay(
+              color: foundation.textPrimary,
+              fontSize: 34,
+              fontWeight: FontWeight.w400,
+              height: 1.04,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Use Pebble for step-by-step routines you want ready when the task comes up.',
+            style: GoogleFonts.outfit(
+              color: foundation.textSecondary,
+              fontSize: 13.5,
+              fontWeight: FontWeight.w300,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 20),
+          const _PossibilityMiniStack(),
+        ],
+      ),
+    );
+  }
+}
+
+class _PossibilityMiniStack extends StatelessWidget {
+  const _PossibilityMiniStack();
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final sideWidth = width * 0.56;
+        final centerWidth = width * 0.62;
+
+        return SizedBox(
+          height: 146,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned(
+                left: 0,
+                top: 24,
+                width: sideWidth,
+                child: _MiniPossibilityCard(
+                  title: 'Before',
+                  line: 'Run the checks',
+                  icon: LucideIcons.listChecks,
+                  accent: Color.lerp(accent, const Color(0xFFC27D38), 0.35)!,
+                ),
+              ),
+              Positioned(
+                right: 0,
+                top: 0,
+                width: sideWidth,
+                child: _MiniPossibilityCard(
+                  title: 'During',
+                  line: 'Follow each step',
+                  icon: LucideIcons.circleCheck,
+                  accent: Color.lerp(accent, const Color(0xFF5B8FD4), 0.36)!,
+                ),
+              ),
+              Positioned(
+                left: (width - centerWidth) / 2,
+                bottom: 0,
+                width: centerWidth,
+                child: _MiniPossibilityCard(
+                  title: 'After',
+                  line: 'Mark it done',
+                  icon: LucideIcons.badgeCheck,
+                  accent: Color.lerp(accent, const Color(0xFFA36F7B), 0.4)!,
+                  isLifted: true,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _MiniPossibilityCard extends StatelessWidget {
+  const _MiniPossibilityCard({
+    required this.title,
+    required this.line,
+    required this.icon,
+    required this.accent,
+    this.isLifted = false,
+  });
+
+  final String title;
+  final String line;
+  final IconData icon;
+  final Color accent;
+  final bool isLifted;
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isLifted ? foundation.surfaceHigh : foundation.bgBase,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: accent.withValues(alpha: 0.18)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isLifted ? 0.16 : 0.07),
+            blurRadius: isLifted ? 24 : 14,
+            offset: Offset(0, isLifted ? 12 : 7),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 16, color: accent),
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.outfit(
+                    color: foundation.textPrimary,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    height: 1.1,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  line,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.outfit(
+                    color: foundation.textSecondary,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w300,
+                    height: 1.1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PossibilityTags extends StatelessWidget {
+  const _PossibilityTags();
+
+  static const _tags = [
+    'monthly',
+    'before a handoff',
+    'after a task',
+    'when a check repeats',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+    final accent = Theme.of(context).colorScheme.primary;
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: _tags
+          .map((tag) {
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: accent.withValues(alpha: 0.14)),
+              ),
+              child: Text(
+                tag,
+                style: GoogleFonts.outfit(
+                  color: foundation.textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w400,
+                  height: 1,
+                ),
+              ),
+            );
+          })
+          .toList(growable: false),
+    );
+  }
+}
+
+class _PossibilityGrid extends StatelessWidget {
+  const _PossibilityGrid();
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 560 ? 2 : 1;
+        final spacing = columns == 1 ? 10.0 : 12.0;
+        final itemWidth =
+            (constraints.maxWidth - (spacing * (columns - 1))) / columns;
+
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: _pebblePossibilities
+              .map((possibility) {
+                return SizedBox(
+                  width: itemWidth,
+                  child: _PossibilityCard(possibility: possibility),
+                );
+              })
+              .toList(growable: false),
+        );
+      },
+    );
+  }
+}
+
+class _PossibilityCard extends StatelessWidget {
+  const _PossibilityCard({required this.possibility});
+
+  final _PebblePossibility possibility;
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+    final tint = possibility.accent;
+
+    return Container(
+      constraints: const BoxConstraints(minHeight: 122),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: foundation.surfaceLow,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: tint.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: tint.withValues(alpha: 0.13),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(possibility.icon, color: tint, size: 17),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            possibility.title,
+            style: GoogleFonts.outfit(
+              color: foundation.textPrimary,
+              fontSize: 14.5,
+              fontWeight: FontWeight.w600,
+              height: 1.15,
+            ),
+          ),
+          const SizedBox(height: 7),
+          Text(
+            possibility.prompt,
+            style: GoogleFonts.outfit(
+              color: foundation.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w300,
+              height: 1.38,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PossibilityClosingThought extends StatelessWidget {
+  const _PossibilityClosingThought({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+    final accent = Theme.of(context).colorScheme.primary;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(15, 14, 15, 14),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: accent.withValues(alpha: 0.15)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(LucideIcons.sparkles, size: 17, color: accent),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: GoogleFonts.outfit(
+                color: foundation.textPrimary.withValues(alpha: 0.86),
+                fontSize: 12.5,
+                fontWeight: FontWeight.w300,
+                height: 1.42,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1725,7 +2341,7 @@ class _StarterPreviewPage extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Each Pebble routine is made of small steps. You go through them one at a time, and some steps can ask for a photo if you want extra reassurance later.',
+            'Each Pebble routine is made of small steps. You go through them one at a time, and some steps can ask for a photo.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: foundation.textSecondary,
               height: 1.45,

@@ -21,10 +21,7 @@ $revenueCatAndroidApiKey = Require-Env "PEBBLE_PROD_REVENUECAT_ANDROID_API_KEY"
 if (-not $revenueCatAndroidApiKey.StartsWith("goog_")) {
   throw "PEBBLE_PROD_REVENUECAT_ANDROID_API_KEY must be the RevenueCat Android SDK key starting with 'goog_', not a test or secret key."
 }
-$googleWebClientId = [Environment]::GetEnvironmentVariable(
-  "PEBBLE_PROD_GOOGLE_WEB_CLIENT_ID",
-  "User"
-)
+$googleWebClientId = Require-Env "PEBBLE_PROD_GOOGLE_WEB_CLIENT_ID"
 $accountDeletionUrl = [Environment]::GetEnvironmentVariable(
   "PEBBLE_ACCOUNT_DELETION_URL",
   "User"
@@ -38,12 +35,9 @@ $arguments = @(
   "--dart-define=SUPABASE_URL=$supabaseUrl",
   "--dart-define=SUPABASE_ANON_KEY=$supabaseAnonKey",
   "--dart-define=REVENUECAT_ANDROID_API_KEY=$revenueCatAndroidApiKey",
-  "--dart-define=REVENUECAT_ENTITLEMENT_ID=personal_premium"
+  "--dart-define=REVENUECAT_ENTITLEMENT_ID=personal_premium",
+  "--dart-define=SUPABASE_GOOGLE_WEB_CLIENT_ID=$googleWebClientId"
 )
-
-if (-not [string]::IsNullOrWhiteSpace($googleWebClientId)) {
-  $arguments += "--dart-define=SUPABASE_GOOGLE_WEB_CLIENT_ID=$googleWebClientId"
-}
 
 if (-not [string]::IsNullOrWhiteSpace($accountDeletionUrl)) {
   $arguments += "--dart-define=PEBBLE_ACCOUNT_DELETION_URL=$accountDeletionUrl"
@@ -51,10 +45,7 @@ if (-not [string]::IsNullOrWhiteSpace($accountDeletionUrl)) {
 
 if ($DryRun) {
   Write-Output "Would build production Android App Bundle."
-  Write-Output "Required production env vars are present."
-  if ([string]::IsNullOrWhiteSpace($googleWebClientId)) {
-    Write-Output "PEBBLE_PROD_GOOGLE_WEB_CLIENT_ID is not set; Google sign-in will be unavailable in this build."
-  }
+  Write-Output "Required production env vars are present, including Google sign-in."
   if ([string]::IsNullOrWhiteSpace($accountDeletionUrl)) {
     Write-Output "PEBBLE_ACCOUNT_DELETION_URL is not set; the app will use its in-app deletion request path only."
   }

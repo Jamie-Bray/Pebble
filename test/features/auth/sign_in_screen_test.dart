@@ -92,6 +92,69 @@ void main() {
       expect(find.text('Preparing your backup...'), findsNothing);
     },
   );
+
+  testWidgets('email code sheet gives delayed-email recovery actions', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final database = LocalDb.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    final router = GoRouter(
+      initialLocation: '/sign-in',
+      routes: [
+        GoRoute(
+          path: '/sign-in',
+          builder: (context, state) => const SignInScreen(),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          localDbProvider.overrideWithValue(database),
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          supabaseRuntimeConfigProvider.overrideWithValue(
+            const SupabaseRuntimeConfig.disabled(),
+          ),
+          supabaseClientProvider.overrideWithValue(null),
+          authRepositoryProvider.overrideWithValue(_FakeAuthRepository()),
+          purchaseRepositoryProvider.overrideWith(
+            (ref) => _FakePurchaseRepository(),
+          ),
+          subscriptionAccountControllerProvider.overrideWith(
+            (ref) => _TestSubscriptionAccountController(
+              database,
+              const SubscriptionAccountState.initial(),
+            ),
+          ),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Use email instead'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Email address'),
+      'jamie@example.com',
+    );
+    await tester.tap(find.text('Send code'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Check spam or junk'), findsOneWidget);
+    expect(find.text('Use a different email'), findsOneWidget);
+
+    await tester.tap(find.text('Use a different email'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Send code'), findsOneWidget);
+    expect(find.text('One-time code'), findsNothing);
+  });
 }
 
 class _TestSubscriptionAccountController extends SubscriptionAccountController {

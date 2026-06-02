@@ -360,7 +360,7 @@ class _TemplateSummaryStrip extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  '$photoRequiredCount photo${photoRequiredCount == 1 ? '' : 's'} required',
+                  '$photoRequiredCount photo check${photoRequiredCount == 1 ? '' : 's'}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(

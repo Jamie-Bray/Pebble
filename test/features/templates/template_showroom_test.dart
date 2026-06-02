@@ -43,18 +43,18 @@ void main() {
       expect(
         templates.map((Template template) => template.title).toList(),
         containsAll(<String>[
-          'The Everyday Departure',
+          'Everyday Departure Check',
           'Bedtime House Check',
           'Car Lock & Parking Check',
-          'The Big Trip Home Shutdown',
-          'The “Did I take it?” Med Check',
+          'Big Trip Home Shutdown',
+          'Medication Check',
           'Morning Pet Routine',
           'Essential School Morning Run',
-          'The Toddler Essentials Bag',
-          'The “No Item Left Behind” Hotel Checkout',
-          'The Office/Workspace “Switch-Off”',
+          'Toddler Essentials Bag',
+          'No Item Left Behind Hotel Checkout',
+          'Office Switch-Off',
           'Gym & Sports Prep',
-          'The “House Sitter” Handover',
+          'House Sitter Handover',
         ]),
       );
       expect(
@@ -109,7 +109,7 @@ void main() {
       },
     );
 
-    test('photo markers are parsed into proof requirements', () async {
+    test('photo markers are parsed into photo requirements', () async {
       final repository = _FakeRoutineRepository();
       final template = _sampleTemplates.first.copyWith(
         steps: <String>[
@@ -175,10 +175,10 @@ void main() {
       expect(find.text('LEAVING & LOCKING UP'), findsOneWidget);
       expect(find.text('DAILY CARE'), findsOneWidget);
       expect(find.text('TRAVEL & HANDOVERS'), findsOneWidget);
-      expect(find.text('The Everyday Departure'), findsOneWidget);
+      expect(find.text('Everyday Departure Check'), findsOneWidget);
       expect(find.text('5 checks'), findsNothing);
       expect(find.text('5 steps'), findsNWidgets(3));
-      expect(find.text('1 photo evidence required'), findsOneWidget);
+      expect(find.text('1 photo check'), findsOneWidget);
       expect(find.text('Featured'), findsNothing);
       expect(find.textContaining('Search'), findsNothing);
       expect(find.textContaining('Preview first'), findsNothing);
@@ -327,7 +327,7 @@ void main() {
       );
 
       await tester.pumpAndSettle();
-      await tester.tap(find.text('The Everyday Departure'));
+      await tester.tap(find.text('Everyday Departure Check'));
       await tester.pumpAndSettle();
 
       expect(find.text('Detail from onboarding'), findsOneWidget);
@@ -479,7 +479,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(prefs.getBool('has_completed_onboarding'), isTrue);
-      expect(find.text('The Everyday Departure is ready'), findsOneWidget);
+      expect(find.text('Everyday Departure Check is ready'), findsOneWidget);
       expect(routineRepository.savedRoutines, hasLength(1));
     });
 
@@ -540,11 +540,9 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.text('The Everyday Departure'), findsOneWidget);
+      expect(find.text('Everyday Departure Check'), findsOneWidget);
       expect(
-        find.text(
-          'A final sweep before you leave and start wondering about the door.',
-        ),
+        find.text('Check the common leaving-home items before you go.'),
         findsOneWidget,
       );
       expect(find.text('Good for'), findsNothing);
@@ -565,9 +563,9 @@ void main() {
       expect(routineRepository.savedRoutines, hasLength(1));
       expect(
         routineRepository.savedRoutines.single.title,
-        'The Everyday Departure',
+        'Everyday Departure Check',
       );
-      expect(find.text('The Everyday Departure is ready'), findsOneWidget);
+      expect(find.text('Everyday Departure Check is ready'), findsOneWidget);
     });
   });
 }
@@ -688,12 +686,10 @@ class _FakeRoutineRepository implements RoutineRepository {
 const List<Template> _sampleTemplates = <Template>[
   Template(
     id: 'tpl_anxiety_free_departure',
-    title: 'The Everyday Departure',
-    description:
-        'A final sweep before you leave and start wondering about the door.',
+    title: 'Everyday Departure Check',
+    description: 'Check the common leaving-home items before you go.',
     category: 'Leaving & Locking Up',
-    goodFor:
-        'A final sweep before you leave and start wondering about the door.',
+    goodFor: 'Check the common leaving-home items before you go.',
     searchTerms: <String>['lock up', 'windows'],
     steps: <String>[
       'Check the hob and oven are off.',
@@ -705,10 +701,10 @@ const List<Template> _sampleTemplates = <Template>[
   ),
   Template(
     id: 'tpl_hotel_checkout',
-    title: 'The “No Item Left Behind” Hotel Checkout',
-    description: 'Confirm the essentials before the journey starts moving.',
+    title: 'No Item Left Behind Hotel Checkout',
+    description: 'Check the room essentials before you leave.',
     category: 'Travel & Handovers',
-    goodFor: 'Confirm the essentials before the journey starts moving.',
+    goodFor: 'Check the room essentials before you leave.',
     searchTerms: <String>['airport', 'passport'],
     steps: <String>[
       'Check passport or ID is with you.',
@@ -721,9 +717,9 @@ const List<Template> _sampleTemplates = <Template>[
   Template(
     id: 'tpl_morning_pet_routine',
     title: 'Morning Pet Routine',
-    description: 'Make home feel settled before your pet is there without you.',
+    description: 'Check food, water, doors, and gates before you leave.',
     category: 'Daily Care',
-    goodFor: 'Make home feel settled before your pet is there without you.',
+    goodFor: 'Check food, water, doors, and gates before you leave.',
     searchTerms: <String>['pet', 'dog', 'cat'],
     steps: <String>[
       'Refresh the water bowl.',

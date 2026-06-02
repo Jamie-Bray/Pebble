@@ -11,18 +11,18 @@ class Template {
   ];
 
   static const List<String> launchTemplateTitleOrder = <String>[
-    'The Everyday Departure',
+    'Everyday Departure Check',
     'Bedtime House Check',
     'Car Lock & Parking Check',
-    'The Big Trip Home Shutdown',
-    'The “Did I take it?” Med Check',
+    'Big Trip Home Shutdown',
+    'Medication Check',
     'Morning Pet Routine',
     'Essential School Morning Run',
-    'The Toddler Essentials Bag',
-    'The “No Item Left Behind” Hotel Checkout',
-    'The Office/Workspace “Switch-Off”',
+    'Toddler Essentials Bag',
+    'No Item Left Behind Hotel Checkout',
+    'Office Switch-Off',
     'Gym & Sports Prep',
-    'The “House Sitter” Handover',
+    'House Sitter Handover',
   ];
 
   const Template({

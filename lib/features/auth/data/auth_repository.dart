@@ -93,11 +93,7 @@ class SupabaseAuthRepository implements AuthRepository {
     required String email,
     required String token,
   }) async {
-    final response = await _requiredClient.auth.verifyOTP(
-      email: email,
-      token: token,
-      type: OtpType.email,
-    );
+    final response = await _verifyEmailOtp(email: email, token: token);
     final user = response.user;
     if (user == null) {
       throw StateError('We couldn\'t complete sign-in. Please try again.');
@@ -107,6 +103,25 @@ class SupabaseAuthRepository implements AuthRepository {
       email: user.email ?? email,
       provider: 'emailOtp',
     );
+  }
+
+  Future<AuthResponse> _verifyEmailOtp({
+    required String email,
+    required String token,
+  }) async {
+    try {
+      return await _requiredClient.auth.verifyOTP(
+        email: email,
+        token: token,
+        type: OtpType.email,
+      );
+    } on AuthException {
+      return _requiredClient.auth.verifyOTP(
+        email: email,
+        token: token,
+        type: OtpType.signup,
+      );
+    }
   }
 
   @override

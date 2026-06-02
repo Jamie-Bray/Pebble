@@ -330,7 +330,8 @@ class _TemplateCardChipRow extends StatelessWidget {
         if (photoRequiredCount > 0)
           _TemplateCardChip(
             icon: LucideIcons.camera,
-            label: '$photoRequiredCount photo evidence required',
+            label:
+                '$photoRequiredCount photo check${photoRequiredCount == 1 ? '' : 's'}',
             emphasized: true,
           ),
       ],

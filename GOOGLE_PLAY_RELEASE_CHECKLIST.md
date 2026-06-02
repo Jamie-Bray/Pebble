@@ -11,6 +11,7 @@ This checklist turns the pre-launch audit into a concrete release plan for Pebbl
 - [x] Add a web account-deletion request form backed by a Supabase Edge Function scaffold.
 - [x] Wire real Google Play Billing purchase and restore flows in the Flutter client.
 - [x] Connect the client purchase flow to `supabase/functions/verify-purchase`.
+- [ ] Complete `AUTH_RELEASE_CHECKLIST.md` against the target Supabase project.
 - [ ] Configure `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` for the verification function. `GOOGLE_PLAY_PACKAGE_NAME` is set to `com.vix.pebble_routines`; Supabase platform secrets provide `SUPABASE_SERVICE_ROLE_KEY`.
 - [x] Remove the pre-store entitlement bridge with `supabase/migrations/007_remove_pre_store_entitlement_bridge.sql`.
 - [x] Use `https://pebbleroutines.com/delete-account` as the account deletion webpage and pass it via `PEBBLE_ACCOUNT_DELETION_URL`.
@@ -58,6 +59,7 @@ This checklist turns the pre-launch audit into a concrete release plan for Pebbl
 - [ ] Capture proof photos from camera and library.
 - [ ] Record and play guidance audio.
 - [ ] Sign in with supported providers.
+- [ ] Confirm email sign-in sends a numeric code, not a Supabase confirmation link.
 - [ ] Trigger backup/restore flows.
 - [ ] Delete account from the app and verify cloud data disappears.
 

@@ -13,7 +13,7 @@ Use this checklist before uploading an AAB for Google Play internal testing.
   - `PEBBLE_PROD_SUPABASE_URL`
   - `PEBBLE_PROD_SUPABASE_ANON_KEY`
   - `PEBBLE_PROD_GOOGLE_WEB_CLIENT_ID`
-- If `PEBBLE_PROD_GOOGLE_WEB_CLIENT_ID` is missing, Google sign-in will be hidden/unavailable in the AAB.
+- `build_production_aab.ps1` must fail if `PEBBLE_PROD_GOOGLE_WEB_CLIENT_ID` is missing.
 
 ## Google Play Console
 
@@ -29,6 +29,9 @@ Use this checklist before uploading an AAB for Google Play internal testing.
 
 - Google provider is enabled for Auth.
 - OAuth config includes the release/Play App Signing certificate fingerprints required by Google sign-in.
+- Auth Site URL is a production URL, not `localhost`.
+- Email auth templates send the numeric Pebble one-time code, not a confirmation or magic-link-only email.
+- The auth sender name/domain is Pebble-branded enough that the email is not from generic Supabase Auth.
 - Migrations are deployed to the target Supabase project.
 - `verify-purchase` is deployed with:
   - `GOOGLE_PLAY_PACKAGE_NAME`
@@ -38,6 +41,8 @@ Use this checklist before uploading an AAB for Google Play internal testing.
 ## Smoke Test
 
 - Google sign-in appears and completes.
+- A new email address receives a numeric one-time code, and the code completes sign-in.
+- An existing email address receives a numeric one-time code, and the code completes sign-in.
 - Premium product loads from Google Play with the monthly and yearly base-plan prices.
 - License tester can complete checkout with a test payment method.
 - Supabase `verify-purchase` verifies the token and writes entitlement.

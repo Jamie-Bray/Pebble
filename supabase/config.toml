@@ -1,6 +1,6 @@
 [auth]
-site_url = "http://localhost:3000"
-additional_redirect_urls = ["com.vix.pebble.routines://login-callback"]
+site_url = "https://pebbleroutines.com"
+additional_redirect_urls = ["com.vix.pebble.routines://login-callback", "https://pebbleroutines.com"]
 enable_anonymous_sign_ins = true
 
 [auth.mfa.totp]

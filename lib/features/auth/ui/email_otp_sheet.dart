@@ -56,7 +56,7 @@ Future<void> showEmailOtpSheet(BuildContext context, WidgetRef ref) {
                     const SizedBox(height: 10),
                     Text(
                       otpRequested
-                          ? 'We sent a one-time code to ${emailController.text.trim()}.'
+                          ? 'We sent a one-time code to ${emailController.text.trim()}. Check spam or junk if it does not arrive.'
                           : 'Sign in to use your account on this device.',
                       style: TextStyle(
                         fontSize: 14,
@@ -172,6 +172,24 @@ Future<void> showEmailOtpSheet(BuildContext context, WidgetRef ref) {
                               ),
                       ),
                     ),
+                    if (otpRequested) ...[
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: TextButton(
+                          onPressed: isBusy
+                              ? null
+                              : () {
+                                  setState(() {
+                                    otpRequested = false;
+                                    inlineError = null;
+                                    codeController.clear();
+                                  });
+                                },
+                          child: const Text('Use a different email'),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
