@@ -173,7 +173,9 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
   @override
   Future<void> syncPurchasesSilently({bool waitForServerMirror = false}) async {
     final userId = _currentUserId;
+    final appUserIdBeforeLogin = await _safeRevenueCatAppUserId();
     await _configureForUser(userId);
+    var appUserIdAfterLogin = await _safeRevenueCatAppUserId();
     late final rc.CustomerInfo customerInfo;
     try {
       customerInfo = await rc.Purchases.getCustomerInfo();
@@ -184,8 +186,41 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
         ),
       );
     }
-    final entitlement = _activeEntitlement(customerInfo);
+    var entitlement = _activeEntitlement(customerInfo);
+    var restoredAfterLogin = false;
+    if (entitlement == null && userId != null) {
+      debugPrint(
+        '[PremiumEntitlement] No active RevenueCat entitlement after '
+        'logIn; attempting restore for signed-in user=$userId.',
+      );
+      try {
+        final restoredInfo = await rc.Purchases.restorePurchases();
+        restoredAfterLogin = true;
+        appUserIdAfterLogin = await _safeRevenueCatAppUserId();
+        entitlement = _activeEntitlement(restoredInfo);
+        debugPrint(
+          '[PremiumEntitlement] Signed-in RevenueCat restore completed: '
+          'appUserId=${appUserIdAfterLogin ?? 'unknown'}, '
+          'hasActiveEntitlement=${entitlement != null}.',
+        );
+      } on PlatformException catch (error) {
+        debugPrint(
+          '[PremiumEntitlement] Signed-in RevenueCat restore failed: '
+          '${revenueCatMessageForPurchasesError(rc.PurchasesErrorHelper.getErrorCode(error))}',
+        );
+      }
+    }
     if (entitlement == null) {
+      _logReconciliationDebug(
+        supabaseAuthUid: userId,
+        appUserIdBeforeLogin: appUserIdBeforeLogin,
+        appUserIdAfterLogin: appUserIdAfterLogin,
+        localEntitlementActive: false,
+        serverReconciliationCalled: false,
+        serverReconciliationStatus: restoredAfterLogin
+            ? 'skipped_no_local_active_entitlement_after_restore'
+            : 'skipped_no_local_active_entitlement',
+      );
       if (await _preserveActiveStoreEntitlementWhenMissing(
         'silent purchase sync',
       )) {
@@ -199,9 +234,21 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     debugPrint(
       '[PremiumEntitlement] Active store entitlement detected during sync.',
     );
-    await _applyVerifiedEntitlement(
+    final mirrored = await _applyVerifiedEntitlement(
       entitlement,
       waitForServerMirror: waitForServerMirror,
+    );
+    _logReconciliationDebug(
+      supabaseAuthUid: userId,
+      appUserIdBeforeLogin: appUserIdBeforeLogin,
+      appUserIdAfterLogin: appUserIdAfterLogin,
+      localEntitlementActive: true,
+      serverReconciliationCalled: userId != null,
+      serverReconciliationStatus: userId == null
+          ? 'skipped_signed_out'
+          : mirrored
+          ? 'mirrored'
+          : 'not_mirrored',
     );
   }
 
@@ -330,7 +377,7 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     );
   }
 
-  Future<void> _applyVerifiedEntitlement(
+  Future<bool> _applyVerifiedEntitlement(
     rc.EntitlementInfo entitlement, {
     bool waitForServerMirror = false,
   }) async {
@@ -350,6 +397,7 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
         _looksBackupVerificationError(previousEntitlementError)) {
       await entitlementStore.recordEntitlementError(previousEntitlementError!);
     }
+    return mirrored;
   }
 
   Future<bool> _refreshServerMirror({required bool waitForServerMirror}) async {
@@ -444,6 +492,25 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     } catch (_) {
       return null;
     }
+  }
+
+  void _logReconciliationDebug({
+    required String? supabaseAuthUid,
+    required String? appUserIdBeforeLogin,
+    required String? appUserIdAfterLogin,
+    required bool localEntitlementActive,
+    required bool serverReconciliationCalled,
+    required String serverReconciliationStatus,
+  }) {
+    debugPrint(
+      '[PremiumEntitlementDebug] '
+      'supabase_auth_uid=${supabaseAuthUid ?? 'none'} '
+      'revenuecat_app_user_id_before_login=${appUserIdBeforeLogin ?? 'unknown'} '
+      'revenuecat_app_user_id_after_login=${appUserIdAfterLogin ?? 'unknown'} '
+      'revenuecat_entitlement_active_local=$localEntitlementActive '
+      'server_reconciliation_called=$serverReconciliationCalled '
+      'server_reconciliation_status=$serverReconciliationStatus',
+    );
   }
 
   bool _looksBackupVerificationError(String? message) {

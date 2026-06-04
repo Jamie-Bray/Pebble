@@ -313,14 +313,33 @@ class SubscriptionAccountController
       );
       debugPrint(
         '[PremiumEntitlement] RevenueCat server reconciliation completed: '
-        'data=${response.data}.',
+        'status=${response.status}, data=${response.data}.',
+      );
+      debugPrint(
+        '[PremiumEntitlementDebug] server_reconciliation_called=true '
+        'server_reconciliation_status=${response.status} '
+        'supabase_auth_uid=$userId',
       );
     } catch (error) {
+      final status = _functionErrorStatus(error);
       debugPrint(
-        '[PremiumEntitlement] RevenueCat server reconciliation failed: $error',
+        '[PremiumEntitlement] RevenueCat server reconciliation failed: '
+        'status=${status ?? 'unknown'}, error=$error',
+      );
+      debugPrint(
+        '[PremiumEntitlementDebug] server_reconciliation_called=true '
+        'server_reconciliation_status=${status ?? 'failed'} '
+        'supabase_auth_uid=$userId',
       );
       rethrow;
     }
+  }
+
+  String? _functionErrorStatus(Object error) {
+    final match = RegExp(
+      r'FunctionException\(status: ([0-9]+)',
+    ).firstMatch(error.toString());
+    return match?.group(1);
   }
 
   Future<void> recordEntitlementCheckError(String message) async {

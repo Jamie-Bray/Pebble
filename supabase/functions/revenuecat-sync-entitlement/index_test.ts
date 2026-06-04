@@ -1,17 +1,17 @@
-import { handler } from './index.ts';
+import { handler } from "./index.ts";
 
 function setupEnv() {
-  Deno.env.set('SUPABASE_URL', 'https://example.supabase.co');
-  Deno.env.set('SUPABASE_ANON_KEY', 'anon-key-123');
-  Deno.env.set('SUPABASE_SERVICE_ROLE_KEY', 'service-role-123');
-  Deno.env.set('REVENUECAT_REST_API_KEY', 'rc-key-123');
+  Deno.env.set("SUPABASE_URL", "https://example.supabase.co");
+  Deno.env.set("SUPABASE_ANON_KEY", "anon-key-123");
+  Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "service-role-123");
+  Deno.env.set("REVENUECAT_REST_API_KEY", "rc-key-123");
 }
 
-Deno.test('handler rejects GET requests with 405', async () => {
+Deno.test("handler rejects GET requests with 405", async () => {
   setupEnv();
   const response = await handler(
-    new Request('https://example.test/revenuecat-sync-entitlement', {
-      method: 'GET',
+    new Request("https://example.test/revenuecat-sync-entitlement", {
+      method: "GET",
     }),
   );
 
@@ -20,11 +20,11 @@ Deno.test('handler rejects GET requests with 405', async () => {
   }
 });
 
-Deno.test('handler rejects requests with missing authorization with 401', async () => {
+Deno.test("handler rejects requests with missing authorization with 401", async () => {
   setupEnv();
   const response = await handler(
-    new Request('https://example.test/revenuecat-sync-entitlement', {
-      method: 'POST',
+    new Request("https://example.test/revenuecat-sync-entitlement", {
+      method: "POST",
     }),
   );
 
@@ -33,13 +33,13 @@ Deno.test('handler rejects requests with missing authorization with 401', async 
   }
 });
 
-Deno.test('handler rejects requests using anon key with 401', async () => {
+Deno.test("handler rejects requests using anon key with 401", async () => {
   setupEnv();
   const response = await handler(
-    new Request('https://example.test/revenuecat-sync-entitlement', {
-      method: 'POST',
+    new Request("https://example.test/revenuecat-sync-entitlement", {
+      method: "POST",
       headers: {
-        authorization: 'Bearer anon-key-123',
+        authorization: "Bearer anon-key-123",
       },
     }),
   );
