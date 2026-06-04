@@ -465,13 +465,19 @@ class CloudSyncCoordinator {
   String _stableRemoteId({
     required String entityKind,
     required String localEntityId,
+    required String? ownerUserId,
     String? existingRemoteId,
   }) {
     final candidate = existingRemoteId?.trim();
     if (candidate != null && candidate.isNotEmpty) {
       return _toSupabaseUuid(candidate);
     }
-    return _toSupabaseUuid('$entityKind/$localEntityId');
+    final ownerScope = ownerUserId?.trim();
+    return _toSupabaseUuid(
+      ownerScope == null || ownerScope.isEmpty
+          ? '$entityKind/$localEntityId'
+          : '$ownerScope/$entityKind/$localEntityId',
+    );
   }
 
   Future<Routine?> _resolveRoutineForRun(String routineReference) async {
@@ -520,6 +526,7 @@ class CloudSyncCoordinator {
     final cloudId = _stableRemoteId(
       entityKind: 'routine',
       localEntityId: routine.id.toString(),
+      ownerUserId: ownerUserId,
       existingRemoteId: routine.cloudId,
     );
     final payload = {
@@ -574,6 +581,7 @@ class CloudSyncCoordinator {
     final routineCloudId = _stableRemoteId(
       entityKind: 'routine',
       localEntityId: routine.id.toString(),
+      ownerUserId: ownerUserId,
       existingRemoteId: routine.cloudId,
     );
     if (routineCloudId.isEmpty) {
@@ -582,6 +590,7 @@ class CloudSyncCoordinator {
     final cloudId = _stableRemoteId(
       entityKind: 'reminder',
       localEntityId: reminder.id.toString(),
+      ownerUserId: ownerUserId,
       existingRemoteId: reminder.cloudId,
     );
     await _remoteReminderDataSource.upsert({
@@ -612,7 +621,11 @@ class CloudSyncCoordinator {
     if (run == null) return;
 
     final routine = await _resolveRoutineForRun(run.routineId);
-    final routineCloudId = _routineCloudIdForRun(run.routineId, routine);
+    final routineCloudId = _routineCloudIdForRun(
+      run.routineId,
+      routine,
+      ownerUserId,
+    );
 
     final syncedRun = await _uploadRunProofs(run, ownerUserId);
     final payload = {
@@ -635,12 +648,17 @@ class CloudSyncCoordinator {
     );
   }
 
-  String? _routineCloudIdForRun(String routineReference, Routine? routine) {
+  String? _routineCloudIdForRun(
+    String routineReference,
+    Routine? routine,
+    String ownerUserId,
+  ) {
     final trimmed = routineReference.trim();
     if (routine != null) {
       return _stableRemoteId(
         entityKind: 'routine',
         localEntityId: routine.id.toString(),
+        ownerUserId: ownerUserId,
         existingRemoteId: routine.cloudId,
       );
     }
@@ -654,6 +672,7 @@ class CloudSyncCoordinator {
     return _stableRemoteId(
       entityKind: 'routine',
       localEntityId: (parsedLocalId ?? trimmed).toString(),
+      ownerUserId: ownerUserId,
       existingRemoteId: null,
     );
   }

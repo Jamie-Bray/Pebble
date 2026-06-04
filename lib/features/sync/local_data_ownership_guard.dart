@@ -127,7 +127,7 @@ class LocalDataOwnershipGuard {
         report.state == LocalDataOwnershipState.sameOwnerOnly) {
       return report;
     }
-    if (report.state != LocalDataOwnershipState.unownedOnly) {
+    if (report.differentOwnerCount > 0) {
       throw StateError(
         'This device has local data linked to another account. Pebble will keep it local until an account-switch choice is available.',
       );
@@ -175,6 +175,86 @@ class LocalDataOwnershipGuard {
 
       await (database.update(database.routineSessions)..where(
             (tbl) => tbl.ownerUserId.isNull() | tbl.ownerUserId.equals(''),
+          ))
+          .write(
+            RoutineSessionsCompanion(
+              ownerUserId: Value(normalizedUserId),
+              updatedAt: Value(now),
+              syncMetadataJson: Value(sessionSyncMetadata),
+            ),
+          );
+    });
+
+    return inspect(database: database, signedInUserId: normalizedUserId);
+  }
+
+  static Future<LocalDataOwnershipReport> useCurrentAccountForLocalData({
+    required LocalDb database,
+    required String signedInUserId,
+    DateTime? linkedAt,
+  }) async {
+    final normalizedUserId = signedInUserId.trim();
+    if (normalizedUserId.isEmpty) {
+      throw StateError('Sign in before linking local data.');
+    }
+
+    final now = linkedAt ?? DateTime.now();
+    final sessionSyncMetadata = jsonEncode({
+      'needsSync': true,
+      'ownershipLinkedAt': now.toUtc().toIso8601String(),
+      'ownershipChoice': 'useCurrentAccount',
+    });
+
+    await database.transaction(() async {
+      await (database.update(database.routines)..where(
+            (tbl) =>
+                tbl.ownerUserId.isNull() |
+                tbl.ownerUserId.equals('') |
+                tbl.ownerUserId.isNotValue(normalizedUserId),
+          ))
+          .write(
+            RoutinesCompanion(
+              cloudId: const Value(null),
+              ownerUserId: Value(normalizedUserId),
+              syncStatus: const Value('pendingUpload'),
+              updatedAt: Value(now),
+            ),
+          );
+
+      await (database.update(database.routineRuns)..where(
+            (tbl) =>
+                tbl.ownerUserId.isNull() |
+                tbl.ownerUserId.equals('') |
+                tbl.ownerUserId.isNotValue(normalizedUserId),
+          ))
+          .write(
+            RoutineRunsCompanion(
+              ownerUserId: Value(normalizedUserId),
+              syncStatus: const Value('pendingUpload'),
+              updatedAt: Value(now),
+            ),
+          );
+
+      await (database.update(database.routineReminders)..where(
+            (tbl) =>
+                tbl.ownerUserId.isNull() |
+                tbl.ownerUserId.equals('') |
+                tbl.ownerUserId.isNotValue(normalizedUserId),
+          ))
+          .write(
+            RoutineRemindersCompanion(
+              cloudId: const Value(null),
+              ownerUserId: Value(normalizedUserId),
+              syncStatus: const Value('pendingUpload'),
+              updatedAt: Value(now),
+            ),
+          );
+
+      await (database.update(database.routineSessions)..where(
+            (tbl) =>
+                tbl.ownerUserId.isNull() |
+                tbl.ownerUserId.equals('') |
+                tbl.ownerUserId.isNotValue(normalizedUserId),
           ))
           .write(
             RoutineSessionsCompanion(

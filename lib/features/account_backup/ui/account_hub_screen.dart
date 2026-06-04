@@ -106,12 +106,15 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
       return;
     }
 
-    if (report.state != LocalDataOwnershipState.unownedOnly) {
-      _showVaultNotice(
-        'Some Pebble data on this device belongs to another account. Pebble will keep it local.',
-        title: 'Backup paused',
-        type: NotificationType.warning,
+    if (report.differentOwnerCount > 0) {
+      final confirmed = await _showUseCurrentAccountDialog(
+        email: email,
+        report: report,
       );
+      if (confirmed != true || !mounted) {
+        return;
+      }
+      await _useCurrentAccountForLocalData(userId);
       return;
     }
 
@@ -124,6 +127,43 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
     }
 
     await _linkLocalDataToCurrentAccount(userId);
+  }
+
+  Future<bool?> _showUseCurrentAccountDialog({
+    required String? email,
+    required LocalDataOwnershipReport report,
+  }) {
+    final itemCount =
+        report.unownedCount +
+        report.sameOwnerCount +
+        report.differentOwnerCount;
+    final itemLabel = '$itemCount local item${itemCount == 1 ? '' : 's'}';
+    return _showAccountActionSheet<bool>(
+      context: context,
+      builder: (sheetContext) => _AccountActionSheet(
+        icon: LucideIcons.userCheck,
+        eyebrow: 'Backup',
+        title: 'Use this account for this device?',
+        body:
+            'This device has Pebble data from a previous sign-in. Use ${email ?? 'this account'} from now on so backup can continue.',
+        accentColor: Theme.of(sheetContext).colorScheme.primary,
+        details: [
+          _AccountSheetPillRow(
+            pills: [
+              _AccountSheetPill(value: itemLabel, label: 'On this device'),
+              const _AccountSheetPill(value: 'Current', label: 'Account'),
+              const _AccountSheetPill(value: 'Backup', label: 'After choice'),
+            ],
+          ),
+        ],
+        primaryLabel: 'Use this account',
+        onPrimaryPressed: () => Navigator.of(sheetContext).pop(true),
+        secondaryLabel: 'Keep backup off',
+        onSecondaryPressed: () => Navigator.of(sheetContext).pop(false),
+        footer:
+            'Pebble will not upload this device\'s routines to the signed-in account unless you choose.',
+      ),
+    );
   }
 
   Future<bool?> _showLinkLocalDataDialog({
@@ -182,6 +222,39 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
       _showVaultNotice(
         message,
         title: 'Could not link',
+        type: NotificationType.error,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _linkLocalDataInFlight = false);
+      }
+    }
+  }
+
+  Future<void> _useCurrentAccountForLocalData(String userId) async {
+    if (_linkLocalDataInFlight) {
+      return;
+    }
+    setState(() => _linkLocalDataInFlight = true);
+    try {
+      await LocalDataOwnershipGuard.useCurrentAccountForLocalData(
+        database: ref.read(localDbProvider),
+        signedInUserId: userId,
+      );
+      await _prepareBackupAfterOwnershipChoice(userId);
+      _showVaultNotice(
+        'This device now uses your signed-in account for backup.',
+        title: 'Backup is on',
+        type: NotificationType.success,
+      );
+    } catch (error) {
+      final message = _toUserFacingError(error);
+      await ref
+          .read(subscriptionAccountControllerProvider.notifier)
+          .noteSyncFailure(message);
+      _showVaultNotice(
+        message,
+        title: 'Could not continue',
         type: NotificationType.error,
       );
     } finally {
@@ -573,11 +646,7 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
       case AccountStatusAction.reviewLocalData:
         _reviewLocalDataForCurrentAccount(ref.read(authSessionProvider).email);
       case AccountStatusAction.keepLocal:
-        _showVaultNotice(
-          'Kept local on this device. Backup stays paused.',
-          title: 'Kept local',
-          type: NotificationType.info,
-        );
+        _showWithdrawCloudBackupConsentDialog();
       case AccountStatusAction.pauseBackup:
         _showWithdrawCloudBackupConsentDialog();
     }

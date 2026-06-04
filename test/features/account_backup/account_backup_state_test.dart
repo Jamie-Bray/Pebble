@@ -1133,7 +1133,7 @@ void main() {
         const ownerUserId = '11111111-1111-1111-1111-111111111111';
         final expectedRoutineCloudId = const Uuid().v5(
           Namespace.url.value,
-          'vix.pebble/routine/1',
+          'vix.pebble/$ownerUserId/routine/1',
         );
         await database.routineDao.insertOrUpdateRoutine(
           _buildRoutine(ownerUserId: ownerUserId),
@@ -1593,7 +1593,7 @@ void main() {
         const ownerUserId = '11111111-1111-1111-1111-111111111111';
         final expectedRoutineCloudId = const Uuid().v5(
           Namespace.url.value,
-          'vix.pebble/routine/1',
+          'vix.pebble/$ownerUserId/routine/1',
         );
 
         await database.routineRunDao.insertOrUpdateRun(

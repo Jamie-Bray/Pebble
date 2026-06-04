@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:drift/drift.dart' as drift;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
@@ -109,10 +110,59 @@ void main() {
       final routine = (await database.routineDao.getAllRoutines()).single;
       expect(routine.ownerUserId, 'user-a');
     });
+
+    test('can move this device local data to the signed-in account', () async {
+      await database.routineDao.insertOrUpdateRoutine(
+        _routine(ownerUserId: 'old-user', cloudId: 'old-routine-cloud-id'),
+      );
+      await database.routineRunDao.insertOrUpdateRun(
+        _run(ownerUserId: 'old-user'),
+      );
+      await database.routineReminderDao.addReminder(
+        _reminder(ownerUserId: 'old-user', cloudId: 'old-reminder-cloud-id'),
+      );
+      await database.routineSessionDao.insertOrUpdateSession(
+        _session(ownerUserId: 'old-user'),
+      );
+
+      final report =
+          await LocalDataOwnershipGuard.useCurrentAccountForLocalData(
+            database: database,
+            signedInUserId: 'new-user',
+            linkedAt: DateTime(2026, 1, 3, 10),
+          );
+
+      expect(report.state, LocalDataOwnershipState.sameOwnerOnly);
+      expect(report.blocksCloudSync, isFalse);
+
+      final routine = (await database.routineDao.getAllRoutines()).single;
+      expect(routine.ownerUserId, 'new-user');
+      expect(routine.cloudId, null);
+      expect(routine.syncStatus, 'pendingUpload');
+
+      final reminder =
+          (await database.routineReminderDao.getAllReminders()).single;
+      expect(reminder.ownerUserId, 'new-user');
+      expect(reminder.cloudId, null);
+      expect(reminder.syncStatus, 'pendingUpload');
+
+      final run = (await database.routineRunDao.getAllRuns()).single;
+      expect(run.ownerUserId, 'new-user');
+      expect(run.syncStatus, 'pendingUpload');
+
+      final session =
+          (await database.routineSessionDao.getAllSessions()).single;
+      expect(session.ownerUserId, 'new-user');
+      expect(session.syncMetadataJson, contains('"needsSync":true'));
+      expect(
+        session.syncMetadataJson,
+        contains('"ownershipChoice":"useCurrentAccount"'),
+      );
+    });
   });
 }
 
-Routine _routine({String? ownerUserId}) {
+Routine _routine({String? ownerUserId, String? cloudId}) {
   return Routine(
     id: 1,
     title: 'Close down',
@@ -126,7 +176,7 @@ Routine _routine({String? ownerUserId}) {
     reminderTime: null,
     version: 1,
     updatedAt: DateTime(2026, 1, 1),
-    cloudId: null,
+    cloudId: cloudId,
     ownerUserId: ownerUserId,
     syncStatus: ownerUserId == null ? 'localOnly' : 'synced',
     lastSyncedAt: null,
@@ -148,11 +198,14 @@ RoutineRun _run({String? ownerUserId}) {
   );
 }
 
-RoutineRemindersCompanion _reminder() {
+RoutineRemindersCompanion _reminder({String? ownerUserId, String? cloudId}) {
   return RoutineRemindersCompanion.insert(
     routineId: 1,
     dayOfWeek: 1,
     time: '09:00',
+    cloudId: drift.Value(cloudId),
+    ownerUserId: drift.Value(ownerUserId),
+    syncStatus: drift.Value(ownerUserId == null ? 'localOnly' : 'synced'),
   );
 }
 
