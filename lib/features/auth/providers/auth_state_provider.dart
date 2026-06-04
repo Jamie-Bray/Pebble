@@ -164,6 +164,7 @@ class AuthController extends StateNotifier<AuthState> {
   }
 
   Future<void> signOut() async {
+    debugPrint('[PremiumEntitlement] Sign-out requested.');
     await _repository.signOut();
     await _logOutPurchaseSession('sign-out');
     await _ref
@@ -234,6 +235,9 @@ class AuthController extends StateNotifier<AuthState> {
         clearError: true,
       );
       await _refreshStoreEntitlement();
+      debugPrint(
+        '[PremiumEntitlement] Entitlement refreshed after account sign-in.',
+      );
       await _ensureCloudReady(identity.userId);
       state = state.copyWith(status: AuthStatus.signedIn, clearError: true);
       return true;
@@ -256,6 +260,7 @@ class AuthController extends StateNotifier<AuthState> {
       state = state.copyWith(status: AuthStatus.signedOut, clearError: true);
       return;
     }
+    await _refreshStoreEntitlement();
     await _ensureCloudReady(state.activeUserId!);
     state = state.copyWith(status: AuthStatus.signedIn, clearError: true);
   }
@@ -356,12 +361,16 @@ class AuthController extends StateNotifier<AuthState> {
 
   Future<void> _refreshStoreEntitlement() async {
     try {
-      final entitlementStore = _ref.read(entitlementStoreProvider);
-      await _ref.read(purchaseRepositoryProvider).syncPurchasesSilently();
-      await entitlementStore.refreshServerVerifiedEntitlement();
-    } catch (_) {
+      debugPrint('[PremiumEntitlement] Refreshing store entitlement.');
+      await _ref
+          .read(purchaseRepositoryProvider)
+          .syncPurchasesSilently(waitForServerMirror: true);
+    } catch (error) {
       // No active store purchase, or RevenueCat is unreachable. The entitlement
       // layer keeps the last verified local state and exposes the check error.
+      debugPrint(
+        '[PremiumEntitlement] Store entitlement refresh failed: $error',
+      );
     }
   }
 

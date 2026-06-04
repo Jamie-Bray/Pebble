@@ -19,6 +19,9 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     unawaited(_initialise());
   }
 
+  static const _backupVerificationFailedMessage =
+      'Premium is active, but backup could not be set up yet. Try again.';
+
   final Ref _ref;
 
   bool _configured = false;
@@ -116,6 +119,10 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     late final rc.PurchaseResult result;
     try {
       result = await rc.Purchases.purchase(rc.PurchaseParams.package(package));
+      debugPrint(
+        '[PremiumEntitlement] Purchase completed through RevenueCat '
+        'for plan=${plan.name}.',
+      );
     } on PlatformException catch (error) {
       final errorCode = rc.PurchasesErrorHelper.getErrorCode(error);
       if (errorCode == rc.PurchasesErrorCode.purchaseCancelledError) {
@@ -164,7 +171,7 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
   }
 
   @override
-  Future<void> syncPurchasesSilently() async {
+  Future<void> syncPurchasesSilently({bool waitForServerMirror = false}) async {
     final userId = _currentUserId;
     await _configureForUser(userId);
     late final rc.CustomerInfo customerInfo;
@@ -179,17 +186,33 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     }
     final entitlement = _activeEntitlement(customerInfo);
     if (entitlement == null) {
+      if (await _preserveActiveStoreEntitlementWhenMissing(
+        'silent purchase sync',
+      )) {
+        return;
+      }
       if (userId != null && _hasVerifiedPaidRevenueCatEntitlement()) {
         await _ref.read(entitlementStoreProvider).applyExpiredEntitlement();
       }
       return;
     }
-    await _applyVerifiedEntitlement(entitlement);
+    debugPrint(
+      '[PremiumEntitlement] Active store entitlement detected during sync.',
+    );
+    await _applyVerifiedEntitlement(
+      entitlement,
+      waitForServerMirror: waitForServerMirror,
+    );
   }
 
   @override
   Future<void> logOut() async {
     if (!_configured) return;
+    final before = await _safeRevenueCatAppUserId();
+    debugPrint(
+      '[PremiumEntitlement] RevenueCat logOut requested: '
+      'currentAppUserId=${before ?? 'unknown'}.',
+    );
     await rc.Purchases.logOut();
     _configuredUserId = null;
     try {
@@ -210,9 +233,26 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     }
     if (_configured) {
       if (normalizedUserId != null) {
-        await rc.Purchases.logIn(normalizedUserId);
+        final before = await _safeRevenueCatAppUserId();
+        debugPrint(
+          '[PremiumEntitlement] RevenueCat logIn requested: '
+          'currentAppUserId=${before ?? 'unknown'}, '
+          'supabaseUserId=$normalizedUserId.',
+        );
+        final result = await rc.Purchases.logIn(normalizedUserId);
         _configuredUserId = normalizedUserId;
+        debugPrint(
+          '[PremiumEntitlement] RevenueCat logIn completed: '
+          'created=${result.created}, '
+          'originalAppUserId=${result.customerInfo.originalAppUserId}, '
+          'hasActiveEntitlement=${_activeEntitlement(result.customerInfo) != null}.',
+        );
       } else {
+        final before = await _safeRevenueCatAppUserId();
+        debugPrint(
+          '[PremiumEntitlement] RevenueCat switching to anonymous user: '
+          'currentAppUserId=${before ?? 'unknown'}.',
+        );
         await rc.Purchases.logOut();
         _configuredUserId = null;
       }
@@ -230,6 +270,12 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     await rc.Purchases.configure(purchasesConfig);
     _configured = true;
     _configuredUserId = normalizedUserId;
+    final configuredAppUserId = await _safeRevenueCatAppUserId();
+    debugPrint(
+      '[PremiumEntitlement] RevenueCat configured: '
+      'supabaseUserId=${normalizedUserId ?? 'none'}, '
+      'appUserId=${configuredAppUserId ?? 'unknown'}.',
+    );
   }
 
   Future<void> _loadOfferings() async {
@@ -260,7 +306,12 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
   }) async {
     final entitlement = _activeEntitlement(customerInfo);
     if (entitlement == null) {
-      unawaited(_ref.read(entitlementStoreProvider).applyExpiredEntitlement());
+      final preserved = await _preserveActiveStoreEntitlementWhenMissing(
+        'purchase result',
+      );
+      if (!preserved && _hasVerifiedPaidRevenueCatEntitlement()) {
+        await _ref.read(entitlementStoreProvider).applyExpiredEntitlement();
+      }
       throw StateError(
         'No active Personal Premium purchase was found on this store account.',
       );
@@ -284,11 +335,21 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     bool waitForServerMirror = false,
   }) async {
     final entitlementStore = _ref.read(entitlementStoreProvider);
+    final previousEntitlementError = _ref
+        .read(subscriptionAccountControllerProvider)
+        .entitlementError;
     await entitlementStore.applyRevenueCatEntitlement(
       UserTier.personalPremium,
       periodEndsAt: _expirationDate(entitlement),
     );
-    await _refreshServerMirror(waitForServerMirror: waitForServerMirror);
+    final mirrored = await _refreshServerMirror(
+      waitForServerMirror: waitForServerMirror,
+    );
+    if (!mirrored &&
+        !waitForServerMirror &&
+        _looksBackupVerificationError(previousEntitlementError)) {
+      await entitlementStore.recordEntitlementError(previousEntitlementError!);
+    }
   }
 
   Future<bool> _refreshServerMirror({required bool waitForServerMirror}) async {
@@ -296,9 +357,16 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     if (_currentUserId == null) {
       return false;
     }
+    debugPrint('[PremiumEntitlement] Server mirror refresh requested.');
     if (!waitForServerMirror) {
       try {
-        return await entitlementStore.refreshServerVerifiedEntitlement();
+        final refreshed = await entitlementStore
+            .refreshServerVerifiedEntitlement();
+        debugPrint(
+          '[PremiumEntitlement] Server mirror refresh completed: '
+          'refreshed=$refreshed.',
+        );
+        return refreshed;
       } catch (error) {
         debugPrint('RevenueCat entitlement mirror refresh failed: $error');
         return false;
@@ -307,12 +375,18 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
 
     final deadline = DateTime.now().add(const Duration(seconds: 15));
     Object? lastError;
+    var requestedReconciliation = false;
     while (DateTime.now().isBefore(deadline)) {
       try {
-        if (await entitlementStore.refreshServerVerifiedEntitlement()) {
+        if (await entitlementStore.refreshServerVerifiedEntitlement(
+          requestServerReconciliation: !requestedReconciliation,
+        )) {
+          debugPrint('[PremiumEntitlement] Server mirror refresh completed.');
           return true;
         }
+        requestedReconciliation = true;
       } catch (error) {
+        requestedReconciliation = true;
         lastError = error;
       }
       await Future<void>.delayed(const Duration(seconds: 1));
@@ -321,6 +395,12 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     if (lastError != null) {
       debugPrint('RevenueCat entitlement mirror refresh failed: $lastError');
     }
+    await entitlementStore.recordEntitlementError(
+      _backupVerificationFailedMessage,
+    );
+    debugPrint(
+      '[PremiumEntitlement] Server mirror refresh timed out after bounded wait.',
+    );
     return false;
   }
 
@@ -339,6 +419,41 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     final account = _ref.read(subscriptionAccountControllerProvider);
     return account.entitlementSource == EntitlementSource.revenueCat &&
         account.entitlementTier != UserTier.personalFree;
+  }
+
+  Future<bool> _preserveActiveStoreEntitlementWhenMissing(
+    String context,
+  ) async {
+    final account = _ref.read(subscriptionAccountControllerProvider);
+    if (!hasActiveStoreEntitlement(account)) {
+      return false;
+    }
+    const message =
+        'Premium is active locally. Pebble is waiting for secure purchase verification for this account.';
+    debugPrint(
+      '[PremiumEntitlement] No active RevenueCat entitlement during $context; '
+      'preserving active local store entitlement.',
+    );
+    await _ref.read(entitlementStoreProvider).recordEntitlementError(message);
+    return true;
+  }
+
+  Future<String?> _safeRevenueCatAppUserId() async {
+    try {
+      return await rc.Purchases.appUserID;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool _looksBackupVerificationError(String? message) {
+    if (message == null || message.isEmpty) {
+      return false;
+    }
+    final normalized = message.toLowerCase();
+    return normalized.contains('backup could not be set up') ||
+        normalized.contains('could not finish backup setup') ||
+        normalized.contains('purchase verification');
   }
 
   String? get _currentUserId {

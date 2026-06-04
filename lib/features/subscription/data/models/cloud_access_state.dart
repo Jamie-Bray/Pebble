@@ -39,6 +39,7 @@ enum PersonalCloudAccessStatus {
   offSignedInNoEntitlement,
   consentRequired,
   syncing,
+  verificationFailed,
   available,
   pausedSignedOut,
   offlinePending,

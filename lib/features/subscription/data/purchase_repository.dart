@@ -78,7 +78,9 @@ abstract class EntitlementStore {
   });
   Future<void> applyExpiredEntitlement();
   Future<void> recordEntitlementError(String message);
-  Future<bool> refreshServerVerifiedEntitlement();
+  Future<bool> refreshServerVerifiedEntitlement({
+    bool requestServerReconciliation = false,
+  });
 }
 
 class LocalEntitlementStore implements EntitlementStore {
@@ -111,10 +113,14 @@ class LocalEntitlementStore implements EntitlementStore {
   }
 
   @override
-  Future<bool> refreshServerVerifiedEntitlement() async {
+  Future<bool> refreshServerVerifiedEntitlement({
+    bool requestServerReconciliation = false,
+  }) async {
     return _ref
         .read(subscriptionAccountControllerProvider.notifier)
-        .refreshServerVerifiedEntitlement();
+        .refreshServerVerifiedEntitlement(
+          requestServerReconciliation: requestServerReconciliation,
+        );
   }
 }
 
@@ -128,7 +134,7 @@ abstract class PurchaseRepository extends ChangeNotifier {
   String? get unavailableReason;
   Future<PurchaseResult> purchasePersonalPremium(BillingPlan plan);
   Future<PurchaseResult> restorePurchases();
-  Future<void> syncPurchasesSilently();
+  Future<void> syncPurchasesSilently({bool waitForServerMirror = false});
   Future<void> logOut();
 }
 
@@ -171,7 +177,7 @@ class StoreUnavailablePurchaseRepository extends ChangeNotifier
   }
 
   @override
-  Future<void> syncPurchasesSilently() async {
+  Future<void> syncPurchasesSilently({bool waitForServerMirror = false}) async {
     throw StateError(_message);
   }
 

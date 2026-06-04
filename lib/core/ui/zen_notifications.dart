@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
@@ -7,12 +9,16 @@ class ZenNotifications {
     BuildContext context, {
     required String message,
     String? title,
+    String? actionLabel,
+    VoidCallback? onAction,
     Duration duration = const Duration(seconds: 3),
   }) {
     _showNotification(
       context,
       message: message,
       title: title,
+      actionLabel: actionLabel,
+      onAction: onAction,
       type: NotificationType.success,
       duration: duration,
     );
@@ -22,12 +28,16 @@ class ZenNotifications {
     BuildContext context, {
     required String message,
     String? title,
+    String? actionLabel,
+    VoidCallback? onAction,
     Duration duration = const Duration(seconds: 3),
   }) {
     _showNotification(
       context,
       message: message,
       title: title,
+      actionLabel: actionLabel,
+      onAction: onAction,
       type: NotificationType.info,
       duration: duration,
     );
@@ -37,12 +47,16 @@ class ZenNotifications {
     BuildContext context, {
     required String message,
     String? title,
+    String? actionLabel,
+    VoidCallback? onAction,
     Duration duration = const Duration(seconds: 4),
   }) {
     _showNotification(
       context,
       message: message,
       title: title,
+      actionLabel: actionLabel,
+      onAction: onAction,
       type: NotificationType.warning,
       duration: duration,
     );
@@ -52,12 +66,16 @@ class ZenNotifications {
     BuildContext context, {
     required String message,
     String? title,
+    String? actionLabel,
+    VoidCallback? onAction,
     Duration duration = const Duration(seconds: 4),
   }) {
     _showNotification(
       context,
       message: message,
       title: title,
+      actionLabel: actionLabel,
+      onAction: onAction,
       type: NotificationType.error,
       duration: duration,
     );
@@ -67,6 +85,8 @@ class ZenNotifications {
     BuildContext context, {
     required String message,
     String? title,
+    String? actionLabel,
+    VoidCallback? onAction,
     required NotificationType type,
     required Duration duration,
   }) {
@@ -75,14 +95,23 @@ class ZenNotifications {
 
     // Show overlay notification
     final overlay = Overlay.of(context);
+    var removed = false;
     late final OverlayEntry overlayEntry;
     overlayEntry = OverlayEntry(
       builder: (context) => _ZenNotificationOverlay(
         message: message,
         title: title,
+        actionLabel: actionLabel,
+        onAction: onAction,
         type: type,
         duration: duration,
-        onDismiss: () => overlayEntry.remove(),
+        onDismiss: () {
+          if (removed) {
+            return;
+          }
+          removed = true;
+          overlayEntry.remove();
+        },
       ),
     );
 
@@ -95,6 +124,8 @@ enum NotificationType { success, info, warning, error }
 class _ZenNotificationOverlay extends StatefulWidget {
   final String message;
   final String? title;
+  final String? actionLabel;
+  final VoidCallback? onAction;
   final NotificationType type;
   final Duration duration;
   final VoidCallback onDismiss;
@@ -102,6 +133,8 @@ class _ZenNotificationOverlay extends StatefulWidget {
   const _ZenNotificationOverlay({
     required this.message,
     this.title,
+    this.actionLabel,
+    this.onAction,
     required this.type,
     required this.duration,
     required this.onDismiss,
@@ -118,6 +151,8 @@ class _ZenNotificationOverlayState extends State<_ZenNotificationOverlay>
   late Animation<double> _slideAnimation;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
+  Timer? _dismissTimer;
+  bool _isDismissing = false;
 
   @override
   void initState() {
@@ -146,7 +181,7 @@ class _ZenNotificationOverlayState extends State<_ZenNotificationOverlay>
     _controller.forward();
 
     // Auto-dismiss
-    Future.delayed(widget.duration, () {
+    _dismissTimer = Timer(widget.duration, () {
       if (mounted) {
         _dismiss();
       }
@@ -155,11 +190,17 @@ class _ZenNotificationOverlayState extends State<_ZenNotificationOverlay>
 
   @override
   void dispose() {
+    _dismissTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }
 
   void _dismiss() {
+    if (_isDismissing) {
+      return;
+    }
+    _isDismissing = true;
+    _dismissTimer?.cancel();
     _controller.reverse().then((_) {
       widget.onDismiss();
     });
@@ -276,6 +317,25 @@ class _ZenNotificationOverlayState extends State<_ZenNotificationOverlay>
                           color: foundation.textSecondary,
                         ),
                       ),
+                      if (widget.actionLabel != null &&
+                          widget.onAction != null) ...[
+                        const SizedBox(height: 8),
+                        GestureDetector(
+                          onTap: () {
+                            widget.onAction!();
+                            _dismiss();
+                          },
+                          child: Text(
+                            widget.actionLabel!.toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.5,
+                              color: accent,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

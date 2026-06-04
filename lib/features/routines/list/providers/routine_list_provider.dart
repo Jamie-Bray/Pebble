@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/features/routines/data/models/routine_icon_catalog.dart';
+import 'package:pebble_routines/features/subscription/domain/routine_limit_policy.dart';
+import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 
 class HomeRoutineHighlight {
   const HomeRoutineHighlight({required this.routineId, required this.message});
@@ -83,3 +85,11 @@ final routineListProvider = StreamProvider<List<Routine>>((ref) {
     return routines;
   });
 });
+
+final routineAccessListProvider =
+    Provider<AsyncValue<List<RoutineAccessState>>>((ref) {
+      final policy = ref.watch(routineLimitPolicyProvider);
+      return ref.watch(routineListProvider).whenData((routines) {
+        return buildRoutineAccessStates(routines: routines, policy: policy);
+      });
+    });

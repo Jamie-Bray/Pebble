@@ -35,6 +35,7 @@ import 'features/sync/cloud_sync_coordinator.dart';
 import 'features/auth/providers/auth_state_provider.dart';
 import 'features/subscription/data/purchase_repository.dart';
 import 'features/subscription/data/revenuecat_runtime_config.dart';
+import 'features/subscription/providers/premium_feature_policy_provider.dart';
 // duplicate import removed
 
 class RoutineSessionEntry {
@@ -49,9 +50,15 @@ final routineSessionEntryProvider = FutureProvider.autoDispose
       final routineRepo = ref.read(routineRepositoryProvider);
       final sessionRepo = ref.read(routineSessionRepositoryProvider);
       final routingContext = ref.read(sessionRoutingContextProvider);
+      final routines = await ref.watch(routineListProvider.future);
+      final policy = ref.read(routineLimitPolicyProvider);
       final routine = await routineRepo.getRoutineById(id);
       if (routine == null) {
         return null;
+      }
+      final orderedIndex = routines.indexWhere((item) => item.id == routine.id);
+      if (orderedIndex >= 0 && policy.isRoutineRestricted(orderedIndex)) {
+        throw const RoutineSoftLockedException();
       }
       final session = await sessionRepo.startOrResumeSession(
         routine: routine,
@@ -62,6 +69,10 @@ final routineSessionEntryProvider = FutureProvider.autoDispose
         sessionId: session.sessionId,
       );
     });
+
+class RoutineSoftLockedException implements Exception {
+  const RoutineSoftLockedException();
+}
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -288,9 +299,11 @@ final _routerProvider = Provider<GoRouter>((ref) {
                 loading: () => const Scaffold(
                   body: Center(child: CircularProgressIndicator.adaptive()),
                 ),
-                error: (e, st) => const Scaffold(
-                  body: Center(child: Text('Could not load routine')),
-                ),
+                error: (e, st) => e is RoutineSoftLockedException
+                    ? const _RoutineLockedScreen()
+                    : const Scaffold(
+                        body: Center(child: Text('Could not load routine')),
+                      ),
                 data: (entry) {
                   if (entry == null) {
                     return const _RoutineUnavailableScreen();
@@ -347,6 +360,64 @@ class _RoutineUnavailableScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
                 FilledButton(
+                  onPressed: () => GoRouter.of(context).go('/'),
+                  child: const Text('Back to Home'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RoutineLockedScreen extends StatelessWidget {
+  const _RoutineLockedScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Scaffold(
+      backgroundColor: colorScheme.surface,
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.lock_outline_rounded,
+                  size: 42,
+                  color: colorScheme.primary,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Premium ended',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'This routine is still saved, but it needs Premium to unlock.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurface.withValues(alpha: 0.64),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                FilledButton(
+                  onPressed: () => GoRouter.of(
+                    context,
+                  ).push(premiumRoute(source: PremiumEntrySource.routineLimit)),
+                  child: const Text('Renew Premium'),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
                   onPressed: () => GoRouter.of(context).go('/'),
                   child: const Text('Back to Home'),
                 ),

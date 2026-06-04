@@ -9,14 +9,21 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:pebble_routines/core/config/app_runtime_config.dart';
+import 'package:pebble_routines/core/database/local_db.dart';
+import 'package:pebble_routines/core/ui/zen_notifications.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/features/account_backup/providers/account_status_mapper.dart';
 import 'package:pebble_routines/features/account_backup/ui/account_status_card.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
+import 'package:pebble_routines/features/history/providers/routine_history_vm.dart';
+import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
 import 'package:pebble_routines/features/subscription/data/purchase_repository.dart';
 import 'package:pebble_routines/features/subscription/data/models/subscription_account_state.dart';
+import 'package:pebble_routines/features/subscription/domain/routine_limit_policy.dart';
+import 'package:pebble_routines/features/subscription/domain/subscription_lifecycle.dart';
 import 'package:pebble_routines/features/subscription/providers/cloud_backup_consent_provider.dart';
+import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 import 'package:pebble_routines/features/sync/cloud_restore_coordinator.dart';
@@ -49,22 +56,34 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
     context.go('/');
   }
 
-  void _showVaultSnackBar(String message) {
+  void _showVaultNotice(
+    String message, {
+    String? title,
+    NotificationType type = NotificationType.info,
+  }) {
     if (!mounted) {
       return;
     }
-    final messenger = ScaffoldMessenger.of(context);
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(behavior: SnackBarBehavior.floating, content: Text(message)),
-      );
+    switch (type) {
+      case NotificationType.success:
+        ZenNotifications.showSuccess(context, title: title, message: message);
+      case NotificationType.info:
+        ZenNotifications.showInfo(context, title: title, message: message);
+      case NotificationType.warning:
+        ZenNotifications.showWarning(context, title: title, message: message);
+      case NotificationType.error:
+        ZenNotifications.showError(context, title: title, message: message);
+    }
   }
 
   Future<void> _reviewLocalDataForCurrentAccount(String? email) async {
     final userId = ref.read(authSessionProvider).userId?.trim();
     if (userId == null || userId.isEmpty) {
-      _showVaultSnackBar('Sign in before linking local data.');
+      _showVaultNotice(
+        'Sign in before linking local data.',
+        title: 'Sign-in needed',
+        type: NotificationType.warning,
+      );
       return;
     }
 
@@ -79,13 +98,19 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
     if (report.state == LocalDataOwnershipState.empty ||
         report.state == LocalDataOwnershipState.sameOwnerOnly) {
       await _prepareBackupAfterOwnershipChoice(userId);
-      _showVaultSnackBar('Local data is already linked to this account.');
+      _showVaultNotice(
+        'Local data is already linked to this account.',
+        title: 'Already linked',
+        type: NotificationType.info,
+      );
       return;
     }
 
     if (report.state != LocalDataOwnershipState.unownedOnly) {
-      _showVaultSnackBar(
+      _showVaultNotice(
         'Some Pebble data on this device belongs to another account. Pebble will keep it local.',
+        title: 'Backup paused',
+        type: NotificationType.warning,
       );
       return;
     }
@@ -126,7 +151,7 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
         ],
         primaryLabel: 'Link to this account',
         onPrimaryPressed: () => Navigator.of(sheetContext).pop(true),
-        secondaryLabel: 'Keep local for now',
+        secondaryLabel: 'Keep local',
         onSecondaryPressed: () => Navigator.of(sheetContext).pop(false),
         footer: 'Pebble will not upload this device\'s data unless you choose.',
       ),
@@ -144,13 +169,21 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
         signedInUserId: userId,
       );
       await _prepareBackupAfterOwnershipChoice(userId);
-      _showVaultSnackBar('Linked to this account. Backup can start now.');
+      _showVaultNotice(
+        'Linked to this account. Backup can start now.',
+        title: 'Data linked',
+        type: NotificationType.success,
+      );
     } catch (error) {
       final message = _toUserFacingError(error);
       await ref
           .read(subscriptionAccountControllerProvider.notifier)
           .noteSyncFailure(message);
-      _showVaultSnackBar(message);
+      _showVaultNotice(
+        message,
+        title: 'Could not link',
+        type: NotificationType.error,
+      );
     } finally {
       if (mounted) {
         setState(() => _linkLocalDataInFlight = false);
@@ -183,15 +216,27 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
     switch (result.type) {
       case ManualSyncResultType.synced:
         HapticFeedback.mediumImpact();
-        _showVaultSnackBar('Backup is up to date.');
+        _showVaultNotice(
+          'Backup is up to date.',
+          title: 'All caught up',
+          type: NotificationType.success,
+        );
         return;
       case ManualSyncResultType.noChanges:
         HapticFeedback.mediumImpact();
-        _showVaultSnackBar('All caught up.');
+        _showVaultNotice(
+          'There are no backup changes waiting.',
+          title: 'All caught up',
+          type: NotificationType.success,
+        );
         return;
       case ManualSyncResultType.partialRetryScheduled:
         HapticFeedback.lightImpact();
-        _showVaultSnackBar(result.message);
+        _showVaultNotice(
+          result.message,
+          title: 'Backup will retry',
+          type: NotificationType.warning,
+        );
         return;
       case ManualSyncResultType.blockedSignedOut:
       case ManualSyncResultType.blockedNoEntitlement:
@@ -199,7 +244,11 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
       case ManualSyncResultType.blockedAccountSwitch:
       case ManualSyncResultType.blockedOffline:
       case ManualSyncResultType.failed:
-        _showVaultSnackBar(result.message);
+        _showVaultNotice(
+          result.message,
+          title: 'Backup not finished',
+          type: NotificationType.warning,
+        );
         return;
     }
   }
@@ -216,7 +265,11 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
       if (!mounted) {
         return;
       }
-      _showVaultSnackBar(result.message);
+      _showVaultNotice(
+        result.message,
+        title: 'Purchase restored',
+        type: NotificationType.success,
+      );
       final auth = ref.read(authSessionProvider);
       if (auth.isSignedIn) {
         await ref
@@ -227,7 +280,11 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
         context.go('/account-hub');
       }
     } catch (error) {
-      _showVaultSnackBar(_toUserFacingError(error));
+      _showVaultNotice(
+        _toUserFacingError(error),
+        title: 'Could not restore',
+        type: NotificationType.error,
+      );
     } finally {
       if (mounted) {
         setState(() => _restoreInFlight = false);
@@ -238,13 +295,21 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
   Future<void> _openManagePlan() async {
     final rawUrl = ref.read(purchaseRepositoryProvider).manageSubscriptionsUrl;
     if (rawUrl == null || rawUrl.isEmpty) {
-      _showVaultSnackBar('Subscription management is not ready yet.');
+      _showVaultNotice(
+        'Subscription management is not ready yet.',
+        title: 'Not ready',
+        type: NotificationType.warning,
+      );
       return;
     }
     final url = Uri.parse(rawUrl);
     final opened = await launchUrl(url, mode: LaunchMode.externalApplication);
     if (!opened) {
-      _showVaultSnackBar('Could not open subscription management.');
+      _showVaultNotice(
+        'Could not open subscription management.',
+        title: 'Could not open',
+        type: NotificationType.error,
+      );
     }
   }
 
@@ -304,9 +369,17 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
           .read(authControllerProvider.notifier)
           .refreshCloudAccessAfterEntitlementChange();
       HapticFeedback.mediumImpact();
-      _showVaultSnackBar('Backup is on.');
+      _showVaultNotice(
+        'Pebble will back up supported routine data for this account.',
+        title: 'Backup is on',
+        type: NotificationType.success,
+      );
     } catch (error) {
-      _showVaultSnackBar(_toUserFacingError(error));
+      _showVaultNotice(
+        _toUserFacingError(error),
+        title: 'Could not turn on backup',
+        type: NotificationType.error,
+      );
     } finally {
       if (mounted) {
         setState(() => _consentInFlight = false);
@@ -356,9 +429,17 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
           .read(authControllerProvider.notifier)
           .refreshCloudAccessAfterEntitlementChange();
       HapticFeedback.lightImpact();
-      _showVaultSnackBar('Backup is paused. Local routines remain here.');
+      _showVaultNotice(
+        'Local routines remain on this device.',
+        title: 'Backup is paused',
+        type: NotificationType.info,
+      );
     } catch (error) {
-      _showVaultSnackBar(_toUserFacingError(error));
+      _showVaultNotice(
+        _toUserFacingError(error),
+        title: 'Could not pause backup',
+        type: NotificationType.error,
+      );
     } finally {
       if (mounted) {
         setState(() => _consentInFlight = false);
@@ -377,12 +458,18 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
       if (!mounted) {
         return;
       }
-      _showVaultSnackBar(
+      _showVaultNotice(
         'Account deleted. Cloud backup data was removed. Local routines stay on this device.',
+        title: 'Account deleted',
+        type: NotificationType.success,
       );
       context.go('/');
     } catch (error) {
-      _showVaultSnackBar(_toUserFacingError(error));
+      _showVaultNotice(
+        _toUserFacingError(error),
+        title: 'Could not delete account',
+        type: NotificationType.error,
+      );
     } finally {
       if (mounted) {
         setState(() => _deleteInFlight = false);
@@ -438,8 +525,10 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
                   mode: LaunchMode.externalApplication,
                 );
                 if (!opened) {
-                  _showVaultSnackBar(
+                  _showVaultNotice(
                     'Could not open the account deletion page.',
+                    title: 'Could not open',
+                    type: NotificationType.error,
                   );
                 }
               },
@@ -484,7 +573,11 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
       case AccountStatusAction.reviewLocalData:
         _reviewLocalDataForCurrentAccount(ref.read(authSessionProvider).email);
       case AccountStatusAction.keepLocal:
-        _showVaultSnackBar('Kept local on this device. Backup stays paused.');
+        _showVaultNotice(
+          'Kept local on this device. Backup stays paused.',
+          title: 'Kept local',
+          type: NotificationType.info,
+        );
       case AccountStatusAction.pauseBackup:
         _showWithdrawCloudBackupConsentDialog();
     }
@@ -506,6 +599,20 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final auth = ref.watch(authSessionProvider);
     final accountStatus = ref.watch(accountStatusPresentationProvider);
+    final lifecycle = ref.watch(subscriptionLifecycleProvider);
+    final isLapsedPremium =
+        lifecycle.phase == SubscriptionLifecyclePhase.expiredGrace ||
+        lifecycle.phase == SubscriptionLifecyclePhase.expired;
+
+    if (isLapsedPremium) {
+      return _LapsedPremiumAccountScreen(
+        state: _buildLapsedPremiumState(lifecycle),
+        onBack: _exitVault,
+        onRenew: () =>
+            context.push(premiumRoute(source: PremiumEntrySource.routineLimit)),
+        onManagePlan: _openManagePlan,
+      );
+    }
 
     return PopScope(
       canPop: false,
@@ -573,11 +680,10 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
             onPressed: () async {
               await ref.read(authControllerProvider.notifier).signOut();
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    behavior: SnackBarBehavior.floating,
-                    content: Text('Signed out.'),
-                  ),
+                _showVaultNotice(
+                  'Backup is paused. Local routines stay on this device.',
+                  title: 'Signed out',
+                  type: NotificationType.info,
                 );
               }
             },
@@ -604,6 +710,603 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
             ),
           ),
         ],
+      ],
+    );
+  }
+
+  _LapsedPremiumState _buildLapsedPremiumState(
+    SubscriptionLifecycle lifecycle,
+  ) {
+    final historyRuns = ref.watch(routineHistoryVmProvider).valueOrNull;
+    final routines = ref.watch(routineListProvider).valueOrNull;
+    final policy = ref.watch(routineLimitPolicyProvider);
+    final purchase = ref.watch(purchaseRepositoryProvider);
+    final historyGraceDays = _remainingGraceDays(lifecycle);
+    final routineGraceDays = historyGraceDays;
+    final totalHistoryDays = _distinctHistoryDays(historyRuns ?? const []);
+    final showRoutineRiskCard = routines == null
+        ? true
+        : !isFreeTierFootprint(routines: routines, policy: policy);
+    final products = purchase.personalPremiumProducts;
+    final monthly = _productForPlan(products, BillingPlan.monthly);
+    final yearly = _productForPlan(products, BillingPlan.yearly);
+
+    return _LapsedPremiumState(
+      totalHistoryDays: totalHistoryDays,
+      historyGraceDays: historyGraceDays,
+      routineGraceDays: routineGraceDays,
+      showRoutineRiskCard: showRoutineRiskCard,
+      monthlyPrice: monthly?.priceLabel.trim().isNotEmpty == true
+          ? monthly!.priceLabel
+          : '99p',
+      yearlyPrice: yearly?.priceLabel.trim().isNotEmpty == true
+          ? yearly!.priceLabel
+          : 'GBP 7.99',
+      canRenew: purchase.isPurchaseAvailable,
+    );
+  }
+}
+
+int _remainingGraceDays(SubscriptionLifecycle lifecycle) {
+  final endsAt = lifecycle.graceEndsAt;
+  if (endsAt == null) {
+    return 0;
+  }
+  final remaining = endsAt.difference(DateTime.now());
+  if (remaining.isNegative) {
+    return 0;
+  }
+  return (remaining.inHours / 24).ceil().clamp(0, 7);
+}
+
+int _distinctHistoryDays(List<RoutineRun> runs) {
+  return {
+    for (final run in runs)
+      DateTime(run.finishedAt.year, run.finishedAt.month, run.finishedAt.day),
+  }.length;
+}
+
+PremiumProduct? _productForPlan(
+  List<PremiumProduct> products,
+  BillingPlan plan,
+) {
+  for (final product in products) {
+    if (product.plan == plan) return product;
+  }
+  return null;
+}
+
+class _LapsedPremiumState {
+  const _LapsedPremiumState({
+    required this.totalHistoryDays,
+    required this.historyGraceDays,
+    required this.routineGraceDays,
+    required this.showRoutineRiskCard,
+    required this.monthlyPrice,
+    required this.yearlyPrice,
+    required this.canRenew,
+  });
+
+  final int totalHistoryDays;
+  final int historyGraceDays;
+  final int routineGraceDays;
+  final bool showRoutineRiskCard;
+  final String monthlyPrice;
+  final String yearlyPrice;
+  final bool canRenew;
+}
+
+class _LapsedPremiumAccountScreen extends StatelessWidget {
+  const _LapsedPremiumAccountScreen({
+    required this.state,
+    required this.onBack,
+    required this.onRenew,
+    required this.onManagePlan,
+  });
+
+  static const _bg = Color(0xFF171411);
+  static const _text = Color(0xFFF3EDE4);
+  static const _gold = Color(0xFFD4A853);
+  static const _red = Color(0xFFE06050);
+
+  final _LapsedPremiumState state;
+  final VoidCallback onBack;
+  final VoidCallback onRenew;
+  final VoidCallback onManagePlan;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _bg,
+      body: Stack(
+        children: [
+          Positioned(
+            top: -60,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                width: 360,
+                height: 320,
+                decoration: const BoxDecoration(
+                  gradient: RadialGradient(
+                    colors: [Color(0x1AD4A853), Color(0x00171411)],
+                    stops: [0, 0.70],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: ListView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 48),
+                  children: [
+                    _LapsedBackRow(onBack: onBack),
+                    const SizedBox(height: 32),
+                    const _LapsedHero(),
+                    const SizedBox(height: 24),
+                    _RiskCard.history(
+                      totalHistoryDays: state.totalHistoryDays,
+                      graceDays: state.historyGraceDays,
+                    ),
+                    if (state.showRoutineRiskCard) ...[
+                      const SizedBox(height: 10),
+                      _RiskCard.routines(graceDays: state.routineGraceDays),
+                    ],
+                    const SizedBox(height: 24),
+                    Container(height: 1, color: _text.withValues(alpha: 0.07)),
+                    const SizedBox(height: 20),
+                    _LapsedCtaSection(
+                      monthlyPrice: state.monthlyPrice,
+                      yearlyPrice: state.yearlyPrice,
+                      canRenew: state.canRenew,
+                      onRenew: onRenew,
+                      onManagePlan: onManagePlan,
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'Works without an account - Cancel anytime',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.outfit(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w300,
+                        letterSpacing: 0.3,
+                        color: _text.withValues(alpha: 0.18),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LapsedBackRow extends StatelessWidget {
+  const _LapsedBackRow({required this.onBack});
+
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 36,
+          height: 36,
+          child: IconButton(
+            onPressed: onBack,
+            padding: EdgeInsets.zero,
+            style: IconButton.styleFrom(
+              backgroundColor: _LapsedPremiumAccountScreen._text.withValues(
+                alpha: 0.08,
+              ),
+              side: BorderSide(
+                color: _LapsedPremiumAccountScreen._text.withValues(
+                  alpha: 0.12,
+                ),
+              ),
+            ),
+            icon: const Icon(
+              LucideIcons.chevronLeft,
+              size: 16,
+              color: _LapsedPremiumAccountScreen._text,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          'YOUR ACCOUNT',
+          style: GoogleFonts.outfit(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 1.44,
+            color: _LapsedPremiumAccountScreen._text.withValues(alpha: 0.35),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LapsedHero extends StatelessWidget {
+  const _LapsedHero();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(8, 5, 12, 5),
+          decoration: BoxDecoration(
+            color: _LapsedPremiumAccountScreen._gold.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(100),
+            border: Border.all(
+              color: _LapsedPremiumAccountScreen._gold.withValues(alpha: 0.22),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: const BoxDecoration(
+                  color: _LapsedPremiumAccountScreen._gold,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'PREMIUM ENDED',
+                style: GoogleFonts.outfit(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0.88,
+                  color: _LapsedPremiumAccountScreen._gold,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        Text.rich(
+          TextSpan(
+            children: [
+              const TextSpan(text: 'A few things\nare '),
+              TextSpan(
+                text: 'at risk.',
+                style: TextStyle(
+                  color: _LapsedPremiumAccountScreen._text.withValues(
+                    alpha: 0.50,
+                  ),
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+          style: GoogleFonts.dmSerifDisplay(
+            fontSize: 40,
+            height: 1.06,
+            fontWeight: FontWeight.w400,
+            color: _LapsedPremiumAccountScreen._text,
+          ),
+        ),
+        const SizedBox(height: 14),
+        Text.rich(
+          TextSpan(
+            children: [
+              const TextSpan(
+                text:
+                    'Your premium period has ended. Here\'s what happens next - ',
+              ),
+              TextSpan(
+                text: 'no surprises.',
+                style: TextStyle(
+                  color: _LapsedPremiumAccountScreen._text.withValues(
+                    alpha: 0.82,
+                  ),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          style: GoogleFonts.outfit(
+            fontSize: 14,
+            fontWeight: FontWeight.w300,
+            height: 1.65,
+            color: _LapsedPremiumAccountScreen._text.withValues(alpha: 0.50),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RiskCard extends StatelessWidget {
+  const _RiskCard._({
+    required this.icon,
+    required this.title,
+    required this.body,
+    required this.countdown,
+    required this.accent,
+    required this.progress,
+  });
+
+  factory _RiskCard.history({
+    required int totalHistoryDays,
+    required int graceDays,
+  }) {
+    return _RiskCard._(
+      icon: LucideIcons.clock3,
+      title: 'Your history is fading',
+      body: TextSpan(
+        children: [
+          TextSpan(
+            text:
+                '$totalHistoryDays days of completed routines are still here. ',
+          ),
+          TextSpan(
+            text: graceDays <= 0 ? 'Locked now' : 'Locked in $graceDays days',
+            style: const TextStyle(
+              color: Color(0xB8F3EDE4),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const TextSpan(text: ' unless you renew.'),
+        ],
+      ),
+      countdown: graceDays <= 0 ? 'LOCKED' : '$graceDays DAYS REMAINING',
+      accent: _LapsedPremiumAccountScreen._gold,
+      progress: graceDays / 7,
+    );
+  }
+
+  factory _RiskCard.routines({required int graceDays}) {
+    return _RiskCard._(
+      icon: LucideIcons.listChecks,
+      title: 'Extra routines & steps are at risk',
+      body: TextSpan(
+        children: [
+          const TextSpan(text: 'Free accounts keep '),
+          const TextSpan(
+            text: '2 routines',
+            style: TextStyle(
+              color: Color(0xB8F3EDE4),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const TextSpan(text: ' with up to '),
+          const TextSpan(
+            text: '10 steps each',
+            style: TextStyle(
+              color: Color(0xB8F3EDE4),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          TextSpan(
+            text: graceDays <= 0
+                ? '. Extra routines and steps are soft-locked until you renew.'
+                : '. Extra routines and steps above this limit will be deactivated in $graceDays days.',
+          ),
+        ],
+      ),
+      countdown: graceDays <= 0 ? 'LOCKED' : '$graceDays DAYS REMAINING',
+      accent: _LapsedPremiumAccountScreen._red,
+      progress: graceDays / 7,
+    );
+  }
+
+  final IconData icon;
+  final String title;
+  final TextSpan body;
+  final String countdown;
+  final Color accent;
+  final double progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final clampedProgress = progress.clamp(0.0, 1.0);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: accent.withValues(alpha: 0.20)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(icon, size: 16, color: accent),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.outfit(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: accent,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text.rich(
+                  body,
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w300,
+                    height: 1.5,
+                    color: _LapsedPremiumAccountScreen._text.withValues(
+                      alpha: 0.42,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(100),
+                  child: LinearProgressIndicator(
+                    minHeight: 2,
+                    value: clampedProgress,
+                    backgroundColor: _LapsedPremiumAccountScreen._text
+                        .withValues(alpha: 0.08),
+                    valueColor: AlwaysStoppedAnimation<Color>(accent),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  countdown,
+                  style: GoogleFonts.outfit(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.6,
+                    color: accent.withValues(alpha: 0.55),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LapsedCtaSection extends StatelessWidget {
+  const _LapsedCtaSection({
+    required this.monthlyPrice,
+    required this.yearlyPrice,
+    required this.canRenew,
+    required this.onRenew,
+    required this.onManagePlan,
+  });
+
+  final String monthlyPrice;
+  final String yearlyPrice;
+  final bool canRenew;
+  final VoidCallback onRenew;
+  final VoidCallback onManagePlan;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Text(
+              monthlyPrice,
+              style: GoogleFonts.dmSerifDisplay(
+                fontSize: 30,
+                color: _LapsedPremiumAccountScreen._text,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '/ month',
+              style: GoogleFonts.outfit(
+                fontSize: 13,
+                fontWeight: FontWeight.w300,
+                color: _LapsedPremiumAccountScreen._text.withValues(
+                  alpha: 0.38,
+                ),
+              ),
+            ),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(
+                color: _LapsedPremiumAccountScreen._gold.withValues(
+                  alpha: 0.08,
+                ),
+                borderRadius: BorderRadius.circular(100),
+                border: Border.all(
+                  color: _LapsedPremiumAccountScreen._gold.withValues(
+                    alpha: 0.15,
+                  ),
+                ),
+              ),
+              child: Text(
+                'or $yearlyPrice/year',
+                style: GoogleFonts.outfit(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w400,
+                  color: _LapsedPremiumAccountScreen._gold.withValues(
+                    alpha: 0.65,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        SizedBox(
+          height: 56,
+          child: FilledButton.icon(
+            onPressed: canRenew ? onRenew : null,
+            style: FilledButton.styleFrom(
+              backgroundColor: _LapsedPremiumAccountScreen._gold,
+              foregroundColor: _LapsedPremiumAccountScreen._bg,
+              disabledBackgroundColor: _LapsedPremiumAccountScreen._gold
+                  .withValues(alpha: 0.34),
+              disabledForegroundColor: _LapsedPremiumAccountScreen._bg
+                  .withValues(alpha: 0.72),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(100),
+              ),
+              textStyle: GoogleFonts.outfit(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            icon: const Icon(LucideIcons.refreshCw, size: 16),
+            label: Text(canRenew ? 'Renew Premium' : 'Premium unavailable'),
+          ),
+        ),
+        const SizedBox(height: 11),
+        SizedBox(
+          height: 50,
+          child: OutlinedButton(
+            onPressed: onManagePlan,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _LapsedPremiumAccountScreen._text.withValues(
+                alpha: 0.38,
+              ),
+              side: BorderSide(
+                color: _LapsedPremiumAccountScreen._text.withValues(
+                  alpha: 0.11,
+                ),
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(100),
+              ),
+              textStyle: GoogleFonts.outfit(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+            child: const Text('Manage plan'),
+          ),
+        ),
       ],
     );
   }

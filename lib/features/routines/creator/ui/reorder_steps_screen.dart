@@ -7,6 +7,7 @@ import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/features/routines/composer/data/routine_composer_draft_repository.dart';
+import 'package:pebble_routines/core/ui/zen_notifications.dart';
 
 class ReorderStepsScreen extends ConsumerStatefulWidget {
   final Routine routine;
@@ -198,9 +199,7 @@ class _ReorderStepsScreenState extends ConsumerState<ReorderStepsScreen> {
         .read(routineComposerDraftRepositoryProvider)
         .clearEditDraftsForRoutine(widget.routine.id);
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Step order updated')));
+    ZenNotifications.showSuccess(context, message: 'Step order updated');
     Navigator.pop(context, true);
   }
 

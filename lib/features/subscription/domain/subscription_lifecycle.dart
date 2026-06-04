@@ -36,7 +36,7 @@ class SubscriptionLifecycle {
       case SubscriptionLifecyclePhase.activePremium:
         return 'Personal Premium';
       case SubscriptionLifecyclePhase.expiredGrace:
-        return 'Premium grace';
+        return 'Premium recently ended';
       case SubscriptionLifecyclePhase.expired:
         return 'Expired';
     }

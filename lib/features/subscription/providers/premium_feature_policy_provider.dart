@@ -4,6 +4,7 @@ import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart
 import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
 import 'package:pebble_routines/features/subscription/data/models/subscription_account_state.dart';
 import 'package:pebble_routines/features/subscription/data/purchase_repository.dart';
+import 'package:pebble_routines/features/subscription/domain/routine_limit_policy.dart';
 import 'package:pebble_routines/features/subscription/domain/subscription_lifecycle.dart';
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
 import 'package:pebble_routines/features/subscription/providers/cloud_backup_consent_provider.dart';
@@ -21,6 +22,7 @@ enum LocalPremiumAccess {
 enum ServerFeatureStatus {
   signedOut,
   verifying,
+  verificationFailed,
   ready,
   needsBackupConsent,
   error,
@@ -117,6 +119,12 @@ final premiumFeaturePolicyProvider = Provider<PremiumFeaturePolicy>((ref) {
   );
 });
 
+final routineLimitPolicyProvider = Provider<RoutineLimitPolicy>((ref) {
+  return RoutineLimitPolicy.fromPremiumPolicy(
+    ref.watch(premiumFeaturePolicyProvider),
+  );
+});
+
 LocalPremiumAccess _localAccessFor({
   required SubscriptionLifecycle lifecycle,
   required PurchaseRepository purchase,
@@ -154,6 +162,9 @@ ServerFeatureStatus _serverStatusFor({
     return ServerFeatureStatus.signedOut;
   }
   if (!hasServerVerifiedPremium) {
+    if (_looksPurchaseVerificationFailed(account.entitlementError)) {
+      return ServerFeatureStatus.verificationFailed;
+    }
     return ServerFeatureStatus.verifying;
   }
   if (_looksAccountSwitchBlocked(account.lastSyncError)) {
@@ -182,15 +193,19 @@ String? _userFacingStatusFor({
     case LocalPremiumAccess.unavailable:
       return purchase.unavailableReason;
     case LocalPremiumAccess.historyGrace:
-      return 'Premium recently ended. Your extended history stays visible for now.';
+      return 'Premium recently ended. Your 21-day history stays visible for 7 days.';
     case LocalPremiumAccess.expired:
       return 'Premium has ended. Pebble is using Free limits again.';
     case LocalPremiumAccess.active:
       if (serverStatus == ServerFeatureStatus.verifying) {
-        return 'Premium is on for this device. Server features are finishing setup.';
+        return 'Premium is active. We\'re checking backup for this account.';
+      }
+      if (serverStatus == ServerFeatureStatus.verificationFailed) {
+        return account.entitlementError ??
+            'Premium is active, but backup could not be set up yet.';
       }
       if (serverStatus == ServerFeatureStatus.signedOut) {
-        return 'Premium is on for this device. Sign in for backup, email alerts, and recovery.';
+        return 'Premium is active. Sign in for backup, email alerts, and recovery.';
       }
       if (serverStatus == ServerFeatureStatus.error) {
         return account.lastSyncError ?? 'Backup needs your attention.';
@@ -210,4 +225,14 @@ bool _looksAccountSwitchBlocked(String? message) {
       normalized.contains('another account') ||
       normalized.contains('linked to this account') ||
       normalized.contains('without your choice');
+}
+
+bool _looksPurchaseVerificationFailed(String? message) {
+  if (message == null || message.isEmpty) {
+    return false;
+  }
+  final normalized = message.toLowerCase();
+  return normalized.contains('backup could not be set up') ||
+      normalized.contains('could not finish backup setup') ||
+      normalized.contains('purchase verification');
 }

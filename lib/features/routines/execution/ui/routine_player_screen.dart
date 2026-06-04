@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -26,6 +27,7 @@ import 'package:pebble_routines/features/routines/shared/ui/guidance_audio_play_
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
+import 'package:pebble_routines/core/ui/zen_notifications.dart';
 
 class RoutinePlayerScreen extends ConsumerStatefulWidget {
   const RoutinePlayerScreen({super.key, required this.sessionId});
@@ -90,9 +92,7 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
       if (message == null || message == previous?.errorMessage || !mounted) {
         return;
       }
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(message)));
+      ZenNotifications.showError(context, message: message);
       controller.clearErrorMessage();
     });
 
@@ -196,6 +196,7 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
         playerState.canAddMorePhotos;
     final showPhotoSummary =
         playerState.hasPhotoRequirement && playerState.proofAssets.isNotEmpty;
+    final isStepLocked = playerState.isCurrentStepLocked;
 
     return _RoutineStepSurface(
       routineName: session.routineTitleSnapshot,
@@ -203,19 +204,25 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
       stepCount: playerState.totalSteps,
       progress: playerState.progress,
       instruction: _stepInstruction(currentStep),
+      isStepLocked: isStepLocked,
+      lockedStepCount: playerState.lockedStepCount,
       photoRequired: playerState.hasPhotoRequirement,
       showVisualAnchor:
-          playerSettings.showVisualAnchor && !playerState.hasPhotoRequirement,
+          playerSettings.showVisualAnchor &&
+          !playerState.hasPhotoRequirement &&
+          !isStepLocked,
       visualAnchorStepKey: playerState.currentStepIndex,
       visualAnchorKey: _visualAnchorKey,
       isBusy: playerState.isPrimaryBusy || _isPrimaryPreludeRunning,
-      primaryLabel: playerState.primaryLabel,
-      isPrimaryEnabled: playerState.isPrimaryEnabled,
+      primaryLabel: isStepLocked
+          ? 'Upgrade to reactivate'
+          : playerState.primaryLabel,
+      isPrimaryEnabled: isStepLocked || playerState.isPrimaryEnabled,
       onBack: _attemptExit,
-      onComplete: _handlePrimaryAction,
-      showGalleryAction: showGalleryAction,
+      onComplete: isStepLocked ? _openStepLimitPaywall : _handlePrimaryAction,
+      showGalleryAction: !isStepLocked && showGalleryAction,
       onGallery: showGalleryAction ? _captureGalleryPhoto : null,
-      photoSummary: showPhotoSummary
+      photoSummary: showPhotoSummary && !isStepLocked
           ? _PlayerPhotoSummary(
               presentationState: playerState.presentationState,
               proofAssets: playerState.proofAssets,
@@ -243,7 +250,7 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
             )
           : null,
       secondaryActions: _PlayerSecondaryActionRow(
-        guidanceAudioButton: currentStep.guidanceAudio != null
+        guidanceAudioButton: currentStep.guidanceAudio != null && !isStepLocked
             ? GuidanceAudioPlayButton(
                 audio: currentStep.guidanceAudio!,
                 storage: guidanceAudioStorage,
@@ -402,23 +409,14 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
     final isFreeTier = !ref
         .read(premiumFeaturePolicyProvider)
         .canUseExtraProofPhotos;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(
-            isFreeTier
-                ? 'Pebble Free includes one proof photo per step.'
-                : 'Maximum photos added for this step.',
-          ),
-          action: isFreeTier
-              ? SnackBarAction(
-                  label: 'Plus',
-                  onPressed: _openProofPhotoLimitPaywall,
-                )
-              : null,
-        ),
-      );
+    ZenNotifications.showWarning(
+      context,
+      message: isFreeTier
+          ? 'Pebble Free includes one proof photo per step.'
+          : 'Maximum photos added for this step.',
+      actionLabel: isFreeTier ? 'Plus' : null,
+      onAction: isFreeTier ? _openProofPhotoLimitPaywall : null,
+    );
   }
 
   void _openProofPhotoLimitPaywall() {
@@ -426,6 +424,13 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
     GoRouter.of(
       context,
     ).push(premiumRoute(source: PremiumEntrySource.proofPhotoLimit));
+  }
+
+  Future<void> _openStepLimitPaywall() async {
+    HapticFeedback.mediumImpact();
+    GoRouter.of(
+      context,
+    ).push(premiumRoute(source: PremiumEntrySource.stepLimit));
   }
 
   Future<void> _handlePostCompletion(RoutineRun? run) async {
@@ -643,6 +648,8 @@ class _RoutineStepSurface extends StatelessWidget {
     required this.stepCount,
     required this.progress,
     required this.instruction,
+    required this.isStepLocked,
+    required this.lockedStepCount,
     required this.photoRequired,
     required this.showVisualAnchor,
     required this.visualAnchorStepKey,
@@ -663,6 +670,8 @@ class _RoutineStepSurface extends StatelessWidget {
   final int stepCount;
   final double progress;
   final String instruction;
+  final bool isStepLocked;
+  final int lockedStepCount;
   final bool photoRequired;
   final bool showVisualAnchor;
   final int visualAnchorStepKey;
@@ -753,14 +762,30 @@ class _RoutineStepSurface extends StatelessWidget {
                         ),
                         const SizedBox(height: 34),
                       ],
-                      Text(
-                        instruction,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 36,
-                          fontWeight: FontWeight.w800,
-                          height: 1.08,
-                          color: onSurface,
+                      if (isStepLocked) ...[
+                        _LockedStepBoundaryBanner(
+                          lockedStepCount: lockedStepCount,
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                      ImageFiltered(
+                        enabled: isStepLocked,
+                        imageFilter: ui.ImageFilter.blur(
+                          sigmaX: 2.4,
+                          sigmaY: 2.4,
+                        ),
+                        child: Opacity(
+                          opacity: isStepLocked ? 0.30 : 1,
+                          child: Text(
+                            instruction,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 36,
+                              fontWeight: FontWeight.w800,
+                              height: 1.08,
+                              color: onSurface,
+                            ),
+                          ),
                         ),
                       ),
                       if (photoSummary != null) ...[
@@ -922,6 +947,47 @@ class AnimatedVisualAnchorState extends State<AnimatedVisualAnchor>
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _LockedStepBoundaryBanner extends StatelessWidget {
+  const _LockedStepBoundaryBanner({required this.lockedStepCount});
+
+  final int lockedStepCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final count = lockedStepCount <= 0 ? 1 : lockedStepCount;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: theme.colorScheme.primary.withValues(alpha: 0.22),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(LucideIcons.lock, size: 18, color: theme.colorScheme.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '+$count more step${count == 1 ? '' : 's'} locked. Upgrade to reactivate.',
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.76),
+                fontSize: 14,
+                height: 1.35,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

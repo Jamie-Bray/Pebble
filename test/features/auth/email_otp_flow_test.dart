@@ -229,7 +229,7 @@ class _FakePurchaseRepository extends ChangeNotifier
   }
 
   @override
-  Future<void> syncPurchasesSilently() async {
+  Future<void> syncPurchasesSilently({bool waitForServerMirror = false}) async {
     syncCalled = true;
   }
 }

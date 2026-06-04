@@ -218,7 +218,14 @@ class CloudSyncCoordinator {
       if (access.status == PersonalCloudAccessStatus.expiredGrace) {
         return const ManualSyncResult(
           type: ManualSyncResultType.blockedNoEntitlement,
-          message: 'Cloud uploads are paused during the Premium grace period.',
+          message: 'Cloud uploads are paused because Premium recently ended.',
+        );
+      }
+      if (access.status == PersonalCloudAccessStatus.verificationFailed) {
+        return const ManualSyncResult(
+          type: ManualSyncResultType.failed,
+          message:
+              'Premium is active, but backup could not be set up yet. Try again from Account.',
         );
       }
       if (access.status == PersonalCloudAccessStatus.offFree ||

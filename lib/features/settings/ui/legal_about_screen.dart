@@ -3,6 +3,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
+import 'package:pebble_routines/core/ui/zen_notifications.dart';
 
 class LegalAboutScreen extends StatelessWidget {
   const LegalAboutScreen({super.key});
@@ -10,9 +11,7 @@ class LegalAboutScreen extends StatelessWidget {
   Future<void> _email(BuildContext context, String address) async {
     final opened = await launchUrl(Uri.parse('mailto:$address'));
     if (!opened && context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Email us at $address')));
+      ZenNotifications.showInfo(context, message: 'Email us at $address');
     }
   }
 

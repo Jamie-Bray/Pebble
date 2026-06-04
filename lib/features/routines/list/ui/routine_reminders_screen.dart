@@ -1878,7 +1878,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
     if (!policy.hasServerVerifiedPremium) {
       return const _LockedSharedAlertMessage(
         message:
-            'Premium is on for this device. Email alerts will unlock after server verification finishes.',
+            'Premium is active. Email alerts are waiting for secure purchase verification.',
       );
     }
     return const _LockedSharedAlertMessage(
@@ -2109,11 +2109,9 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
     final routines = await db.routineDao.watchAllRoutines().first;
     if (!mounted) return null;
     if (routines.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Create a routine first before adding reminders.'),
-          behavior: SnackBarBehavior.floating,
-        ),
+      ZenNotifications.showInfo(
+        context,
+        message: 'Create a routine first before adding reminders.',
       );
       return null;
     }
@@ -2165,12 +2163,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
       );
     }
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Reminder deleted'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    ZenNotifications.showInfo(context, message: 'Reminder deleted');
     await _loadData();
   }
 
@@ -2204,21 +2197,13 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
         final requiresPermission = e.toString().toLowerCase().contains(
           'permission',
         );
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              requiresPermission
-                  ? 'Notification permission is required to enable reminders.'
-                  : 'Could not update reminder. Please try again.',
-            ),
-            behavior: SnackBarBehavior.floating,
-            action: requiresPermission
-                ? SnackBarAction(
-                    label: 'Settings',
-                    onPressed: () => openAppSettings(),
-                  )
-                : null,
-          ),
+        ZenNotifications.showWarning(
+          context,
+          message: requiresPermission
+              ? 'Notification permission is required to enable reminders.'
+              : 'Could not update reminder. Please try again.',
+          actionLabel: requiresPermission ? 'Settings' : null,
+          onAction: requiresPermission ? () => openAppSettings() : null,
         );
       }
     }
@@ -2330,15 +2315,11 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
     }
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          isRoutineSpecific
-              ? 'Reminders cleared for routine'
-              : 'All reminders cleared',
-        ),
-        behavior: SnackBarBehavior.floating,
-      ),
+    ZenNotifications.showInfo(
+      context,
+      message: isRoutineSpecific
+          ? 'Reminders cleared for routine'
+          : 'All reminders cleared',
     );
     await _loadData();
   }

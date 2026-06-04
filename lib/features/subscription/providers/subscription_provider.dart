@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -132,6 +133,10 @@ class SubscriptionAccountController
     UserTier newTier, {
     DateTime? periodEndsAt,
   }) async {
+    debugPrint(
+      '[PremiumEntitlement] Storing RevenueCat entitlement: '
+      'tier=${newTier.name}, periodEndsAt=$periodEndsAt',
+    );
     final next = state.copyWith(
       entitlementTier: newTier,
       clearPendingTier: true,
@@ -155,6 +160,10 @@ class SubscriptionAccountController
     UserTier newTier, {
     DateTime? periodEndsAt,
   }) async {
+    debugPrint(
+      '[PremiumEntitlement] Storing server-verified entitlement: '
+      'tier=${newTier.name}, periodEndsAt=$periodEndsAt',
+    );
     final next = state.copyWith(
       entitlementTier: newTier,
       clearPendingTier: true,
@@ -175,6 +184,9 @@ class SubscriptionAccountController
   }
 
   Future<void> applyExpiredStoreEntitlement() async {
+    debugPrint(
+      '[PremiumEntitlement] Store entitlement marked expired locally.',
+    );
     final next = state.copyWith(
       entitlementTier: UserTier.personalFree,
       clearPendingTier: true,
@@ -191,19 +203,35 @@ class SubscriptionAccountController
     await _persistEntitlementMetadata(next);
   }
 
-  Future<bool> refreshServerVerifiedEntitlement() async {
+  Future<bool> refreshServerVerifiedEntitlement({
+    bool requestServerReconciliation = false,
+  }) async {
     final client = supabaseClient;
     final user = client?.auth.currentUser;
     if (client == null || user == null) {
       return false;
     }
 
+    debugPrint(
+      '[PremiumEntitlement] Server verification refresh started '
+      'for user=${user.id}.',
+    );
+    if (requestServerReconciliation) {
+      await _requestRevenueCatServerReconciliation(client, user.id);
+    }
+    return _readServerVerifiedEntitlement(client, user.id);
+  }
+
+  Future<bool> _readServerVerifiedEntitlement(
+    SupabaseClient client,
+    String userId,
+  ) async {
     final rows = await client
         .from('personal_entitlements')
         .select(
           'entitlement_tier,status,period_ends_at,last_verified_at,updated_at',
         )
-        .eq('owner_user_id', user.id)
+        .eq('owner_user_id', userId)
         .order('last_verified_at', ascending: false)
         .limit(10);
     if (rows.isEmpty) {
@@ -223,6 +251,10 @@ class SubscriptionAccountController
       final stillCurrent = periodEndsAt == null || periodEndsAt.isAfter(now);
       if (tier != UserTier.personalFree && hasActiveStatus && stillCurrent) {
         await applyServerVerifiedEntitlement(tier, periodEndsAt: periodEndsAt);
+        debugPrint(
+          '[PremiumEntitlement] Server verification succeeded '
+          'for user=$userId.',
+        );
         return true;
       }
       if (status == 'expired' && expiredRow == null) {
@@ -232,8 +264,11 @@ class SubscriptionAccountController
 
     if (expiredRow != null) {
       final checkedAt = _dateFromRow(expiredRow['last_verified_at']) ?? now;
-      if (state.lastEntitlementCheckAt != null &&
-          checkedAt.isBefore(state.lastEntitlementCheckAt!)) {
+      if (!shouldApplyServerExpiredEntitlement(state, checkedAt: checkedAt)) {
+        debugPrint(
+          '[PremiumEntitlement] Ignoring expired server entitlement '
+          'because local store entitlement is newer or still active.',
+        );
         return false;
       }
       final next = state.copyWith(
@@ -250,13 +285,46 @@ class SubscriptionAccountController
       state = next;
       await _persist(next);
       await _persistEntitlementMetadata(next);
+      debugPrint(
+        '[PremiumEntitlement] Server verification returned expired '
+        'entitlement for user=$userId.',
+      );
       return true;
     }
 
+    debugPrint(
+      '[PremiumEntitlement] Server verification found no entitlement rows '
+      'for user=$userId.',
+    );
     return false;
   }
 
+  Future<void> _requestRevenueCatServerReconciliation(
+    SupabaseClient client,
+    String userId,
+  ) async {
+    debugPrint(
+      '[PremiumEntitlement] Requesting RevenueCat server reconciliation '
+      'for user=$userId.',
+    );
+    try {
+      final response = await client.functions.invoke(
+        'revenuecat-sync-entitlement',
+      );
+      debugPrint(
+        '[PremiumEntitlement] RevenueCat server reconciliation completed: '
+        'data=${response.data}.',
+      );
+    } catch (error) {
+      debugPrint(
+        '[PremiumEntitlement] RevenueCat server reconciliation failed: $error',
+      );
+      rethrow;
+    }
+  }
+
   Future<void> recordEntitlementCheckError(String message) async {
+    debugPrint('[PremiumEntitlement] Entitlement check error: $message');
     final next = state.copyWith(
       entitlementStatus: state.entitlementTier == UserTier.personalFree
           ? EntitlementStatus.unknown
@@ -289,6 +357,15 @@ class SubscriptionAccountController
     required String? email,
     required String authProvider,
   }) async {
+    final previousUserId = state.userId;
+    if (previousUserId != null &&
+        previousUserId.isNotEmpty &&
+        previousUserId != userId) {
+      debugPrint(
+        '[PremiumEntitlement] Different account signed in: '
+        'previous=$previousUserId, next=$userId.',
+      );
+    }
     final next = state.copyWith(
       clearPendingTier: true,
       userId: userId,
@@ -342,6 +419,7 @@ class SubscriptionAccountController
   }
 
   Future<void> signOutIdentity() async {
+    debugPrint('[PremiumEntitlement] User signed out; preserving store state.');
     final next = state.copyWith(
       clearPendingTier: true,
       clearUserId: true,
@@ -550,4 +628,39 @@ DateTime? _dateFromRow(Object? value) {
   if (value == null) return null;
   if (value is DateTime) return value;
   return DateTime.tryParse(value.toString());
+}
+
+bool hasActiveStoreEntitlement(
+  SubscriptionAccountState account, {
+  DateTime? now,
+}) {
+  final sourceIsStore =
+      account.entitlementSource == EntitlementSource.googlePlay ||
+      account.entitlementSource == EntitlementSource.revenueCat;
+  final isPaidTier =
+      account.entitlementTier == UserTier.personalPremium ||
+      account.entitlementTier == UserTier.pebbleHousehold;
+  final statusIsActive =
+      account.entitlementStatus == EntitlementStatus.personalPremium ||
+      account.entitlementStatus == EntitlementStatus.household;
+  final periodEndsAt = account.entitlementPeriodEndsAt;
+  final stillCurrent =
+      periodEndsAt == null || periodEndsAt.isAfter(now ?? DateTime.now());
+  return sourceIsStore && isPaidTier && statusIsActive && stillCurrent;
+}
+
+@visibleForTesting
+bool shouldApplyServerExpiredEntitlement(
+  SubscriptionAccountState account, {
+  required DateTime checkedAt,
+  DateTime? now,
+}) {
+  if (hasActiveStoreEntitlement(account, now: now)) {
+    return false;
+  }
+  final lastCheckedAt = account.lastEntitlementCheckAt;
+  if (lastCheckedAt != null && checkedAt.isBefore(lastCheckedAt)) {
+    return false;
+  }
+  return true;
 }

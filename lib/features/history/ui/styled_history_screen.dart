@@ -1135,11 +1135,16 @@ class _HistoryDismissBackground extends StatelessWidget {
   }
 }
 
-enum _HistorySyncState { synced, pending, attention }
+enum _HistorySyncState { synced, pending, attention, localOnly }
 
 _HistorySyncState? _syncStateForRun(RoutineRun run) {
   if (run.syncStatus == 'synced') {
     return _HistorySyncState.synced;
+  }
+  if (run.syncStatus == 'localOnly' ||
+      run.ownerUserId == null ||
+      run.ownerUserId!.isEmpty) {
+    return _HistorySyncState.localOnly;
   }
   if (run.ownerUserId != null &&
       run.ownerUserId!.isNotEmpty &&
@@ -1169,22 +1174,51 @@ class _HistorySyncPill extends StatelessWidget {
       )!,
       _HistorySyncState.pending => const Color(0xFFD99B55),
       _HistorySyncState.attention => cs.error,
+      _HistorySyncState.localOnly => cs.onSurface.withValues(alpha: 0.52),
     };
     final icon = switch (state) {
       _HistorySyncState.synced => LucideIcons.cloud,
       _HistorySyncState.pending => LucideIcons.cloudUpload,
       _HistorySyncState.attention => LucideIcons.cloudAlert,
+      _HistorySyncState.localOnly => LucideIcons.hardDrive,
+    };
+    final label = switch (state) {
+      _HistorySyncState.synced => 'Backed up',
+      _HistorySyncState.pending => 'Backup pending',
+      _HistorySyncState.attention => 'Backup needs attention',
+      _HistorySyncState.localOnly => 'Stored on this device',
     };
 
     return Tooltip(
-      message: switch (state) {
-        _HistorySyncState.synced => 'Backed up',
-        _HistorySyncState.pending => 'Queued for backup',
-        _HistorySyncState.attention => 'Backup needs attention',
-      },
+      message: label,
       child: Padding(
         padding: const EdgeInsets.only(left: 2),
-        child: Icon(icon, size: 15, color: accent),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: accent.withValues(alpha: 0.16)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 12, color: accent),
+                const SizedBox(width: 4),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    height: 1,
+                    fontWeight: FontWeight.w700,
+                    color: accent,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1221,8 +1255,7 @@ class _HistoryRunBadges extends StatelessWidget {
                 completedSteps: completedSteps,
                 totalSteps: totalSteps,
               ),
-            if (syncState == _HistorySyncState.attention)
-              _HistorySyncPill(state: syncState!),
+            if (syncState != null) _HistorySyncPill(state: syncState!),
             if (photoCount > 0) _HistoryPhotoCount(count: photoCount),
           ],
         );

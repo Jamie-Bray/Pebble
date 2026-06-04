@@ -20,6 +20,7 @@ import 'package:pebble_routines/features/routines/list/providers/routine_list_pr
 import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 import 'package:pebble_routines/features/subscription/ui/subscription_guard.dart';
+import 'package:pebble_routines/core/ui/zen_notifications.dart';
 import 'package:record/record.dart';
 
 class RoutineComposerScreen extends ConsumerStatefulWidget {
@@ -127,9 +128,7 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
       ).select((state) => state.errorMessage),
       (previous, next) {
         if (next == null || next == previous || !mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(next)));
+        ZenNotifications.showError(context, message: next);
       },
     );
 
@@ -1059,9 +1058,7 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
 
   void _showGuidanceAudioError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ZenNotifications.showError(context, message: message);
   }
 
   Future<void> _handleRemoveGuidanceAudio(RoutineComposerStepDraft step) async {

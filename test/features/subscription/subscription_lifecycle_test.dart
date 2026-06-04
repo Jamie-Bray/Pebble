@@ -136,4 +136,44 @@ void main() {
     expect(controller.state.userId, isNull);
     expect(controller.state.email, isNull);
   });
+
+  test('expired server row does not override active store entitlement', () {
+    final checkedAt = DateTime.utc(2026, 6, 1, 12);
+    final account = const SubscriptionAccountState.initial().copyWith(
+      entitlementTier: UserTier.personalPremium,
+      entitlementStatus: EntitlementStatus.personalPremium,
+      entitlementSource: EntitlementSource.revenueCat,
+      entitlementPeriodEndsAt: DateTime.utc(2026, 7),
+      lastEntitlementCheckAt: checkedAt,
+    );
+
+    expect(
+      shouldApplyServerExpiredEntitlement(
+        account,
+        checkedAt: checkedAt.add(const Duration(minutes: 1)),
+        now: checkedAt,
+      ),
+      isFalse,
+    );
+  });
+
+  test('new expired server row can expire stale server entitlement', () {
+    final checkedAt = DateTime.utc(2026, 6, 1, 12);
+    final account = const SubscriptionAccountState.initial().copyWith(
+      entitlementTier: UserTier.personalPremium,
+      entitlementStatus: EntitlementStatus.personalPremium,
+      entitlementSource: EntitlementSource.serverVerified,
+      entitlementPeriodEndsAt: DateTime.utc(2026, 7),
+      lastEntitlementCheckAt: checkedAt,
+    );
+
+    expect(
+      shouldApplyServerExpiredEntitlement(
+        account,
+        checkedAt: checkedAt.add(const Duration(minutes: 1)),
+        now: checkedAt,
+      ),
+      isTrue,
+    );
+  });
 }

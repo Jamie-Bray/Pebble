@@ -5,6 +5,7 @@ import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/repositories/routine_session_repository.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
+import 'package:pebble_routines/features/subscription/domain/routine_limit_policy.dart';
 import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 
 enum RoutinePlayerScreenPhase {
@@ -53,27 +54,34 @@ class RoutinePlayerUiState {
   const RoutinePlayerUiState({
     required this.screenPhase,
     required this.maxProofPhotosPerStep,
+    required this.routineLimitPolicy,
     this.activeOperation = RoutinePlayerOperation.none,
     this.session,
     this.completionSummary,
     this.errorMessage,
   });
 
-  factory RoutinePlayerUiState.loading({required int maxProofPhotosPerStep}) {
+  factory RoutinePlayerUiState.loading({
+    required int maxProofPhotosPerStep,
+    required RoutineLimitPolicy routineLimitPolicy,
+  }) {
     return RoutinePlayerUiState(
       screenPhase: RoutinePlayerScreenPhase.loading,
       maxProofPhotosPerStep: maxProofPhotosPerStep,
+      routineLimitPolicy: routineLimitPolicy,
     );
   }
 
   factory RoutinePlayerUiState.error({
     required int maxProofPhotosPerStep,
+    required RoutineLimitPolicy routineLimitPolicy,
     required String errorMessage,
     RoutineSession? session,
   }) {
     return RoutinePlayerUiState(
       screenPhase: RoutinePlayerScreenPhase.error,
       maxProofPhotosPerStep: maxProofPhotosPerStep,
+      routineLimitPolicy: routineLimitPolicy,
       session: session,
       errorMessage: errorMessage,
     );
@@ -82,6 +90,7 @@ class RoutinePlayerUiState {
   final RoutinePlayerScreenPhase screenPhase;
   final RoutineSession? session;
   final int maxProofPhotosPerStep;
+  final RoutineLimitPolicy routineLimitPolicy;
   final RoutinePlayerOperation activeOperation;
   final RoutinePlayerCompletionSummary? completionSummary;
   final String? errorMessage;
@@ -90,6 +99,7 @@ class RoutinePlayerUiState {
     RoutinePlayerScreenPhase? screenPhase,
     RoutineSession? session,
     int? maxProofPhotosPerStep,
+    RoutineLimitPolicy? routineLimitPolicy,
     RoutinePlayerOperation? activeOperation,
     RoutinePlayerCompletionSummary? completionSummary,
     bool clearCompletionSummary = false,
@@ -101,6 +111,7 @@ class RoutinePlayerUiState {
       session: session ?? this.session,
       maxProofPhotosPerStep:
           maxProofPhotosPerStep ?? this.maxProofPhotosPerStep,
+      routineLimitPolicy: routineLimitPolicy ?? this.routineLimitPolicy,
       activeOperation: activeOperation ?? this.activeOperation,
       completionSummary: clearCompletionSummary
           ? null
@@ -176,12 +187,14 @@ class RoutinePlayerUiState {
       currentStep?.canSkip == true &&
       session != null &&
       screenPhase == RoutinePlayerScreenPhase.ready &&
+      !isCurrentStepLocked &&
       !isForegroundBusy;
 
   bool get canAddMorePhotos =>
       session != null &&
       screenPhase == RoutinePlayerScreenPhase.ready &&
       !isForegroundBusy &&
+      !isCurrentStepLocked &&
       capturedPhotoCount < maxProofPhotosPerStep;
 
   bool get isForegroundBusy =>
@@ -216,6 +229,7 @@ class RoutinePlayerUiState {
     if (session == null ||
         currentStep == null ||
         screenPhase != RoutinePlayerScreenPhase.ready ||
+        isCurrentStepLocked ||
         isForegroundBusy) {
       return false;
     }
@@ -276,6 +290,11 @@ class RoutinePlayerUiState {
           .where((state) => state.status == SessionStepStatus.skipped)
           .length ??
       0;
+
+  bool get isCurrentStepLocked =>
+      session != null && routineLimitPolicy.isStepRestricted(currentStepIndex);
+
+  int get lockedStepCount => routineLimitPolicy.lockedStepCount(totalSteps);
 }
 
 class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
@@ -284,12 +303,14 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
     required RoutineSessionRepository repository,
     required RoutineSessionProofStorage proofStorage,
     required int maxProofPhotosPerStep,
+    required RoutineLimitPolicy routineLimitPolicy,
   }) : _sessionId = sessionId,
        _repository = repository,
        _proofStorage = proofStorage,
        super(
          RoutinePlayerUiState.loading(
            maxProofPhotosPerStep: maxProofPhotosPerStep,
+           routineLimitPolicy: routineLimitPolicy,
          ),
        ) {
     _load();
@@ -321,6 +342,7 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
     } catch (error) {
       state = RoutinePlayerUiState.error(
         maxProofPhotosPerStep: state.maxProofPhotosPerStep,
+        routineLimitPolicy: state.routineLimitPolicy,
         errorMessage: error.toString(),
       );
     }
@@ -435,7 +457,10 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
   Future<RoutineRun?> _completeCurrentStep() async {
     final session = _requireSession();
     final stepState = session.currentStepState;
-    if (stepState == null || !session.isActive || !state.hasEnoughPhotos) {
+    if (stepState == null ||
+        !session.isActive ||
+        state.isCurrentStepLocked ||
+        !state.hasEnoughPhotos) {
       return null;
     }
 
@@ -515,6 +540,7 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
     final stepState = session.currentStepState;
     if (step == null ||
         stepState == null ||
+        state.isCurrentStepLocked ||
         !step.canSkip ||
         !session.isActive) {
       return null;
@@ -596,6 +622,7 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
     final stepState = session.currentStepState;
     if (stepState == null ||
         !session.isActive ||
+        state.isCurrentStepLocked ||
         stepState.proofAssets.length >= state.maxProofPhotosPerStep) {
       return false;
     }
@@ -786,6 +813,7 @@ final routinePlayerProvider = StateNotifierProvider.autoDispose
         repository: ref.read(routineSessionRepositoryProvider),
         proofStorage: ref.read(routineSessionProofStorageProvider),
         maxProofPhotosPerStep: maxProofPhotosPerStep,
+        routineLimitPolicy: ref.watch(routineLimitPolicyProvider),
       );
     });
 

@@ -21,9 +21,12 @@ void main() {
   testWidgets(
     'Google sign-in finishes when Premium server verification is still pending',
     (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
       final database = LocalDb.forTesting(NativeDatabase.memory());
+      final purchaseRepository = _FakePurchaseRepository();
       addTearDown(database.close);
 
       final router = GoRouter(
@@ -59,7 +62,7 @@ void main() {
             supabaseClientProvider.overrideWithValue(null),
             authRepositoryProvider.overrideWithValue(_FakeAuthRepository()),
             purchaseRepositoryProvider.overrideWith(
-              (ref) => _FakePurchaseRepository(),
+              (ref) => purchaseRepository,
             ),
             subscriptionAccountControllerProvider.overrideWith(
               (ref) => _TestSubscriptionAccountController(
@@ -90,12 +93,15 @@ void main() {
 
       expect(find.text('Account hub reached'), findsOneWidget);
       expect(find.text('Preparing your backup...'), findsNothing);
+      expect(purchaseRepository.waitedForServerMirror, isTrue);
     },
   );
 
   testWidgets('email code sheet gives delayed-email recovery actions', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
     final database = LocalDb.forTesting(NativeDatabase.memory());
@@ -137,7 +143,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Use email instead'));
+    await tester.tap(find.text('Continue with Email'));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.widgetWithText(TextField, 'Email address'),
@@ -214,6 +220,8 @@ class _FakeAuthRepository implements AuthRepository {
 
 class _FakePurchaseRepository extends ChangeNotifier
     implements PurchaseRepository {
+  bool waitedForServerMirror = false;
+
   @override
   bool get billingAvailable => true;
 
@@ -261,5 +269,7 @@ class _FakePurchaseRepository extends ChangeNotifier
   }
 
   @override
-  Future<void> syncPurchasesSilently() async {}
+  Future<void> syncPurchasesSilently({bool waitForServerMirror = false}) async {
+    waitedForServerMirror = waitForServerMirror;
+  }
 }

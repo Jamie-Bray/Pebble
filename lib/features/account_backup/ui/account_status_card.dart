@@ -227,16 +227,17 @@ class _LimitChip extends StatelessWidget {
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           FittedBox(
             fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
+            alignment: Alignment.center,
             child: Text(
               chip.value,
               maxLines: 1,
+              textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: chip.value.length > 4 ? 17 : 20,
+                fontSize: chip.value.length > 8 ? 16 : 20,
                 height: 1,
                 fontWeight: FontWeight.w800,
                 color: colorScheme.onSurface,
@@ -248,6 +249,7 @@ class _LimitChip extends StatelessWidget {
             chip.label,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 11,
               height: 1.18,

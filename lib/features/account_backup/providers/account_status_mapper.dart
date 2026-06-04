@@ -12,6 +12,7 @@ import 'package:pebble_routines/features/subscription/providers/premium_feature_
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
 import 'package:pebble_routines/features/subscription/data/purchase_repository.dart';
 import 'package:pebble_routines/features/sync/cloud_sync_coordinator.dart';
+import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
 
 enum AccountStatusAction {
   none,
@@ -94,6 +95,18 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
   final status = ref.watch(effectivePersonalCloudStatusProvider);
   final runtime = ref.watch(cloudSyncRuntimeStateProvider);
   final purchase = ref.watch(purchaseRepositoryProvider);
+  final backedUpRoutineCount = ref
+      .watch(routineListProvider)
+      .maybeWhen(
+        data: (routines) => routines
+            .where(
+              (routine) =>
+                  routine.syncStatus == 'synced' ||
+                  routine.lastSyncedAt != null,
+            )
+            .length,
+        orElse: () => null,
+      );
   final fairUse = ref
       .watch(proofMediaFairUseStateProvider)
       .maybeWhen(data: (value) => value, orElse: () => null);
@@ -148,7 +161,7 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
       secondaryAction: unownedOnly
           ? AccountStatusAction.keepLocal
           : AccountStatusAction.none,
-      secondaryActionLabel: unownedOnly ? 'Keep local for now' : null,
+      secondaryActionLabel: unownedOnly ? 'Keep local' : null,
       supportingDetail: null,
       tone: AccountStatusTone.attention,
       icon: LucideIcons.shieldAlert,
@@ -191,7 +204,7 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
       planLabel: planFacts.label,
       title: 'Premium recently ended',
       body:
-          'Your extended history is still available for now. Free limits are back for new routines and steps.',
+          'Your 21-day history is still available for 7 days. Renew Premium to keep longer history and backup.',
       statusLabel: 'Backup is paused',
       historyLabel: 'Backup is paused',
       limitChips: planFacts.chips,
@@ -242,7 +255,7 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
         planLabel: planFacts.label,
         title: 'Stored on this device',
         body:
-            'Your routines live here for now. Everything works, no account needed.',
+            'Your routines stay on this device. Everything works, no account needed.',
         statusLabel: 'Stored on this device',
         historyLabel: 'Stored on this device',
         limitChips: planFacts.chips,
@@ -336,6 +349,37 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
       );
     case PersonalCloudAccessStatus.available:
     case PersonalCloudAccessStatus.syncing:
+      if (premiumPolicy.serverFeatureStatus == ServerFeatureStatus.verifying) {
+        return AccountStatusPresentation(
+          planLabel: planFacts.label,
+          title: 'Premium is active',
+          body:
+              'Pebble is waiting for secure purchase verification before cloud backup and email alerts can start.',
+          statusLabel: 'Verifying purchase',
+          historyLabel: 'Backup pending',
+          limitChips: planFacts.chips,
+          featureHighlights: const [
+            AccountFeatureHighlight(
+              emphasis: 'Local Premium',
+              detail: 'is unlocked on this device.',
+            ),
+            AccountFeatureHighlight(
+              emphasis: 'Backup',
+              detail: 'starts after account verification.',
+            ),
+          ],
+          primaryAction: AccountStatusAction.restorePurchase,
+          primaryActionLabel: 'Refresh status',
+          secondaryAction: AccountStatusAction.managePlan,
+          secondaryActionLabel: 'Manage plan',
+          supportingDetail: lastBackup,
+          tone: AccountStatusTone.ready,
+          icon: LucideIcons.cloudUpload,
+          isSyncRunning: false,
+          showRunSyncState: false,
+          showPremiumNote: false,
+        );
+      }
       return AccountStatusPresentation(
         planLabel: planFacts.label,
         title: 'Backup is on',
@@ -344,16 +388,50 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
         statusLabel: 'Backup is on',
         historyLabel: 'Backup is on',
         limitChips: planFacts.chips,
-        featureHighlights: const [],
+        featureHighlights: _backupHealthHighlights(
+          backedUpRoutineCount: backedUpRoutineCount,
+          lastBackup: lastBackup,
+        ),
         primaryAction: AccountStatusAction.none,
         primaryActionLabel: null,
         secondaryAction: AccountStatusAction.managePlan,
         secondaryActionLabel: 'Manage plan',
-        supportingDetail: _fairUseDetail(fairUse) ?? lastBackup,
+        supportingDetail: _fairUseDetail(fairUse),
         tone: AccountStatusTone.active,
         icon: LucideIcons.cloudCheck,
         isSyncRunning: false,
         showRunSyncState: true,
+        showPremiumNote: false,
+      );
+    case PersonalCloudAccessStatus.verificationFailed:
+      return AccountStatusPresentation(
+        planLabel: planFacts.label,
+        title: 'Couldn\'t finish backup setup',
+        body:
+            'Premium is active, but backup could not be verified for this account yet.',
+        statusLabel: 'Backup setup failed',
+        historyLabel: 'Backup pending',
+        limitChips: planFacts.chips,
+        featureHighlights: const [
+          AccountFeatureHighlight(
+            emphasis: 'Local Premium',
+            detail: 'stays unlocked on this device.',
+          ),
+          AccountFeatureHighlight(
+            emphasis: 'Backup',
+            detail: 'needs purchase verification.',
+          ),
+        ],
+        primaryAction: AccountStatusAction.restorePurchase,
+        primaryActionLabel: 'Try again',
+        secondaryAction: AccountStatusAction.managePlan,
+        secondaryActionLabel: 'Manage plan',
+        supportingDetail:
+            account.entitlementError ?? 'Try again to re-check Premium.',
+        tone: AccountStatusTone.attention,
+        icon: LucideIcons.cloudAlert,
+        isSyncRunning: false,
+        showRunSyncState: false,
         showPremiumNote: false,
       );
     case PersonalCloudAccessStatus.offlinePending:
@@ -413,9 +491,9 @@ class _PlanFacts {
 _PlanFacts _planFacts({required PremiumFeaturePolicy policy}) {
   if (policy.localPremiumAccess == LocalPremiumAccess.historyGrace) {
     return const _PlanFacts(
-      label: 'History grace',
+      label: 'History access',
       chips: [
-        AccountPlanChip(value: '21d', label: 'History kept'),
+        AccountPlanChip(value: '21 days', label: 'History kept'),
         AccountPlanChip(value: '2', label: 'Routines'),
         AccountPlanChip(value: '10', label: 'Steps each'),
       ],
@@ -426,7 +504,7 @@ _PlanFacts _planFacts({required PremiumFeaturePolicy policy}) {
     return const _PlanFacts(
       label: 'Premium active',
       chips: [
-        AccountPlanChip(value: '21d', label: 'History kept'),
+        AccountPlanChip(value: '21 days', label: 'History kept'),
         AccountPlanChip(value: 'Unlimited', label: 'Routines'),
         AccountPlanChip(value: 'Unlimited', label: 'Steps each'),
       ],
@@ -441,6 +519,34 @@ _PlanFacts _planFacts({required PremiumFeaturePolicy policy}) {
       AccountPlanChip(value: '10', label: 'Steps each'),
     ],
   );
+}
+
+List<AccountFeatureHighlight> _backupHealthHighlights({
+  required int? backedUpRoutineCount,
+  required String? lastBackup,
+}) {
+  final highlights = <AccountFeatureHighlight>[];
+  if (backedUpRoutineCount != null) {
+    highlights.add(
+      AccountFeatureHighlight(
+        emphasis:
+            '$backedUpRoutineCount routine${backedUpRoutineCount == 1 ? '' : 's'}',
+        detail: 'backed up.',
+      ),
+    );
+  }
+  highlights.add(
+    const AccountFeatureHighlight(emphasis: 'History', detail: 'backed up.'),
+  );
+  if (lastBackup != null) {
+    highlights.add(
+      AccountFeatureHighlight(
+        emphasis: 'Last backup',
+        detail: '${lastBackup.replaceFirst('Last backed up: ', '')}.',
+      ),
+    );
+  }
+  return highlights;
 }
 
 String? _fairUseDetail(ProofMediaFairUseState? state) {

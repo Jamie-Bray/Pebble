@@ -151,6 +151,7 @@ final syncOutboxCountProvider = StreamProvider<int>((ref) {
 final accountBackupStatusSummaryProvider = Provider<AccountBackupStatusSummary>((
   ref,
 ) {
+  final baseAccess = ref.watch(personalCloudAccessProvider);
   final status = ref.watch(effectivePersonalCloudStatusProvider);
   final runtime = ref.watch(cloudSyncRuntimeStateProvider);
   final pendingCount = ref
@@ -224,6 +225,16 @@ final accountBackupStatusSummaryProvider = Provider<AccountBackupStatusSummary>(
         showRunSyncState: true,
       );
     case PersonalCloudAccessStatus.syncing:
+      if (baseAccess.label == 'Checking backup') {
+        return const AccountBackupStatusSummary(
+          kind: AccountBackupStatusKind.premiumSetupPending,
+          label: 'Checking backup',
+          detail:
+              'Premium is active. Pebble is checking backup for this account.',
+          historyLabel: 'Backup pending',
+          showRunSyncState: false,
+        );
+      }
       return AccountBackupStatusSummary(
         kind: AccountBackupStatusKind.ready,
         label: 'Cloud backup ready',
@@ -231,12 +242,21 @@ final accountBackupStatusSummaryProvider = Provider<AccountBackupStatusSummary>(
         historyLabel: 'Cloud backup ready',
         showRunSyncState: true,
       );
+    case PersonalCloudAccessStatus.verificationFailed:
+      return const AccountBackupStatusSummary(
+        kind: AccountBackupStatusKind.attention,
+        label: 'Backup setup failed',
+        detail:
+            'Premium is active, but backup could not be verified for this account yet.',
+        historyLabel: 'Backup pending',
+        showRunSyncState: false,
+      );
     case PersonalCloudAccessStatus.expiredGrace:
       return const AccountBackupStatusSummary(
         kind: AccountBackupStatusKind.paused,
         label: 'Cloud backup paused',
         detail:
-            'Premium is in grace. New uploads are paused, and extended history remains visible for now.',
+            'Premium recently ended. New uploads are paused, and your 21-day history remains visible for 7 days.',
         historyLabel: 'Cloud backup paused',
         showRunSyncState: false,
       );
@@ -293,6 +313,9 @@ final effectivePersonalCloudStatusProvider =
       if (!isSignedIn) {
         return PersonalCloudAccessStatus.pausedSignedOut;
       }
+      if (base.status == PersonalCloudAccessStatus.verificationFailed) {
+        return PersonalCloudAccessStatus.verificationFailed;
+      }
       if (base.status == PersonalCloudAccessStatus.consentRequired) {
         return PersonalCloudAccessStatus.consentRequired;
       }
@@ -329,7 +352,7 @@ final accountBackupRingStateProvider = Provider<AccountBackupRingState>((ref) {
           status == PersonalCloudAccessStatus.offlinePending)) {
     return AccountBackupRingState(
       variant: AccountBackupRingVariant.storageWarning,
-      showRing: true,
+      showRing: false,
       semanticsLabel: 'Account and backup',
       semanticsHint: fairUse?.status == ProofMediaFairUseStatus.full
           ? 'Photo storage full. Routine sync still works.'
@@ -354,14 +377,14 @@ final accountBackupRingStateProvider = Provider<AccountBackupRingState>((ref) {
     case PersonalCloudAccessStatus.consentRequired:
       return const AccountBackupRingState(
         variant: AccountBackupRingVariant.consentRequired,
-        showRing: true,
+        showRing: false,
         semanticsLabel: 'Account and backup',
         semanticsHint: 'Cloud backup needs your review before upload starts.',
       );
     case PersonalCloudAccessStatus.available:
       return const AccountBackupRingState(
         variant: AccountBackupRingVariant.available,
-        showRing: true,
+        showRing: false,
         semanticsLabel: 'Account and backup',
         semanticsHint: 'Backup active.',
       );
@@ -372,38 +395,45 @@ final accountBackupRingStateProvider = Provider<AccountBackupRingState>((ref) {
         semanticsLabel: 'Account and backup',
         semanticsHint: 'Syncing your routines.',
       );
+    case PersonalCloudAccessStatus.verificationFailed:
+      return const AccountBackupRingState(
+        variant: AccountBackupRingVariant.error,
+        showRing: false,
+        semanticsLabel: 'Account and backup',
+        semanticsHint: 'Backup setup needs purchase verification.',
+      );
     case PersonalCloudAccessStatus.pausedSignedOut:
       return const AccountBackupRingState(
         variant: AccountBackupRingVariant.paused,
-        showRing: true,
+        showRing: false,
         semanticsLabel: 'Account and backup',
         semanticsHint: 'Backup paused. Sign in to resume.',
       );
     case PersonalCloudAccessStatus.expiredGrace:
       return const AccountBackupRingState(
         variant: AccountBackupRingVariant.paused,
-        showRing: true,
+        showRing: false,
         semanticsLabel: 'Account and backup',
-        semanticsHint: 'Premium grace period. Uploads are paused.',
+        semanticsHint: 'Premium recently ended. Uploads are paused.',
       );
     case PersonalCloudAccessStatus.accountSwitchBlocked:
       return const AccountBackupRingState(
         variant: AccountBackupRingVariant.error,
-        showRing: true,
+        showRing: false,
         semanticsLabel: 'Account and backup',
         semanticsHint: 'Backup paused until local data is reviewed.',
       );
     case PersonalCloudAccessStatus.offlinePending:
       return const AccountBackupRingState(
         variant: AccountBackupRingVariant.offlinePending,
-        showRing: true,
+        showRing: false,
         semanticsLabel: 'Account and backup',
         semanticsHint: 'Offline. Changes will sync later.',
       );
     case PersonalCloudAccessStatus.error:
       return const AccountBackupRingState(
         variant: AccountBackupRingVariant.error,
-        showRing: true,
+        showRing: false,
         semanticsLabel: 'Account and backup',
         semanticsHint: 'Sync needs attention.',
       );
@@ -450,6 +480,14 @@ final homeBackupBannerStateProvider = Provider<HomeBackupBannerState>((ref) {
         action: HomeBackupBannerAction.none,
         actionLabel: null,
       );
+    case PersonalCloudAccessStatus.verificationFailed:
+      return const HomeBackupBannerState(
+        show: true,
+        message:
+            'Premium is active, but backup could not be set up yet. Try again from Account.',
+        action: HomeBackupBannerAction.none,
+        actionLabel: null,
+      );
     case PersonalCloudAccessStatus.pausedSignedOut:
       return const HomeBackupBannerState(
         show: true,
@@ -461,7 +499,7 @@ final homeBackupBannerStateProvider = Provider<HomeBackupBannerState>((ref) {
       return const HomeBackupBannerState(
         show: true,
         message:
-            'Premium is in grace. Uploads are paused, but extended history stays visible.',
+            'Premium recently ended. Uploads are paused, but 21-day history stays visible for 7 days.',
         action: HomeBackupBannerAction.none,
         actionLabel: null,
       );
@@ -646,10 +684,12 @@ String _backupSummaryForState(
       return 'Backup is active for supported routine data.';
     case PersonalCloudAccessStatus.syncing:
       return 'Syncing latest changes';
+    case PersonalCloudAccessStatus.verificationFailed:
+      return 'Premium is active, but backup could not be set up yet.';
     case PersonalCloudAccessStatus.pausedSignedOut:
       return 'Backup is paused. Sign in to resume.';
     case PersonalCloudAccessStatus.expiredGrace:
-      return 'Premium is in grace. Uploads are paused.';
+      return 'Premium recently ended. Uploads are paused.';
     case PersonalCloudAccessStatus.accountSwitchBlocked:
       return 'Backup is paused until local data is reviewed.';
     case PersonalCloudAccessStatus.offlinePending:
@@ -682,10 +722,12 @@ String? _backupDetailForState({
       return pendingChangesText ?? 'All caught up';
     case PersonalCloudAccessStatus.syncing:
       return pendingChangesText ?? 'Syncing latest changes';
+    case PersonalCloudAccessStatus.verificationFailed:
+      return 'Try again to re-check Premium for this account.';
     case PersonalCloudAccessStatus.pausedSignedOut:
       return 'Sign in to resume backup.';
     case PersonalCloudAccessStatus.expiredGrace:
-      return 'Your extended history stays visible during the 7-day grace period. New cloud uploads are paused.';
+      return 'Your 21-day history stays visible for 7 days. New cloud uploads are paused.';
     case PersonalCloudAccessStatus.accountSwitchBlocked:
       return lastError ??
           'Pebble will keep existing local data local until you choose how to handle this account.';
@@ -712,6 +754,8 @@ BackupSectionAction _primaryBackupActionForState(
     case PersonalCloudAccessStatus.offlinePending:
     case PersonalCloudAccessStatus.error:
       return BackupSectionAction.retrySync;
+    case PersonalCloudAccessStatus.verificationFailed:
+      return BackupSectionAction.refreshStatus;
     case PersonalCloudAccessStatus.offFree:
     case PersonalCloudAccessStatus.offSignedInNoEntitlement:
     case PersonalCloudAccessStatus.pausedSignedOut:
@@ -730,6 +774,8 @@ String? _primaryBackupActionLabelForState(PersonalCloudAccessStatus status) {
     case PersonalCloudAccessStatus.syncing:
     case PersonalCloudAccessStatus.error:
       return 'Sync now';
+    case PersonalCloudAccessStatus.verificationFailed:
+      return 'Try again';
     case PersonalCloudAccessStatus.offlinePending:
       return 'Refresh status';
     case PersonalCloudAccessStatus.offFree:
@@ -748,6 +794,8 @@ BackupSectionAction _secondaryBackupActionForState(
     case PersonalCloudAccessStatus.syncing:
     case PersonalCloudAccessStatus.available:
       return BackupSectionAction.refreshStatus;
+    case PersonalCloudAccessStatus.verificationFailed:
+      return BackupSectionAction.none;
     case PersonalCloudAccessStatus.offFree:
     case PersonalCloudAccessStatus.offSignedInNoEntitlement:
     case PersonalCloudAccessStatus.consentRequired:
@@ -766,6 +814,8 @@ String? _secondaryBackupActionLabelForState(PersonalCloudAccessStatus status) {
       return 'Refresh status';
     case PersonalCloudAccessStatus.available:
       return 'Restore backup';
+    case PersonalCloudAccessStatus.verificationFailed:
+      return null;
     case PersonalCloudAccessStatus.offFree:
     case PersonalCloudAccessStatus.offSignedInNoEntitlement:
     case PersonalCloudAccessStatus.consentRequired:

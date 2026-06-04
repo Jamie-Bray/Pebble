@@ -10,9 +10,12 @@ type RevenueCatEvent = {
   id?: string;
   type?: string;
   app_user_id?: string;
+  original_app_user_id?: string;
+  aliases?: string[] | null;
   product_id?: string;
   entitlement_id?: string | null;
   entitlement_ids?: string[] | null;
+  environment?: string;
   store?: string;
   transaction_id?: string | null;
   original_transaction_id?: string | null;
@@ -40,6 +43,8 @@ type MappedEntitlement = {
   periodEndsAt: string | null;
 };
 
+type SupabaseServiceClient = any;
+
 const personalPremiumEntitlementId =
   Deno.env.get('REVENUECAT_PERSONAL_PREMIUM_ENTITLEMENT_ID') ??
     'personal_premium';
@@ -51,7 +56,7 @@ const corsHeaders = {
   'access-control-allow-methods': 'POST, OPTIONS',
 };
 
-serve(async (req) => {
+export async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -95,14 +100,69 @@ serve(async (req) => {
   if (!event?.type) {
     return json({ error: 'RevenueCat event is required' }, 400);
   }
+  console.log(
+    JSON.stringify({
+      scope: 'revenuecat-webhook',
+      message: 'event_received',
+      type: event.type,
+      id: event.id,
+      app_user_id: event.app_user_id,
+      product_id: event.product_id,
+      store: event.store,
+      transferred_to: event.transferred_to,
+      transferred_from: event.transferred_from,
+    }),
+  );
 
   const serviceClient = createClient(supabaseUrl, serviceRoleKey);
   if (event.type === 'TRANSFER') {
     await handleTransfer(serviceClient, event);
   }
 
-  const mapped = await mapRevenueCatEvent(event);
+  const ownerUserId = await resolveSupabaseUserIdForRevenueCatEvent(
+    serviceClient,
+    event,
+  );
+  if (!ownerUserId && hasPebblePremiumEntitlement(event)) {
+    logStructured({
+      message: 'pending_unmatched_entitlement',
+      reason: 'no_matching_supabase_auth_user',
+      event_type: event.type,
+      revenuecat_event_id: event.id,
+      app_user_id: event.app_user_id,
+      original_app_user_id: event.original_app_user_id,
+      aliases: event.aliases,
+      transferred_to: event.transferred_to,
+      transaction_id: event.transaction_id,
+      original_transaction_id: event.original_transaction_id,
+      product_id: event.product_id,
+      entitlement_ids: event.entitlement_ids,
+      store: event.store,
+      environment: event.environment,
+      action_result: 'accepted_unmatched_no_entitlement_write',
+    });
+    return json({
+      ok: true,
+      status: 'unmatched_user',
+      message:
+        'RevenueCat event accepted but no matching Supabase auth user was found. No entitlement row written.',
+    });
+  }
+
+  const mapped = ownerUserId === null
+    ? null
+    : await mapRevenueCatEvent(event, ownerUserId);
   if (!mapped) {
+    console.log(
+      JSON.stringify({
+        scope: 'revenuecat-webhook',
+        message: 'event_ignored',
+        type: event.type,
+        id: event.id,
+        reason:
+          'no personal premium entitlement or no Supabase UUID app_user_id/transferred_to',
+      }),
+    );
     return json({ ok: true, ignored: true });
   }
 
@@ -117,6 +177,16 @@ serve(async (req) => {
     return json({ error: existingClaim.error.message }, 500);
   }
   if (existingClaim.ownerUserId && existingClaim.ownerUserId !== mapped.userId) {
+    console.log(
+      JSON.stringify({
+        scope: 'revenuecat-webhook',
+        message: 'purchase_claim_conflict',
+        mapped_user_id: mapped.userId,
+        existing_owner_user_id: existingClaim.ownerUserId,
+        product_id: mapped.productId,
+        store: mapped.store,
+      }),
+    );
     return json({ error: 'This store purchase is already linked to another Pebble account' }, 409);
   }
 
@@ -176,12 +246,24 @@ serve(async (req) => {
   if (profileError) {
     return json({ error: profileError.message }, 500);
   }
+  console.log(
+    JSON.stringify({
+      scope: 'revenuecat-webhook',
+      message: 'entitlement_mirror_updated',
+      owner_user_id: mapped.userId,
+      entitlement_tier: mapped.tier,
+      status: mapped.status,
+      product_id: mapped.productId,
+      store: mapped.store,
+      period_ends_at: mapped.periodEndsAt,
+    }),
+  );
 
   return json({ ok: true });
-});
+}
 
 async function findExistingPurchaseClaim(
-  client: ReturnType<typeof createClient>,
+  client: SupabaseServiceClient,
   store: string,
   productId: string,
   tokenHash: string,
@@ -205,9 +287,9 @@ async function findExistingPurchaseClaim(
 
 export async function mapRevenueCatEvent(
   event: RevenueCatEvent,
+  ownerUserId: string,
 ): Promise<MappedEntitlement | null> {
   if (!hasPebblePremiumEntitlement(event)) return null;
-  if (!event.app_user_id || !isUuid(event.app_user_id)) return null;
 
   const status = statusForRevenueCatEvent(event);
   const productId = event.product_id ?? personalPremiumEntitlementId;
@@ -219,7 +301,7 @@ export async function mapRevenueCatEvent(
       `${event.app_user_id}:${productId}:${event.event_timestamp_ms ?? ''}`;
 
   return {
-    userId: event.app_user_id,
+    userId: ownerUserId,
     productId,
     store,
     purchaseTokenHash: await sha256Hex(tokenSource),
@@ -231,11 +313,23 @@ export async function mapRevenueCatEvent(
 }
 
 async function handleTransfer(
-  serviceClient: ReturnType<typeof createClient>,
+  serviceClient: SupabaseServiceClient,
   event: RevenueCatEvent,
 ) {
-  const from = event.transferred_from?.filter(isUuid) ?? [];
-  if (from.length === 0) return;
+  const from = await resolveExistingSupabaseUserIds(
+    serviceClient,
+    event.transferred_from ?? [],
+  );
+  if (from.length === 0) {
+    console.log(
+      JSON.stringify({
+        scope: 'revenuecat-webhook',
+        message: 'transfer_has_no_supabase_source_users',
+        id: event.id,
+      }),
+    );
+    return;
+  }
 
   const productId = event.product_id ?? personalPremiumEntitlementId;
   const store = normalizeStore(event.store);
@@ -268,6 +362,79 @@ async function handleTransfer(
       updated_at: now,
     });
   }
+}
+
+export function candidateUserIdsForRevenueCatEvent(
+  event: RevenueCatEvent,
+): string[] {
+  const candidates = [
+    event.app_user_id,
+    event.original_app_user_id,
+    ...(event.aliases ?? []),
+    ...(event.transferred_to ?? []),
+  ];
+  const unique = new Set<string>();
+  for (const candidate of candidates) {
+    const trimmed = candidate?.trim();
+    if (trimmed && isUuid(trimmed)) {
+      unique.add(trimmed.toLowerCase());
+    }
+  }
+  return [...unique];
+}
+
+async function resolveSupabaseUserIdForRevenueCatEvent(
+  serviceClient: SupabaseServiceClient,
+  event: RevenueCatEvent,
+): Promise<string | null> {
+  const candidates = candidateUserIdsForRevenueCatEvent(event);
+  logStructured({
+    message: 'candidate_user_ids_extracted',
+    event_type: event.type,
+    revenuecat_event_id: event.id,
+    candidate_user_ids: candidates,
+  });
+  for (const candidate of candidates) {
+    if (await supabaseAuthUserExists(serviceClient, candidate)) {
+      logStructured({
+        message: 'candidate_user_exists',
+        event_type: event.type,
+        revenuecat_event_id: event.id,
+        chosen_owner_user_id: candidate,
+      });
+      return candidate;
+    }
+    logStructured({
+      message: 'candidate_user_missing',
+      event_type: event.type,
+      revenuecat_event_id: event.id,
+      candidate_user_id: candidate,
+    });
+  }
+  return null;
+}
+
+async function resolveExistingSupabaseUserIds(
+  serviceClient: SupabaseServiceClient,
+  values: string[],
+): Promise<string[]> {
+  const userIds: string[] = [];
+  for (const candidate of values) {
+    const trimmed = candidate.trim().toLowerCase();
+    if (!isUuid(trimmed)) continue;
+    if (await supabaseAuthUserExists(serviceClient, trimmed)) {
+      userIds.push(trimmed);
+    }
+  }
+  return userIds;
+}
+
+async function supabaseAuthUserExists(
+  serviceClient: SupabaseServiceClient,
+  userId: string,
+): Promise<boolean> {
+  const { data, error } = await serviceClient.auth.admin.getUserById(userId);
+  return !error && data.user !== null;
 }
 
 function hasPebblePremiumEntitlement(event: RevenueCatEvent): boolean {
@@ -369,4 +536,17 @@ function json(body: unknown, status = 200): Response {
       'content-type': 'application/json',
     },
   });
+}
+
+function logStructured(fields: Record<string, unknown>) {
+  console.log(
+    JSON.stringify({
+      scope: 'revenuecat-webhook',
+      ...fields,
+    }),
+  );
+}
+
+if (import.meta.main) {
+  serve(handler);
 }

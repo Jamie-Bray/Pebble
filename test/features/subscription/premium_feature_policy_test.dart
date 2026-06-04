@@ -64,6 +64,29 @@ void main() {
       expect(policy.canUseCloudBackup, isFalse);
     });
 
+    test('active premium signed in exposes retryable mirror failure', () {
+      final harness = _harness(
+        auth: _signedIn,
+        account: _premiumAccount(source: EntitlementSource.revenueCat).copyWith(
+          entitlementError:
+              'Premium is active, but backup could not be set up yet. Try again.',
+        ),
+      );
+      addTearDown(harness.dispose);
+
+      final policy = harness.container.read(premiumFeaturePolicyProvider);
+
+      expect(policy.localPremiumAccess, LocalPremiumAccess.active);
+      expect(
+        policy.serverFeatureStatus,
+        ServerFeatureStatus.verificationFailed,
+      );
+      expect(policy.canUseUnlimitedRoutines, isTrue);
+      expect(policy.canUseSharedAlerts, isFalse);
+      expect(policy.canUseCloudBackup, isFalse);
+      expect(policy.userFacingStatus, contains('backup could not be set up'));
+    });
+
     test('server verified premium unlocks alerts before backup consent', () {
       final harness = _harness(
         auth: _signedIn,
@@ -287,5 +310,7 @@ class _FakePurchaseRepository extends ChangeNotifier
   }
 
   @override
-  Future<void> syncPurchasesSilently() async {}
+  Future<void> syncPurchasesSilently({
+    bool waitForServerMirror = false,
+  }) async {}
 }

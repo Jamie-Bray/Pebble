@@ -247,7 +247,104 @@ void main() {
         final policy = container.read(cloudAccessPolicyProvider);
 
         expect(access.status, PersonalCloudAccessStatus.syncing);
-        expect(access.label, 'Finishing Premium verification');
+        expect(access.label, 'Checking backup');
+        expect(policy.personalCloudEnabled, isFalse);
+        expect(policy.canQueuePersonalSync, isFalse);
+      },
+    );
+
+    test('signed-out local Premium pauses backup without verification', () {
+      final database = LocalDb.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+
+      final container = ProviderContainer(
+        overrides: [
+          localDbProvider.overrideWithValue(database),
+          authSessionProvider.overrideWithValue(
+            const AuthSessionSummary(
+              isSignedIn: false,
+              userId: null,
+              email: null,
+              provider: null,
+            ),
+          ),
+          subscriptionAccountControllerProvider.overrideWith(
+            (ref) => _TestSubscriptionAccountController(
+              database,
+              const SubscriptionAccountState(
+                entitlementTier: UserTier.personalPremium,
+                pendingTier: null,
+                bootstrapStatus: BootstrapStatus.ready,
+                userId: '11111111-1111-1111-1111-111111111111',
+                email: 'jamie@example.com',
+                authProvider: 'google',
+                lastBootstrapAt: null,
+                lastSyncAt: null,
+                lastSyncError: null,
+                entitlementStatus: EntitlementStatus.personalPremium,
+                entitlementSource: EntitlementSource.revenueCat,
+              ),
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final access = container.read(personalCloudAccessProvider);
+      final policy = container.read(cloudAccessPolicyProvider);
+
+      expect(access.status, PersonalCloudAccessStatus.pausedSignedOut);
+      expect(access.label, 'Backup is paused');
+      expect(policy.personalCloudEnabled, isFalse);
+      expect(policy.canQueuePersonalSync, isFalse);
+    });
+
+    test(
+      'mirror verification failure blocks backup without downgrading Premium',
+      () {
+        final database = LocalDb.forTesting(NativeDatabase.memory());
+        addTearDown(database.close);
+        const auth = AuthSessionSummary(
+          isSignedIn: true,
+          userId: '11111111-1111-1111-1111-111111111111',
+          email: 'jamie@example.com',
+          provider: 'google',
+        );
+
+        final container = ProviderContainer(
+          overrides: [
+            localDbProvider.overrideWithValue(database),
+            authSessionProvider.overrideWithValue(auth),
+            subscriptionAccountControllerProvider.overrideWith(
+              (ref) => _TestSubscriptionAccountController(
+                database,
+                const SubscriptionAccountState(
+                  entitlementTier: UserTier.personalPremium,
+                  pendingTier: null,
+                  bootstrapStatus: BootstrapStatus.ready,
+                  userId: '11111111-1111-1111-1111-111111111111',
+                  email: 'jamie@example.com',
+                  authProvider: 'google',
+                  lastBootstrapAt: null,
+                  lastSyncAt: null,
+                  lastSyncError: null,
+                  entitlementStatus: EntitlementStatus.personalPremium,
+                  entitlementSource: EntitlementSource.revenueCat,
+                  entitlementError:
+                      'Premium is active, but backup could not be set up yet. Try again.',
+                ),
+              ),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final access = container.read(personalCloudAccessProvider);
+        final policy = container.read(cloudAccessPolicyProvider);
+        final entitlement = container.read(entitlementStateProvider);
+
+        expect(access.status, PersonalCloudAccessStatus.verificationFailed);
+        expect(entitlement.isPersonalPaid, isTrue);
         expect(policy.personalCloudEnabled, isFalse);
         expect(policy.canQueuePersonalSync, isFalse);
       },

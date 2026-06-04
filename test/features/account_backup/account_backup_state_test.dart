@@ -176,7 +176,9 @@ class _AccountTestPurchaseRepository extends ChangeNotifier
   }
 
   @override
-  Future<void> syncPurchasesSilently() async {}
+  Future<void> syncPurchasesSilently({
+    bool waitForServerMirror = false,
+  }) async {}
 
   @override
   Future<void> logOut() async {}
@@ -453,7 +455,7 @@ void main() {
 
       expect(presentation.planLabel, 'Premium active');
       expect(presentation.title, 'Premium is on this device');
-      expect(_chipValues(presentation), ['21d', 'Unlimited', 'Unlimited']);
+      expect(_chipValues(presentation), ['21 days', 'Unlimited', 'Unlimited']);
       expect(presentation.primaryAction, AccountStatusAction.signIn);
     });
 
@@ -502,6 +504,7 @@ void main() {
       final ui = harness.container.read(accountBackupUiStateProvider);
 
       expect(ring.variant, AccountBackupRingVariant.available);
+      expect(ring.showRing, isFalse);
       expect(banner.show, isFalse);
       expect(ui.backupSummary, 'Backup is active for supported routine data.');
       expect(ui.backupDetail, 'All caught up');
@@ -556,7 +559,7 @@ void main() {
 
       expect(presentation.planLabel, 'Premium active');
       expect(presentation.title, 'Backup is on');
-      expect(_chipValues(presentation), ['21d', 'Unlimited', 'Unlimited']);
+      expect(_chipValues(presentation), ['21 days', 'Unlimited', 'Unlimited']);
       expect(presentation.secondaryAction, AccountStatusAction.managePlan);
     });
 

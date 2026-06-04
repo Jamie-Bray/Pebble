@@ -318,7 +318,9 @@ class _UnavailablePurchaseRepository extends ChangeNotifier
   }
 
   @override
-  Future<void> syncPurchasesSilently() async {}
+  Future<void> syncPurchasesSilently({
+    bool waitForServerMirror = false,
+  }) async {}
 
   @override
   Future<void> logOut() async {}
@@ -419,7 +421,9 @@ class _PlanPurchaseRepository extends ChangeNotifier
   }
 
   @override
-  Future<void> syncPurchasesSilently() async {}
+  Future<void> syncPurchasesSilently({
+    bool waitForServerMirror = false,
+  }) async {}
 
   @override
   Future<void> logOut() async {}

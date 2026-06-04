@@ -18,12 +18,18 @@ import 'package:pebble_routines/features/routines/execution/data/services/routin
 import 'package:pebble_routines/features/routines/execution/providers/player_state_provider.dart';
 import 'package:pebble_routines/features/routines/execution/ui/routine_player_screen.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
+import 'package:pebble_routines/features/subscription/domain/routine_limit_policy.dart';
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
 import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../support/premium_policy_test_utils.dart';
+
+const _unlockedRoutinePolicy = RoutineLimitPolicy(
+  hasPremiumRoutineAccess: true,
+  isInGrace: false,
+);
 
 void main() {
   setUp(() {
@@ -405,6 +411,7 @@ void main() {
       repository: repository,
       proofStorage: proofStorage,
       maxProofPhotosPerStep: 1,
+      routineLimitPolicy: _unlockedRoutinePolicy,
     );
 
     await Future<void>.delayed(Duration.zero);
@@ -439,6 +446,7 @@ void main() {
       repository: repository,
       proofStorage: const _FakeProofStorage(),
       maxProofPhotosPerStep: 1,
+      routineLimitPolicy: _unlockedRoutinePolicy,
     );
 
     await Future<void>.delayed(Duration.zero);
@@ -475,6 +483,7 @@ void main() {
       repository: repository,
       proofStorage: const _FakeProofStorage(),
       maxProofPhotosPerStep: 1,
+      routineLimitPolicy: _unlockedRoutinePolicy,
     );
 
     await Future<void>.delayed(Duration.zero);

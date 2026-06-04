@@ -55,9 +55,9 @@ final personalCloudAccessProvider = Provider<PersonalCloudAccessState>((ref) {
   if (lifecycle.phase == SubscriptionLifecyclePhase.expiredGrace) {
     return const PersonalCloudAccessState(
       status: PersonalCloudAccessStatus.expiredGrace,
-      label: 'Premium grace period',
+      label: 'Premium recently ended',
       detail:
-          'Cloud uploads are paused. Your extended history stays visible during the grace period.',
+          'Cloud uploads are paused. Your 21-day history stays visible for 7 days.',
     );
   }
 
@@ -76,20 +76,27 @@ final personalCloudAccessProvider = Provider<PersonalCloudAccessState>((ref) {
           );
   }
 
-  if (!hasServerVerifiedCloudEntitlement) {
-    return const PersonalCloudAccessState(
-      status: PersonalCloudAccessStatus.syncing,
-      label: 'Finishing Premium verification',
-      detail:
-          'Cloud backup will unlock after RevenueCat confirms Premium with Pebble.',
-    );
-  }
-
   if (!auth.isSignedIn) {
     return const PersonalCloudAccessState(
       status: PersonalCloudAccessStatus.pausedSignedOut,
       label: 'Backup is paused',
       detail: 'Sign in again to continue backup and sync.',
+    );
+  }
+
+  if (!hasServerVerifiedCloudEntitlement) {
+    if (_looksPurchaseVerificationFailed(account.entitlementError)) {
+      return const PersonalCloudAccessState(
+        status: PersonalCloudAccessStatus.verificationFailed,
+        label: 'Could not finish backup setup',
+        detail:
+            'Premium is active, but backup could not be verified for this account yet.',
+      );
+    }
+    return const PersonalCloudAccessState(
+      status: PersonalCloudAccessStatus.syncing,
+      label: 'Checking backup',
+      detail: 'Premium is active. Pebble is checking backup for this account.',
     );
   }
 
@@ -130,8 +137,8 @@ final personalCloudAccessProvider = Provider<PersonalCloudAccessState>((ref) {
     case BootstrapStatus.idle:
       return const PersonalCloudAccessState(
         status: PersonalCloudAccessStatus.syncing,
-        label: 'Preparing your backup',
-        detail: 'Pebble is getting your backup ready.',
+        label: 'Waiting to start backup',
+        detail: 'Review cloud backup so Pebble can start syncing.',
       );
     case BootstrapStatus.ready:
       return const PersonalCloudAccessState(
@@ -189,4 +196,14 @@ bool _looksAccountSwitchBlocked(String? message) {
       normalized.contains('another account') ||
       normalized.contains('linked to this account') ||
       normalized.contains('without your choice');
+}
+
+bool _looksPurchaseVerificationFailed(String? message) {
+  if (message == null || message.isEmpty) {
+    return false;
+  }
+  final normalized = message.toLowerCase();
+  return normalized.contains('backup could not be set up') ||
+      normalized.contains('could not finish backup setup') ||
+      normalized.contains('purchase verification');
 }

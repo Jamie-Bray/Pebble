@@ -1023,6 +1023,8 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
     required bool isLast,
   }) {
     final foundation = context.darkFoundation;
+    final softLockPolicy = ref.watch(routineLimitPolicyProvider);
+    final isRestricted = softLockPolicy.isRoutineRestricted(index);
     final steps = _stepCountForRoutine(routine);
     final routineColor = _routineAccentColor(routine, themeData, index);
     final icon = RoutineIconCatalog.resolve(routine.emoji).icon;
@@ -1031,12 +1033,22 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
       if (routine.isPinned) 'Pinned',
       if (routine.reminderTime != null) 'Reminder set',
     ];
-    final rowBackground = isSelected
+    final rowBackground = isRestricted
+        ? foundation.surfaceHigh.withValues(alpha: 0.32)
+        : isSelected
         ? routineColor.withValues(alpha: 0.06)
         : foundation.surfaceLow;
-    final rowBorderColor = isSelected
+    final rowBorderColor = isRestricted
+        ? foundation.borderSubtle.withValues(alpha: 0.72)
+        : isSelected
         ? routineColor.withValues(alpha: 0.35)
         : foundation.borderSubtle;
+    final titleColor = isRestricted
+        ? foundation.textPrimary.withValues(alpha: 0.44)
+        : foundation.textPrimary;
+    final subtitle = isRestricted
+        ? 'Premium ended – Upgrade to unlock'
+        : metadata.join(' / ');
 
     return Material(
       color: Colors.transparent,
@@ -1044,6 +1056,10 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
       child: InkWell(
         onTap: () {
           HapticsService().lightImpact();
+          if (isRestricted) {
+            context.push(premiumRoute(source: PremiumEntrySource.routineLimit));
+            return;
+          }
           ref.read(homeRoutineHighlightProvider.notifier).state = null;
           if (_focusedRoutineId != routine.id) {
             setState(() => _focusedRoutineId = routine.id);
@@ -1062,71 +1078,86 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: rowBorderColor),
           ),
-          child: Row(
-            children: [
-              Container(
-                width: 3,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: routineColor,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: foundation.textPrimary.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, size: 18, color: routineColor),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      routine.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: -0.1,
-                        color: foundation.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      metadata.join(' / '),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w300,
-                        color: foundation.textMuted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              AnimatedOpacity(
-                opacity: isSelected ? 1 : 0,
-                duration: const Duration(milliseconds: 160),
-                child: Container(
-                  width: 8,
-                  height: 8,
+          child: Opacity(
+            opacity: isRestricted ? 0.72 : 1,
+            child: Row(
+              children: [
+                Container(
+                  width: 3,
+                  height: 32,
                   decoration: BoxDecoration(
-                    color: routineColor,
-                    shape: BoxShape.circle,
+                    color: isRestricted
+                        ? foundation.textMuted.withValues(alpha: 0.48)
+                        : routineColor,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 14),
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: foundation.textPrimary.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    isRestricted ? LucideIcons.lock : icon,
+                    size: 18,
+                    color: isRestricted ? foundation.textMuted : routineColor,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        routine.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: -0.1,
+                          color: titleColor,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: isRestricted
+                              ? FontWeight.w500
+                              : FontWeight.w300,
+                          color: isRestricted
+                              ? themeData.colorScheme.primary.withValues(
+                                  alpha: 0.74,
+                                )
+                              : foundation.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                AnimatedOpacity(
+                  opacity: isSelected ? 1 : 0,
+                  duration: const Duration(milliseconds: 160),
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: routineColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1380,6 +1411,13 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
   }
 
   void _onPlayRoutine(Routine routine) {
+    final routines = ref.read(routineListProvider).valueOrNull;
+    final index = routines?.indexWhere((item) => item.id == routine.id) ?? -1;
+    if (index >= 0 &&
+        ref.read(routineLimitPolicyProvider).isRoutineRestricted(index)) {
+      context.push(premiumRoute(source: PremiumEntrySource.routineLimit));
+      return;
+    }
     _clearHighlightFor(routine.id);
     context.push('/play/${routine.id}');
   }

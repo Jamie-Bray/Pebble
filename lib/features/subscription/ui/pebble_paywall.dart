@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
+import 'package:pebble_routines/core/ui/zen_notifications.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
 import 'package:pebble_routines/features/subscription/data/purchase_repository.dart';
 
@@ -193,7 +194,11 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
       await _continueAfterPurchase(result);
     } catch (error) {
       if (error is PurchaseCancelledException) return;
-      _showSnackBar(_purchaseErrorMessage(error));
+      _showNotice(
+        _purchaseErrorMessage(error),
+        title: 'Purchase not completed',
+        type: NotificationType.error,
+      );
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -210,7 +215,11 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
           .restorePurchases();
       await _continueAfterPurchase(result);
     } catch (error) {
-      _showSnackBar(_purchaseErrorMessage(error));
+      _showNotice(
+        _purchaseErrorMessage(error),
+        title: 'Could not restore',
+        type: NotificationType.error,
+      );
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -220,7 +229,13 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
 
   Future<void> _continueAfterPurchase(PurchaseResult result) async {
     if (!mounted) return;
-    _showSnackBar(result.message);
+    _showNotice(
+      result.message,
+      title: result.message.toLowerCase().contains('restored')
+          ? 'Purchase restored'
+          : 'Premium is on',
+      type: NotificationType.success,
+    );
     final auth = ref.read(authSessionProvider);
     if (auth.isSignedIn) {
       await ref
@@ -252,14 +267,22 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
     context.go('/account-hub');
   }
 
-  void _showSnackBar(String message) {
+  void _showNotice(
+    String message, {
+    required String title,
+    required NotificationType type,
+  }) {
     if (!mounted) return;
-    final messenger = ScaffoldMessenger.of(context);
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(behavior: SnackBarBehavior.floating, content: Text(message)),
-      );
+    switch (type) {
+      case NotificationType.success:
+        ZenNotifications.showSuccess(context, title: title, message: message);
+      case NotificationType.info:
+        ZenNotifications.showInfo(context, title: title, message: message);
+      case NotificationType.warning:
+        ZenNotifications.showWarning(context, title: title, message: message);
+      case NotificationType.error:
+        ZenNotifications.showError(context, title: title, message: message);
+    }
   }
 
   Future<void> _openLegalUrl(String url) async {
@@ -268,7 +291,11 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
       mode: LaunchMode.externalApplication,
     );
     if (!opened) {
-      _showSnackBar('Could not open that page.');
+      _showNotice(
+        'Could not open that page.',
+        title: 'Could not open',
+        type: NotificationType.error,
+      );
     }
   }
 

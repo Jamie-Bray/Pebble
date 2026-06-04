@@ -3,13 +3,14 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:pebble_routines/core/ui/zen_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/core/notifications/notification_service.dart';
 import 'package:pebble_routines/features/routines/list/ui/routine_reminders_screen.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class ReminderSheet extends ConsumerStatefulWidget {
   final Routine routine;
@@ -1101,44 +1102,13 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
         final errorText = e.toString().toLowerCase().contains('permission')
             ? 'Enable notifications in settings to receive reminders'
             : 'Could not save this reminder. Please try again.';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.warning_rounded, color: Colors.white),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Permission needed',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(errorText, style: const TextStyle(fontSize: 13)),
-              ],
-            ),
-            backgroundColor: Colors.orange.shade700,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            margin: const EdgeInsets.all(16),
-            action: SnackBarAction(
-              label: 'Settings',
-              textColor: Colors.white,
-              onPressed: () => openAppSettings(),
-            ),
-            duration: const Duration(seconds: 5),
-          ),
+        ZenNotifications.showWarning(
+          context,
+          title: 'Permission needed',
+          message: errorText,
+          actionLabel: 'Settings',
+          onAction: () => openAppSettings(),
+          duration: const Duration(seconds: 5),
         );
       }
     }
@@ -1199,20 +1169,7 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
         }
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text(
-                'Reminder deleted',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-              backgroundColor: Colors.grey.shade700,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              margin: const EdgeInsets.all(16),
-            ),
-          );
+          ZenNotifications.showInfo(context, message: 'Reminder deleted');
           Navigator.pop(context, true);
         }
         return;
@@ -1237,36 +1194,15 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Row(
-              children: [
-                Icon(Icons.notifications_off_rounded, color: Colors.white),
-                SizedBox(width: 12),
-                Text(
-                  'All reminders removed',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.grey.shade700,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            margin: const EdgeInsets.all(16),
-          ),
-        );
+        ZenNotifications.showInfo(context, message: 'All reminders removed');
         Navigator.pop(context, true);
       }
     } catch (_) {
       if (mounted) {
         setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not remove reminders. Please try again.'),
-            behavior: SnackBarBehavior.floating,
-          ),
+        ZenNotifications.showError(
+          context,
+          message: 'Could not remove reminders. Please try again.',
         );
       }
     }
