@@ -321,9 +321,17 @@ class AuthController extends StateNotifier<AuthState> {
   }
 
   Future<void> _ensureCloudReady(String userId) async {
-    final account = _ref.read(subscriptionAccountControllerProvider);
+    var account = _ref.read(subscriptionAccountControllerProvider);
     if (!_hasPaidPersonalEntitlement(account)) {
       return;
+    }
+    if (account.entitlementSource != EntitlementSource.serverVerified) {
+      final refreshed = await _ref
+          .read(subscriptionAccountControllerProvider.notifier)
+          .refreshServerVerifiedEntitlement();
+      if (refreshed) {
+        account = _ref.read(subscriptionAccountControllerProvider);
+      }
     }
     if (account.entitlementSource != EntitlementSource.serverVerified) {
       await _ref

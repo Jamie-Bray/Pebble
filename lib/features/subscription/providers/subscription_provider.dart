@@ -303,6 +303,12 @@ class SubscriptionAccountController
     SupabaseClient client,
     String userId,
   ) async {
+    final accessToken = client.auth.currentSession?.accessToken;
+    if (accessToken == null || accessToken.isEmpty) {
+      throw StateError(
+        'Missing Supabase access token for purchase verification.',
+      );
+    }
     debugPrint(
       '[PremiumEntitlement] Requesting RevenueCat server reconciliation '
       'for user=$userId.',
@@ -310,6 +316,7 @@ class SubscriptionAccountController
     try {
       final response = await client.functions.invoke(
         'revenuecat-sync-entitlement',
+        headers: {'Authorization': 'Bearer $accessToken'},
       );
       debugPrint(
         '[PremiumEntitlement] RevenueCat server reconciliation completed: '
@@ -322,9 +329,11 @@ class SubscriptionAccountController
       );
     } catch (error) {
       final status = _functionErrorStatus(error);
+      final details = _functionErrorDetails(error);
       debugPrint(
         '[PremiumEntitlement] RevenueCat server reconciliation failed: '
-        'status=${status ?? 'unknown'}, error=$error',
+        'status=${status ?? 'unknown'}, details=${details ?? 'none'}, '
+        'error=$error',
       );
       debugPrint(
         '[PremiumEntitlementDebug] server_reconciliation_called=true '
@@ -340,6 +349,13 @@ class SubscriptionAccountController
       r'FunctionException\(status: ([0-9]+)',
     ).firstMatch(error.toString());
     return match?.group(1);
+  }
+
+  Object? _functionErrorDetails(Object error) {
+    if (error is FunctionException) {
+      return error.details;
+    }
+    return null;
   }
 
   Future<void> recordEntitlementCheckError(String message) async {
