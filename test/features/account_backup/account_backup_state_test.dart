@@ -37,7 +37,6 @@ import 'package:pebble_routines/features/settings/data/player_settings_provider.
 import 'package:pebble_routines/features/sync/cloud_restore_coordinator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pebble_routines/features/sync/cloud_sync_coordinator.dart';
-import 'package:pebble_routines/features/sync/local_data_ownership_guard.dart';
 import 'package:pebble_routines/features/sync/sync_outbox_repository.dart';
 
 class _TestSubscriptionAccountController extends SubscriptionAccountController {

@@ -67,3 +67,4 @@ flutter:
   assets:
     - assets/seed/templates_en.json
     - assets/images/logo.png
+    - assets/audio/step_complete.wav

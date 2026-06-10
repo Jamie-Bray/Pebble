@@ -21,4 +21,14 @@ class PlayerSettingsController {
 
   bool get showVisualAnchor => prefs.getBool('showVisualAnchor') ?? true;
   set showVisualAnchor(bool value) => prefs.setBool('showVisualAnchor', value);
+
+  // Step-complete reassurance feedback. Off by default: most users do not
+  // expect their phone to buzz or chime, and those who want it opt in.
+  bool get stepCompleteHaptic => prefs.getBool('stepCompleteHaptic') ?? false;
+  set stepCompleteHaptic(bool value) =>
+      prefs.setBool('stepCompleteHaptic', value);
+
+  bool get stepCompleteSound => prefs.getBool('stepCompleteSound') ?? false;
+  set stepCompleteSound(bool value) =>
+      prefs.setBool('stepCompleteSound', value);
 }

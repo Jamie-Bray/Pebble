@@ -109,6 +109,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                         },
                       ),
                       const _Hairline(),
+                      _FlowSwitchTile(
+                        icon: LucideIcons.vibrate,
+                        title: 'Buzz on step complete',
+                        subtitle: 'A short vibration when you check off a step',
+                        value: playerSettings.stepCompleteHaptic,
+                        onChanged: (value) {
+                          setState(() {
+                            playerSettings.stepCompleteHaptic = value;
+                          });
+                        },
+                      ),
+                      const _Hairline(),
+                      _FlowSwitchTile(
+                        icon: LucideIcons.volume2,
+                        title: 'Sound on step complete',
+                        subtitle: 'A soft chime when you check off a step',
+                        value: playerSettings.stepCompleteSound,
+                        onChanged: (value) {
+                          setState(() {
+                            playerSettings.stepCompleteSound = value;
+                          });
+                        },
+                      ),
+                      const _Hairline(),
                       _FlowTile(
                         icon: Icons.palette_rounded,
                         title: 'Theme & colours',

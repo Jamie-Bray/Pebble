@@ -37,11 +37,19 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('Theme & colours'), findsOneWidget);
-    expect(find.text('About Pebble'), findsOneWidget);
     expect(find.text('Reminders'), findsOneWidget);
     expect(find.text('Manage all your routine reminders'), findsOneWidget);
     expect(find.text('Routine focus guide'), findsOneWidget);
+    expect(find.text('Buzz on step complete'), findsOneWidget);
+    expect(find.text('Sound on step complete'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('About Pebble'),
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Theme & colours'), findsOneWidget);
+    expect(find.text('About Pebble'), findsOneWidget);
 
     expect(find.text('Your account'), findsNothing);
     expect(find.text('Subscription Status (Dev Override)'), findsNothing);
@@ -73,14 +81,50 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('Routine focus guide'), findsOneWidget);
-    expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
+    expect(tester.widget<Switch>(find.byType(Switch).first).value, isTrue);
 
-    await tester.tap(find.byType(Switch));
+    await tester.tap(find.byType(Switch).first);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(prefs.getBool('showVisualAnchor'), isFalse);
-    expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
+    expect(tester.widget<Switch>(find.byType(Switch).first).value, isFalse);
+  });
+
+  testWidgets('step-complete feedback toggles default off and persist', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+        child: MaterialApp(
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
+            useMaterial3: true,
+          ),
+          home: const SettingsScreen(),
+        ),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // Switch order: focus guide, buzz, sound.
+    final switches = find.byType(Switch);
+    expect(tester.widget<Switch>(switches.at(1)).value, isFalse);
+    expect(tester.widget<Switch>(switches.at(2)).value, isFalse);
+
+    await tester.tap(switches.at(1));
+    await tester.pump();
+    await tester.tap(switches.at(2));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(prefs.getBool('stepCompleteHaptic'), isTrue);
+    expect(prefs.getBool('stepCompleteSound'), isTrue);
   });
 
   testWidgets('theme picker shows curated sections for free users', (

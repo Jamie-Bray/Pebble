@@ -3,9 +3,11 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -44,6 +46,7 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
       GlobalKey<AnimatedVisualAnchorState>();
   String? _lastReminderSentRunId;
   bool _isPrimaryPreludeRunning = false;
+  AudioPlayer? _chimePlayer;
 
   @override
   void initState() {
@@ -54,7 +57,34 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    unawaited(_chimePlayer?.dispose());
     super.dispose();
+  }
+
+  /// Opt-in reassurance feedback when a step is checked off.
+  void _playStepCompleteFeedback() {
+    final playerSettings = ref.read(playerSettingsControllerProvider);
+    if (playerSettings.stepCompleteHaptic) {
+      unawaited(HapticFeedback.mediumImpact());
+    }
+    if (playerSettings.stepCompleteSound) {
+      unawaited(_playChime());
+    }
+  }
+
+  Future<void> _playChime() async {
+    try {
+      var player = _chimePlayer;
+      if (player == null) {
+        player = AudioPlayer();
+        _chimePlayer = player;
+        await player.setAsset('assets/audio/step_complete.wav');
+      }
+      await player.seek(Duration.zero);
+      await player.play();
+    } catch (_) {
+      // Feedback is best-effort; never let it interfere with the routine.
+    }
   }
 
   @override
@@ -302,6 +332,7 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
       case RoutinePlayerPresentationState.standard:
       case RoutinePlayerPresentationState.photoCaptured:
       case RoutinePlayerPresentationState.finalStep:
+        _playStepCompleteFeedback();
         final run = await ref
             .read(routinePlayerProvider(widget.sessionId).notifier)
             .completeCurrentStep();
