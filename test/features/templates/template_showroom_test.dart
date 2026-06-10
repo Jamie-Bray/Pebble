@@ -37,7 +37,7 @@ void main() {
         equals(<String>{
           'Leaving & Locking Up',
           'Daily Care',
-          'Travel & Handovers',
+          'Work & Away',
         }),
       );
       expect(
@@ -51,7 +51,7 @@ void main() {
           'Morning Pet Routine',
           'Essential School Morning Run',
           'Toddler Essentials Bag',
-          'No Item Left Behind Hotel Checkout',
+          'Hotel Checkout Sweep',
           'Office Switch-Off',
           'Gym & Sports Prep',
           'House Sitter Handover',
@@ -78,7 +78,7 @@ void main() {
         orderedEquals(<String>[
           'Leaving & Locking Up',
           'Daily Care',
-          'Travel & Handovers',
+          'Work & Away',
         ]),
       );
       expect(
@@ -174,7 +174,7 @@ void main() {
       );
       expect(find.text('LEAVING & LOCKING UP'), findsOneWidget);
       expect(find.text('DAILY CARE'), findsOneWidget);
-      expect(find.text('TRAVEL & HANDOVERS'), findsOneWidget);
+      expect(find.text('WORK & AWAY'), findsOneWidget);
       expect(find.text('Everyday Departure Check'), findsOneWidget);
       expect(find.text('5 checks'), findsNothing);
       expect(find.text('5 steps'), findsNWidgets(3));
@@ -701,9 +701,9 @@ const List<Template> _sampleTemplates = <Template>[
   ),
   Template(
     id: 'tpl_hotel_checkout',
-    title: 'No Item Left Behind Hotel Checkout',
+    title: 'Hotel Checkout Sweep',
     description: 'Check the room essentials before you leave.',
-    category: 'Travel & Handovers',
+    category: 'Work & Away',
     goodFor: 'Check the room essentials before you leave.',
     searchTerms: <String>['airport', 'passport'],
     steps: <String>[

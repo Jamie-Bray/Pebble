@@ -474,7 +474,7 @@ Color _accentForGroup(BuildContext context, String group) {
   return switch (group) {
     'Leaving & Locking Up' => colorScheme.primary,
     'Daily Care' => colorScheme.secondary,
-    'Travel & Handovers' => colorScheme.tertiary,
+    'Work & Away' => colorScheme.tertiary,
     _ => colorScheme.primary,
   };
 }

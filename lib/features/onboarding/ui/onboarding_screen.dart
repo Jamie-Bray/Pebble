@@ -81,10 +81,10 @@ const _starterRoutines = [
     ],
   ),
   _StarterRoutine(
-    cardTitle: 'No Item Left Behind Hotel Checkout',
+    cardTitle: 'Hotel Checkout Sweep',
     subtitle:
         'A quick hotel-room sweep for passports, chargers, drawers, and the safe.',
-    previewTitle: 'No Item Left Behind Hotel Checkout',
+    previewTitle: 'Hotel Checkout Sweep',
     icon: LucideIcons.luggage,
     steps: [
       _StarterStep('Check the safe', requiresPhoto: true),
@@ -1862,7 +1862,7 @@ class _StartingPointPageState extends State<_StartingPointPage> {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'We have built routines with the right steps already in. Use one as a springboard, tweak it later, or start from scratch.',
+                  'Ready-made routines with the steps already in. Use one as a springboard, tweak it later, or start from scratch.',
                   style: GoogleFonts.outfit(
                     color: foundation.textMuted,
                     fontSize: 11.5,

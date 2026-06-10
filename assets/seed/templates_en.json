@@ -59,9 +59,9 @@
   },
   {
     "id": "tpl_hotel_checkout",
-    "title": "No Item Left Behind Hotel Checkout",
+    "title": "Hotel Checkout Sweep",
     "description": "Check the safe, bathroom, outlets, drawers, and key before you leave the room.",
-    "category": "Travel & Handovers",
+    "category": "Work & Away",
     "goodFor": "A room checkout pass for chargers, documents, jewellery, and small items.",
     "searchTerms": ["hotel", "checkout", "travel", "passport", "charger", "room"],
     "steps": [
@@ -101,7 +101,7 @@
     "id": "tpl_house_sitter_handover",
     "title": "House Sitter Handover",
     "description": "Leave practical notes and photo checks for the home, pets, and key handover.",
-    "category": "Travel & Handovers",
+    "category": "Work & Away",
     "goodFor": "A handover checklist for care details, supplies, and house state.",
     "searchTerms": ["house sitter", "handover", "instructions", "pets", "key"],
     "steps": [
@@ -179,7 +179,7 @@
     "id": "tpl_office_switch_off",
     "title": "Office Switch-Off",
     "description": "Close the workday with a check of screens, heater, papers, windows, mug, notes, lights, and lock.",
-    "category": "Travel & Handovers",
+    "category": "Work & Away",
     "goodFor": "A workspace closing checklist for equipment, papers, and personal items.",
     "searchTerms": ["office", "work", "desk", "heater", "papers", "lock", "switch off"],
     "steps": [
@@ -218,7 +218,7 @@
     "id": "tpl_gym_prep",
     "title": "Gym & Sports Prep",
     "description": "Check shoes, kit, towel, headphones, lock, water, pass, and toiletries before you go.",
-    "category": "Travel & Handovers",
+    "category": "Work & Away",
     "goodFor": "A packing checklist for gym and sports sessions.",
     "searchTerms": ["gym", "sports", "workout", "trainers", "shoes", "towel", "lock", "packing"],
     "steps": [

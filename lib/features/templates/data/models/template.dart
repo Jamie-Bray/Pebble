@@ -7,7 +7,7 @@ class Template {
   static const List<String> launchCategoryOrder = <String>[
     'Leaving & Locking Up',
     'Daily Care',
-    'Travel & Handovers',
+    'Work & Away',
   ];
 
   static const List<String> launchTemplateTitleOrder = <String>[
@@ -19,7 +19,7 @@ class Template {
     'Morning Pet Routine',
     'Essential School Morning Run',
     'Toddler Essentials Bag',
-    'No Item Left Behind Hotel Checkout',
+    'Hotel Checkout Sweep',
     'Office Switch-Off',
     'Gym & Sports Prep',
     'House Sitter Handover',
