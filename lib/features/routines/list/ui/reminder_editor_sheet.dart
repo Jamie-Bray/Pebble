@@ -43,7 +43,6 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
   bool _isLoading = true;
   bool _isSaving = false;
   bool _isSuccess = false;
-  bool _hasExistingReminders = false;
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
   late AnimationController _checkController;
@@ -100,8 +99,11 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
       _selectedDays = {
         if (targetReminder?.dayOfWeek != null) targetReminder!.dayOfWeek,
       };
-      _time = _parseTime(targetReminder?.time);
-      _hasExistingReminders = reminders.isNotEmpty;
+      // Start with a time already chosen, like the system alarm app, so
+      // saving only needs a day selection.
+      _time =
+          _parseTime(targetReminder?.time) ??
+          const TimeOfDay(hour: 9, minute: 0);
       _isLoading = false;
     });
   }
@@ -109,12 +111,11 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final hasSelection = _selectedDays.isNotEmpty && _time != null;
 
     return DraggableScrollableSheet(
-      initialChildSize: 0.75,
-      minChildSize: 0.5,
-      maxChildSize: 0.9,
+      initialChildSize: 0.62,
+      minChildSize: 0.45,
+      maxChildSize: 0.85,
       builder: (context, controller) => ScaleTransition(
         scale: _scaleAnimation,
         child: Container(
@@ -137,24 +138,31 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
                 ? _buildLoadingState(cs)
                 : ListView(
                     controller: controller,
-                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
                     children: [
                       _buildHandle(cs),
                       const SizedBox(height: 20),
-                      _buildHeader(cs),
-                      const SizedBox(height: 32),
+                      Text(
+                        widget.reminderToEdit == null
+                            ? 'Add reminder'
+                            : 'Edit reminder',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
                       _buildTimeSelector(cs),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 24),
                       _buildDaySelector(cs),
-                      if (hasSelection) ...[
-                        const SizedBox(height: 28),
-                        _buildPreviewCard(cs),
-                      ],
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 20),
+                      _buildSummaryLine(cs),
+                      const SizedBox(height: 20),
                       _buildActionButtons(cs),
-                      if (widget.reminderToEdit != null ||
-                          _hasExistingReminders) ...[
-                        const SizedBox(height: 16),
+                      if (widget.reminderToEdit != null) ...[
+                        const SizedBox(height: 4),
                         _buildRemoveButton(cs),
                       ],
                     ],
@@ -178,280 +186,97 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
     );
   }
 
-  Widget _buildHeader(ColorScheme cs) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: cs.primary.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Icon(LucideIcons.bell, color: cs.primary, size: 28),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                widget.reminderToEdit == null
-                    ? 'Add reminder'
-                    : 'Edit reminder',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: cs.onSurface,
-                  height: 1.2,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                widget.reminderToEdit == null
-                    ? 'Choose a time and the days you want Pebble to remind you.'
-                    : 'Update the time and selected days.',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: cs.onSurface.withValues(alpha: 0.6),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildTimeSelector(ColorScheme cs) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Time',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: cs.onSurface,
-          ),
-        ),
-        const SizedBox(height: 12),
-        InkWell(
-          onTap: () {
-            _pickTime();
-          },
-          borderRadius: BorderRadius.circular(20),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOutCubic,
-            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 24),
-            decoration: BoxDecoration(
-              gradient: _time != null
-                  ? LinearGradient(
-                      colors: [
-                        cs.primaryContainer,
-                        cs.primaryContainer.withValues(alpha: 0.7),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    )
-                  : null,
-              color: _time == null ? cs.surfaceContainerHighest : null,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: _time != null
-                    ? cs.primary.withValues(alpha: 0.3)
-                    : cs.onSurface.withValues(alpha: 0.1),
-                width: 2,
+    return InkWell(
+      onTap: _pickTime,
+      borderRadius: BorderRadius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          children: [
+            Text(
+              _time != null ? _formatTime(_time!) : 'Choose time',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 56,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -1,
+                height: 1.1,
+                color: cs.onSurface,
               ),
             ),
-            child: Row(
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: _time != null
-                        ? cs.primary.withValues(alpha: 0.15)
-                        : cs.onSurface.withValues(alpha: 0.08),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.access_time_rounded,
-                    color: _time != null
-                        ? cs.primary
-                        : cs.onSurface.withValues(alpha: 0.5),
-                    size: 28,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _time != null ? _formatTime(_time!) : 'Choose time',
-                        style: TextStyle(
-                          fontSize: _time != null ? 32 : 20,
-                          fontWeight: _time != null
-                              ? FontWeight.w700
-                              : FontWeight.w600,
-                          color: _time != null
-                              ? cs.onPrimaryContainer
-                              : cs.onSurface.withValues(alpha: 0.5),
-                          letterSpacing: _time != null ? -0.5 : 0,
-                        ),
-                      ),
-                      if (_time != null) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          'Tap to change',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: cs.onPrimaryContainer.withValues(alpha: 0.7),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
                 Icon(
                   Icons.edit_rounded,
-                  color: _time != null
-                      ? cs.primary
-                      : cs.onSurface.withValues(alpha: 0.3),
-                  size: 20,
+                  size: 14,
+                  color: cs.onSurface.withValues(alpha: 0.45),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Tap to change time',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: cs.onSurface.withValues(alpha: 0.55),
+                  ),
                 ),
               ],
             ),
-          ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
   Widget _buildDaySelector(ColorScheme cs) {
+    const labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Repeat days',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: cs.onSurface,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _buildDayPresetButton(
-                cs,
-                label: 'Every day',
-                icon: LucideIcons.repeat,
-                selected: _selectedDays.length == 7,
-                onTap: () => _setSelectedDays(List.generate(7, (i) => i + 1)),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _buildDayPresetButton(
-                cs,
-                label: 'Weekdays',
-                icon: LucideIcons.calendarDays,
-                selected: _isWeekdaysOnly,
-                onTap: () => _setSelectedDays(const [1, 2, 3, 4, 5]),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: List.generate(7, (i) => i + 1).map((d) {
-            final labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-            final fullLabels = [
-              'Mon',
-              'Tue',
-              'Wed',
-              'Thu',
-              'Fri',
-              'Sat',
-              'Sun',
-            ];
             final selected = _selectedDays.contains(d);
-            return Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 3),
-                child: InkWell(
-                  onTap: () {
-                    setState(() {
-                      final next = Set<int>.from(_selectedDays);
-                      if (selected) {
-                        next.remove(d);
-                      } else {
-                        next.add(d);
-                      }
-                      _selectedDays = next;
-                    });
-                  },
-                  borderRadius: BorderRadius.circular(16),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
-                    curve: Curves.easeOutCubic,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    decoration: BoxDecoration(
-                      gradient: selected
-                          ? LinearGradient(
-                              colors: [
-                                cs.primary,
-                                cs.primary.withValues(alpha: 0.8),
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            )
-                          : null,
-                      color: !selected ? cs.surfaceContainerHighest : null,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: selected
-                            ? cs.primary
-                            : cs.onSurface.withValues(alpha: 0.1),
-                        width: selected ? 2 : 1,
-                      ),
-                      boxShadow: selected
-                          ? [
-                              BoxShadow(
-                                color: cs.primary.withValues(alpha: 0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
-                              ),
-                            ]
-                          : null,
+            return InkWell(
+              onTap: () {
+                setState(() {
+                  final next = Set<int>.from(_selectedDays);
+                  if (selected) {
+                    next.remove(d);
+                  } else {
+                    next.add(d);
+                  }
+                  _selectedDays = next;
+                });
+              },
+              customBorder: const CircleBorder(),
+              child: Semantics(
+                label: _weekdayLabel(d),
+                selected: selected,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOutCubic,
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: selected ? cs.primary : cs.surfaceContainerHighest,
+                    border: Border.all(
+                      color: selected
+                          ? cs.primary
+                          : cs.onSurface.withValues(alpha: 0.12),
                     ),
-                    child: Column(
-                      children: [
-                        Text(
-                          labels[d - 1],
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: selected
-                                ? cs.onPrimary
-                                : cs.onSurface.withValues(alpha: 0.6),
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          fullLabels[d - 1],
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w500,
-                            color: selected
-                                ? cs.onPrimary.withValues(alpha: 0.8)
-                                : cs.onSurface.withValues(alpha: 0.4),
-                          ),
-                        ),
-                      ],
+                  ),
+                  child: Text(
+                    labels[d - 1],
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: selected
+                          ? cs.onPrimary
+                          : cs.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
                 ),
@@ -459,153 +284,91 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
             );
           }).toList(),
         ),
-        const SizedBox(height: 10),
-        Text(
-          'Date-specific one-off reminders are not available yet. Pebble repeats reminders on the days you choose.',
-          style: TextStyle(
-            fontSize: 12,
-            height: 1.35,
-            color: cs.onSurface.withValues(alpha: 0.56),
-          ),
+        const SizedBox(height: 14),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _buildDayPresetChip(
+              cs,
+              label: 'Every day',
+              selected: _selectedDays.length == 7,
+              onTap: () => _setSelectedDays(List.generate(7, (i) => i + 1)),
+            ),
+            const SizedBox(width: 10),
+            _buildDayPresetChip(
+              cs,
+              label: 'Weekdays',
+              selected: _isWeekdaysOnly,
+              onTap: () => _setSelectedDays(const [1, 2, 3, 4, 5]),
+            ),
+          ],
         ),
       ],
     );
   }
 
-  Widget _buildDayPresetButton(
+  Widget _buildDayPresetChip(
     ColorScheme cs, {
     required String label,
-    required IconData icon,
     required bool selected,
     required VoidCallback onTap,
   }) {
     return InkWell(
-      onTap: () {
-        onTap();
-      },
-      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(100),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
+        duration: const Duration(milliseconds: 200),
         curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
         decoration: BoxDecoration(
-          gradient: selected
-              ? LinearGradient(
-                  colors: [cs.primary, cs.primary.withValues(alpha: 0.8)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                )
-              : null,
-          color: !selected ? cs.surfaceContainerHighest : null,
-          borderRadius: BorderRadius.circular(16),
+          color: selected ? cs.primaryContainer : cs.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(100),
           border: Border.all(
-            color: selected ? cs.primary : cs.onSurface.withValues(alpha: 0.1),
-            width: selected ? 2 : 1,
+            color: selected
+                ? cs.primary.withValues(alpha: 0.4)
+                : cs.onSurface.withValues(alpha: 0.1),
           ),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 16,
-              color: selected
-                  ? cs.onPrimary
-                  : cs.onSurface.withValues(alpha: 0.6),
-            ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: selected
-                      ? cs.onPrimary
-                      : cs.onSurface.withValues(alpha: 0.7),
-                ),
-              ),
-            ),
-          ],
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: selected
+                ? cs.onPrimaryContainer
+                : cs.onSurface.withValues(alpha: 0.7),
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildPreviewCard(ColorScheme cs) {
-    final nextDate = _calculateNextReminder();
-    final now = DateTime.now();
-    final daysUntil = nextDate.difference(now).inDays;
-    final hoursUntil = nextDate.difference(now).inHours % 24;
+  Widget _buildSummaryLine(ColorScheme cs) {
+    if (_selectedDays.isEmpty || _time == null) {
+      return Text(
+        'Pick at least one day.',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: 13,
+          color: cs.onSurface.withValues(alpha: 0.5),
+        ),
+      );
+    }
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            cs.tertiaryContainer,
-            cs.tertiaryContainer.withValues(alpha: 0.6),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: cs.tertiary.withValues(alpha: 0.2),
-          width: 1.5,
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: cs.tertiary.withValues(alpha: 0.2),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(LucideIcons.calendar, color: cs.tertiary, size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _selectedDays.length == 1
-                      ? 'Next reminder, then weekly'
-                      : 'Next reminder, then selected days',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: cs.onTertiaryContainer.withValues(alpha: 0.7),
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${_selectedDaysSummary()} at ${_formatTime(_time!)}',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: cs.onTertiaryContainer,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  daysUntil == 0
-                      ? 'Today in $hoursUntil hours'
-                      : 'In $daysUntil ${daysUntil == 1 ? "day" : "days"}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: cs.onTertiaryContainer.withValues(alpha: 0.7),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+    final nextDate = _calculateNextReminder();
+    final daysUntil = nextDate.difference(DateTime.now()).inDays;
+    final firstOne = daysUntil == 0
+        ? 'later today'
+        : daysUntil == 1
+        ? 'tomorrow'
+        : 'in $daysUntil days';
+    return Text(
+      '${_selectedDaysSummary()} at ${_formatTime(_time!)}. First one $firstOne.',
+      textAlign: TextAlign.center,
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: cs.onSurface.withValues(alpha: 0.65),
       ),
     );
   }
@@ -613,27 +376,10 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
   Widget _buildActionButtons(ColorScheme cs) {
     final canSave = _selectedDays.isNotEmpty && _time != null;
 
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: OutlinedButton(
-            onPressed: _isSaving ? null : () => Navigator.pop(context),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              side: BorderSide(color: cs.outline),
-            ),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          flex: 2,
+        SizedBox(
+          width: double.infinity,
           child: FilledButton(
             onPressed: _isSaving || !canSave ? null : _save,
             style: FilledButton.styleFrom(
@@ -653,31 +399,36 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
                       valueColor: AlwaysStoppedAnimation<Color>(cs.onPrimary),
                     ),
                   )
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        LucideIcons.circleCheck,
-                        size: 20,
-                        color: canSave
-                            ? cs.onPrimary
-                            : cs.onSurface.withValues(alpha: 0.38),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        widget.reminderToEdit == null
-                            ? 'Save reminder'
-                            : 'Update reminder',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: canSave
-                              ? cs.onPrimary
-                              : cs.onSurface.withValues(alpha: 0.38),
-                        ),
-                      ),
-                    ],
+                : Text(
+                    widget.reminderToEdit == null
+                        ? 'Save reminder'
+                        : 'Update reminder',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: canSave
+                          ? cs.onPrimary
+                          : cs.onSurface.withValues(alpha: 0.38),
+                    ),
                   ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        SizedBox(
+          width: double.infinity,
+          child: TextButton(
+            onPressed: _isSaving ? null : () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: cs.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
           ),
         ),
       ],
@@ -858,9 +609,7 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
           ),
           const SizedBox(height: 20),
           Text(
-            widget.reminderToEdit == null
-                ? 'Reassurance Scheduled'
-                : 'Reminder Updated',
+            widget.reminderToEdit == null ? 'Reminder set' : 'Reminder updated',
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w800,

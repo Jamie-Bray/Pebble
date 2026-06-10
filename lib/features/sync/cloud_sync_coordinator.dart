@@ -241,10 +241,20 @@ class CloudSyncCoordinator {
       );
     }
 
-    final ownership = await LocalDataOwnershipGuard.inspect(
+    var ownership = await LocalDataOwnershipGuard.inspect(
       database: _database,
       signedInUserId: userId,
     );
+    if (ownership.state == LocalDataOwnershipState.unownedOnly) {
+      // Reaching this point requires sign-in, verified Premium, and current
+      // consent (policy.canUploadCloudChanges), so never-owned rows can link
+      // to the signed-in account without another prompt. Different-owner data
+      // still blocks below.
+      ownership = await LocalDataOwnershipGuard.linkUnownedLocalData(
+        database: _database,
+        signedInUserId: userId,
+      );
+    }
     if (ownership.blocksCloudSync) {
       await _refreshRuntimeState();
       await _ref

@@ -193,7 +193,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   late int _currentPage;
   bool _isCreatingStarter = false;
   late ThemeId _selectedThemeId;
-  final _StarterRoutine _selectedStarter = _starterRoutines.first;
+  _StarterRoutine _selectedStarter = _starterRoutines.first;
 
   @override
   void initState() {
@@ -429,6 +429,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         ),
                         _StartingPointPage(
                           starters: _starterRoutines,
+                          onStarterSelected: (starter) {
+                            setState(() => _selectedStarter = starter);
+                            _goToPage(3);
+                          },
                           onBrowseTemplates: _completeToTemplates,
                           onBuildOwn: _completeToCreator,
                           onSkip: _completeToHome,
@@ -1735,49 +1739,20 @@ class _ThemeMiniStep extends StatelessWidget {
   }
 }
 
-class _StartingPointPage extends StatefulWidget {
+class _StartingPointPage extends StatelessWidget {
   const _StartingPointPage({
     required this.starters,
+    required this.onStarterSelected,
     required this.onBrowseTemplates,
     required this.onBuildOwn,
     required this.onSkip,
   });
 
   final List<_StarterRoutine> starters;
+  final ValueChanged<_StarterRoutine> onStarterSelected;
   final VoidCallback onBrowseTemplates;
   final VoidCallback onBuildOwn;
   final VoidCallback onSkip;
-
-  @override
-  State<_StartingPointPage> createState() => _StartingPointPageState();
-}
-
-class _StartingPointPageState extends State<_StartingPointPage> {
-  late final PageController _templateController;
-  int _currentTemplate = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _templateController = PageController();
-  }
-
-  @override
-  void dispose() {
-    _templateController.dispose();
-    super.dispose();
-  }
-
-  void _moveTemplate(int delta) {
-    final next =
-        (_currentTemplate + delta + widget.starters.length) %
-        widget.starters.length;
-    _templateController.animateToPage(
-      next,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOutCubic,
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -1795,7 +1770,7 @@ class _StartingPointPageState extends State<_StartingPointPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'TEMPLATES',
+                    'STARTING POINT',
                     style: GoogleFonts.outfit(
                       color: Theme.of(context).colorScheme.primary,
                       fontSize: 10,
@@ -1805,7 +1780,7 @@ class _StartingPointPageState extends State<_StartingPointPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'See how a routine\ncomes together.',
+                    'Pick a routine\nto start with.',
                     style: GoogleFonts.dmSerifDisplay(
                       color: foundation.textPrimary,
                       fontSize: 29,
@@ -1816,7 +1791,7 @@ class _StartingPointPageState extends State<_StartingPointPage> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Swipe through a few examples, then choose how you want to start.',
+                    'Tap one to see the steps inside. You can change everything later.',
                     style: GoogleFonts.outfit(
                       color: foundation.textMuted,
                       fontSize: 12.5,
@@ -1824,117 +1799,53 @@ class _StartingPointPageState extends State<_StartingPointPage> {
                       height: 1.35,
                     ),
                   ),
-                  const SizedBox(height: 11),
-                  _StarterCarousel(
-                    controller: _templateController,
-                    starters: widget.starters,
-                    currentIndex: _currentTemplate,
-                    onPageChanged: (index) {
-                      setState(() => _currentTemplate = index);
-                    },
-                    onPrevious: () => _moveTemplate(-1),
-                    onNext: () => _moveTemplate(1),
+                  const SizedBox(height: 14),
+                  ...starters.map(
+                    (starter) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _StarterChoiceCard(
+                        starter: starter,
+                        onTap: () => onStarterSelected(starter),
+                      ),
+                    ),
                   ),
+                  _BrowseTemplatesTile(onTap: onBrowseTemplates),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 14),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.025),
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: foundation.borderSubtle),
+          OutlinedButton(
+            onPressed: onBuildOwn,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: foundation.textPrimary,
+              side: BorderSide(color: foundation.borderSubtle, width: 1.2),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              textStyle: GoogleFonts.outfit(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Ready-made templates',
-                  style: GoogleFonts.outfit(
-                    color: foundation.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    height: 1.15,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  'Ready-made routines with the steps already in. Use one as a springboard, tweak it later, or start from scratch.',
-                  style: GoogleFonts.outfit(
-                    color: foundation.textMuted,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w300,
-                    height: 1.35,
-                  ),
-                ),
-                const SizedBox(height: 11),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    FilledButton(
-                      onPressed: widget.onBrowseTemplates,
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        textStyle: GoogleFonts.outfit(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text('Check out templates'),
-                          SizedBox(width: 8),
-                          Icon(LucideIcons.arrowRight, size: 18),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    OutlinedButton(
-                      onPressed: widget.onBuildOwn,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: foundation.textPrimary,
-                        side: BorderSide(
-                          color: foundation.borderSubtle,
-                          width: 1.2,
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        textStyle: GoogleFonts.outfit(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      child: const Text('Start from scratch'),
-                    ),
-                    const SizedBox(height: 6),
-                    TextButton(
-                      onPressed: widget.onSkip,
-                      style: TextButton.styleFrom(
-                        foregroundColor: foundation.textMuted,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        textStyle: GoogleFonts.outfit(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                      child: const Text('Skip for now'),
-                    ),
-                  ],
-                ),
-              ],
+            child: const Text('Start from scratch instead'),
+          ),
+          const SizedBox(height: 4),
+          TextButton(
+            onPressed: onSkip,
+            style: TextButton.styleFrom(
+              foregroundColor: foundation.textMuted,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              textStyle: GoogleFonts.outfit(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+              ),
             ),
+            child: const Text('Skip for now'),
           ),
         ],
       ),
@@ -1942,320 +1853,149 @@ class _StartingPointPageState extends State<_StartingPointPage> {
   }
 }
 
-class _StarterCarousel extends StatelessWidget {
-  const _StarterCarousel({
-    required this.controller,
-    required this.starters,
-    required this.currentIndex,
-    required this.onPageChanged,
-    required this.onPrevious,
-    required this.onNext,
-  });
-
-  final PageController controller;
-  final List<_StarterRoutine> starters;
-  final int currentIndex;
-  final ValueChanged<int> onPageChanged;
-  final VoidCallback onPrevious;
-  final VoidCallback onNext;
-
-  @override
-  Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
-
-    return Container(
-      height: 286,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: foundation.surfaceLow,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.13),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.22),
-            blurRadius: 42,
-            offset: const Offset(0, 20),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Expanded(
-            child: PageView.builder(
-              controller: controller,
-              onPageChanged: onPageChanged,
-              itemCount: starters.length,
-              itemBuilder: (context, index) {
-                return _StarterCarouselCard(starter: starters[index]);
-              },
-            ),
-          ),
-          const SizedBox(height: 11),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _CarouselCircleButton(
-                icon: LucideIcons.chevronLeft,
-                onPressed: onPrevious,
-              ),
-              _TemplateDots(count: starters.length, activeIndex: currentIndex),
-              _CarouselCircleButton(
-                icon: LucideIcons.chevronRight,
-                onPressed: onNext,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StarterCarouselCard extends StatelessWidget {
-  const _StarterCarouselCard({required this.starter});
+class _StarterChoiceCard extends StatelessWidget {
+  const _StarterChoiceCard({required this.starter, required this.onTap});
 
   final _StarterRoutine starter;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
+    final accent = Theme.of(context).colorScheme.primary;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 13, 12, 13),
+        decoration: BoxDecoration(
+          color: foundation.surfaceLow,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: foundation.borderSubtle),
+        ),
+        child: Row(
           children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Icon(starter.icon, size: 20, color: accent),
+            ),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'READY-MADE EXAMPLE',
-                    style: GoogleFonts.outfit(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 1.1,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
                   Text(
                     starter.cardTitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.outfit(
                       color: foundation.textPrimary,
-                      fontSize: 18,
+                      fontSize: 15,
                       fontWeight: FontWeight.w500,
-                      height: 1.1,
+                      height: 1.15,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 3),
                   Text(
                     starter.subtitle,
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.outfit(
-                      color: foundation.textSecondary,
-                      fontSize: 11,
+                      color: foundation.textMuted,
+                      fontSize: 11.5,
                       fontWeight: FontWeight.w300,
-                      height: 1.35,
+                      height: 1.2,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-              decoration: BoxDecoration(
-                color: Theme.of(
-                  context,
-                ).colorScheme.primary.withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                '${starter.steps.length} steps',
-                style: GoogleFonts.outfit(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
-                  height: 1,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 11),
-        Expanded(
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: Column(
-              children: starter.steps
-                  .asMap()
-                  .entries
-                  .map((entry) {
-                    return Padding(
-                      padding: EdgeInsets.only(
-                        bottom: entry.key == starter.steps.length - 1 ? 0 : 7,
-                      ),
-                      child: _StarterCarouselStepRow(
-                        step: entry.value,
-                        isFirst: entry.key == 0,
-                      ),
-                    );
-                  })
-                  .toList(growable: false),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _StarterCarouselStepRow extends StatelessWidget {
-  const _StarterCarouselStepRow({required this.step, required this.isFirst});
-
-  final _StarterStep step;
-  final bool isFirst;
-
-  @override
-  Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
-    final accent = Theme.of(context).colorScheme.primary;
-
-    return Container(
-      height: 39,
-      padding: const EdgeInsets.symmetric(horizontal: 9),
-      decoration: BoxDecoration(
-        color: foundation.surfaceHigh,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 15,
-            height: 15,
-            decoration: BoxDecoration(
-              color: isFirst ? accent : Colors.transparent,
-              shape: BoxShape.circle,
-              border: Border.all(color: accent, width: 1.5),
-            ),
-            child: isFirst
-                ? Icon(
-                    Icons.check_rounded,
-                    size: 12,
-                    color: Theme.of(context).colorScheme.onPrimary,
-                  )
-                : null,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              step.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.outfit(
-                color: foundation.textPrimary,
-                fontSize: 12,
-                fontWeight: FontWeight.w300,
-                height: 1,
-              ),
-            ),
-          ),
-          if (step.requiresPhoto) ...[
             const SizedBox(width: 8),
+            Icon(
+              LucideIcons.chevronRight,
+              size: 18,
+              color: foundation.textMuted,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BrowseTemplatesTile extends StatelessWidget {
+  const _BrowseTemplatesTile({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+    final accent = Theme.of(context).colorScheme.primary;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 13, 12, 13),
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: accent.withValues(alpha: 0.35)),
+        ),
+        child: Row(
+          children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.07),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: accent.withValues(alpha: 0.16)),
+                color: accent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(13),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+              child: Icon(LucideIcons.layoutGrid, size: 20, color: accent),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(LucideIcons.camera, size: 10, color: accent),
-                  const SizedBox(width: 3),
                   Text(
-                    'photo',
+                    'Browse all templates',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.outfit(
-                      color: accent,
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w400,
-                      height: 1,
+                      color: foundation.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      height: 1.15,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    'More ready-made routines in the library',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.outfit(
+                      color: foundation.textMuted,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w300,
+                      height: 1.2,
                     ),
                   ),
                 ],
               ),
             ),
+            const SizedBox(width: 8),
+            Icon(LucideIcons.chevronRight, size: 18, color: accent),
           ],
-        ],
-      ),
-    );
-  }
-}
-
-class _CarouselCircleButton extends StatelessWidget {
-  const _CarouselCircleButton({required this.icon, required this.onPressed});
-
-  final IconData icon;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
-
-    return SizedBox(
-      width: 32,
-      height: 32,
-      child: IconButton(
-        onPressed: onPressed,
-        padding: EdgeInsets.zero,
-        style: IconButton.styleFrom(
-          foregroundColor: foundation.textSecondary,
-          backgroundColor: Colors.white.withValues(alpha: 0.025),
-          shape: CircleBorder(
-            side: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
-          ),
         ),
-        icon: Icon(icon, size: 15),
       ),
-    );
-  }
-}
-
-class _TemplateDots extends StatelessWidget {
-  const _TemplateDots({required this.count, required this.activeIndex});
-
-  final int count;
-  final int activeIndex;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: List.generate(count, (index) {
-        final isActive = index == activeIndex;
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOutCubic,
-          margin: const EdgeInsets.symmetric(horizontal: 3),
-          width: isActive ? 22 : 6,
-          height: 6,
-          decoration: BoxDecoration(
-            color: isActive ? accent : accent.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(99),
-          ),
-        );
-      }),
     );
   }
 }

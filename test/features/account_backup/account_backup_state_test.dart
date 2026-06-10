@@ -2204,6 +2204,92 @@ void main() {
     );
 
     test(
+      'manual sync links never-owned local data instead of blocking',
+      () async {
+        const ownerUserId = '11111111-1111-1111-1111-111111111111';
+        await database.routineDao.insertOrUpdateRoutine(
+          _buildRoutine(ownerUserId: null),
+        );
+
+        final outbox = SyncOutboxRepositoryImpl(database);
+        final container = ProviderContainer(
+          overrides: [
+            localDbProvider.overrideWithValue(database),
+            syncOutboxRepositoryProvider.overrideWithValue(outbox),
+            routineSessionProofStorageProvider.overrideWithValue(proofStorage),
+            authSessionProvider.overrideWithValue(
+              const AuthSessionSummary(
+                isSignedIn: true,
+                userId: ownerUserId,
+                email: 'jamie@example.com',
+                provider: 'google',
+              ),
+            ),
+            entitlementStateProvider.overrideWithValue(
+              const EntitlementState(
+                personalTier: UserTier.personalPremium,
+                source: EntitlementSource.googlePlay,
+                lastCheckedAt: null,
+                isRefreshing: false,
+                lastError: null,
+              ),
+            ),
+            cloudAccessPolicyProvider.overrideWithValue(
+              const CloudAccessPolicy(
+                cachedOwnerUserId: ownerUserId,
+                personalCloudEnabled: true,
+                canQueuePersonalSync: true,
+                workspaceCloudEnabled: false,
+                isSignedIn: true,
+                isAccountSwitchBlocked: false,
+              ),
+            ),
+            subscriptionAccountControllerProvider.overrideWith(
+              (ref) => _TestSubscriptionAccountController(
+                database,
+                const SubscriptionAccountState(
+                  entitlementTier: UserTier.personalPremium,
+                  entitlementSource: EntitlementSource.googlePlay,
+                  pendingTier: null,
+                  bootstrapStatus: BootstrapStatus.ready,
+                  userId: ownerUserId,
+                  email: 'jamie@example.com',
+                  authProvider: 'google',
+                  lastBootstrapAt: null,
+                  lastSyncAt: null,
+                  lastSyncError: null,
+                ),
+              ),
+            ),
+            remoteRoutineDataSourceProvider.overrideWithValue(
+              routineDataSource,
+            ),
+            remoteRoutineReminderDataSourceProvider.overrideWithValue(
+              reminderDataSource,
+            ),
+            remoteRoutineRunDataSourceProvider.overrideWithValue(runDataSource),
+            remoteRoutineSessionDataSourceProvider.overrideWithValue(
+              RemoteRoutineSessionDataSource(null),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final result = await container
+            .read(cloudSyncCoordinatorProvider)
+            .runManualSync();
+
+        final linkedRoutine = await database.routineDao.getRoutineById(1);
+        expect(result.type, isNot(ManualSyncResultType.blockedAccountSwitch));
+        expect(result.type, ManualSyncResultType.synced);
+        expect(linkedRoutine?.ownerUserId, ownerUserId);
+        expect(linkedRoutine?.syncStatus, 'synced');
+        expect(routineDataSource.upserts, hasLength(1));
+        expect(routineDataSource.upserts.single['owner_user_id'], ownerUserId);
+      },
+    );
+
+    test(
       'offline manual sync reports offline instead of a generic failure',
       () async {
         final outbox = SyncOutboxRepositoryImpl(database);

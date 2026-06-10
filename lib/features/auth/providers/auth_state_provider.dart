@@ -346,10 +346,19 @@ class AuthController extends StateNotifier<AuthState> {
       return;
     }
 
-    final ownership = await LocalDataOwnershipGuard.inspect(
+    var ownership = await LocalDataOwnershipGuard.inspect(
       database: _ref.read(localDbProvider),
       signedInUserId: userId,
     );
+    if (ownership.state == LocalDataOwnershipState.unownedOnly) {
+      // Never-owned rows belong to no other account, and sign-in, verified
+      // Premium, and current consent are all confirmed above, so the consent
+      // choice covers linking. Only different-owner data needs manual review.
+      ownership = await LocalDataOwnershipGuard.linkUnownedLocalData(
+        database: _ref.read(localDbProvider),
+        signedInUserId: userId,
+      );
+    }
     if (ownership.blocksCloudSync) {
       await _ref
           .read(subscriptionAccountControllerProvider.notifier)

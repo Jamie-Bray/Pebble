@@ -229,7 +229,9 @@ void main() {
       );
 
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Check out templates'));
+      await tester.ensureVisible(find.text('Browse all templates'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Browse all templates'));
       await tester.pumpAndSettle();
 
       expect(prefs.getBool('has_completed_onboarding'), isFalse);
