@@ -17,7 +17,6 @@ import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/features/routines/composer/ui/routine_composer_screen.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
-import 'package:pebble_routines/features/settings/data/haptics_service.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
 import 'package:pebble_routines/features/history/providers/routine_history_vm.dart';
 import 'package:pebble_routines/features/history/ui/styled_history_screen.dart';
@@ -208,7 +207,6 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                     ),
                   ),
                   onPressed: () {
-                    HapticsService().heavyImpact();
                     Navigator.pop(ctx);
                     context.push(
                       premiumRoute(source: PremiumEntrySource.backup),
@@ -607,7 +605,6 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                             availableHeight:
                                 constraints.maxHeight - heroBottomPadding,
                             onSettings: () {
-                              HapticsService().lightImpact();
                               _showContextMenu(
                                 context,
                                 spotlightRoutine,
@@ -615,19 +612,15 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                               );
                             },
                             onReminders: () {
-                              HapticsService().lightImpact();
                               _openRoutineReminders(spotlightRoutine);
                             },
                             onEmail: () {
-                              HapticsService().lightImpact();
                               _openRoutineEmail(spotlightRoutine);
                             },
                             onBegin: () {
-                              HapticsService().lightImpact();
                               _onPlayRoutine(spotlightRoutine);
                             },
                             onPreviewStepTap: (stepIndex) {
-                              HapticsService().lightImpact();
                               _onEditRoutine(
                                 spotlightRoutine,
                                 initialStepIndex: stepIndex,
@@ -650,7 +643,6 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                   child: GestureDetector(
                     behavior: HitTestBehavior.translucent,
                     onTap: () {
-                      HapticsService().lightImpact();
                       _animateRoutineSheetTo(minExtent);
                     },
                     child: ColoredBox(
@@ -801,7 +793,6 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
       behavior: HitTestBehavior.opaque,
       onTap: expandProgress <= 0.05
           ? () {
-              HapticsService().lightImpact();
               _animateRoutineSheetTo(_maxSheetExtent);
             }
           : null,
@@ -810,7 +801,6 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                 _handleRoutineSheetDismissDragUpdate(details, hostHeight)
           : (details) {
               if ((details.primaryDelta ?? 0) < 0) {
-                HapticsService().lightImpact();
                 _animateRoutineSheetTo(_maxSheetExtent);
               }
             },
@@ -1047,7 +1037,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
         ? foundation.textPrimary.withValues(alpha: 0.44)
         : foundation.textPrimary;
     final subtitle = isRestricted
-        ? 'Premium ended – Upgrade to unlock'
+        ? 'Premium ended Ã¢â‚¬â€œ Upgrade to unlock'
         : metadata.join(' / ');
 
     return Material(
@@ -1055,7 +1045,6 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: () {
-          HapticsService().lightImpact();
           if (isRestricted) {
             context.push(premiumRoute(source: PremiumEntrySource.routineLimit));
             return;
@@ -1436,14 +1425,16 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
     final fresh = await repo.getRoutineById(routine.id) ?? routine;
     if (!mounted) return;
     _clearHighlightFor(routine.id);
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => RoutineComposerScreen.edit(
-          routine: fresh,
-          initialStepIndex: initialStepIndex,
-          onSaveComplete: (_) {
-            Navigator.of(context).pop();
-          },
+    unawaited(
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => RoutineComposerScreen.edit(
+            routine: fresh,
+            initialStepIndex: initialStepIndex,
+            onSaveComplete: (_) {
+              Navigator.of(context).pop();
+            },
+          ),
         ),
       ),
     );
@@ -1923,7 +1914,6 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
         : RoutineMoveDirection.down;
     final moveCount = (oldIndex - newIndex).abs();
 
-    HapticsService().selectionClick();
     for (var i = 0; i < moveCount; i++) {
       final moved = await _moveRoutine(movingRoutine, direction);
       if (!moved) {
@@ -2041,7 +2031,6 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
     if (_isPreviewExpanded == expanded) {
       return;
     }
-    HapticsService().lightImpact();
     setState(() => _isPreviewExpanded = expanded);
     unawaited(
       ref

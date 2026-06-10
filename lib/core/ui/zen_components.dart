@@ -1,6 +1,5 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 
@@ -21,7 +20,6 @@ class ZenHeader extends StatelessWidget {
           IconButton(
             tooltip: 'Settings',
             onPressed: () {
-              HapticFeedback.lightImpact();
               context.pushNamed('settings');
             },
             icon: Icon(
@@ -192,7 +190,6 @@ class _ZenBounceButtonState extends State<ZenBounceButton>
   Widget build(BuildContext context) {
     return GestureDetector(
       onTapDown: (_) {
-        HapticFeedback.selectionClick();
         _controller.forward();
       },
       onTapUp: (_) {

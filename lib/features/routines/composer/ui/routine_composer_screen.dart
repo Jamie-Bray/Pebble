@@ -829,7 +829,6 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
     _commitControllerValues();
     _viewModel.setExpandedStep(stepId);
     FocusScope.of(context).unfocus();
-    HapticFeedback.lightImpact();
 
     final recorder = AudioRecorder();
     final storage = ref.read(guidanceAudioStorageProvider);
@@ -890,7 +889,6 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
           _setGuidanceRecordingState(
             () => _guidanceRecordingElapsed = GuidanceAudioStorage.maxDuration,
           );
-          HapticFeedback.heavyImpact();
           unawaited(
             _stopGuidanceAudioRecording(
               activeStepId,
@@ -939,7 +937,6 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
       return;
     }
 
-    HapticFeedback.mediumImpact();
     _guidanceRecordingStopping = true;
     _guidanceAudioTimer?.cancel();
 

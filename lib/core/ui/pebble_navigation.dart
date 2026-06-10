@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 
@@ -44,7 +43,6 @@ class PebbleBackButton extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
           onTap: () {
-            HapticFeedback.selectionClick();
             (onPressed ?? () => _defaultBackAction(context)).call();
           },
           child: SizedBox(

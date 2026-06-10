@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -34,7 +33,6 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
           next.status == AuthStatus.signedIn &&
           !_isBlockingBackupSetup(accountState);
       if (isReady) {
-        HapticFeedback.mediumImpact();
         final isPremium = ref.read(entitlementStateProvider).isPersonalPaid;
         ZenNotifications.showSuccess(
           context,

@@ -1,8 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -148,7 +148,6 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
           subtitle: _historySubtitle(count: count),
           isSearchVisible: isSearchVisible,
           onSearchTap: () {
-            HapticFeedback.lightImpact();
             ref.read(isSearchVisibleProvider.notifier).state = !isSearchVisible;
             if (!isSearchVisible) {
               _searchFocusNode.requestFocus();
@@ -192,7 +191,6 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
             label: 'Timeline',
             isSelected: mode == HistoryViewMode.timeline,
             onTap: () {
-              HapticFeedback.lightImpact();
               ref.read(historyViewModeProvider.notifier).state =
                   HistoryViewMode.timeline;
             },
@@ -201,7 +199,6 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
             label: 'Photo Vault',
             isSelected: mode == HistoryViewMode.vault,
             onTap: () {
-              HapticFeedback.lightImpact();
               ref.read(historyViewModeProvider.notifier).state =
                   HistoryViewMode.vault;
             },
@@ -253,7 +250,6 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
                     showSyncState: backupStatus.showRunSyncState,
                     onDismiss: () => _confirmDismissRun(context, ref, run),
                     onManage: () {
-                      HapticFeedback.mediumImpact();
                       _showManageRunSheet(context, ref, run, proofStorage);
                     },
                   ),
@@ -311,10 +307,11 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
     for (final run in runs) {
       if (run.stepCompletionData == null) continue;
       try {
-        final data = jsonDecode(run.stepCompletionData!);
+        final data =
+            jsonDecode(run.stepCompletionData!) as Map<String, dynamic>;
         final steps = data['steps'] as List<dynamic>? ?? [];
         for (var i = 0; i < steps.length; i++) {
-          final step = steps[i];
+          final step = steps[i] as Map<String, dynamic>;
           final completedAtStr = step['completedAt'] as String?;
           final completedAt = completedAtStr != null
               ? DateTime.parse(completedAtStr)
@@ -322,14 +319,15 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
 
           var stepLabel = 'Step ${i + 1}';
           if (step['label'] != null && (step['label'] as String).isNotEmpty) {
-            stepLabel = step['label'];
+            stepLabel = step['label'] as String;
           } else {
             final r = byId[run.routineId];
             if (r != null) {
               try {
                 final rSteps = jsonDecode(r.stepsJson) as List<dynamic>;
                 if (i < rSteps.length) {
-                  stepLabel = rSteps[i]['label'] ?? 'Step ${i + 1}';
+                  final rStep = rSteps[i] as Map<String, dynamic>;
+                  stepLabel = (rStep['label'] as String?) ?? 'Step ${i + 1}';
                 }
               } catch (_) {}
             }
@@ -778,7 +776,7 @@ class _SlimSearchField extends StatelessWidget {
             size: 18,
             color: foundation.textMuted,
           ),
-          hintText: 'Search routines…',
+          hintText: 'Search routinesÃ¢â‚¬Â¦',
           hintStyle: TextStyle(color: foundation.textMuted),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: 12),
@@ -959,7 +957,6 @@ class _HistoryCard extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: () {
-            HapticFeedback.lightImpact();
             Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => RoutineRunDetailScreen(run: run),
@@ -1478,7 +1475,6 @@ class _VaultGridItem extends StatelessWidget {
 
     return GestureDetector(
       onTap: () async {
-        HapticFeedback.lightImpact();
         await _showGallery(context);
       },
       child: ClipRRect(
@@ -1506,19 +1502,20 @@ class _VaultGridItem extends StatelessWidget {
   }
 
   Widget _buildMissingPhotoPlaceholder(ColorScheme cs) {
+    final accent = cs.onSurfaceVariant;
     return Container(
-      color: const Color(0xFF4A5D4E).withValues(alpha: 0.2), // Moss green tint
-      child: const Column(
+      color: accent.withValues(alpha: 0.12),
+      child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(LucideIcons.imageOff, color: Color(0xFF4A5D4E), size: 24),
-          SizedBox(height: 8),
+          Icon(LucideIcons.imageOff, color: accent, size: 24),
+          const SizedBox(height: 8),
           Text(
             'Photo unavailable',
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF4A5D4E),
+              color: accent,
             ),
           ),
         ],
@@ -1584,7 +1581,7 @@ class _VaultGridItem extends StatelessWidget {
             storedPath: item.path,
             title: item.label,
             subtitle:
-                '${DateFormat.yMMMd().format(item.timestamp)} • ${DateFormat.jm().format(item.timestamp)}',
+                '${DateFormat.yMMMd().format(item.timestamp)} Ã¢â‚¬Â¢ ${DateFormat.jm().format(item.timestamp)}',
           ),
         )
         .toList();
@@ -1685,7 +1682,7 @@ class _HeroPhotoView extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${DateFormat.yMMMd().format(photo.timestamp)} • ${DateFormat.jm().format(photo.timestamp)}',
+                      '${DateFormat.yMMMd().format(photo.timestamp)} Ã¢â‚¬Â¢ ${DateFormat.jm().format(photo.timestamp)}',
                       style: TextStyle(
                         fontSize: 16,
                         color: Colors.white.withValues(alpha: 0.6),

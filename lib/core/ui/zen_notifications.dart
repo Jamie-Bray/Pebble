@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 
 class ZenNotifications {
@@ -91,7 +90,6 @@ class ZenNotifications {
     required Duration duration,
   }) {
     // Haptic feedback
-    HapticFeedback.lightImpact();
 
     // Show overlay notification
     final overlay = Overlay.of(context);

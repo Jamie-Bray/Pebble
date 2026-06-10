@@ -3,7 +3,6 @@ import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -190,7 +189,6 @@ class RoutineRunDetailScreen extends ConsumerWidget {
 
     return InkWell(
       onTap: () {
-        HapticFeedback.mediumImpact();
         _showRunPhotosVault(context, steps, proofStorage);
       },
       child: Container(
@@ -231,16 +229,16 @@ class RoutineRunDetailScreen extends ConsumerWidget {
     final allPhotos = <Map<String, dynamic>>[];
 
     for (var i = 0; i < stepData.length; i++) {
-      final stepItem = stepData[i];
+      final stepItem = stepData[i] as Map<String, dynamic>;
       final photos = stepItem['photos'] as List<dynamic>? ?? [];
 
       // Resolve correct label
-      String label = stepItem['label'] ?? 'Step';
+      String label = (stepItem['label'] as String?) ?? 'Step';
       if ((label == 'Step' || label.isEmpty) && i < steps.length) {
         label = _getStepTitle(steps[i]);
       }
 
-      final timeStr = stepItem['completedAt'] ?? '';
+      final timeStr = (stepItem['completedAt'] as String?) ?? '';
       for (final p in photos) {
         allPhotos.add({'path': p, 'label': label, 'time': timeStr});
       }
@@ -299,9 +297,9 @@ class RoutineRunDetailScreen extends ConsumerWidget {
                 itemBuilder: (context, index) {
                   final p = allPhotos[index];
                   return _RunPhotoItem(
-                    path: p['path'],
-                    label: p['label'],
-                    time: p['time'],
+                    path: (p['path'] as String?) ?? '',
+                    label: (p['label'] as String?) ?? '',
+                    time: (p['time'] as String?) ?? '',
                     photos: allPhotos,
                     photoIndex: index,
                     proofStorage: proofStorage,
@@ -332,12 +330,14 @@ class RoutineRunDetailScreen extends ConsumerWidget {
       itemCount: steps.length,
       itemBuilder: (context, index) {
         final step = steps[index];
-        final stepCompletion = stepData.length > index ? stepData[index] : null;
-        final isCompleted = stepCompletion?['completed'] ?? false;
-        final isSkipped = stepCompletion?['skipped'] ?? false;
-        final completedAt = stepCompletion?['completedAt'] != null
-            ? DateTime.tryParse(stepCompletion['completedAt'])
+        final stepCompletion = stepData.length > index
+            ? stepData[index] as Map<String, dynamic>?
             : null;
+        final isCompleted = (stepCompletion?['completed'] as bool?) ?? false;
+        final isSkipped = (stepCompletion?['skipped'] as bool?) ?? false;
+        final completedAt = DateTime.tryParse(
+          stepCompletion?['completedAt']?.toString() ?? '',
+        );
 
         return _buildTimelineItem(
           context: context,
@@ -672,7 +672,7 @@ class RoutineRunDetailScreen extends ConsumerWidget {
       if (run.stepCompletionData == null || run.stepCompletionData!.isEmpty) {
         return null;
       }
-      return jsonDecode(run.stepCompletionData!);
+      return jsonDecode(run.stepCompletionData!) as Map<String, dynamic>?;
     } catch (e) {
       return null;
     }

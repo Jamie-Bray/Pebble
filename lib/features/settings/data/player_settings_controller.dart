@@ -21,7 +21,4 @@ class PlayerSettingsController {
 
   bool get showVisualAnchor => prefs.getBool('showVisualAnchor') ?? true;
   set showVisualAnchor(bool value) => prefs.setBool('showVisualAnchor', value);
-
-  bool get enableHaptics => prefs.getBool('enableHaptics') ?? true;
-  set enableHaptics(bool value) => prefs.setBool('enableHaptics', value);
 }

@@ -1,6 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -236,7 +237,6 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
         const SizedBox(height: 12),
         InkWell(
           onTap: () {
-            HapticFeedback.mediumImpact();
             _pickTime();
           },
           borderRadius: BorderRadius.circular(20),
@@ -384,7 +384,6 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
                 padding: const EdgeInsets.symmetric(horizontal: 3),
                 child: InkWell(
                   onTap: () {
-                    HapticFeedback.selectionClick();
                     setState(() {
                       final next = Set<int>.from(_selectedDays);
                       if (selected) {
@@ -482,7 +481,6 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
   }) {
     return InkWell(
       onTap: () {
-        HapticFeedback.selectionClick();
         onTap();
       },
       borderRadius: BorderRadius.circular(16),
@@ -799,7 +797,6 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
                       ),
                     ),
                     onPressed: () {
-                      HapticFeedback.mediumImpact();
                       Navigator.pop(context);
                     },
                   ),
@@ -821,7 +818,6 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
                   mode: CupertinoDatePickerMode.time,
                   initialDateTime: initialDateTime,
                   onDateTimeChanged: (DateTime newDateTime) {
-                    HapticFeedback.selectionClick();
                     setState(() {
                       _time = TimeOfDay(
                         hour: newDateTime.hour,
@@ -969,7 +965,6 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
     if (_selectedDays.isEmpty || _time == null) return;
 
     setState(() => _isSaving = true);
-    HapticFeedback.mediumImpact();
 
     try {
       final needsNotificationPermission =
@@ -1088,17 +1083,15 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
       }
 
       if (mounted) {
-        HapticFeedback.heavyImpact();
         setState(() {
           _isSuccess = true;
           _isSaving = false;
         });
-        _checkController.forward();
+        unawaited(_checkController.forward());
       }
     } catch (e) {
       setState(() => _isSaving = false);
       if (mounted) {
-        HapticFeedback.vibrate();
         final errorText = e.toString().toLowerCase().contains('permission')
             ? 'Enable notifications in settings to receive reminders'
             : 'Could not save this reminder. Please try again.';
@@ -1142,7 +1135,6 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
 
   Future<void> _remove() async {
     setState(() => _isSaving = true);
-    HapticFeedback.lightImpact();
 
     try {
       final db = ref.read(localDbProvider);

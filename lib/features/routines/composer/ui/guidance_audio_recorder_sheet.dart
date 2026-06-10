@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/features/routines/composer/data/guidance_audio_storage.dart';
@@ -202,7 +201,6 @@ class _GuidanceAudioRecorderSheetState
     _isStarting = true;
     setState(() => _error = null);
 
-    HapticFeedback.lightImpact();
     final hasPermission = await _recorder.hasPermission();
     if (!hasPermission) {
       if (!mounted) return;
@@ -248,7 +246,6 @@ class _GuidanceAudioRecorderSheetState
       if (elapsed >= GuidanceAudioStorage.maxDuration) {
         _elapsed = GuidanceAudioStorage.maxDuration;
         _timer?.cancel();
-        HapticFeedback.heavyImpact();
         unawaited(_stopRecording(forcedDuration: _elapsed));
         return;
       }
@@ -259,7 +256,7 @@ class _GuidanceAudioRecorderSheetState
 
     if (mounted) {
       setState(() => _isRecording = true);
-      _pulseController.repeat(reverse: true);
+      unawaited(_pulseController.repeat(reverse: true));
     }
   }
 
@@ -268,13 +265,14 @@ class _GuidanceAudioRecorderSheetState
     bool cancel = false,
   }) async {
     if (_isStopping || (!_isRecording && !_isStarting)) return;
-    HapticFeedback.mediumImpact();
     _isStopping = true;
     _timer?.cancel();
     _pulseController.stop();
-    _pulseController.animateTo(
-      0.95,
-      duration: const Duration(milliseconds: 200),
+    unawaited(
+      _pulseController.animateTo(
+        0.95,
+        duration: const Duration(milliseconds: 200),
+      ),
     );
 
     if (_isStarting) {

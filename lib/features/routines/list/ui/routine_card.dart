@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
@@ -46,7 +45,7 @@ class _RoutineCardState extends ConsumerState<RoutineCard> {
   int _getStepCount(Routine routine) {
     try {
       if (routine.stepsJson.isEmpty) return 0;
-      final List<dynamic> steps = jsonDecode(routine.stepsJson);
+      final steps = jsonDecode(routine.stepsJson) as List<dynamic>;
       return steps.length;
     } catch (_) {
       return 0;
@@ -59,7 +58,6 @@ class _RoutineCardState extends ConsumerState<RoutineCard> {
 
     return _Pressable(
       onTap: () {
-        HapticFeedback.lightImpact();
         widget.onStart();
       },
       child: Container(
@@ -208,7 +206,6 @@ class _RoutineCardState extends ConsumerState<RoutineCard> {
         const SizedBox(width: 8),
         _Pressable(
           onTap: () {
-            HapticFeedback.lightImpact();
             widget.onMore?.call();
           },
           child: Container(

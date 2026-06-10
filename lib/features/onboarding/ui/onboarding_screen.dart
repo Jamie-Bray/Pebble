@@ -1,7 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -217,7 +217,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   void _goToPage(int page) {
-    HapticFeedback.lightImpact();
     _pageController.animateToPage(
       page,
       duration: const Duration(milliseconds: 420),
@@ -226,7 +225,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Future<void> _openPebblePossibilities() async {
-    HapticFeedback.lightImpact();
     final shouldContinue = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (context) => _PebblePossibilitiesScreen(
@@ -246,7 +244,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Future<void> _completeToHome() async {
-    HapticFeedback.lightImpact();
     await _markOnboardingComplete();
     if (!mounted) return;
     ref.read(navIndexProvider.notifier).state = 0;
@@ -254,14 +251,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Future<void> _completeToCreator() async {
-    HapticFeedback.lightImpact();
     await _markOnboardingComplete();
     if (!mounted) return;
     GoRouter.of(context).go('/creator?fresh=1');
   }
 
   Future<void> _completeToTemplates() async {
-    HapticFeedback.lightImpact();
     if (!mounted) return;
     GoRouter.of(context).go('/templates?from=onboarding');
   }
@@ -269,7 +264,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Future<void> _useStarterRoutine() async {
     if (_isCreatingStarter) return;
 
-    HapticFeedback.lightImpact();
     setState(() => _isCreatingStarter = true);
 
     try {
@@ -423,14 +417,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         _ThemePickerPage(
                           selectedThemeId: _selectedThemeId,
                           onThemeSelected: (themeId) async {
-                            HapticFeedback.selectionClick();
                             setState(() => _selectedThemeId = themeId);
                             await ref
                                 .read(themeProvider.notifier)
                                 .setColorTheme(themeId);
                           },
                           onContinue: () async {
-                            HapticFeedback.lightImpact();
                             if (mounted) _goToPage(2);
                           },
                           onDecideLater: () => _goToPage(2),
@@ -1431,7 +1423,7 @@ class _ThemePickerPage extends StatelessWidget {
                     fontWeight: FontWeight.w400,
                   ),
                 ),
-                child: const Text('I’ll decide later'),
+                child: const Text('IÃ¢â‚¬â„¢ll decide later'),
               ),
             ],
           ),
@@ -1780,7 +1772,6 @@ class _StartingPointPageState extends State<_StartingPointPage> {
     final next =
         (_currentTemplate + delta + widget.starters.length) %
         widget.starters.length;
-    HapticFeedback.selectionClick();
     _templateController.animateToPage(
       next,
       duration: const Duration(milliseconds: 300),
@@ -1840,7 +1831,6 @@ class _StartingPointPageState extends State<_StartingPointPage> {
                     currentIndex: _currentTemplate,
                     onPageChanged: (index) {
                       setState(() => _currentTemplate = index);
-                      HapticFeedback.selectionClick();
                     },
                     onPrevious: () => _moveTemplate(-1),
                     onNext: () => _moveTemplate(1),

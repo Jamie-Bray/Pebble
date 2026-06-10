@@ -719,13 +719,8 @@ List<Override> _homeOverrides({
       FakeRoutineComposerDraftRepository(),
     ),
     homeRoutineHighlightProvider.overrideWith((ref) => highlight),
-    accountBackupRingStateProvider.overrideWithValue(
-      const AccountBackupRingState(
-        variant: AccountBackupRingVariant.none,
-        showRing: false,
-        semanticsLabel: 'Account and backup',
-        semanticsHint: null,
-      ),
+    accountBackupChipStateProvider.overrideWithValue(
+      const AccountBackupChipState.hidden(),
     ),
   ];
 }

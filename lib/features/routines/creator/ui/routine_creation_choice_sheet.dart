@@ -1,5 +1,6 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -19,7 +20,6 @@ Future<void> openRoutineCreationChoice(
     return;
   }
 
-  HapticFeedback.lightImpact();
   final choice = await showModalBottomSheet<RoutineCreationChoice>(
     context: context,
     isScrollControlled: true,
@@ -30,9 +30,9 @@ Future<void> openRoutineCreationChoice(
 
   switch (choice) {
     case RoutineCreationChoice.template:
-      context.push('/templates');
+      unawaited(context.push('/templates'));
     case RoutineCreationChoice.scratch:
-      context.push('/creator?fresh=1');
+      unawaited(context.push('/creator?fresh=1'));
   }
 }
 

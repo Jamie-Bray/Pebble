@@ -3,7 +3,6 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -239,7 +238,6 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
                   : null,
               onRemovePhoto: !playerState.isForegroundBusy
                   ? (proofId) async {
-                      HapticFeedback.selectionClick();
                       await ref
                           .read(
                             routinePlayerProvider(widget.sessionId).notifier,
@@ -259,7 +257,6 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
         showPrevious: playerState.canGoBack,
         onPrevious: playerState.canGoBack
             ? () async {
-                HapticFeedback.lightImpact();
                 await ref
                     .read(routinePlayerProvider(widget.sessionId).notifier)
                     .previousStep();
@@ -268,7 +265,6 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
         showSkip: playerState.canSkip,
         onSkip: playerState.canSkip
             ? () async {
-                HapticFeedback.lightImpact();
                 final run = await ref
                     .read(routinePlayerProvider(widget.sessionId).notifier)
                     .skipCurrentStep();
@@ -351,7 +347,6 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
         return;
       }
 
-      HapticFeedback.mediumImpact();
       final attached = await controller.attachProof(picked.path);
       if (!attached && mounted) {
         _showPhotoLimitReachedMessage();
@@ -420,17 +415,17 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
   }
 
   void _openProofPhotoLimitPaywall() {
-    HapticFeedback.mediumImpact();
     GoRouter.of(
       context,
     ).push(premiumRoute(source: PremiumEntrySource.proofPhotoLimit));
   }
 
   Future<void> _openStepLimitPaywall() async {
-    HapticFeedback.mediumImpact();
-    GoRouter.of(
-      context,
-    ).push(premiumRoute(source: PremiumEntrySource.stepLimit));
+    unawaited(
+      GoRouter.of(
+        context,
+      ).push(premiumRoute(source: PremiumEntrySource.stepLimit)),
+    );
   }
 
   Future<void> _handlePostCompletion(RoutineRun? run) async {
@@ -1456,8 +1451,6 @@ class _RoutineCompleteScreenState extends State<RoutineCompleteScreen>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final primary = theme.colorScheme.primary;
-    const completionText = Color(0xFF2D2B2A);
-    const mutedText = Color(0xFF8C857E);
     final routineName = widget.routineName.trim().isEmpty
         ? 'Routine complete'
         : widget.routineName.trim();
@@ -1496,33 +1489,35 @@ class _RoutineCompleteScreenState extends State<RoutineCompleteScreen>
                                 ),
                               ],
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.check,
                               size: 58,
-                              color: Colors.white,
+                              color: theme.colorScheme.onPrimary,
                               weight: 800,
                             ),
                           ),
                           const SizedBox(height: 32),
-                          const Text(
+                          Text(
                             'Routine complete',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 32,
                               fontWeight: FontWeight.w800,
                               height: 1.08,
-                              color: completionText,
+                              color: theme.colorScheme.onSurface,
                             ),
                           ),
                           const SizedBox(height: 10),
                           Text(
                             routineName,
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                               height: 1.35,
-                              color: mutedText,
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.6,
+                              ),
                             ),
                           ),
                         ],

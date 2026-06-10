@@ -1,5 +1,6 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -189,7 +190,6 @@ class _ActiveThemeBar extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
         onTap: () {
-          HapticFeedback.selectionClick();
           onTap();
         },
         child: Container(
@@ -405,7 +405,6 @@ class _ThemeGridCard extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
         onTap: () {
-          HapticFeedback.selectionClick();
           onTap();
         },
         child: DecoratedBox(
@@ -601,7 +600,6 @@ class _PremiumThemeCard extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
           onTap: () {
-            HapticFeedback.selectionClick();
             onTap();
           },
           child: DecoratedBox(
@@ -1136,13 +1134,14 @@ class _ThemePreviewSheet extends ConsumerWidget {
                   onPressed: isCurrent
                       ? null
                       : () async {
-                          HapticFeedback.mediumImpact();
                           if (isLocked) {
                             final router = GoRouter.of(context);
                             Navigator.of(context).pop();
-                            router.push(
-                              premiumRoute(
-                                source: PremiumEntrySource.premiumTheme,
+                            unawaited(
+                              router.push(
+                                premiumRoute(
+                                  source: PremiumEntrySource.premiumTheme,
+                                ),
                               ),
                             );
                             return;

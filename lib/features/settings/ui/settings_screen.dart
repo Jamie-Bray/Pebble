@@ -1,6 +1,5 @@
 // lib/features/settings/ui/settings_screen.dart
 import "package:flutter/material.dart";
-import "package:flutter/services.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:pebble_routines/core/theme/theme_provider.dart";
 import "package:pebble_routines/features/settings/ui/appearance_screen.dart";
@@ -93,7 +92,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                         title: 'Reminders',
                         subtitle: 'Manage all your routine reminders',
                         onTap: () {
-                          HapticFeedback.selectionClick();
                           context.push('/reminders');
                         },
                       ),
@@ -105,7 +103,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                             'Show a visual cue while you move through steps',
                         value: playerSettings.showVisualAnchor,
                         onChanged: (value) {
-                          HapticFeedback.selectionClick();
                           setState(() {
                             playerSettings.showVisualAnchor = value;
                           });
@@ -117,7 +114,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                         title: 'Theme & colours',
                         subtitle: 'Choose a colour theme',
                         onTap: () {
-                          HapticFeedback.selectionClick();
                           Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (_) => const AppearanceScreen(),
@@ -145,9 +141,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                       _FlowTile(
                         icon: Icons.info_rounded,
                         title: 'About Pebble',
-                        subtitle: 'Version 1.0.0 · Privacy, terms, deletion',
+                        subtitle: 'Version 1.0.0 Ã‚Â· Privacy, terms, deletion',
                         onTap: () {
-                          HapticFeedback.selectionClick();
                           Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (_) => const LegalAboutScreen(),

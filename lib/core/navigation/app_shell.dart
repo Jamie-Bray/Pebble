@@ -115,7 +115,6 @@ class _AppShellState extends ConsumerState<AppShell> {
                   label: 'Home',
                   isSelected: selectedIndex == 0,
                   onTap: () {
-                    HapticFeedback.lightImpact();
                     ref.read(navIndexProvider.notifier).state = 0;
                   },
                 ),
@@ -127,7 +126,6 @@ class _AppShellState extends ConsumerState<AppShell> {
                   label: 'History',
                   isSelected: selectedIndex == 1,
                   onTap: () {
-                    HapticFeedback.lightImpact();
                     ref.read(navIndexProvider.notifier).state = 1;
                   },
                 ),

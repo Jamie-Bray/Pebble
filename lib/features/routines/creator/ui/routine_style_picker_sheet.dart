@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/features/routines/data/models/routine_icon_catalog.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
@@ -91,7 +90,6 @@ class RoutineStylePickerSheet extends StatefulWidget {
             width: double.infinity,
             child: FilledButton(
               onPressed: () {
-                HapticFeedback.mediumImpact();
                 final state = key.currentState;
                 final icon = state?._selectedIcon;
                 final color = state?._color ?? initialColor;
@@ -399,7 +397,6 @@ class _RoutineStylePickerSheetState extends State<RoutineStylePickerSheet> {
           color: Colors.transparent,
           child: InkWell(
             onTap: () {
-              HapticFeedback.selectionClick();
               if (isLocked) {
                 widget.onPremiumIconTap?.call();
                 return;
@@ -487,7 +484,6 @@ class _RoutineStylePickerSheetState extends State<RoutineStylePickerSheet> {
               color: Colors.transparent,
               child: InkWell(
                 onTap: () {
-                  HapticFeedback.selectionClick();
                   setState(() {
                     _color = c;
                     _bumpPreview();
@@ -537,7 +533,6 @@ class _RoutineStylePickerSheetState extends State<RoutineStylePickerSheet> {
       height: 56,
       child: FilledButton(
         onPressed: () {
-          HapticFeedback.mediumImpact();
           Navigator.pop(
             context,
             RoutineStylePickerResult(
