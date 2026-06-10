@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -42,7 +41,6 @@ class SubscriptionGuard {
   }
 
   static void _showRoutineLimitExplanation(BuildContext context, int limit) {
-    HapticFeedback.mediumImpact();
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     showModalBottomSheet<void>(
@@ -107,7 +105,6 @@ class SubscriptionGuard {
   }
 
   static void _showStepLimitExplanation(BuildContext context, int limit) {
-    HapticFeedback.mediumImpact();
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     showModalBottomSheet<void>(

@@ -10,51 +10,26 @@ import 'package:pebble_routines/features/subscription/providers/cloud_access_pro
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
 import 'package:pebble_routines/features/sync/cloud_sync_coordinator.dart';
 
-enum AccountBackupRingVariant {
-  none,
-  available,
-  syncing,
-  paused,
-  consentRequired,
-  offlinePending,
-  storageWarning,
-  error,
-}
+enum AccountBackupChipTone { positive, neutral, attention }
 
-class AccountBackupRingState {
-  const AccountBackupRingState({
-    required this.variant,
-    required this.showRing,
-    required this.semanticsLabel,
+class AccountBackupChipState {
+  const AccountBackupChipState({
+    required this.show,
+    required this.label,
+    required this.tone,
     required this.semanticsHint,
   });
 
-  final AccountBackupRingVariant variant;
-  final bool showRing;
-  final String semanticsLabel;
-  final String? semanticsHint;
-}
-
-enum HomeBackupBannerAction { none, signIn, retrySync }
-
-class HomeBackupBannerState {
-  const HomeBackupBannerState({
-    required this.show,
-    required this.message,
-    required this.action,
-    required this.actionLabel,
-  });
-
-  const HomeBackupBannerState.hidden()
+  const AccountBackupChipState.hidden()
     : show = false,
-      message = null,
-      action = HomeBackupBannerAction.none,
-      actionLabel = null;
+      label = '',
+      tone = AccountBackupChipTone.neutral,
+      semanticsHint = '';
 
   final bool show;
-  final String? message;
-  final HomeBackupBannerAction action;
-  final String? actionLabel;
+  final String label;
+  final AccountBackupChipTone tone;
+  final String semanticsHint;
 }
 
 enum AccountBackupStatusKind {
@@ -236,11 +211,11 @@ final accountBackupStatusSummaryProvider = Provider<AccountBackupStatusSummary>(
         );
       }
       return AccountBackupStatusSummary(
-        kind: AccountBackupStatusKind.ready,
-        label: 'Cloud backup ready',
-        detail: 'Supported routine data can sync for restore.$pendingDetail',
-        historyLabel: 'Cloud backup ready',
-        showRunSyncState: true,
+        kind: AccountBackupStatusKind.premiumSetupPending,
+        label: 'Preparing backup',
+        detail: baseAccess.detail ?? 'Pebble is preparing backup.',
+        historyLabel: 'Backup pending',
+        showRunSyncState: false,
       );
     case PersonalCloudAccessStatus.verificationFailed:
       return const AccountBackupStatusSummary(
@@ -338,207 +313,111 @@ final effectivePersonalCloudStatusProvider =
       return base.status;
     });
 
-final accountBackupRingStateProvider = Provider<AccountBackupRingState>((ref) {
+final accountBackupChipStateProvider = Provider<AccountBackupChipState>((ref) {
   final status = ref.watch(effectivePersonalCloudStatusProvider);
+  final baseAccess = ref.watch(personalCloudAccessProvider);
+  final account = ref.watch(subscriptionAccountControllerProvider);
+  final runtime = ref.watch(cloudSyncRuntimeStateProvider);
+  final pendingCount = ref
+      .watch(syncOutboxCountProvider)
+      .maybeWhen(data: (value) => value, orElse: () => 0);
   final fairUse = ref
       .watch(proofMediaFairUseStateProvider)
       .maybeWhen(data: (value) => value, orElse: () => null);
-  final quotaNeedsAttention =
-      fairUse?.status == ProofMediaFairUseStatus.warning ||
-      fairUse?.status == ProofMediaFairUseStatus.full;
-  if (quotaNeedsAttention &&
-      (status == PersonalCloudAccessStatus.available ||
-          status == PersonalCloudAccessStatus.syncing ||
-          status == PersonalCloudAccessStatus.offlinePending)) {
-    return AccountBackupRingState(
-      variant: AccountBackupRingVariant.storageWarning,
-      showRing: false,
-      semanticsLabel: 'Account and backup',
-      semanticsHint: fairUse?.status == ProofMediaFairUseStatus.full
-          ? 'Photo storage full. Routine sync still works.'
-          : 'Proof photo storage is nearly full.',
-    );
-  }
+
   switch (status) {
     case PersonalCloudAccessStatus.offFree:
-      return const AccountBackupRingState(
-        variant: AccountBackupRingVariant.none,
-        showRing: false,
-        semanticsLabel: 'Account and backup',
-        semanticsHint: 'Backup is off on this plan.',
-      );
     case PersonalCloudAccessStatus.offSignedInNoEntitlement:
-      return const AccountBackupRingState(
-        variant: AccountBackupRingVariant.none,
-        showRing: false,
-        semanticsLabel: 'Account and backup',
-        semanticsHint: 'Signed in. Backup is off on this plan.',
-      );
+      return const AccountBackupChipState.hidden();
     case PersonalCloudAccessStatus.consentRequired:
-      return const AccountBackupRingState(
-        variant: AccountBackupRingVariant.consentRequired,
-        showRing: false,
-        semanticsLabel: 'Account and backup',
+      return const AccountBackupChipState(
+        show: true,
+        label: 'Set up backup',
+        tone: AccountBackupChipTone.attention,
         semanticsHint: 'Cloud backup needs your review before upload starts.',
       );
-    case PersonalCloudAccessStatus.available:
-      return const AccountBackupRingState(
-        variant: AccountBackupRingVariant.available,
-        showRing: false,
-        semanticsLabel: 'Account and backup',
-        semanticsHint: 'Backup active.',
-      );
     case PersonalCloudAccessStatus.syncing:
-      return const AccountBackupRingState(
-        variant: AccountBackupRingVariant.syncing,
-        showRing: true,
-        semanticsLabel: 'Account and backup',
-        semanticsHint: 'Syncing your routines.',
+      if (!runtime.isRunning) {
+        final checking = baseAccess.label == 'Checking backup';
+        return AccountBackupChipState(
+          show: true,
+          label: checking ? 'Checking backup' : 'Preparing backup',
+          tone: AccountBackupChipTone.neutral,
+          semanticsHint: checking
+              ? 'Pebble is checking backup for this account.'
+              : 'Pebble is preparing backup.',
+        );
+      }
+      return const AccountBackupChipState(
+        show: true,
+        label: 'Backing up...',
+        tone: AccountBackupChipTone.positive,
+        semanticsHint: 'Pebble is saving your latest changes.',
       );
-    case PersonalCloudAccessStatus.verificationFailed:
-      return const AccountBackupRingState(
-        variant: AccountBackupRingVariant.error,
-        showRing: false,
-        semanticsLabel: 'Account and backup',
-        semanticsHint: 'Backup setup needs purchase verification.',
-      );
-    case PersonalCloudAccessStatus.pausedSignedOut:
-      return const AccountBackupRingState(
-        variant: AccountBackupRingVariant.paused,
-        showRing: false,
-        semanticsLabel: 'Account and backup',
-        semanticsHint: 'Backup paused. Sign in to resume.',
-      );
-    case PersonalCloudAccessStatus.expiredGrace:
-      return const AccountBackupRingState(
-        variant: AccountBackupRingVariant.paused,
-        showRing: false,
-        semanticsLabel: 'Account and backup',
-        semanticsHint: 'Premium recently ended. Uploads are paused.',
-      );
-    case PersonalCloudAccessStatus.accountSwitchBlocked:
-      return const AccountBackupRingState(
-        variant: AccountBackupRingVariant.error,
-        showRing: false,
-        semanticsLabel: 'Account and backup',
-        semanticsHint: 'Backup paused until local data is reviewed.',
+    case PersonalCloudAccessStatus.available:
+      if (fairUse?.status == ProofMediaFairUseStatus.full) {
+        return const AccountBackupChipState(
+          show: true,
+          label: 'Photo storage full',
+          tone: AccountBackupChipTone.attention,
+          semanticsHint: 'Photo storage full. Routine backup still works.',
+        );
+      }
+      final lastSyncAt = account.lastSyncAt;
+      return AccountBackupChipState(
+        show: true,
+        label: lastSyncAt == null
+            ? 'Backup on'
+            : 'Backed up · ${_shortRelativeTimestamp(lastSyncAt)}',
+        tone: AccountBackupChipTone.positive,
+        semanticsHint: 'Backup is on. Tap to see what is backed up.',
       );
     case PersonalCloudAccessStatus.offlinePending:
-      return const AccountBackupRingState(
-        variant: AccountBackupRingVariant.offlinePending,
-        showRing: false,
-        semanticsLabel: 'Account and backup',
-        semanticsHint: 'Offline. Changes will sync later.',
+      return AccountBackupChipState(
+        show: true,
+        label: pendingCount > 0 ? '$pendingCount waiting' : 'Offline',
+        tone: AccountBackupChipTone.neutral,
+        semanticsHint: 'Changes will back up when connection returns.',
       );
+    case PersonalCloudAccessStatus.pausedSignedOut:
+    case PersonalCloudAccessStatus.expiredGrace:
+      return const AccountBackupChipState(
+        show: true,
+        label: 'Backup paused',
+        tone: AccountBackupChipTone.neutral,
+        semanticsHint: 'Backup is paused. Tap for details.',
+      );
+    case PersonalCloudAccessStatus.accountSwitchBlocked:
+      return const AccountBackupChipState(
+        show: true,
+        label: 'Needs review',
+        tone: AccountBackupChipTone.attention,
+        semanticsHint: 'Backup is paused until this device is reviewed.',
+      );
+    case PersonalCloudAccessStatus.verificationFailed:
     case PersonalCloudAccessStatus.error:
-      return const AccountBackupRingState(
-        variant: AccountBackupRingVariant.error,
-        showRing: false,
-        semanticsLabel: 'Account and backup',
-        semanticsHint: 'Sync needs attention.',
+      return const AccountBackupChipState(
+        show: true,
+        label: 'Needs attention',
+        tone: AccountBackupChipTone.attention,
+        semanticsHint: 'Backup could not finish. Tap to fix it.',
       );
   }
 });
 
-final homeBackupBannerStateProvider = Provider<HomeBackupBannerState>((ref) {
-  final status = ref.watch(effectivePersonalCloudStatusProvider);
-  final runtime = ref.watch(cloudSyncRuntimeStateProvider);
-  final isPaid = ref.watch(entitlementStateProvider).isPersonalPaid;
-  final fairUse = ref
-      .watch(proofMediaFairUseStateProvider)
-      .maybeWhen(data: (value) => value, orElse: () => null);
-  if (isPaid && fairUse?.status == ProofMediaFairUseStatus.full) {
-    return const HomeBackupBannerState(
-      show: true,
-      message: 'Photo storage full. Routine sync still works.',
-      action: HomeBackupBannerAction.none,
-      actionLabel: null,
-    );
+String _shortRelativeTimestamp(DateTime timestamp) {
+  final diff = DateTime.now().difference(timestamp);
+  if (diff.inMinutes < 1) {
+    return 'now';
   }
-  if (isPaid &&
-      fairUse?.status == ProofMediaFairUseStatus.warning &&
-      status == PersonalCloudAccessStatus.available) {
-    return const HomeBackupBannerState(
-      show: true,
-      message: 'Proof photo storage is nearly full.',
-      action: HomeBackupBannerAction.none,
-      actionLabel: null,
-    );
+  if (diff.inHours < 1) {
+    return '${diff.inMinutes}m';
   }
-  switch (status) {
-    case PersonalCloudAccessStatus.consentRequired:
-      return const HomeBackupBannerState(
-        show: true,
-        message: 'Review cloud backup before Pebble uploads routine data.',
-        action: HomeBackupBannerAction.none,
-        actionLabel: null,
-      );
-    case PersonalCloudAccessStatus.syncing:
-      return const HomeBackupBannerState(
-        show: true,
-        message: 'Syncing your latest changes...',
-        action: HomeBackupBannerAction.none,
-        actionLabel: null,
-      );
-    case PersonalCloudAccessStatus.verificationFailed:
-      return const HomeBackupBannerState(
-        show: true,
-        message:
-            'Premium is active, but backup could not be set up yet. Try again from Account.',
-        action: HomeBackupBannerAction.none,
-        actionLabel: null,
-      );
-    case PersonalCloudAccessStatus.pausedSignedOut:
-      return const HomeBackupBannerState(
-        show: true,
-        message: 'Backup is paused. Sign in to resume.',
-        action: HomeBackupBannerAction.signIn,
-        actionLabel: 'Sign in',
-      );
-    case PersonalCloudAccessStatus.expiredGrace:
-      return const HomeBackupBannerState(
-        show: true,
-        message:
-            'Premium recently ended. Uploads are paused, but 21-day history stays visible for 7 days.',
-        action: HomeBackupBannerAction.none,
-        actionLabel: null,
-      );
-    case PersonalCloudAccessStatus.accountSwitchBlocked:
-      return const HomeBackupBannerState(
-        show: true,
-        message:
-            'Backup is paused so local data is not uploaded to the wrong account.',
-        action: HomeBackupBannerAction.none,
-        actionLabel: null,
-      );
-    case PersonalCloudAccessStatus.offlinePending:
-      return const HomeBackupBannerState(
-        show: true,
-        message: 'You\'re offline. Changes will sync later.',
-        action: HomeBackupBannerAction.none,
-        actionLabel: null,
-      );
-    case PersonalCloudAccessStatus.error:
-      if (runtime.nextRetryAt != null) {
-        return const HomeBackupBannerState(
-          show: true,
-          message: 'Pebble will try syncing again soon.',
-          action: HomeBackupBannerAction.retrySync,
-          actionLabel: 'Sync now',
-        );
-      }
-      return const HomeBackupBannerState(
-        show: true,
-        message: 'Pebble couldn\'t finish syncing everything. Try again.',
-        action: HomeBackupBannerAction.retrySync,
-        actionLabel: 'Sync now',
-      );
-    case PersonalCloudAccessStatus.offFree:
-    case PersonalCloudAccessStatus.offSignedInNoEntitlement:
-    case PersonalCloudAccessStatus.available:
-      return const HomeBackupBannerState.hidden();
+  if (diff.inDays < 1) {
+    return '${diff.inHours}h';
   }
-});
+  return '${diff.inDays}d';
+}
 
 final accountBackupUiStateProvider = Provider<AccountBackupUiState>((ref) {
   final account = ref.watch(subscriptionAccountControllerProvider);

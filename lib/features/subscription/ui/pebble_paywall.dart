@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -165,7 +164,6 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
       PremiumPaywallCopy.forPlatform(StorePlatformRuntime.current);
 
   void _dismissPaywall() {
-    HapticFeedback.selectionClick();
     final navigator = Navigator.of(context);
     if (navigator.canPop()) {
       navigator.pop();
@@ -782,7 +780,6 @@ class _SectionLabel extends StatelessWidget {
 class _PremiumFeature {
   const _PremiumFeature({
     required this.icon,
-    required this.tint,
     required this.title,
     required this.description,
     required this.freeLabel,
@@ -790,7 +787,6 @@ class _PremiumFeature {
   });
 
   final IconData icon;
-  final _PremiumTint tint;
   final String title;
   final String description;
   final String freeLabel;
@@ -800,7 +796,6 @@ class _PremiumFeature {
 const _premiumFeatures = [
   _PremiumFeature(
     icon: LucideIcons.infinity,
-    tint: _PremiumTint.primary,
     title: 'Unlimited routines and steps',
     description:
         'Create checks for home, work, travel, pets, and everything else you want to run clearly.',
@@ -809,7 +804,6 @@ const _premiumFeatures = [
   ),
   _PremiumFeature(
     icon: LucideIcons.cloud,
-    tint: _PremiumTint.green,
     title: 'Longer history and backup',
     description:
         'Keep recent checks for up to 21 days, and turn on backup so your routines can come with you if you reinstall Pebble or change phone.',
@@ -818,7 +812,6 @@ const _premiumFeatures = [
   ),
   _PremiumFeature(
     icon: LucideIcons.camera,
-    tint: _PremiumTint.blue,
     title: 'More photos per step',
     description:
         'Add up to four photos when one picture does not capture the full check.',
@@ -827,7 +820,6 @@ const _premiumFeatures = [
   ),
   _PremiumFeature(
     icon: LucideIcons.mic,
-    tint: _PremiumTint.rose,
     title: 'Voice tips',
     description:
         'Add a short voice prompt to a step, so future-you knows exactly what to check.',
@@ -856,8 +848,8 @@ class _FeatureListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = _tintColors(context, feature.tint);
     final foundation = context.darkFoundation;
+    final accent = _premiumGlow(context);
     return DecoratedBox(
       decoration: BoxDecoration(
         border: Border(
@@ -876,11 +868,11 @@ class _FeatureListItem extends StatelessWidget {
               height: 44,
               margin: const EdgeInsets.only(top: 1),
               decoration: BoxDecoration(
-                color: colors.accent.withValues(alpha: 0.12),
+                color: accent.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(13),
               ),
               alignment: Alignment.center,
-              child: Icon(feature.icon, color: colors.accent, size: 20),
+              child: Icon(feature.icon, color: accent, size: 20),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -906,8 +898,8 @@ class _FeatureListItem extends StatelessWidget {
                       height: 1.6,
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  _UpgradeChip(
+                  const SizedBox(height: 8),
+                  _ComparisonLine(
                     freeLabel: feature.freeLabel,
                     premiumLabel: feature.premiumLabel,
                   ),
@@ -921,8 +913,8 @@ class _FeatureListItem extends StatelessWidget {
   }
 }
 
-class _UpgradeChip extends StatelessWidget {
-  const _UpgradeChip({required this.freeLabel, required this.premiumLabel});
+class _ComparisonLine extends StatelessWidget {
+  const _ComparisonLine({required this.freeLabel, required this.premiumLabel});
 
   final String freeLabel;
   final String premiumLabel;
@@ -931,80 +923,27 @@ class _UpgradeChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
     final accent = _premiumGlow(context);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        border: Border.all(color: accent.withValues(alpha: 0.26)),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(19),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _ChipSegment(
-              label: freeLabel,
-              color: foundation.textSecondary,
-              background: foundation.textPrimary.withValues(alpha: 0.06),
-              leftPadding: 11,
-              rightPadding: 8,
-              fontWeight: FontWeight.w400,
-            ),
-            _ChipSegment(
-              label: '->',
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: freeLabel,
+            style: TextStyle(
               color: foundation.textMuted,
-              background: foundation.textPrimary.withValues(alpha: 0.06),
-              leftPadding: 3,
-              rightPadding: 3,
               fontWeight: FontWeight.w400,
             ),
-            _ChipSegment(
-              label: premiumLabel,
-              color: Theme.of(context).colorScheme.onPrimary,
-              background: accent,
-              leftPadding: 8,
-              rightPadding: 11,
-              fontWeight: FontWeight.w600,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ChipSegment extends StatelessWidget {
-  const _ChipSegment({
-    required this.label,
-    required this.color,
-    required this.background,
-    required this.leftPadding,
-    required this.rightPadding,
-    required this.fontWeight,
-  });
-
-  final String label;
-  final Color color;
-  final Color background;
-  final double leftPadding;
-  final double rightPadding;
-  final FontWeight fontWeight;
-
-  @override
-  Widget build(BuildContext context) {
-    return ColoredBox(
-      color: background,
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(leftPadding, 5, rightPadding, 5),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: color,
-            fontSize: 11.5,
-            fontWeight: fontWeight,
-            height: 1,
           ),
-        ),
+          TextSpan(
+            text: '  Ã¢â€ â€™  ',
+            style: TextStyle(color: foundation.textMuted),
+          ),
+          TextSpan(
+            text: premiumLabel,
+            style: TextStyle(color: accent, fontWeight: FontWeight.w600),
+          ),
+        ],
       ),
+      style: const TextStyle(fontSize: 12, height: 1),
     );
   }
 }
@@ -1155,7 +1094,6 @@ class _PlanToggle extends ConsumerWidget {
               product: product,
               selected: product.plan == selectedPlan,
               onTap: () {
-                HapticFeedback.selectionClick();
                 ref.read(premiumPaywallPlanProvider.notifier).state =
                     _planTypeForBillingPlan(product.plan);
               },
@@ -1339,15 +1277,6 @@ class _PremiumActionButtonState extends State<_PremiumActionButton>
           decoration: BoxDecoration(
             color: enabled ? accent : accent.withValues(alpha: 0.38),
             borderRadius: BorderRadius.circular(16),
-            boxShadow: enabled
-                ? [
-                    BoxShadow(
-                      color: accent.withValues(alpha: 0.28),
-                      blurRadius: 28,
-                      offset: const Offset(0, 6),
-                    ),
-                  ]
-                : null,
           ),
           child: widget.busy
               ? SizedBox(
@@ -1480,14 +1409,6 @@ class _UnavailableNotice extends StatelessWidget {
   }
 }
 
-enum _PremiumTint { primary, green, blue, rose }
-
-class _TintColors {
-  const _TintColors({required this.accent});
-
-  final Color accent;
-}
-
 TextStyle _serifStyle(
   BuildContext context, {
   required double fontSize,
@@ -1503,29 +1424,9 @@ TextStyle _serifStyle(
   );
 }
 
-_TintColors _tintColors(BuildContext context, _PremiumTint tint) {
-  final theme = Theme.of(context);
-  final cs = theme.colorScheme;
-  final secondary = cs.secondary == cs.primary
-      ? _shiftThemeHue(cs.primary, 18)
-      : cs.secondary;
-  final base = switch (tint) {
-    _PremiumTint.primary => cs.primary,
-    _PremiumTint.green => Color.lerp(cs.primary, secondary, 0.62)!,
-    _PremiumTint.blue => _shiftThemeHue(cs.primary, -24),
-    _PremiumTint.rose => _shiftThemeHue(cs.primary, 30),
-  };
-  return _TintColors(accent: _legibleThemeAccent(theme, base));
-}
-
 Color _premiumGlow(BuildContext context) {
   final theme = Theme.of(context);
   return _legibleThemeAccent(theme, theme.colorScheme.primary);
-}
-
-Color _shiftThemeHue(Color color, double amount) {
-  final hsl = HSLColor.fromColor(color);
-  return hsl.withHue((hsl.hue + amount) % 360).toColor();
 }
 
 Color _legibleThemeAccent(ThemeData theme, Color color) {
@@ -1614,7 +1515,7 @@ String _ctaLabel(PremiumProduct product) {
 
 String _annualPerLine(PremiumProduct product) {
   final monthly = _yearlyPerMonthLabel(product);
-  return monthly == null ? 'per year' : 'per year · $monthly';
+  return monthly == null ? 'per year' : 'per year Ã‚Â· $monthly';
 }
 
 String? _yearlyPerMonthLabel(PremiumProduct product) {

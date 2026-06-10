@@ -1,7 +1,4 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -12,23 +9,16 @@ import 'package:pebble_routines/core/config/app_runtime_config.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/ui/zen_notifications.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
-import 'package:pebble_routines/data/repositories/routine_repository.dart';
-import 'package:pebble_routines/features/account_backup/providers/account_status_mapper.dart';
-import 'package:pebble_routines/features/account_backup/ui/account_status_card.dart';
+import 'package:pebble_routines/features/account_backup/providers/account_profile_presentation_provider.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
 import 'package:pebble_routines/features/history/providers/routine_history_vm.dart';
 import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
 import 'package:pebble_routines/features/subscription/data/purchase_repository.dart';
-import 'package:pebble_routines/features/subscription/data/models/subscription_account_state.dart';
 import 'package:pebble_routines/features/subscription/domain/routine_limit_policy.dart';
 import 'package:pebble_routines/features/subscription/domain/subscription_lifecycle.dart';
-import 'package:pebble_routines/features/subscription/providers/cloud_backup_consent_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
-import 'package:pebble_routines/features/sync/cloud_restore_coordinator.dart';
-import 'package:pebble_routines/features/sync/cloud_sync_coordinator.dart';
-import 'package:pebble_routines/features/sync/local_data_ownership_guard.dart';
 
 class AccountHubScreen extends ConsumerStatefulWidget {
   const AccountHubScreen({super.key});
@@ -38,11 +28,8 @@ class AccountHubScreen extends ConsumerStatefulWidget {
 }
 
 class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
-  bool _manualSyncInFlight = false;
   bool _restoreInFlight = false;
   bool _deleteInFlight = false;
-  bool _consentInFlight = false;
-  bool _linkLocalDataInFlight = false;
 
   void _exitVault() {
     if (!mounted) {
@@ -73,256 +60,6 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
         ZenNotifications.showWarning(context, title: title, message: message);
       case NotificationType.error:
         ZenNotifications.showError(context, title: title, message: message);
-    }
-  }
-
-  Future<void> _reviewLocalDataForCurrentAccount(String? email) async {
-    final userId = ref.read(authSessionProvider).userId?.trim();
-    if (userId == null || userId.isEmpty) {
-      _showVaultNotice(
-        'Sign in before linking local data.',
-        title: 'Sign-in needed',
-        type: NotificationType.warning,
-      );
-      return;
-    }
-
-    final report = await LocalDataOwnershipGuard.inspect(
-      database: ref.read(localDbProvider),
-      signedInUserId: userId,
-    );
-    if (!mounted) {
-      return;
-    }
-
-    if (report.state == LocalDataOwnershipState.empty ||
-        report.state == LocalDataOwnershipState.sameOwnerOnly) {
-      await _prepareBackupAfterOwnershipChoice(userId);
-      _showVaultNotice(
-        'Local data is already linked to this account.',
-        title: 'Already linked',
-        type: NotificationType.info,
-      );
-      return;
-    }
-
-    if (report.differentOwnerCount > 0) {
-      final confirmed = await _showUseCurrentAccountDialog(
-        email: email,
-        report: report,
-      );
-      if (confirmed != true || !mounted) {
-        return;
-      }
-      await _useCurrentAccountForLocalData(userId);
-      return;
-    }
-
-    final confirmed = await _showLinkLocalDataDialog(
-      email: email,
-      unownedCount: report.unownedCount,
-    );
-    if (confirmed != true || !mounted) {
-      return;
-    }
-
-    await _linkLocalDataToCurrentAccount(userId);
-  }
-
-  Future<bool?> _showUseCurrentAccountDialog({
-    required String? email,
-    required LocalDataOwnershipReport report,
-  }) {
-    final itemCount =
-        report.unownedCount +
-        report.sameOwnerCount +
-        report.differentOwnerCount;
-    final itemLabel = '$itemCount local item${itemCount == 1 ? '' : 's'}';
-    return _showAccountActionSheet<bool>(
-      context: context,
-      builder: (sheetContext) => _AccountActionSheet(
-        icon: LucideIcons.userCheck,
-        eyebrow: 'Backup',
-        title: 'Use this account for this device?',
-        body:
-            'This device has Pebble data from a previous sign-in. Use ${email ?? 'this account'} from now on so backup can continue.',
-        accentColor: Theme.of(sheetContext).colorScheme.primary,
-        details: [
-          _AccountSheetPillRow(
-            pills: [
-              _AccountSheetPill(value: itemLabel, label: 'On this device'),
-              const _AccountSheetPill(value: 'Current', label: 'Account'),
-              const _AccountSheetPill(value: 'Backup', label: 'After choice'),
-            ],
-          ),
-        ],
-        primaryLabel: 'Use this account',
-        onPrimaryPressed: () => Navigator.of(sheetContext).pop(true),
-        secondaryLabel: 'Keep backup off',
-        onSecondaryPressed: () => Navigator.of(sheetContext).pop(false),
-        footer:
-            'Pebble will not upload this device\'s routines to the signed-in account unless you choose.',
-      ),
-    );
-  }
-
-  Future<bool?> _showLinkLocalDataDialog({
-    required String? email,
-    required int unownedCount,
-  }) {
-    final itemLabel = '$unownedCount local item${unownedCount == 1 ? '' : 's'}';
-    return _showAccountActionSheet<bool>(
-      context: context,
-      builder: (sheetContext) => _AccountActionSheet(
-        icon: LucideIcons.link,
-        eyebrow: 'Account safety',
-        title: 'Link this device\'s data?',
-        body:
-            'Pebble found $itemLabel on this device. Link them to ${email ?? 'this account'} so backup can start, or keep them only on this device.',
-        accentColor: Theme.of(sheetContext).colorScheme.primary,
-        details: [
-          _AccountSheetPillRow(
-            pills: [
-              _AccountSheetPill(value: itemLabel, label: 'Found here'),
-              const _AccountSheetPill(value: 'Backup', label: 'After linking'),
-              const _AccountSheetPill(value: 'Local', label: 'Optional'),
-            ],
-          ),
-        ],
-        primaryLabel: 'Link to this account',
-        onPrimaryPressed: () => Navigator.of(sheetContext).pop(true),
-        secondaryLabel: 'Keep local',
-        onSecondaryPressed: () => Navigator.of(sheetContext).pop(false),
-        footer: 'Pebble will not upload this device\'s data unless you choose.',
-      ),
-    );
-  }
-
-  Future<void> _linkLocalDataToCurrentAccount(String userId) async {
-    if (_linkLocalDataInFlight) {
-      return;
-    }
-    setState(() => _linkLocalDataInFlight = true);
-    try {
-      await LocalDataOwnershipGuard.linkUnownedLocalData(
-        database: ref.read(localDbProvider),
-        signedInUserId: userId,
-      );
-      await _prepareBackupAfterOwnershipChoice(userId);
-      _showVaultNotice(
-        'Linked to this account. Backup can start now.',
-        title: 'Data linked',
-        type: NotificationType.success,
-      );
-    } catch (error) {
-      final message = _toUserFacingError(error);
-      await ref
-          .read(subscriptionAccountControllerProvider.notifier)
-          .noteSyncFailure(message);
-      _showVaultNotice(
-        message,
-        title: 'Could not link',
-        type: NotificationType.error,
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _linkLocalDataInFlight = false);
-      }
-    }
-  }
-
-  Future<void> _useCurrentAccountForLocalData(String userId) async {
-    if (_linkLocalDataInFlight) {
-      return;
-    }
-    setState(() => _linkLocalDataInFlight = true);
-    try {
-      await LocalDataOwnershipGuard.useCurrentAccountForLocalData(
-        database: ref.read(localDbProvider),
-        signedInUserId: userId,
-      );
-      await _prepareBackupAfterOwnershipChoice(userId);
-      _showVaultNotice(
-        'This device now uses your signed-in account for backup.',
-        title: 'Backup is on',
-        type: NotificationType.success,
-      );
-    } catch (error) {
-      final message = _toUserFacingError(error);
-      await ref
-          .read(subscriptionAccountControllerProvider.notifier)
-          .noteSyncFailure(message);
-      _showVaultNotice(
-        message,
-        title: 'Could not continue',
-        type: NotificationType.error,
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _linkLocalDataInFlight = false);
-      }
-    }
-  }
-
-  Future<void> _prepareBackupAfterOwnershipChoice(String userId) async {
-    await ref
-        .read(subscriptionAccountControllerProvider.notifier)
-        .updateBootstrapStatus(BootstrapStatus.preparing, clearError: true);
-    await ref.read(cloudRestoreCoordinatorProvider).bootstrapAndMerge(userId);
-    await ref
-        .read(subscriptionAccountControllerProvider.notifier)
-        .updateBootstrapStatus(BootstrapStatus.ready, clearError: true);
-    unawaited(ref.read(cloudSyncCoordinatorProvider).kick());
-  }
-
-  Future<void> _runManualSync() async {
-    if (_manualSyncInFlight) {
-      return;
-    }
-    setState(() => _manualSyncInFlight = true);
-    final result = await ref.read(cloudSyncCoordinatorProvider).runManualSync();
-    if (!mounted) {
-      return;
-    }
-    setState(() => _manualSyncInFlight = false);
-
-    switch (result.type) {
-      case ManualSyncResultType.synced:
-        HapticFeedback.mediumImpact();
-        _showVaultNotice(
-          'Backup is up to date.',
-          title: 'All caught up',
-          type: NotificationType.success,
-        );
-        return;
-      case ManualSyncResultType.noChanges:
-        HapticFeedback.mediumImpact();
-        _showVaultNotice(
-          'There are no backup changes waiting.',
-          title: 'All caught up',
-          type: NotificationType.success,
-        );
-        return;
-      case ManualSyncResultType.partialRetryScheduled:
-        HapticFeedback.lightImpact();
-        _showVaultNotice(
-          result.message,
-          title: 'Backup will retry',
-          type: NotificationType.warning,
-        );
-        return;
-      case ManualSyncResultType.blockedSignedOut:
-      case ManualSyncResultType.blockedNoEntitlement:
-      case ManualSyncResultType.blockedConsentRequired:
-      case ManualSyncResultType.blockedAccountSwitch:
-      case ManualSyncResultType.blockedOffline:
-      case ManualSyncResultType.failed:
-        _showVaultNotice(
-          result.message,
-          title: 'Backup not finished',
-          type: NotificationType.warning,
-        );
-        return;
     }
   }
 
@@ -386,140 +123,6 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
     }
   }
 
-  Future<void> _showCloudBackupConsentDialog() async {
-    if (_consentInFlight) {
-      return;
-    }
-
-    var accepted = false;
-    await _showAccountActionSheet<void>(
-      context: context,
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (_, setDialogState) {
-            return _AccountActionSheet(
-              icon: LucideIcons.cloudUpload,
-              eyebrow: 'Cloud backup',
-              title: 'Turn on backup?',
-              body:
-                  'Pebble will only start backup after you choose to turn it on. You stay in control of when supported routine data can upload.',
-              accentColor: Theme.of(sheetContext).colorScheme.primary,
-              details: [
-                _AccountConsentCheck(
-                  accepted: accepted,
-                  enabled: !_consentInFlight,
-                  onChanged: (value) {
-                    setDialogState(() => accepted = value == true);
-                  },
-                ),
-              ],
-              primaryLabel: 'Turn on backup',
-              primaryEnabled: accepted && !_consentInFlight,
-              onPrimaryPressed: () async {
-                Navigator.of(sheetContext).pop();
-                await _acceptCloudBackupConsent();
-              },
-              secondaryLabel: 'Cancel',
-              secondaryEnabled: !_consentInFlight,
-              onSecondaryPressed: () => Navigator.of(sheetContext).pop(),
-              footer:
-                  'You can pause backup later. Local routines stay on this device either way.',
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Future<void> _acceptCloudBackupConsent() async {
-    if (_consentInFlight) {
-      return;
-    }
-    setState(() => _consentInFlight = true);
-    try {
-      await ref.read(cloudBackupConsentControllerProvider.notifier).accept();
-      await ref
-          .read(authControllerProvider.notifier)
-          .refreshCloudAccessAfterEntitlementChange();
-      HapticFeedback.mediumImpact();
-      _showVaultNotice(
-        'Pebble will back up supported routine data for this account.',
-        title: 'Backup is on',
-        type: NotificationType.success,
-      );
-    } catch (error) {
-      _showVaultNotice(
-        _toUserFacingError(error),
-        title: 'Could not turn on backup',
-        type: NotificationType.error,
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _consentInFlight = false);
-      }
-    }
-  }
-
-  Future<void> _showWithdrawCloudBackupConsentDialog() async {
-    await _showAccountActionSheet<void>(
-      context: context,
-      builder: (sheetContext) => _AccountActionSheet(
-        icon: LucideIcons.cloudOff,
-        eyebrow: 'Backup control',
-        title: 'Pause backup?',
-        body:
-            'Pebble will stop saving new backup changes for this account. Existing backup stays available unless you delete your account or ask support to remove it.',
-        accentColor: Theme.of(sheetContext).colorScheme.secondary,
-        details: const [
-          _AccountSheetPillRow(
-            pills: [
-              _AccountSheetPill(value: 'Stops', label: 'New uploads'),
-              _AccountSheetPill(value: 'Keeps', label: 'Local data'),
-              _AccountSheetPill(value: 'Resume', label: 'Any time'),
-            ],
-          ),
-        ],
-        primaryLabel: 'Pause backup',
-        primaryTone: _AccountSheetButtonTone.warning,
-        onPrimaryPressed: () async {
-          Navigator.of(sheetContext).pop();
-          await _withdrawCloudBackupConsent();
-        },
-        secondaryLabel: 'Cancel',
-        onSecondaryPressed: () => Navigator.of(sheetContext).pop(),
-      ),
-    );
-  }
-
-  Future<void> _withdrawCloudBackupConsent() async {
-    if (_consentInFlight) {
-      return;
-    }
-    setState(() => _consentInFlight = true);
-    try {
-      await ref.read(cloudBackupConsentControllerProvider.notifier).withdraw();
-      await ref
-          .read(authControllerProvider.notifier)
-          .refreshCloudAccessAfterEntitlementChange();
-      HapticFeedback.lightImpact();
-      _showVaultNotice(
-        'Local routines remain on this device.',
-        title: 'Backup is paused',
-        type: NotificationType.info,
-      );
-    } catch (error) {
-      _showVaultNotice(
-        _toUserFacingError(error),
-        title: 'Could not pause backup',
-        type: NotificationType.error,
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _consentInFlight = false);
-      }
-    }
-  }
-
   Future<void> _deleteAccount() async {
     if (_deleteInFlight) {
       return;
@@ -560,9 +163,8 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
         icon: LucideIcons.trash2,
         eyebrow: 'Permanent action',
         title: 'Delete account',
-        body: deletionUrl == null
-            ? 'This deletes your Pebble account and cloud backup data. Local routines already saved on this device will stay here until you remove them manually.'
-            : 'This deletes your Pebble account and cloud backup data. Local routines already saved on this device will stay here until you remove them manually.',
+        body:
+            'This deletes your Pebble account and cloud backup data. Local routines already saved on this device will stay here until you remove them manually.',
         accentColor: Theme.of(sheetContext).colorScheme.error,
         details: const [
           _AccountSheetWarningRow(
@@ -626,48 +228,11 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
     return raw;
   }
 
-  void _handleAccountStatusAction(AccountStatusAction action) {
-    switch (action) {
-      case AccountStatusAction.none:
-        return;
-      case AccountStatusAction.startPremium:
-      case AccountStatusAction.renewPremium:
-        context.push(premiumRoute(source: PremiumEntrySource.backup));
-      case AccountStatusAction.restorePurchase:
-        _restorePurchase();
-      case AccountStatusAction.signIn:
-        context.push('/sign-in');
-      case AccountStatusAction.reviewBackup:
-        _showCloudBackupConsentDialog();
-      case AccountStatusAction.syncNow:
-        _runManualSync();
-      case AccountStatusAction.managePlan:
-        _openManagePlan();
-      case AccountStatusAction.reviewLocalData:
-        _reviewLocalDataForCurrentAccount(ref.read(authSessionProvider).email);
-      case AccountStatusAction.keepLocal:
-        _showWithdrawCloudBackupConsentDialog();
-      case AccountStatusAction.pauseBackup:
-        _showWithdrawCloudBackupConsentDialog();
-    }
-  }
-
-  bool _isActionBusy(AccountStatusAction action) {
-    return switch (action) {
-      AccountStatusAction.restorePurchase => _restoreInFlight,
-      AccountStatusAction.reviewBackup ||
-      AccountStatusAction.pauseBackup => _consentInFlight,
-      AccountStatusAction.syncNow => _manualSyncInFlight,
-      AccountStatusAction.reviewLocalData => _linkLocalDataInFlight,
-      _ => false,
-    };
-  }
-
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final auth = ref.watch(authSessionProvider);
-    final accountStatus = ref.watch(accountStatusPresentationProvider);
+    final profile = ref.watch(accountProfilePresentationProvider);
     final lifecycle = ref.watch(subscriptionLifecycleProvider);
     final isLapsedPremium =
         lifecycle.phase == SubscriptionLifecyclePhase.expiredGrace ||
@@ -700,22 +265,31 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
         body: ListView(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 60),
           children: [
-            AccountStatusCard(
-              state: accountStatus,
-              onPrimaryAction:
-                  accountStatus.primaryAction == AccountStatusAction.none
-                  ? null
-                  : () =>
-                        _handleAccountStatusAction(accountStatus.primaryAction),
-              onSecondaryAction:
-                  accountStatus.secondaryAction == AccountStatusAction.none
-                  ? null
-                  : () => _handleAccountStatusAction(
-                      accountStatus.secondaryAction,
-                    ),
-              isPrimaryBusy: _isActionBusy(accountStatus.primaryAction),
-              isSecondaryBusy: _isActionBusy(accountStatus.secondaryAction),
+            _AccountIdentityHeader(profile: profile),
+            const SizedBox(height: 24),
+            if (profile.canStartPremium) ...[
+              _AccountPlanCard(
+                profile: profile,
+                onStartPremium: () => context.push(
+                  premiumRoute(source: PremiumEntrySource.backup),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+            _AccountBackupRouteCard(
+              row: profile.backupRow,
+              onTap: () => context.push('/cloud-backup'),
             ),
+            if (profile.canManagePlan || profile.canRestorePurchase) ...[
+              const SizedBox(height: 16),
+              _AccountSettingsRows(
+                canRestorePurchase: profile.canRestorePurchase,
+                canManagePlan: profile.canManagePlan,
+                restoreInFlight: _restoreInFlight,
+                onRestorePurchase: _restoreInFlight ? null : _restorePurchase,
+                onManagePlan: _openManagePlan,
+              ),
+            ],
             const SizedBox(height: 32),
             _buildDestructiveActions(
               context,
@@ -750,14 +324,14 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
               await ref.read(authControllerProvider.notifier).signOut();
               if (context.mounted) {
                 _showVaultNotice(
-                  'Backup is paused. Local routines stay on this device.',
+                  'Local routines stay on this device.',
                   title: 'Signed out',
                   type: NotificationType.info,
                 );
               }
             },
             child: Text(
-              'Sign out (pauses backup, keeps local routines)',
+              'Sign out',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
@@ -813,6 +387,511 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
           : 'GBP 7.99',
       canRenew: purchase.isPurchaseAvailable,
     );
+  }
+}
+
+class _AccountIdentityHeader extends StatelessWidget {
+  const _AccountIdentityHeader({required this.profile});
+
+  final AccountProfilePresentation profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final caption = profile.providerLabel == null
+        ? profile.identityDetail
+        : '${profile.providerLabel} · ${profile.planName}';
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHigh,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: colorScheme.outline.withValues(alpha: 0.14),
+              ),
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              profile.isSignedIn ? LucideIcons.userCheck : LucideIcons.user,
+              size: 21,
+              color: colorScheme.onSurface.withValues(alpha: 0.72),
+            ),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  profile.identityLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.outfit(
+                    color: colorScheme.onSurface,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  caption,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.outfit(
+                    color: colorScheme.onSurface.withValues(alpha: 0.58),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountPlanCard extends StatelessWidget {
+  const _AccountPlanCard({required this.profile, required this.onStartPremium});
+
+  final AccountProfilePresentation profile;
+  final VoidCallback onStartPremium;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return _AccountSurface(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _AccountPill(label: profile.planStatusLabel),
+                    const SizedBox(height: 12),
+                    Text(
+                      profile.planName,
+                      style: GoogleFonts.dmSerifDisplay(
+                        color: colorScheme.onSurface,
+                        fontSize: 31,
+                        fontWeight: FontWeight.w400,
+                        letterSpacing: 0,
+                        height: 1.05,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      profile.planDetail,
+                      style: GoogleFonts.outfit(
+                        color: colorScheme.onSurface.withValues(alpha: 0.64),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w300,
+                        letterSpacing: 0,
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              const _AccountIcon(icon: LucideIcons.sparkles),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _AccountLimitGrid(limits: profile.limits),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: onStartPremium,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(52),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            icon: const Icon(LucideIcons.sparkles, size: 18),
+            label: const Text('Start Premium'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountBackupRouteCard extends StatelessWidget {
+  const _AccountBackupRouteCard({required this.row, required this.onTap});
+
+  final AccountProfileBackupRow row;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final accent = _backupToneColor(colorScheme, row.tone);
+    return Material(
+      color: accent.withValues(alpha: 0.07),
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: accent.withValues(alpha: row.needsAttention ? 0.30 : 0.18),
+            ),
+          ),
+          child: Row(
+            children: [
+              _AccountIcon(icon: row.icon, color: accent),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            row.label,
+                            style: GoogleFonts.outfit(
+                              color: colorScheme.onSurface,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0,
+                            ),
+                          ),
+                        ),
+                        if (row.needsAttention)
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: accent,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      row.detail,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.outfit(
+                        color: colorScheme.onSurface.withValues(alpha: 0.62),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w300,
+                        letterSpacing: 0,
+                        height: 1.35,
+                      ),
+                    ),
+                    if (row.trailing != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        row.trailing!,
+                        style: GoogleFonts.outfit(
+                          color: accent,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Icon(
+                LucideIcons.chevronRight,
+                size: 20,
+                color: colorScheme.onSurface.withValues(alpha: 0.42),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AccountSettingsRows extends StatelessWidget {
+  const _AccountSettingsRows({
+    required this.canRestorePurchase,
+    required this.canManagePlan,
+    required this.restoreInFlight,
+    required this.onRestorePurchase,
+    required this.onManagePlan,
+  });
+
+  final bool canRestorePurchase;
+  final bool canManagePlan;
+  final bool restoreInFlight;
+  final VoidCallback? onRestorePurchase;
+  final VoidCallback onManagePlan;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final rows = <Widget>[
+      if (canManagePlan)
+        _AccountSettingsRow(
+          icon: LucideIcons.creditCard,
+          label: 'Manage plan',
+          onTap: onManagePlan,
+        ),
+      if (canRestorePurchase)
+        _AccountSettingsRow(
+          icon: LucideIcons.rotateCw,
+          label: restoreInFlight ? 'Restoring...' : 'Restore purchase',
+          onTap: onRestorePurchase,
+        ),
+    ];
+    if (rows.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.12)),
+      ),
+      child: Column(
+        children: [
+          for (var index = 0; index < rows.length; index++) ...[
+            rows[index],
+            if (index != rows.length - 1)
+              Divider(
+                height: 1,
+                indent: 16,
+                endIndent: 16,
+                color: colorScheme.outline.withValues(alpha: 0.10),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountSettingsRow extends StatelessWidget {
+  const _AccountSettingsRow({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: colorScheme.onSurface.withValues(alpha: 0.56),
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Text(
+                label,
+                style: GoogleFonts.outfit(
+                  color: colorScheme.onSurface.withValues(
+                    alpha: onTap == null ? 0.45 : 0.86,
+                  ),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0,
+                ),
+              ),
+            ),
+            Icon(
+              LucideIcons.chevronRight,
+              size: 18,
+              color: colorScheme.onSurface.withValues(alpha: 0.38),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AccountLimitGrid extends StatelessWidget {
+  const _AccountLimitGrid({required this.limits});
+
+  final List<AccountProfileLimit> limits;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        for (var index = 0; index < limits.length; index++) ...[
+          Expanded(child: _AccountLimitTile(limit: limits[index])),
+          if (index != limits.length - 1) const SizedBox(width: 8),
+        ],
+      ],
+    );
+  }
+}
+
+class _AccountLimitTile extends StatelessWidget {
+  const _AccountLimitTile({required this.limit});
+
+  final AccountProfileLimit limit;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.10)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        child: Column(
+          children: [
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                limit.value,
+                maxLines: 1,
+                style: GoogleFonts.dmSerifDisplay(
+                  color: colorScheme.onSurface,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w400,
+                  letterSpacing: 0,
+                  height: 1,
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              limit.label,
+              maxLines: 2,
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.outfit(
+                color: colorScheme.onSurface.withValues(alpha: 0.56),
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 0,
+                height: 1.15,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AccountSurface extends StatelessWidget {
+  const _AccountSurface({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.12)),
+      ),
+      child: Padding(padding: const EdgeInsets.all(18), child: child),
+    );
+  }
+}
+
+class _AccountIcon extends StatelessWidget {
+  const _AccountIcon({required this.icon, this.color});
+
+  final IconData icon;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final accent = color ?? colorScheme.primary;
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: accent.withValues(alpha: 0.20)),
+      ),
+      alignment: Alignment.center,
+      child: Icon(icon, size: 22, color: accent),
+    );
+  }
+}
+
+class _AccountPill extends StatelessWidget {
+  const _AccountPill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.10)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        child: Text(
+          label,
+          style: GoogleFonts.outfit(
+            color: colorScheme.onSurface.withValues(alpha: 0.66),
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Color _backupToneColor(ColorScheme colorScheme, AccountProfileBackupTone tone) {
+  switch (tone) {
+    case AccountProfileBackupTone.active:
+      return colorScheme.primary;
+    case AccountProfileBackupTone.paused:
+      return colorScheme.secondary;
+    case AccountProfileBackupTone.attention:
+      return colorScheme.error;
+    case AccountProfileBackupTone.neutral:
+      return colorScheme.onSurface.withValues(alpha: 0.60);
   }
 }
 
@@ -873,11 +952,6 @@ class _LapsedPremiumAccountScreen extends StatelessWidget {
     required this.onManagePlan,
   });
 
-  static const _bg = Color(0xFF171411);
-  static const _text = Color(0xFFF3EDE4);
-  static const _gold = Color(0xFFD4A853);
-  static const _red = Color(0xFFE06050);
-
   final _LapsedPremiumState state;
   final VoidCallback onBack;
   final VoidCallback onRenew;
@@ -885,122 +959,59 @@ class _LapsedPremiumAccountScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: _bg,
-      body: Stack(
-        children: [
-          Positioned(
-            top: -60,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Container(
-                width: 360,
-                height: 320,
-                decoration: const BoxDecoration(
-                  gradient: RadialGradient(
-                    colors: [Color(0x1AD4A853), Color(0x00171411)],
-                    stops: [0, 0.70],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          SafeArea(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: ListView(
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 48),
-                  children: [
-                    _LapsedBackRow(onBack: onBack),
-                    const SizedBox(height: 32),
-                    const _LapsedHero(),
-                    const SizedBox(height: 24),
-                    _RiskCard.history(
-                      totalHistoryDays: state.totalHistoryDays,
-                      graceDays: state.historyGraceDays,
-                    ),
-                    if (state.showRoutineRiskCard) ...[
-                      const SizedBox(height: 10),
-                      _RiskCard.routines(graceDays: state.routineGraceDays),
-                    ],
-                    const SizedBox(height: 24),
-                    Container(height: 1, color: _text.withValues(alpha: 0.07)),
-                    const SizedBox(height: 20),
-                    _LapsedCtaSection(
-                      monthlyPrice: state.monthlyPrice,
-                      yearlyPrice: state.yearlyPrice,
-                      canRenew: state.canRenew,
-                      onRenew: onRenew,
-                      onManagePlan: onManagePlan,
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      'Works without an account - Cancel anytime',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.outfit(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w300,
-                        letterSpacing: 0.3,
-                        color: _text.withValues(alpha: 0.18),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
+      backgroundColor: colorScheme.surface,
+      appBar: PebbleSubscreenAppBar(
+        title: 'Your account',
+        subtitle: 'Premium ended',
+        onBack: onBack,
       ),
-    );
-  }
-}
-
-class _LapsedBackRow extends StatelessWidget {
-  const _LapsedBackRow({required this.onBack});
-
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 36,
-          height: 36,
-          child: IconButton(
-            onPressed: onBack,
-            padding: EdgeInsets.zero,
-            style: IconButton.styleFrom(
-              backgroundColor: _LapsedPremiumAccountScreen._text.withValues(
-                alpha: 0.08,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: ListView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 48),
+            children: [
+              const _LapsedHero(),
+              const SizedBox(height: 24),
+              _RiskCard.history(
+                totalHistoryDays: state.totalHistoryDays,
+                graceDays: state.historyGraceDays,
               ),
-              side: BorderSide(
-                color: _LapsedPremiumAccountScreen._text.withValues(
-                  alpha: 0.12,
+              if (state.showRoutineRiskCard) ...[
+                const SizedBox(height: 10),
+                _RiskCard.routines(graceDays: state.routineGraceDays),
+              ],
+              const SizedBox(height: 24),
+              Divider(
+                height: 1,
+                color: colorScheme.outline.withValues(alpha: 0.12),
+              ),
+              const SizedBox(height: 20),
+              _LapsedCtaSection(
+                monthlyPrice: state.monthlyPrice,
+                yearlyPrice: state.yearlyPrice,
+                canRenew: state.canRenew,
+                onRenew: onRenew,
+                onManagePlan: onManagePlan,
+              ),
+              const SizedBox(height: 18),
+              Text(
+                'Works without an account - Cancel anytime',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w300,
+                  letterSpacing: 0.3,
+                  color: colorScheme.onSurface.withValues(alpha: 0.38),
                 ),
               ),
-            ),
-            icon: const Icon(
-              LucideIcons.chevronLeft,
-              size: 16,
-              color: _LapsedPremiumAccountScreen._text,
-            ),
+            ],
           ),
         ),
-        const SizedBox(width: 12),
-        Text(
-          'YOUR ACCOUNT',
-          style: GoogleFonts.outfit(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            letterSpacing: 1.44,
-            color: _LapsedPremiumAccountScreen._text.withValues(alpha: 0.35),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -1010,43 +1021,10 @@ class _LapsedHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.fromLTRB(8, 5, 12, 5),
-          decoration: BoxDecoration(
-            color: _LapsedPremiumAccountScreen._gold.withValues(alpha: 0.10),
-            borderRadius: BorderRadius.circular(100),
-            border: Border.all(
-              color: _LapsedPremiumAccountScreen._gold.withValues(alpha: 0.22),
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 6,
-                height: 6,
-                decoration: const BoxDecoration(
-                  color: _LapsedPremiumAccountScreen._gold,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'PREMIUM ENDED',
-                style: GoogleFonts.outfit(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 0.88,
-                  color: _LapsedPremiumAccountScreen._gold,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 18),
         Text.rich(
           TextSpan(
             children: [
@@ -1054,45 +1032,27 @@ class _LapsedHero extends StatelessWidget {
               TextSpan(
                 text: 'at risk.',
                 style: TextStyle(
-                  color: _LapsedPremiumAccountScreen._text.withValues(
-                    alpha: 0.50,
-                  ),
+                  color: colorScheme.onSurface.withValues(alpha: 0.55),
                   fontStyle: FontStyle.italic,
                 ),
               ),
             ],
           ),
           style: GoogleFonts.dmSerifDisplay(
-            fontSize: 40,
+            fontSize: 38,
             height: 1.06,
             fontWeight: FontWeight.w400,
-            color: _LapsedPremiumAccountScreen._text,
+            color: colorScheme.onSurface,
           ),
         ),
-        const SizedBox(height: 14),
-        Text.rich(
-          TextSpan(
-            children: [
-              const TextSpan(
-                text:
-                    'Your premium period has ended. Here\'s what happens next - ',
-              ),
-              TextSpan(
-                text: 'no surprises.',
-                style: TextStyle(
-                  color: _LapsedPremiumAccountScreen._text.withValues(
-                    alpha: 0.82,
-                  ),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
+        const SizedBox(height: 12),
+        Text(
+          'Your Premium period has ended. Here\'s what happens next - no surprises.',
           style: GoogleFonts.outfit(
             fontSize: 14,
             fontWeight: FontWeight.w300,
-            height: 1.65,
-            color: _LapsedPremiumAccountScreen._text.withValues(alpha: 0.50),
+            height: 1.6,
+            color: colorScheme.onSurface.withValues(alpha: 0.62),
           ),
         ),
       ],
@@ -1100,90 +1060,70 @@ class _LapsedHero extends StatelessWidget {
   }
 }
 
+enum _RiskCardKind { history, routines }
+
 class _RiskCard extends StatelessWidget {
-  const _RiskCard._({
-    required this.icon,
-    required this.title,
-    required this.body,
-    required this.countdown,
-    required this.accent,
-    required this.progress,
-  });
+  const _RiskCard.history({
+    required this.totalHistoryDays,
+    required this.graceDays,
+  }) : kind = _RiskCardKind.history;
 
-  factory _RiskCard.history({
-    required int totalHistoryDays,
-    required int graceDays,
-  }) {
-    return _RiskCard._(
-      icon: LucideIcons.clock3,
-      title: 'Your history is fading',
-      body: TextSpan(
-        children: [
-          TextSpan(
-            text:
-                '$totalHistoryDays days of completed routines are still here. ',
-          ),
-          TextSpan(
-            text: graceDays <= 0 ? 'Locked now' : 'Locked in $graceDays days',
-            style: const TextStyle(
-              color: Color(0xB8F3EDE4),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const TextSpan(text: ' unless you renew.'),
-        ],
-      ),
-      countdown: graceDays <= 0 ? 'LOCKED' : '$graceDays DAYS REMAINING',
-      accent: _LapsedPremiumAccountScreen._gold,
-      progress: graceDays / 7,
-    );
-  }
+  const _RiskCard.routines({required this.graceDays})
+    : kind = _RiskCardKind.routines,
+      totalHistoryDays = 0;
 
-  factory _RiskCard.routines({required int graceDays}) {
-    return _RiskCard._(
-      icon: LucideIcons.listChecks,
-      title: 'Extra routines & steps are at risk',
-      body: TextSpan(
-        children: [
-          const TextSpan(text: 'Free accounts keep '),
-          const TextSpan(
-            text: '2 routines',
-            style: TextStyle(
-              color: Color(0xB8F3EDE4),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const TextSpan(text: ' with up to '),
-          const TextSpan(
-            text: '10 steps each',
-            style: TextStyle(
-              color: Color(0xB8F3EDE4),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          TextSpan(
-            text: graceDays <= 0
-                ? '. Extra routines and steps are soft-locked until you renew.'
-                : '. Extra routines and steps above this limit will be deactivated in $graceDays days.',
-          ),
-        ],
-      ),
-      countdown: graceDays <= 0 ? 'LOCKED' : '$graceDays DAYS REMAINING',
-      accent: _LapsedPremiumAccountScreen._red,
-      progress: graceDays / 7,
-    );
-  }
-
-  final IconData icon;
-  final String title;
-  final TextSpan body;
-  final String countdown;
-  final Color accent;
-  final double progress;
+  final _RiskCardKind kind;
+  final int totalHistoryDays;
+  final int graceDays;
 
   @override
   Widget build(BuildContext context) {
-    final clampedProgress = progress.clamp(0.0, 1.0);
+    final colorScheme = Theme.of(context).colorScheme;
+    final accent = kind == _RiskCardKind.history
+        ? colorScheme.tertiary
+        : colorScheme.error;
+    final emphasis = TextStyle(
+      color: colorScheme.onSurface.withValues(alpha: 0.82),
+      fontWeight: FontWeight.w500,
+    );
+    final icon = kind == _RiskCardKind.history
+        ? LucideIcons.clock3
+        : LucideIcons.listChecks;
+    final title = kind == _RiskCardKind.history
+        ? 'Your history is fading'
+        : 'Extra routines & steps are at risk';
+    final body = kind == _RiskCardKind.history
+        ? TextSpan(
+            children: [
+              TextSpan(
+                text:
+                    '$totalHistoryDays days of completed routines are still here. ',
+              ),
+              TextSpan(
+                text: graceDays <= 0
+                    ? 'Locked now'
+                    : 'Locked in $graceDays days',
+                style: emphasis,
+              ),
+              const TextSpan(text: ' unless you renew.'),
+            ],
+          )
+        : TextSpan(
+            children: [
+              const TextSpan(text: 'Free accounts keep '),
+              TextSpan(text: '2 routines', style: emphasis),
+              const TextSpan(text: ' with up to '),
+              TextSpan(text: '10 steps each', style: emphasis),
+              TextSpan(
+                text: graceDays <= 0
+                    ? '. Extra routines and steps are soft-locked until you renew.'
+                    : '. Extra routines and steps above this limit will be deactivated in $graceDays days.',
+              ),
+            ],
+          );
+    final countdown = graceDays <= 0 ? 'LOCKED' : '$graceDays DAYS REMAINING';
+    final clampedProgress = (graceDays / 7).clamp(0.0, 1.0);
+
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: BoxDecoration(
@@ -1212,7 +1152,7 @@ class _RiskCard extends StatelessWidget {
                   title,
                   style: GoogleFonts.outfit(
                     fontSize: 13,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                     color: accent,
                   ),
                 ),
@@ -1223,9 +1163,7 @@ class _RiskCard extends StatelessWidget {
                     fontSize: 12,
                     fontWeight: FontWeight.w300,
                     height: 1.5,
-                    color: _LapsedPremiumAccountScreen._text.withValues(
-                      alpha: 0.42,
-                    ),
+                    color: colorScheme.onSurface.withValues(alpha: 0.62),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -1234,8 +1172,9 @@ class _RiskCard extends StatelessWidget {
                   child: LinearProgressIndicator(
                     minHeight: 2,
                     value: clampedProgress,
-                    backgroundColor: _LapsedPremiumAccountScreen._text
-                        .withValues(alpha: 0.08),
+                    backgroundColor: colorScheme.onSurface.withValues(
+                      alpha: 0.08,
+                    ),
                     valueColor: AlwaysStoppedAnimation<Color>(accent),
                   ),
                 ),
@@ -1244,9 +1183,9 @@ class _RiskCard extends StatelessWidget {
                   countdown,
                   style: GoogleFonts.outfit(
                     fontSize: 10,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                     letterSpacing: 0.6,
-                    color: accent.withValues(alpha: 0.55),
+                    color: accent.withValues(alpha: 0.75),
                   ),
                 ),
               ],
@@ -1275,6 +1214,7 @@ class _LapsedCtaSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1286,7 +1226,7 @@ class _LapsedCtaSection extends StatelessWidget {
               monthlyPrice,
               style: GoogleFonts.dmSerifDisplay(
                 fontSize: 30,
-                color: _LapsedPremiumAccountScreen._text,
+                color: colorScheme.onSurface,
               ),
             ),
             const SizedBox(width: 6),
@@ -1295,86 +1235,35 @@ class _LapsedCtaSection extends StatelessWidget {
               style: GoogleFonts.outfit(
                 fontSize: 13,
                 fontWeight: FontWeight.w300,
-                color: _LapsedPremiumAccountScreen._text.withValues(
-                  alpha: 0.38,
-                ),
+                color: colorScheme.onSurface.withValues(alpha: 0.52),
               ),
             ),
             const Spacer(),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-              decoration: BoxDecoration(
-                color: _LapsedPremiumAccountScreen._gold.withValues(
-                  alpha: 0.08,
-                ),
-                borderRadius: BorderRadius.circular(100),
-                border: Border.all(
-                  color: _LapsedPremiumAccountScreen._gold.withValues(
-                    alpha: 0.15,
-                  ),
-                ),
-              ),
-              child: Text(
-                'or $yearlyPrice/year',
-                style: GoogleFonts.outfit(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w400,
-                  color: _LapsedPremiumAccountScreen._gold.withValues(
-                    alpha: 0.65,
-                  ),
-                ),
-              ),
-            ),
+            _AccountPill(label: 'or $yearlyPrice/year'),
           ],
         ),
         const SizedBox(height: 14),
-        SizedBox(
-          height: 56,
-          child: FilledButton.icon(
-            onPressed: canRenew ? onRenew : null,
-            style: FilledButton.styleFrom(
-              backgroundColor: _LapsedPremiumAccountScreen._gold,
-              foregroundColor: _LapsedPremiumAccountScreen._bg,
-              disabledBackgroundColor: _LapsedPremiumAccountScreen._gold
-                  .withValues(alpha: 0.34),
-              disabledForegroundColor: _LapsedPremiumAccountScreen._bg
-                  .withValues(alpha: 0.72),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(100),
-              ),
-              textStyle: GoogleFonts.outfit(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
+        FilledButton.icon(
+          onPressed: canRenew ? onRenew : null,
+          style: FilledButton.styleFrom(
+            minimumSize: const Size.fromHeight(52),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
             ),
-            icon: const Icon(LucideIcons.refreshCw, size: 16),
-            label: Text(canRenew ? 'Renew Premium' : 'Premium unavailable'),
           ),
+          icon: const Icon(LucideIcons.refreshCw, size: 16),
+          label: Text(canRenew ? 'Renew Premium' : 'Premium unavailable'),
         ),
-        const SizedBox(height: 11),
-        SizedBox(
-          height: 50,
-          child: OutlinedButton(
-            onPressed: onManagePlan,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: _LapsedPremiumAccountScreen._text.withValues(
-                alpha: 0.38,
-              ),
-              side: BorderSide(
-                color: _LapsedPremiumAccountScreen._text.withValues(
-                  alpha: 0.11,
-                ),
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(100),
-              ),
-              textStyle: GoogleFonts.outfit(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-              ),
+        const SizedBox(height: 10),
+        OutlinedButton(
+          onPressed: onManagePlan,
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(48),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
             ),
-            child: const Text('Manage plan'),
           ),
+          child: const Text('Manage plan'),
         ),
       ],
     );
@@ -1413,7 +1302,6 @@ class _AccountActionSheet extends StatelessWidget {
     this.secondaryEnabled = true,
     this.tertiaryLabel,
     this.onTertiaryPressed,
-    this.footer,
   });
 
   final IconData icon;
@@ -1431,7 +1319,6 @@ class _AccountActionSheet extends StatelessWidget {
   final bool secondaryEnabled;
   final String? tertiaryLabel;
   final VoidCallback? onTertiaryPressed;
-  final String? footer;
 
   @override
   Widget build(BuildContext context) {
@@ -1439,7 +1326,6 @@ class _AccountActionSheet extends StatelessWidget {
     final mediaQuery = MediaQuery.of(context);
     final foreground = colorScheme.onSurface;
     final secondaryText = foreground.withValues(alpha: 0.68);
-    final mutedText = foreground.withValues(alpha: 0.48);
 
     return Padding(
       padding: EdgeInsets.only(bottom: mediaQuery.viewInsets.bottom),
@@ -1552,20 +1438,6 @@ class _AccountActionSheet extends StatelessWidget {
                         child: Text(tertiaryLabel!),
                       ),
                     ],
-                    if (footer != null) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        footer!,
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.outfit(
-                          color: mutedText,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w300,
-                          letterSpacing: 0,
-                          height: 1.35,
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ),
@@ -1667,118 +1539,6 @@ class _AccountSheetButton extends StatelessWidget {
           label,
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-        ),
-      ),
-    );
-  }
-}
-
-class _AccountSheetPill extends StatelessWidget {
-  const _AccountSheetPill({required this.value, required this.label});
-
-  final String value;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.11)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 11),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                value,
-                maxLines: 1,
-                style: GoogleFonts.dmSerifDisplay(
-                  color: colorScheme.onSurface,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w400,
-                  letterSpacing: 0,
-                  height: 1,
-                ),
-              ),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              label.toUpperCase(),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.outfit(
-                color: colorScheme.onSurface.withValues(alpha: 0.58),
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.4,
-                height: 1,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AccountSheetPillRow extends StatelessWidget {
-  const _AccountSheetPillRow({required this.pills});
-
-  final List<_AccountSheetPill> pills;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        for (var index = 0; index < pills.length; index++) ...[
-          Expanded(child: pills[index]),
-          if (index != pills.length - 1) const SizedBox(width: 8),
-        ],
-      ],
-    );
-  }
-}
-
-class _AccountConsentCheck extends StatelessWidget {
-  const _AccountConsentCheck({
-    required this.accepted,
-    required this.enabled,
-    required this.onChanged,
-  });
-
-  final bool accepted;
-  final bool enabled;
-  final ValueChanged<bool?> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.12)),
-      ),
-      child: CheckboxListTile.adaptive(
-        contentPadding: const EdgeInsets.fromLTRB(10, 6, 14, 6),
-        controlAffinity: ListTileControlAffinity.leading,
-        value: accepted,
-        onChanged: enabled ? onChanged : null,
-        title: Text(
-          cloudBackupConsentText,
-          style: GoogleFonts.outfit(
-            color: colorScheme.onSurface.withValues(alpha: 0.74),
-            fontSize: 13,
-            fontWeight: FontWeight.w400,
-            letterSpacing: 0,
-            height: 1.42,
-          ),
         ),
       ),
     );

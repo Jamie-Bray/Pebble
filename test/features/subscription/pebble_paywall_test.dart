@@ -34,23 +34,32 @@ void main() {
       find.text('Unlimited routines and steps'),
     );
     expect(find.text('Unlimited routines and steps'), findsOneWidget);
-    expect(find.text('2 routines, 10 steps'), findsOneWidget);
-    expect(find.text('Unlimited'), findsOneWidget);
+    expect(
+      find.textContaining('2 routines, 10 steps', findRichText: true),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Unlimited', findRichText: true), findsWidgets);
 
     await _scrollUntilVisible(tester, find.text('Longer history and backup'));
     expect(find.text('Longer history and backup'), findsOneWidget);
-    expect(find.text('48 hours'), findsOneWidget);
-    expect(find.text('21 days + backup'), findsOneWidget);
+    expect(find.textContaining('48 hours', findRichText: true), findsOneWidget);
+    expect(
+      find.textContaining('21 days + backup', findRichText: true),
+      findsOneWidget,
+    );
 
     await _scrollUntilVisible(tester, find.text('More photos per step'));
     expect(find.text('More photos per step'), findsOneWidget);
-    expect(find.text('1 photo'), findsOneWidget);
-    expect(find.text('Up to 4'), findsOneWidget);
+    expect(find.textContaining('1 photo', findRichText: true), findsOneWidget);
+    expect(find.textContaining('Up to 4', findRichText: true), findsOneWidget);
 
     await _scrollUntilVisible(tester, find.text('Voice tips'));
     expect(find.text('Voice tips'), findsOneWidget);
-    expect(find.text('Not available'), findsOneWidget);
-    expect(find.text('Included'), findsOneWidget);
+    expect(
+      find.textContaining('Not available', findRichText: true),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Included', findRichText: true), findsOneWidget);
 
     expect(find.text('Private by default'), findsOneWidget);
 

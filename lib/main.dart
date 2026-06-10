@@ -18,12 +18,12 @@ import 'features/templates/ui/templates_gallery_screen.dart';
 import 'package:pebble_routines/features/routines/composer/ui/routine_composer_screen.dart';
 import 'package:pebble_routines/features/routines/list/ui/routine_reminders_screen.dart';
 import 'package:pebble_routines/features/account_backup/ui/account_hub_screen.dart';
+import 'package:pebble_routines/features/account_backup/ui/cloud_backup_screen.dart';
 import 'package:pebble_routines/features/settings/ui/settings_screen.dart';
 import 'package:pebble_routines/features/onboarding/ui/onboarding_screen.dart';
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 import 'features/settings/data/player_settings_provider.dart';
 import 'core/notifications/notification_service.dart';
-// removed unused haptics service import
 import 'core/database/local_db.dart';
 import 'data/repositories/routine_repository.dart';
 import 'data/repositories/routine_run_repository.dart';
@@ -246,6 +246,11 @@ final _routerProvider = Provider<GoRouter>((ref) {
         path: '/account-hub',
         name: 'account-hub',
         builder: (context, state) => const AccountHubScreen(),
+      ),
+      GoRoute(
+        path: '/cloud-backup',
+        name: 'cloud-backup',
+        builder: (context, state) => const CloudBackupScreen(),
       ),
       GoRoute(
         path: '/sign-in',

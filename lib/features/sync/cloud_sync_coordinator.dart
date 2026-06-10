@@ -276,6 +276,7 @@ class CloudSyncCoordinator {
     var syncedCount = 0;
     var failedCount = 0;
     var sawOfflineError = false;
+    String? lastFailureMessage;
     final prioritizedItems = [...pendingItems]..sort(_compareSyncPriority);
 
     _isRunning = true;
@@ -304,10 +305,11 @@ class CloudSyncCoordinator {
           );
           failedCount += 1;
           sawOfflineError = sawOfflineError || _looksOffline(error);
+          lastFailureMessage = _failureMessageForError(error);
           await _outbox.markRetry(item.id, error, item.attemptCount + 1);
           await _ref
               .read(subscriptionAccountControllerProvider.notifier)
-              .noteSyncFailure(_failureMessageForError(error));
+              .noteSyncFailure(lastFailureMessage);
         }
       }
     } finally {
@@ -342,9 +344,11 @@ class CloudSyncCoordinator {
       );
     }
 
-    return const ManualSyncResult(
+    return ManualSyncResult(
       type: ManualSyncResultType.failed,
-      message: 'Pebble couldn\'t finish syncing everything. Try again.',
+      message:
+          lastFailureMessage ??
+          'Pebble couldn\'t finish syncing everything. Try again.',
     );
   }
 
@@ -881,6 +885,18 @@ class CloudSyncCoordinator {
   String _failureMessageForError(Object error) {
     if (_looksOffline(error)) {
       return 'You\'re offline. Changes will sync later.';
+    }
+    final normalized = error.toString().toLowerCase();
+    if (normalized.contains('row-level security') ||
+        normalized.contains('violates row-level security') ||
+        normalized.contains('permission denied')) {
+      return 'Supabase rejected the backup write. Check cloud consent and the server entitlement for this account.';
+    }
+    if (normalized.contains('proof media storage quota exceeded')) {
+      return 'Proof photo storage is full. Routine backup can continue once photo backup clears space.';
+    }
+    if (normalized.contains('proof media rolling upload quota exceeded')) {
+      return 'Proof photo backup hit the monthly upload limit. Routine backup will keep trying.';
     }
     return 'Pebble couldn\'t finish syncing everything. Try again.';
   }

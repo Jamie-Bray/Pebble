@@ -3,9 +3,11 @@ import 'dart:io';
 
 import 'package:drift/drift.dart' as drift;
 import 'package:drift/native.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:pebble_routines/core/database/local_db.dart';
@@ -14,8 +16,12 @@ import 'package:pebble_routines/data/remote/remote_routine_reminder_data_source.
 import 'package:pebble_routines/data/remote/remote_routine_run_data_source.dart';
 import 'package:pebble_routines/data/remote/remote_routine_session_data_source.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
+import 'package:pebble_routines/features/account_backup/providers/account_profile_presentation_provider.dart';
 import 'package:pebble_routines/features/account_backup/providers/account_status_mapper.dart';
 import 'package:pebble_routines/features/account_backup/providers/account_backup_ui_provider.dart';
+import 'package:pebble_routines/features/account_backup/providers/backup_dashboard_presentation_provider.dart';
+import 'package:pebble_routines/features/account_backup/ui/account_hub_screen.dart';
+import 'package:pebble_routines/features/account_backup/ui/cloud_backup_screen.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
@@ -94,6 +100,15 @@ class _OfflineRoutineDataSource extends RemoteRoutineDataSource {
   @override
   Future<void> upsert(Map<String, dynamic> payload) {
     throw const SocketException('offline');
+  }
+}
+
+class _RejectedRoutineDataSource extends RemoteRoutineDataSource {
+  _RejectedRoutineDataSource() : super(null);
+
+  @override
+  Future<void> upsert(Map<String, dynamic> payload) {
+    throw StateError('new row violates row-level security policy');
   }
 }
 
@@ -280,7 +295,68 @@ List<String> _chipValues(AccountStatusPresentation presentation) {
   return presentation.limitChips.map((chip) => chip.value).toList();
 }
 
+Future<void> _pumpAccountWidget(
+  WidgetTester tester,
+  _UiHarness harness,
+  Widget child,
+) async {
+  tester.view.physicalSize = const Size(430, 1200);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+  await tester.pumpWidget(
+    UncontrolledProviderScope(
+      container: harness.container,
+      child: MaterialApp(theme: ThemeData(useMaterial3: true), home: child),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+Future<GoRouter> _pumpAccountRouter(
+  WidgetTester tester,
+  _UiHarness harness, {
+  required String initialLocation,
+}) async {
+  tester.view.physicalSize = const Size(430, 1200);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+  final router = GoRouter(
+    initialLocation: initialLocation,
+    routes: [
+      GoRoute(
+        path: '/account-hub',
+        builder: (context, state) => const AccountHubScreen(),
+      ),
+      GoRoute(
+        path: '/cloud-backup',
+        builder: (context, state) => const CloudBackupScreen(),
+      ),
+      GoRoute(
+        path: '/sign-in',
+        builder: (context, state) => const Scaffold(body: Text('Sign in')),
+      ),
+    ],
+  );
+  await tester.pumpWidget(
+    UncontrolledProviderScope(
+      container: harness.container,
+      child: MaterialApp.router(
+        theme: ThemeData(useMaterial3: true),
+        routerConfig: router,
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  return router;
+}
+
 void main() {
+  setUpAll(() {
+    GoogleFonts.config.allowRuntimeFetching = false;
+  });
+
   group('Account & Backup derived state', () {
     test('free signed out stays quiet and local-only', () async {
       final harness = _buildUiContainer(
@@ -311,12 +387,10 @@ void main() {
       });
       await _primeUiState(harness.container);
 
-      final ring = harness.container.read(accountBackupRingStateProvider);
-      final banner = harness.container.read(homeBackupBannerStateProvider);
+      final chip = harness.container.read(accountBackupChipStateProvider);
       final ui = harness.container.read(accountBackupUiStateProvider);
 
-      expect(ring.showRing, isFalse);
-      expect(banner.show, isFalse);
+      expect(chip.show, isFalse);
       expect(
         ui.backupSummary,
         'Pebble works without an account. Your routines are stored on this device.',
@@ -499,13 +573,12 @@ void main() {
       });
       await _primeUiState(harness.container);
 
-      final ring = harness.container.read(accountBackupRingStateProvider);
-      final banner = harness.container.read(homeBackupBannerStateProvider);
+      final chip = harness.container.read(accountBackupChipStateProvider);
       final ui = harness.container.read(accountBackupUiStateProvider);
 
-      expect(ring.variant, AccountBackupRingVariant.available);
-      expect(ring.showRing, isFalse);
-      expect(banner.show, isFalse);
+      expect(chip.show, isTrue);
+      expect(chip.label, 'Backup on');
+      expect(chip.tone, AccountBackupChipTone.positive);
       expect(ui.backupSummary, 'Backup is active for supported routine data.');
       expect(ui.backupDetail, 'All caught up');
       expect(ui.backupPrimaryActionLabel, 'Refresh status');
@@ -563,6 +636,374 @@ void main() {
       expect(presentation.secondaryAction, AccountStatusAction.managePlan);
     });
 
+    test('account profile provider maps signed-in Premium account', () async {
+      final harness = _buildUiContainer(
+        auth: const AuthSessionSummary(
+          isSignedIn: true,
+          userId: 'user-1',
+          email: 'jamie@example.com',
+          provider: 'google',
+        ),
+        entitlement: const EntitlementState(
+          personalTier: UserTier.personalPremium,
+          source: EntitlementSource.serverVerified,
+          lastCheckedAt: null,
+          isRefreshing: false,
+          lastError: null,
+          status: EntitlementStatus.personalPremium,
+        ),
+        cloudAccess: const PersonalCloudAccessState(
+          status: PersonalCloudAccessStatus.available,
+          label: 'Backup is up to date',
+          detail: 'Ready.',
+        ),
+        account: SubscriptionAccountState(
+          entitlementTier: UserTier.personalPremium,
+          entitlementStatus: EntitlementStatus.personalPremium,
+          entitlementSource: EntitlementSource.serverVerified,
+          pendingTier: null,
+          bootstrapStatus: BootstrapStatus.ready,
+          userId: 'user-1',
+          email: 'jamie@example.com',
+          authProvider: 'google',
+          lastBootstrapAt: null,
+          lastSyncAt: DateTime.now().subtract(const Duration(minutes: 10)),
+          lastSyncError: null,
+        ),
+        pendingCount: 0,
+      );
+      addTearDown(() async {
+        harness.container.dispose();
+        await harness.database.close();
+      });
+      await _primeUiState(harness.container);
+
+      final profile = harness.container.read(
+        accountProfilePresentationProvider,
+      );
+
+      expect(profile.identityLabel, 'jamie@example.com');
+      expect(profile.providerLabel, 'Google');
+      expect(profile.planName, 'Personal Premium');
+      expect(profile.canManagePlan, isTrue);
+      expect(profile.backupRow.label, 'Cloud Backup & Sync');
+      expect(profile.backupRow.needsAttention, isFalse);
+      expect(profile.backupRow.trailing, 'On');
+    });
+
+    test(
+      'account profile backup row only shows attention when action is needed',
+      () async {
+        final healthy = _buildUiContainer(
+          auth: const AuthSessionSummary(
+            isSignedIn: true,
+            userId: 'user-1',
+            email: 'jamie@example.com',
+            provider: 'google',
+          ),
+          entitlement: const EntitlementState(
+            personalTier: UserTier.personalPremium,
+            source: EntitlementSource.serverVerified,
+            lastCheckedAt: null,
+            isRefreshing: false,
+            lastError: null,
+            status: EntitlementStatus.personalPremium,
+          ),
+          cloudAccess: const PersonalCloudAccessState(
+            status: PersonalCloudAccessStatus.available,
+            label: 'Backup is up to date',
+            detail: 'Ready.',
+          ),
+          account: const SubscriptionAccountState(
+            entitlementTier: UserTier.personalPremium,
+            entitlementStatus: EntitlementStatus.personalPremium,
+            entitlementSource: EntitlementSource.serverVerified,
+            pendingTier: null,
+            bootstrapStatus: BootstrapStatus.ready,
+            userId: 'user-1',
+            email: 'jamie@example.com',
+            authProvider: 'google',
+            lastBootstrapAt: null,
+            lastSyncAt: null,
+            lastSyncError: null,
+          ),
+          pendingCount: 0,
+        );
+        await _primeUiState(healthy.container);
+        final healthyNeedsAttention = healthy.container
+            .read(accountProfilePresentationProvider)
+            .backupRow
+            .needsAttention;
+        healthy.container.dispose();
+        await healthy.database.close();
+
+        final blocked = _buildUiContainer(
+          auth: const AuthSessionSummary(
+            isSignedIn: true,
+            userId: 'user-2',
+            email: 'jamie@example.com',
+            provider: 'google',
+          ),
+          entitlement: const EntitlementState(
+            personalTier: UserTier.personalPremium,
+            source: EntitlementSource.serverVerified,
+            lastCheckedAt: null,
+            isRefreshing: false,
+            lastError: null,
+            status: EntitlementStatus.personalPremium,
+          ),
+          cloudAccess: const PersonalCloudAccessState(
+            status: PersonalCloudAccessStatus.accountSwitchBlocked,
+            label: 'Backup blocked',
+            detail: 'Review needed.',
+          ),
+          account: const SubscriptionAccountState(
+            entitlementTier: UserTier.personalPremium,
+            entitlementStatus: EntitlementStatus.personalPremium,
+            entitlementSource: EntitlementSource.serverVerified,
+            pendingTier: null,
+            bootstrapStatus: BootstrapStatus.error,
+            userId: 'user-2',
+            email: 'jamie@example.com',
+            authProvider: 'google',
+            lastBootstrapAt: null,
+            lastSyncAt: null,
+            lastSyncError: 'Some Pebble data belongs to another account.',
+          ),
+          pendingCount: 0,
+        );
+        addTearDown(() async {
+          blocked.container.dispose();
+          await blocked.database.close();
+        });
+        await _primeUiState(blocked.container);
+
+        expect(healthyNeedsAttention, isFalse);
+        final blockedRow = blocked.container
+            .read(accountProfilePresentationProvider)
+            .backupRow;
+        expect(blockedRow.needsAttention, isTrue);
+        expect(blockedRow.trailing, 'Review');
+      },
+    );
+
+    test(
+      'backup dashboard maps consent-required state to enable action',
+      () async {
+        final harness = _buildUiContainer(
+          auth: const AuthSessionSummary(
+            isSignedIn: true,
+            userId: 'user-1',
+            email: 'jamie@example.com',
+            provider: 'google',
+          ),
+          entitlement: const EntitlementState(
+            personalTier: UserTier.personalPremium,
+            source: EntitlementSource.serverVerified,
+            lastCheckedAt: null,
+            isRefreshing: false,
+            lastError: null,
+            status: EntitlementStatus.personalPremium,
+          ),
+          cloudAccess: const PersonalCloudAccessState(
+            status: PersonalCloudAccessStatus.consentRequired,
+            label: 'Review cloud backup',
+            detail: 'Consent needed.',
+          ),
+          account: const SubscriptionAccountState(
+            entitlementTier: UserTier.personalPremium,
+            entitlementStatus: EntitlementStatus.personalPremium,
+            entitlementSource: EntitlementSource.serverVerified,
+            pendingTier: null,
+            bootstrapStatus: BootstrapStatus.idle,
+            userId: 'user-1',
+            email: 'jamie@example.com',
+            authProvider: 'google',
+            lastBootstrapAt: null,
+            lastSyncAt: null,
+            lastSyncError: null,
+          ),
+          pendingCount: 0,
+        );
+        addTearDown(() async {
+          harness.container.dispose();
+          await harness.database.close();
+        });
+        await _primeUiState(harness.container);
+
+        final dashboard = harness.container.read(
+          backupDashboardPresentationProvider,
+        );
+
+        expect(dashboard.statusLabel, 'Ready to turn on');
+        expect(dashboard.primaryAction, BackupDashboardAction.turnOnBackup);
+        expect(dashboard.primaryActionLabel, 'Turn on backup');
+        expect(dashboard.backupSwitchValue, isFalse);
+        expect(dashboard.needsAttention, isTrue);
+      },
+    );
+
+    test('backup dashboard maps active backup to manual sync action', () async {
+      final harness = _buildUiContainer(
+        auth: const AuthSessionSummary(
+          isSignedIn: true,
+          userId: 'user-1',
+          email: 'jamie@example.com',
+          provider: 'google',
+        ),
+        entitlement: const EntitlementState(
+          personalTier: UserTier.personalPremium,
+          source: EntitlementSource.serverVerified,
+          lastCheckedAt: null,
+          isRefreshing: false,
+          lastError: null,
+          status: EntitlementStatus.personalPremium,
+        ),
+        cloudAccess: const PersonalCloudAccessState(
+          status: PersonalCloudAccessStatus.available,
+          label: 'Backup is up to date',
+          detail: 'Ready.',
+        ),
+        account: const SubscriptionAccountState(
+          entitlementTier: UserTier.personalPremium,
+          entitlementStatus: EntitlementStatus.personalPremium,
+          entitlementSource: EntitlementSource.serverVerified,
+          pendingTier: null,
+          bootstrapStatus: BootstrapStatus.ready,
+          userId: 'user-1',
+          email: 'jamie@example.com',
+          authProvider: 'google',
+          lastBootstrapAt: null,
+          lastSyncAt: null,
+          lastSyncError: null,
+        ),
+        pendingCount: 0,
+      );
+      addTearDown(() async {
+        harness.container.dispose();
+        await harness.database.close();
+      });
+      await _primeUiState(harness.container);
+
+      final dashboard = harness.container.read(
+        backupDashboardPresentationProvider,
+      );
+
+      expect(dashboard.statusLabel, 'Backup is on');
+      expect(dashboard.primaryAction, BackupDashboardAction.backUpNow);
+      expect(dashboard.primaryActionLabel, 'Back up now');
+      expect(dashboard.showManualSync, isTrue);
+      expect(dashboard.manualSyncEnabled, isTrue);
+      expect(dashboard.backupSwitchValue, isTrue);
+      expect(dashboard.needsAttention, isFalse);
+    });
+
+    test('backup dashboard maps verification failure to retry path', () async {
+      final harness = _buildUiContainer(
+        auth: const AuthSessionSummary(
+          isSignedIn: true,
+          userId: 'user-1',
+          email: 'jamie@example.com',
+          provider: 'google',
+        ),
+        entitlement: const EntitlementState(
+          personalTier: UserTier.personalPremium,
+          source: EntitlementSource.revenueCat,
+          lastCheckedAt: null,
+          isRefreshing: false,
+          lastError: null,
+          status: EntitlementStatus.personalPremium,
+        ),
+        cloudAccess: const PersonalCloudAccessState(
+          status: PersonalCloudAccessStatus.verificationFailed,
+          label: 'Backup setup failed',
+          detail: 'Could not verify.',
+        ),
+        account: const SubscriptionAccountState(
+          entitlementTier: UserTier.personalPremium,
+          entitlementStatus: EntitlementStatus.personalPremium,
+          entitlementSource: EntitlementSource.revenueCat,
+          pendingTier: null,
+          bootstrapStatus: BootstrapStatus.idle,
+          userId: 'user-1',
+          email: 'jamie@example.com',
+          authProvider: 'google',
+          lastBootstrapAt: null,
+          lastSyncAt: null,
+          lastSyncError: null,
+          entitlementError: 'Couldn\'t finish backup setup',
+        ),
+        pendingCount: 0,
+      );
+      addTearDown(() async {
+        harness.container.dispose();
+        await harness.database.close();
+      });
+      await _primeUiState(harness.container);
+
+      final dashboard = harness.container.read(
+        backupDashboardPresentationProvider,
+      );
+
+      expect(dashboard.statusLabel, 'Couldn\'t finish backup setup');
+      expect(dashboard.primaryAction, BackupDashboardAction.tryAgain);
+      expect(dashboard.primaryActionLabel, 'Try again');
+      expect(dashboard.needsAttention, isTrue);
+    });
+
+    test('backup dashboard maps ownership block to explicit choices', () async {
+      final harness = _buildUiContainer(
+        auth: const AuthSessionSummary(
+          isSignedIn: true,
+          userId: 'user-2',
+          email: 'jamie@example.com',
+          provider: 'google',
+        ),
+        entitlement: const EntitlementState(
+          personalTier: UserTier.personalPremium,
+          source: EntitlementSource.serverVerified,
+          lastCheckedAt: null,
+          isRefreshing: false,
+          lastError: null,
+          status: EntitlementStatus.personalPremium,
+        ),
+        cloudAccess: const PersonalCloudAccessState(
+          status: PersonalCloudAccessStatus.accountSwitchBlocked,
+          label: 'Backup blocked',
+          detail: 'Review needed.',
+        ),
+        account: const SubscriptionAccountState(
+          entitlementTier: UserTier.personalPremium,
+          entitlementStatus: EntitlementStatus.personalPremium,
+          entitlementSource: EntitlementSource.serverVerified,
+          pendingTier: null,
+          bootstrapStatus: BootstrapStatus.error,
+          userId: 'user-2',
+          email: 'jamie@example.com',
+          authProvider: 'google',
+          lastBootstrapAt: null,
+          lastSyncAt: null,
+          lastSyncError: 'Some Pebble data belongs to another account.',
+        ),
+        pendingCount: 0,
+      );
+      addTearDown(() async {
+        harness.container.dispose();
+        await harness.database.close();
+      });
+      await _primeUiState(harness.container);
+
+      final dashboard = harness.container.read(
+        backupDashboardPresentationProvider,
+      );
+
+      expect(dashboard.showOwnershipMismatch, isTrue);
+      expect(dashboard.primaryAction, BackupDashboardAction.useCurrentAccount);
+      expect(dashboard.primaryActionLabel, 'Use this account');
+      expect(dashboard.secondaryAction, BackupDashboardAction.keepBackupOff);
+      expect(dashboard.secondaryActionLabel, 'Keep backup off');
+    });
+
     test('paid signed in requires consent before cloud upload', () async {
       final harness = _buildUiContainer(
         auth: const AuthSessionSummary(
@@ -603,15 +1044,12 @@ void main() {
       });
       await _primeUiState(harness.container);
 
-      final ring = harness.container.read(accountBackupRingStateProvider);
-      final banner = harness.container.read(homeBackupBannerStateProvider);
+      final chip = harness.container.read(accountBackupChipStateProvider);
       final ui = harness.container.read(accountBackupUiStateProvider);
 
-      expect(ring.variant, AccountBackupRingVariant.consentRequired);
-      expect(
-        banner.message,
-        'Review cloud backup before Pebble uploads routine data.',
-      );
+      expect(chip.show, isTrue);
+      expect(chip.label, 'Set up backup');
+      expect(chip.tone, AccountBackupChipTone.attention);
       expect(ui.backupSummary, 'Review cloud backup before upload starts.');
       expect(ui.backupPrimaryActionLabel, 'Review and enable');
     });
@@ -656,12 +1094,12 @@ void main() {
       });
       await _primeUiState(harness.container);
 
-      final ring = harness.container.read(accountBackupRingStateProvider);
-      final banner = harness.container.read(homeBackupBannerStateProvider);
+      final chip = harness.container.read(accountBackupChipStateProvider);
       final ui = harness.container.read(accountBackupUiStateProvider);
 
-      expect(ring.variant, AccountBackupRingVariant.paused);
-      expect(banner.message, 'Backup is paused. Sign in to resume.');
+      expect(chip.show, isTrue);
+      expect(chip.label, 'Backup paused');
+      expect(chip.tone, AccountBackupChipTone.neutral);
       expect(ui.backupSummary, 'Backup is paused. Sign in to resume.');
       expect(ui.backupDetail, 'Sign in to resume backup.');
     });
@@ -708,75 +1146,134 @@ void main() {
         });
         await _primeUiState(harness.container);
 
-        final ring = harness.container.read(accountBackupRingStateProvider);
-        final banner = harness.container.read(homeBackupBannerStateProvider);
+        final chip = harness.container.read(accountBackupChipStateProvider);
         final ui = harness.container.read(accountBackupUiStateProvider);
 
-        expect(ring.variant, AccountBackupRingVariant.offlinePending);
-        expect(banner.message, 'You\'re offline. Changes will sync later.');
+        expect(chip.show, isTrue);
+        expect(chip.label, '3 waiting');
+        expect(chip.tone, AccountBackupChipTone.neutral);
         expect(ui.backupSummary, 'Waiting for connection');
         expect(ui.backupPrimaryActionLabel, 'Refresh status');
       },
     );
 
-    test(
-      'active syncing shows syncing ring and banner instead of retry CTA',
-      () async {
-        final harness = _buildUiContainer(
-          auth: const AuthSessionSummary(
-            isSignedIn: true,
-            userId: 'user-1',
-            email: 'jamie@example.com',
-            provider: 'google',
-          ),
-          entitlement: const EntitlementState(
-            personalTier: UserTier.personalPremium,
-            source: EntitlementSource.googlePlay,
-            lastCheckedAt: null,
-            isRefreshing: false,
-            lastError: null,
-          ),
-          cloudAccess: const PersonalCloudAccessState(
-            status: PersonalCloudAccessStatus.available,
-            label: 'Backup is up to date',
-            detail: 'Ready.',
-          ),
-          account: const SubscriptionAccountState(
-            entitlementTier: UserTier.personalPremium,
-            entitlementSource: EntitlementSource.googlePlay,
-            pendingTier: null,
-            bootstrapStatus: BootstrapStatus.ready,
-            userId: 'user-1',
-            email: 'jamie@example.com',
-            authProvider: 'google',
-            lastBootstrapAt: null,
-            lastSyncAt: null,
-            lastSyncError: null,
-          ),
+    test('active syncing shows syncing chip instead of retry CTA', () async {
+      final harness = _buildUiContainer(
+        auth: const AuthSessionSummary(
+          isSignedIn: true,
+          userId: 'user-1',
+          email: 'jamie@example.com',
+          provider: 'google',
+        ),
+        entitlement: const EntitlementState(
+          personalTier: UserTier.personalPremium,
+          source: EntitlementSource.googlePlay,
+          lastCheckedAt: null,
+          isRefreshing: false,
+          lastError: null,
+        ),
+        cloudAccess: const PersonalCloudAccessState(
+          status: PersonalCloudAccessStatus.available,
+          label: 'Backup is up to date',
+          detail: 'Ready.',
+        ),
+        account: const SubscriptionAccountState(
+          entitlementTier: UserTier.personalPremium,
+          entitlementSource: EntitlementSource.googlePlay,
+          pendingTier: null,
+          bootstrapStatus: BootstrapStatus.ready,
+          userId: 'user-1',
+          email: 'jamie@example.com',
+          authProvider: 'google',
+          lastBootstrapAt: null,
+          lastSyncAt: null,
+          lastSyncError: null,
+        ),
+        pendingCount: 4,
+        runtime: const CloudSyncRuntimeState(
+          isRunning: true,
           pendingCount: 4,
-          runtime: const CloudSyncRuntimeState(
-            isRunning: true,
-            pendingCount: 4,
-            nextRetryAt: null,
-          ),
-        );
-        addTearDown(() async {
-          harness.container.dispose();
-          await harness.database.close();
-        });
-        await _primeUiState(harness.container);
+          nextRetryAt: null,
+        ),
+      );
+      addTearDown(() async {
+        harness.container.dispose();
+        await harness.database.close();
+      });
+      await _primeUiState(harness.container);
 
-        final ring = harness.container.read(accountBackupRingStateProvider);
-        final banner = harness.container.read(homeBackupBannerStateProvider);
-        final ui = harness.container.read(accountBackupUiStateProvider);
+      final chip = harness.container.read(accountBackupChipStateProvider);
+      final ui = harness.container.read(accountBackupUiStateProvider);
 
-        expect(ring.variant, AccountBackupRingVariant.syncing);
-        expect(banner.message, 'Syncing your latest changes...');
-        expect(banner.action, HomeBackupBannerAction.none);
-        expect(ui.backupSummary, 'Syncing latest changes');
-        expect(ui.backupDetail, '4 changes still need to sync');
-      },
-    );
+      expect(chip.show, isTrue);
+      expect(chip.label, 'Backing up...');
+      expect(chip.tone, AccountBackupChipTone.positive);
+      expect(ui.backupSummary, 'Syncing latest changes');
+      expect(ui.backupDetail, '4 changes still need to sync');
+    });
+
+    test('idle backup checks do not claim a backup job is running', () async {
+      final harness = _buildUiContainer(
+        auth: const AuthSessionSummary(
+          isSignedIn: true,
+          userId: 'user-1',
+          email: 'jamie@example.com',
+          provider: 'google',
+        ),
+        entitlement: const EntitlementState(
+          personalTier: UserTier.personalPremium,
+          source: EntitlementSource.googlePlay,
+          lastCheckedAt: null,
+          isRefreshing: false,
+          lastError: null,
+        ),
+        cloudAccess: const PersonalCloudAccessState(
+          status: PersonalCloudAccessStatus.syncing,
+          label: 'Checking backup',
+          detail:
+              'Premium is active. Pebble is checking backup for this account.',
+        ),
+        account: const SubscriptionAccountState(
+          entitlementTier: UserTier.personalPremium,
+          entitlementSource: EntitlementSource.googlePlay,
+          pendingTier: null,
+          bootstrapStatus: BootstrapStatus.idle,
+          userId: 'user-1',
+          email: 'jamie@example.com',
+          authProvider: 'google',
+          lastBootstrapAt: null,
+          lastSyncAt: null,
+          lastSyncError: null,
+        ),
+        pendingCount: 0,
+        runtime: const CloudSyncRuntimeState(
+          isRunning: false,
+          pendingCount: 0,
+          nextRetryAt: null,
+        ),
+      );
+      addTearDown(() async {
+        harness.container.dispose();
+        await harness.database.close();
+      });
+      await _primeUiState(harness.container);
+
+      final dashboard = harness.container.read(
+        backupDashboardPresentationProvider,
+      );
+      final chip = harness.container.read(accountBackupChipStateProvider);
+      final profile = harness.container.read(
+        accountProfilePresentationProvider,
+      );
+
+      expect(dashboard.statusLabel, 'Checking backup');
+      expect(dashboard.statusLabel, isNot('Backing up now'));
+      expect(dashboard.tone, BackupDashboardTone.neutral);
+      expect(chip.label, 'Checking backup');
+      expect(chip.tone, AccountBackupChipTone.neutral);
+      expect(profile.backupRow.detail, contains('checking backup'));
+      expect(profile.backupRow.trailing, 'Checking');
+    });
 
     test(
       'retry-scheduled error offers sync now without implying cancellation',
@@ -825,11 +1322,12 @@ void main() {
         });
         await _primeUiState(harness.container);
 
-        final banner = harness.container.read(homeBackupBannerStateProvider);
+        final chip = harness.container.read(accountBackupChipStateProvider);
         final ui = harness.container.read(accountBackupUiStateProvider);
 
-        expect(banner.message, 'Pebble will try syncing again soon.');
-        expect(banner.actionLabel, 'Sync now');
+        expect(chip.show, isTrue);
+        expect(chip.label, 'Needs attention');
+        expect(chip.tone, AccountBackupChipTone.attention);
         expect(
           ui.backupSummary,
           'Backup is active, but Pebble couldn\'t finish syncing everything.',
@@ -892,18 +1390,408 @@ void main() {
         });
         await _primeUiState(harness.container);
 
-        final ring = harness.container.read(accountBackupRingStateProvider);
-        final banner = harness.container.read(homeBackupBannerStateProvider);
+        final chip = harness.container.read(accountBackupChipStateProvider);
         final ui = harness.container.read(accountBackupUiStateProvider);
 
-        expect(ring.variant, AccountBackupRingVariant.storageWarning);
-        expect(banner.message, 'Photo storage full. Routine sync still works.');
+        expect(chip.show, isTrue);
+        expect(chip.label, 'Photo storage full');
+        expect(chip.tone, AccountBackupChipTone.attention);
         expect(
           ui.backupDetail,
           'Photo storage full. Routine sync still works.',
         );
       },
     );
+  });
+
+  group('Account and cloud backup screens', () {
+    testWidgets('/account-hub shows identity, plan, billing, and backup row', (
+      tester,
+    ) async {
+      final harness = _buildUiContainer(
+        auth: const AuthSessionSummary(
+          isSignedIn: true,
+          userId: 'user-1',
+          email: 'jamie@example.com',
+          provider: 'google',
+        ),
+        entitlement: const EntitlementState(
+          personalTier: UserTier.personalPremium,
+          source: EntitlementSource.serverVerified,
+          lastCheckedAt: null,
+          isRefreshing: false,
+          lastError: null,
+          status: EntitlementStatus.personalPremium,
+        ),
+        cloudAccess: const PersonalCloudAccessState(
+          status: PersonalCloudAccessStatus.available,
+          label: 'Backup is up to date',
+          detail: 'Ready.',
+        ),
+        account: const SubscriptionAccountState(
+          entitlementTier: UserTier.personalPremium,
+          entitlementStatus: EntitlementStatus.personalPremium,
+          entitlementSource: EntitlementSource.serverVerified,
+          pendingTier: null,
+          bootstrapStatus: BootstrapStatus.ready,
+          userId: 'user-1',
+          email: 'jamie@example.com',
+          authProvider: 'google',
+          lastBootstrapAt: null,
+          lastSyncAt: null,
+          lastSyncError: null,
+        ),
+        pendingCount: 0,
+      );
+      addTearDown(() async {
+        harness.container.dispose();
+        await harness.database.close();
+      });
+      await _primeUiState(harness.container);
+
+      await _pumpAccountWidget(tester, harness, const AccountHubScreen());
+
+      expect(find.text('jamie@example.com'), findsOneWidget);
+      expect(find.textContaining('Personal Premium'), findsOneWidget);
+      expect(find.text('Cloud Backup & Sync'), findsOneWidget);
+      expect(find.text('Restore purchase'), findsOneWidget);
+      expect(find.text('Manage plan'), findsOneWidget);
+      expect(find.text('Use this account'), findsNothing);
+      expect(find.text(cloudBackupConsentText), findsNothing);
+    });
+
+    testWidgets(
+      '/account-hub keeps ownership choices out of the account page',
+      (tester) async {
+        final harness = _buildUiContainer(
+          auth: const AuthSessionSummary(
+            isSignedIn: true,
+            userId: 'user-2',
+            email: 'jamie@example.com',
+            provider: 'google',
+          ),
+          entitlement: const EntitlementState(
+            personalTier: UserTier.personalPremium,
+            source: EntitlementSource.serverVerified,
+            lastCheckedAt: null,
+            isRefreshing: false,
+            lastError: null,
+            status: EntitlementStatus.personalPremium,
+          ),
+          cloudAccess: const PersonalCloudAccessState(
+            status: PersonalCloudAccessStatus.accountSwitchBlocked,
+            label: 'Backup blocked',
+            detail: 'Review needed.',
+          ),
+          account: const SubscriptionAccountState(
+            entitlementTier: UserTier.personalPremium,
+            entitlementStatus: EntitlementStatus.personalPremium,
+            entitlementSource: EntitlementSource.serverVerified,
+            pendingTier: null,
+            bootstrapStatus: BootstrapStatus.error,
+            userId: 'user-2',
+            email: 'jamie@example.com',
+            authProvider: 'google',
+            lastBootstrapAt: null,
+            lastSyncAt: null,
+            lastSyncError: 'Some Pebble data belongs to another account.',
+          ),
+          pendingCount: 0,
+        );
+        addTearDown(() async {
+          harness.container.dispose();
+          await harness.database.close();
+        });
+        await _primeUiState(harness.container);
+
+        await _pumpAccountWidget(tester, harness, const AccountHubScreen());
+
+        expect(find.text('Cloud Backup & Sync'), findsOneWidget);
+        expect(find.text('Review'), findsOneWidget);
+        expect(find.text('Use this account'), findsNothing);
+        expect(find.text('Keep backup off'), findsNothing);
+        expect(find.text(cloudBackupConsentText), findsNothing);
+      },
+    );
+
+    testWidgets(
+      '/cloud-backup opens consent sheet from consent-required state',
+      (tester) async {
+        final harness = _buildUiContainer(
+          auth: const AuthSessionSummary(
+            isSignedIn: true,
+            userId: 'user-1',
+            email: 'jamie@example.com',
+            provider: 'google',
+          ),
+          entitlement: const EntitlementState(
+            personalTier: UserTier.personalPremium,
+            source: EntitlementSource.serverVerified,
+            lastCheckedAt: null,
+            isRefreshing: false,
+            lastError: null,
+            status: EntitlementStatus.personalPremium,
+          ),
+          cloudAccess: const PersonalCloudAccessState(
+            status: PersonalCloudAccessStatus.consentRequired,
+            label: 'Review cloud backup',
+            detail: 'Consent needed.',
+          ),
+          account: const SubscriptionAccountState(
+            entitlementTier: UserTier.personalPremium,
+            entitlementStatus: EntitlementStatus.personalPremium,
+            entitlementSource: EntitlementSource.serverVerified,
+            pendingTier: null,
+            bootstrapStatus: BootstrapStatus.idle,
+            userId: 'user-1',
+            email: 'jamie@example.com',
+            authProvider: 'google',
+            lastBootstrapAt: null,
+            lastSyncAt: null,
+            lastSyncError: null,
+          ),
+          pendingCount: 0,
+        );
+        addTearDown(() async {
+          harness.container.dispose();
+          await harness.database.close();
+        });
+        await _primeUiState(harness.container);
+
+        await _pumpAccountWidget(tester, harness, const CloudBackupScreen());
+
+        expect(find.text('Ready to turn on'), findsOneWidget);
+        expect(find.text('Turn on backup'), findsOneWidget);
+
+        await tester.tap(find.text('Turn on backup').first);
+        await tester.pumpAndSettle();
+
+        expect(find.text(cloudBackupConsentText), findsOneWidget);
+      },
+    );
+
+    testWidgets('/cloud-backup shows active backup and manual sync action', (
+      tester,
+    ) async {
+      final harness = _buildUiContainer(
+        auth: const AuthSessionSummary(
+          isSignedIn: true,
+          userId: 'user-1',
+          email: 'jamie@example.com',
+          provider: 'google',
+        ),
+        entitlement: const EntitlementState(
+          personalTier: UserTier.personalPremium,
+          source: EntitlementSource.serverVerified,
+          lastCheckedAt: null,
+          isRefreshing: false,
+          lastError: null,
+          status: EntitlementStatus.personalPremium,
+        ),
+        cloudAccess: const PersonalCloudAccessState(
+          status: PersonalCloudAccessStatus.available,
+          label: 'Backup is up to date',
+          detail: 'Ready.',
+        ),
+        account: const SubscriptionAccountState(
+          entitlementTier: UserTier.personalPremium,
+          entitlementStatus: EntitlementStatus.personalPremium,
+          entitlementSource: EntitlementSource.serverVerified,
+          pendingTier: null,
+          bootstrapStatus: BootstrapStatus.ready,
+          userId: 'user-1',
+          email: 'jamie@example.com',
+          authProvider: 'google',
+          lastBootstrapAt: null,
+          lastSyncAt: null,
+          lastSyncError: null,
+        ),
+        pendingCount: 0,
+      );
+      addTearDown(() async {
+        harness.container.dispose();
+        await harness.database.close();
+      });
+      await _primeUiState(harness.container);
+
+      await _pumpAccountWidget(tester, harness, const CloudBackupScreen());
+
+      expect(find.text('Backup is on'), findsOneWidget);
+      expect(find.text('Back up now'), findsOneWidget);
+      expect(find.byType(Switch), findsOneWidget);
+      expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
+      expect(find.text("What's backed up"), findsOneWidget);
+    });
+
+    testWidgets('/cloud-backup shows ownership mismatch choices only there', (
+      tester,
+    ) async {
+      final harness = _buildUiContainer(
+        auth: const AuthSessionSummary(
+          isSignedIn: true,
+          userId: 'user-2',
+          email: 'jamie@example.com',
+          provider: 'google',
+        ),
+        entitlement: const EntitlementState(
+          personalTier: UserTier.personalPremium,
+          source: EntitlementSource.serverVerified,
+          lastCheckedAt: null,
+          isRefreshing: false,
+          lastError: null,
+          status: EntitlementStatus.personalPremium,
+        ),
+        cloudAccess: const PersonalCloudAccessState(
+          status: PersonalCloudAccessStatus.accountSwitchBlocked,
+          label: 'Backup blocked',
+          detail: 'Review needed.',
+        ),
+        account: const SubscriptionAccountState(
+          entitlementTier: UserTier.personalPremium,
+          entitlementStatus: EntitlementStatus.personalPremium,
+          entitlementSource: EntitlementSource.serverVerified,
+          pendingTier: null,
+          bootstrapStatus: BootstrapStatus.error,
+          userId: 'user-2',
+          email: 'jamie@example.com',
+          authProvider: 'google',
+          lastBootstrapAt: null,
+          lastSyncAt: null,
+          lastSyncError: 'Some Pebble data belongs to another account.',
+        ),
+        pendingCount: 0,
+      );
+      addTearDown(() async {
+        harness.container.dispose();
+        await harness.database.close();
+      });
+      await _primeUiState(harness.container);
+
+      await _pumpAccountWidget(tester, harness, const CloudBackupScreen());
+
+      expect(find.text('Choose how this device backs up'), findsOneWidget);
+      expect(find.text('Use this account'), findsWidgets);
+      expect(find.text('Keep backup off'), findsWidgets);
+    });
+
+    testWidgets('cloud backup back button falls back to /account-hub', (
+      tester,
+    ) async {
+      final harness = _buildUiContainer(
+        auth: const AuthSessionSummary(
+          isSignedIn: true,
+          userId: 'user-1',
+          email: 'jamie@example.com',
+          provider: 'google',
+        ),
+        entitlement: const EntitlementState(
+          personalTier: UserTier.personalPremium,
+          source: EntitlementSource.serverVerified,
+          lastCheckedAt: null,
+          isRefreshing: false,
+          lastError: null,
+          status: EntitlementStatus.personalPremium,
+        ),
+        cloudAccess: const PersonalCloudAccessState(
+          status: PersonalCloudAccessStatus.consentRequired,
+          label: 'Review cloud backup',
+          detail: 'Consent needed.',
+        ),
+        account: const SubscriptionAccountState(
+          entitlementTier: UserTier.personalPremium,
+          entitlementStatus: EntitlementStatus.personalPremium,
+          entitlementSource: EntitlementSource.serverVerified,
+          pendingTier: null,
+          bootstrapStatus: BootstrapStatus.idle,
+          userId: 'user-1',
+          email: 'jamie@example.com',
+          authProvider: 'google',
+          lastBootstrapAt: null,
+          lastSyncAt: null,
+          lastSyncError: null,
+        ),
+        pendingCount: 0,
+      );
+      addTearDown(() async {
+        harness.container.dispose();
+        await harness.database.close();
+      });
+      await _primeUiState(harness.container);
+      final router = await _pumpAccountRouter(
+        tester,
+        harness,
+        initialLocation: '/cloud-backup',
+      );
+      addTearDown(router.dispose);
+
+      await tester.tap(find.bySemanticsLabel('Back'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Your account'), findsOneWidget);
+      expect(find.text('Cloud Backup & Sync'), findsOneWidget);
+    });
+
+    testWidgets('cloud backup back button pops after normal navigation', (
+      tester,
+    ) async {
+      final harness = _buildUiContainer(
+        auth: const AuthSessionSummary(
+          isSignedIn: true,
+          userId: 'user-1',
+          email: 'jamie@example.com',
+          provider: 'google',
+        ),
+        entitlement: const EntitlementState(
+          personalTier: UserTier.personalPremium,
+          source: EntitlementSource.serverVerified,
+          lastCheckedAt: null,
+          isRefreshing: false,
+          lastError: null,
+          status: EntitlementStatus.personalPremium,
+        ),
+        cloudAccess: const PersonalCloudAccessState(
+          status: PersonalCloudAccessStatus.available,
+          label: 'Backup is up to date',
+          detail: 'Ready.',
+        ),
+        account: const SubscriptionAccountState(
+          entitlementTier: UserTier.personalPremium,
+          entitlementStatus: EntitlementStatus.personalPremium,
+          entitlementSource: EntitlementSource.serverVerified,
+          pendingTier: null,
+          bootstrapStatus: BootstrapStatus.ready,
+          userId: 'user-1',
+          email: 'jamie@example.com',
+          authProvider: 'google',
+          lastBootstrapAt: null,
+          lastSyncAt: null,
+          lastSyncError: null,
+        ),
+        pendingCount: 0,
+      );
+      addTearDown(() async {
+        harness.container.dispose();
+        await harness.database.close();
+      });
+      await _primeUiState(harness.container);
+      final router = await _pumpAccountRouter(
+        tester,
+        harness,
+        initialLocation: '/account-hub',
+      );
+      addTearDown(router.dispose);
+
+      await tester.tap(find.text('Cloud Backup & Sync'));
+      await tester.pumpAndSettle();
+      expect(find.text('Cloud Backup & Sync'), findsWidgets);
+      expect(find.text('Backup is on'), findsOneWidget);
+
+      await tester.tap(find.bySemanticsLabel('Back'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Your account'), findsOneWidget);
+      expect(find.textContaining('Personal Premium'), findsOneWidget);
+    });
   });
 
   group('Manual sync results', () {
@@ -1304,6 +2192,96 @@ void main() {
         expect(result.message, 'You\'re offline. Changes will sync later.');
       },
     );
+
+    test('manual sync reports Supabase policy rejection details', () async {
+      final outbox = SyncOutboxRepositoryImpl(database);
+      await database.routineDao.insertOrUpdateRoutine(
+        _buildRoutine(ownerUserId: 'user-1'),
+      );
+      await outbox.enqueue(
+        entityType: SyncEntityType.routine,
+        entityId: '1',
+        operation: SyncOperation.upsert,
+      );
+
+      final container = ProviderContainer(
+        overrides: [
+          localDbProvider.overrideWithValue(database),
+          syncOutboxRepositoryProvider.overrideWithValue(outbox),
+          routineSessionProofStorageProvider.overrideWithValue(proofStorage),
+          authSessionProvider.overrideWithValue(
+            const AuthSessionSummary(
+              isSignedIn: true,
+              userId: 'user-1',
+              email: 'jamie@example.com',
+              provider: 'google',
+            ),
+          ),
+          entitlementStateProvider.overrideWithValue(
+            const EntitlementState(
+              personalTier: UserTier.personalPremium,
+              source: EntitlementSource.googlePlay,
+              lastCheckedAt: null,
+              isRefreshing: false,
+              lastError: null,
+            ),
+          ),
+          cloudAccessPolicyProvider.overrideWithValue(
+            const CloudAccessPolicy(
+              cachedOwnerUserId: 'user-1',
+              personalCloudEnabled: true,
+              canQueuePersonalSync: true,
+              workspaceCloudEnabled: false,
+              isSignedIn: true,
+              isAccountSwitchBlocked: false,
+            ),
+          ),
+          subscriptionAccountControllerProvider.overrideWith(
+            (ref) => _TestSubscriptionAccountController(
+              database,
+              const SubscriptionAccountState(
+                entitlementTier: UserTier.personalPremium,
+                entitlementSource: EntitlementSource.googlePlay,
+                pendingTier: null,
+                bootstrapStatus: BootstrapStatus.ready,
+                userId: 'user-1',
+                email: 'jamie@example.com',
+                authProvider: 'google',
+                lastBootstrapAt: null,
+                lastSyncAt: null,
+                lastSyncError: null,
+              ),
+            ),
+          ),
+          remoteRoutineDataSourceProvider.overrideWithValue(
+            _RejectedRoutineDataSource(),
+          ),
+          remoteRoutineReminderDataSourceProvider.overrideWithValue(
+            RemoteRoutineReminderDataSource(null),
+          ),
+          remoteRoutineRunDataSourceProvider.overrideWithValue(
+            RemoteRoutineRunDataSource(null),
+          ),
+          remoteRoutineSessionDataSourceProvider.overrideWithValue(
+            RemoteRoutineSessionDataSource(null),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final result = await container
+          .read(cloudSyncCoordinatorProvider)
+          .runManualSync();
+      final account = container.read(subscriptionAccountControllerProvider);
+
+      expect(result.type, ManualSyncResultType.failed);
+      expect(
+        result.message,
+        'Supabase rejected the backup write. Check cloud consent and the server entitlement for this account.',
+      );
+      expect(account.bootstrapStatus, BootstrapStatus.error);
+      expect(account.lastSyncError, result.message);
+    });
 
     test(
       'manual sync sanitizes legacy routine ids and signed color values before syncing reminders',
