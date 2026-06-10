@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Legacy (Android 11 and below) counterpart to data_extraction_rules.xml.
+  Pebble is local-first; nothing is included in Android Auto Backup. The
+  only off-device copy is the explicit, consented Supabase backup.
+-->
+<full-backup-content>
+    <exclude domain="root" />
+    <exclude domain="file" />
+    <exclude domain="database" />
+    <exclude domain="sharedpref" />
+    <exclude domain="external" />
+</full-backup-content>

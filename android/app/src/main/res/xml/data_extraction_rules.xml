@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Pebble is local-first. The only data that may leave the device is the
+  explicit, consented Supabase backup (premium + sign-in + consent gate).
+  Android Auto Backup / device transfer must NOT silently copy routines,
+  run history, proof photos, or preferences off-device, or it would both
+  break privacy invariant #1 (no silent upload) and resurrect data on
+  reinstall. Exclude everything from both cloud backup and device transfer.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+    </device-transfer>
+</data-extraction-rules>
