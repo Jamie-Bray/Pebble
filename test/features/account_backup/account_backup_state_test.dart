@@ -33,7 +33,11 @@ import 'package:pebble_routines/features/subscription/providers/cloud_backup_con
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
 import 'package:pebble_routines/features/subscription/providers/cloud_access_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
+import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
+import 'package:pebble_routines/features/sync/cloud_restore_coordinator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pebble_routines/features/sync/cloud_sync_coordinator.dart';
+import 'package:pebble_routines/features/sync/local_data_ownership_guard.dart';
 import 'package:pebble_routines/features/sync/sync_outbox_repository.dart';
 
 class _TestSubscriptionAccountController extends SubscriptionAccountController {
@@ -50,6 +54,13 @@ class _UiHarness {
 
   final ProviderContainer container;
   final LocalDb database;
+}
+
+class _ThrowingRestoreCoordinator implements CloudRestoreCoordinator {
+  @override
+  Future<void> bootstrapAndMerge(String ownerUserId) async {
+    throw Exception('remote merge failed');
+  }
 }
 
 class _FakeProofStorage implements RoutineSessionProofStorage {
@@ -229,6 +240,7 @@ _UiHarness _buildUiContainer({
     uploadsThisPeriod: 0,
     monthlyUploadLimit: ProofMediaFairUsePolicy.monthlyUploadLimit,
   ),
+  List<Override> extraOverrides = const [],
 }) {
   final database = LocalDb.forTesting(NativeDatabase.memory());
   return _UiHarness(
@@ -260,6 +272,7 @@ _UiHarness _buildUiContainer({
         purchaseRepositoryProvider.overrideWith(
           (ref) => purchaseRepository ?? _AccountTestPurchaseRepository(),
         ),
+        ...extraOverrides,
       ],
     ),
   );
@@ -1673,6 +1686,91 @@ void main() {
       expect(find.text('Use this account'), findsWidgets);
       expect(find.text('Keep backup off'), findsWidgets);
     });
+
+    testWidgets(
+      'failed bootstrap merge surfaces error state instead of stuck preparing',
+      (tester) async {
+        SharedPreferences.setMockInitialValues(const {});
+        final prefs = await SharedPreferences.getInstance();
+        final harness = _buildUiContainer(
+          auth: const AuthSessionSummary(
+            isSignedIn: true,
+            userId: 'user-2',
+            email: 'jamie@example.com',
+            provider: 'google',
+          ),
+          entitlement: const EntitlementState(
+            personalTier: UserTier.personalPremium,
+            source: EntitlementSource.serverVerified,
+            lastCheckedAt: null,
+            isRefreshing: false,
+            lastError: null,
+            status: EntitlementStatus.personalPremium,
+          ),
+          cloudAccess: const PersonalCloudAccessState(
+            status: PersonalCloudAccessStatus.accountSwitchBlocked,
+            label: 'Backup blocked',
+            detail: 'Review needed.',
+          ),
+          account: const SubscriptionAccountState(
+            entitlementTier: UserTier.personalPremium,
+            entitlementStatus: EntitlementStatus.personalPremium,
+            entitlementSource: EntitlementSource.serverVerified,
+            pendingTier: null,
+            bootstrapStatus: BootstrapStatus.error,
+            userId: 'user-2',
+            email: 'jamie@example.com',
+            authProvider: 'google',
+            lastBootstrapAt: null,
+            lastSyncAt: null,
+            lastSyncError: 'Some Pebble data belongs to another account.',
+          ),
+          pendingCount: 0,
+          extraOverrides: [
+            cloudRestoreCoordinatorProvider.overrideWithValue(
+              _ThrowingRestoreCoordinator(),
+            ),
+            sharedPreferencesProvider.overrideWithValue(prefs),
+          ],
+        );
+        addTearDown(() async {
+          harness.container.dispose();
+          await harness.database.close();
+        });
+        await harness.database.routineDao.insertOrUpdateRoutine(
+          _buildRoutine(ownerUserId: 'user-1'),
+        );
+        await _primeUiState(harness.container);
+
+        await _pumpAccountWidget(tester, harness, const CloudBackupScreen());
+
+        final mismatchButton = find.widgetWithText(
+          FilledButton,
+          'Use this account',
+        );
+        await tester.ensureVisible(mismatchButton.first);
+        await tester.pumpAndSettle();
+        await tester.tap(mismatchButton.first);
+        await tester.pumpAndSettle();
+
+        // Confirm in the ownership sheet.
+        expect(
+          find.text('Use this account for this device?'),
+          findsOneWidget,
+        );
+        await tester.tap(
+          find.widgetWithText(FilledButton, 'Use this account').last,
+        );
+        await tester.pumpAndSettle();
+
+        final account = harness.container.read(
+          subscriptionAccountControllerProvider,
+        );
+        expect(account.bootstrapStatus, BootstrapStatus.error);
+        expect(account.lastSyncError, isNotNull);
+        expect(find.text('Could not continue'), findsOneWidget);
+      },
+    );
 
     testWidgets('cloud backup back button falls back to /account-hub', (
       tester,

@@ -84,7 +84,16 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
 
     if (report.state == LocalDataOwnershipState.empty ||
         report.state == LocalDataOwnershipState.sameOwnerOnly) {
-      await _prepareBackupAfterOwnershipChoice(userId);
+      try {
+        await _prepareBackupAfterOwnershipChoice(userId);
+      } catch (error) {
+        _showBackupNotice(
+          _toUserFacingError(error),
+          title: 'Backup setup failed',
+          type: NotificationType.error,
+        );
+        return;
+      }
       _showBackupNotice(
         'This device is already linked to your account.',
         title: 'Already linked',
@@ -255,7 +264,21 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
     await ref
         .read(subscriptionAccountControllerProvider.notifier)
         .updateBootstrapStatus(BootstrapStatus.preparing, clearError: true);
-    await ref.read(cloudRestoreCoordinatorProvider).bootstrapAndMerge(userId);
+    try {
+      await ref
+          .read(cloudRestoreCoordinatorProvider)
+          .bootstrapAndMerge(userId);
+    } catch (error) {
+      // A failed merge must not leave the account stuck on "preparing":
+      // surface a retryable error state, then let the caller report it.
+      await ref
+          .read(subscriptionAccountControllerProvider.notifier)
+          .updateBootstrapStatus(
+            BootstrapStatus.error,
+            error: _toUserFacingError(error),
+          );
+      rethrow;
+    }
     await ref
         .read(subscriptionAccountControllerProvider.notifier)
         .updateBootstrapStatus(BootstrapStatus.ready, clearError: true);
