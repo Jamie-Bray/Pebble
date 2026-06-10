@@ -51,6 +51,22 @@
             android:name="flutterEmbedding"
             android:value="2" />
             
+        <!-- Home-screen widget: single-routine launcher. Data is published by
+             the Flutter side via HomeWidget prefs; taps launch MainActivity
+             with an explicit intent (deliberately no public pebble:// VIEW
+             intent-filter). -->
+        <receiver
+            android:name=".PebbleRoutineWidgetProvider"
+            android:exported="false"
+            android:label="Pebble routine">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/pebble_routine_widget_info" />
+        </receiver>
+
         <!-- Notification receiver for boot completed -->
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
             <intent-filter>

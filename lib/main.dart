@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:go_router/go_router.dart';
+import 'package:home_widget/home_widget.dart';
+import 'package:pebble_routines/core/home_widget/home_widget_publisher.dart';
 import 'package:intl/intl.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -515,11 +517,32 @@ void main() async {
 
   // Handle notification taps: navigate to player
   NotificationService().selectedRoutineIdStream.listen((routineId) {
-    final context = _rootNavigatorKey.currentContext;
-    if (context != null && context.mounted) {
-      GoRouter.of(context).go('/play/$routineId');
-    }
+    unawaited(_openRoutineFromExternalLaunch(routineId));
   });
+
+  // Home-screen widget: republish display data whenever routines change
+  // (covers startup, pin/unpin, rename, delete - all in-app events, so no
+  // background refresh is ever needed) and handle widget taps.
+  db.routineDao.watchAllRoutines().listen((routines) {
+    unawaited(publishHomeWidgetRoutine(selectWidgetRoutine(routines)));
+  });
+  HomeWidget.widgetClicked.listen(
+    (uri) {
+      final routineId = routineIdFromWidgetUri(uri);
+      if (routineId != null) {
+        unawaited(_openRoutineFromExternalLaunch(routineId));
+      }
+    },
+    onError: (Object _) {},
+  );
+  unawaited(
+    HomeWidget.initiallyLaunchedFromHomeWidget().then((uri) {
+      final routineId = routineIdFromWidgetUri(uri);
+      if (routineId != null) {
+        unawaited(_openRoutineFromExternalLaunch(routineId));
+      }
+    }).catchError((Object _) {}),
+  );
 
   runApp(
     ProviderScope(
@@ -533,6 +556,20 @@ void main() async {
       child: const PebbleApp(),
     ),
   );
+}
+
+/// Navigates to the player for an externally triggered launch (widget tap or
+/// notification tap). On a cold start the router is not mounted yet, so this
+/// retries briefly instead of silently dropping the intent.
+Future<void> _openRoutineFromExternalLaunch(int routineId) async {
+  for (var attempt = 0; attempt < 40; attempt++) {
+    final context = _rootNavigatorKey.currentContext;
+    if (context != null && context.mounted) {
+      GoRouter.of(context).go('/play/$routineId');
+      return;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+  }
 }
 
 class PebbleApp extends ConsumerStatefulWidget {

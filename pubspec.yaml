@@ -52,6 +52,7 @@ dependencies:
   record: ^6.0.0
   just_audio: ^0.10.0
   purchases_flutter: ^10.1.1
+  home_widget: ^0.9.3
 
 dev_dependencies:
   flutter_test:
