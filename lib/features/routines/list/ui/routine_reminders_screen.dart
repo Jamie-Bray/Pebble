@@ -751,7 +751,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
               _buildContactCardHeading(
                 cs,
                 icon: LucideIcons.mailPlus,
-                title: 'Set up a trusted contact',
+                title: 'Notify someone when you finish',
               ),
               const SizedBox(height: 12),
               Text(
@@ -776,7 +776,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
                       ? null
                       : _showTrustedContactSheet,
                   icon: const Icon(LucideIcons.send, size: 17),
-                  label: const Text('Add trusted contact'),
+                  label: const Text('Add someone to notify'),
                   style: FilledButton.styleFrom(
                     minimumSize: const Size.fromHeight(50),
                     shape: RoundedRectangleBorder(
@@ -1445,7 +1445,9 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
                         ),
                         const SizedBox(height: 20),
                         Text(
-                          forceResend ? 'Resend invite' : 'Add trusted contact',
+                          forceResend
+                              ? 'Resend invite'
+                              : 'Add someone to notify',
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.w800,
@@ -1671,7 +1673,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
                 ),
                 const SizedBox(height: 22),
                 Text(
-                  'Remove trusted contact?',
+                  'Stop notifying this person?',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w800,
@@ -1788,7 +1790,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
       SharedReminderContactStatus.accepted => 'Completion emails are on',
       SharedReminderContactStatus.declined => 'Invite declined',
       SharedReminderContactStatus.blocked => 'Future invites blocked',
-      SharedReminderContactStatus.disabled => 'Trusted contact removed',
+      SharedReminderContactStatus.disabled => 'Contact removed',
     };
   }
 
@@ -1833,13 +1835,13 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
       SharedReminderContactStatus.blocked =>
         'They blocked future invites from this account. You can use a different email address.',
       SharedReminderContactStatus.disabled =>
-        'Add a trusted contact again when you are ready.',
+        'Add someone to notify again when you are ready.',
     };
   }
 
   String _sharedReminderContactStatusMessage(SharedReminderContact? contact) {
     if (contact == null) {
-      return 'No trusted contact is set up for this routine.';
+      return 'No one is set up to be notified for this routine.';
     }
     return switch (contact.status) {
       SharedReminderContactStatus.pending =>
@@ -1862,7 +1864,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
   ) {
     if (!policy.hasActiveLocalPremium) {
       return _LockedSharedAlertMessage(
-        message: 'Upgrade to add trusted contacts.',
+        message: 'Upgrade to notify someone when you finish.',
         actionLabel: 'View Premium',
         onAction: () =>
             context.push(premiumRoute(source: PremiumEntrySource.general)),
@@ -1870,7 +1872,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
     }
     if (policy.needsSignInForServerFeatures) {
       return _LockedSharedAlertMessage(
-        message: 'Sign in to add trusted contacts.',
+        message: 'Sign in to add someone to notify.',
         actionLabel: 'Sign in',
         onAction: () => context.push('/sign-in'),
       );
@@ -2418,11 +2420,11 @@ String friendlySharedReminderErrorMessage(Object error) {
     return 'Email alerts are not ready yet. Please try again later.';
   }
   if (message.contains('Personal Premium is required')) {
-    return 'Premium is required for trusted contacts.';
+    return 'Premium is required to notify someone.';
   }
   if (message.contains('Missing user authorization') ||
       message.contains('Invalid user authorization')) {
-    return 'Sign in again to manage trusted contacts.';
+    return 'Sign in again to manage who gets notified.';
   }
   if (message.startsWith('(status:') || message.startsWith('status:')) {
     return 'Could not update shared notification.';

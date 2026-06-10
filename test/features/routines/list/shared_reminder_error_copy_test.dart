@@ -31,13 +31,13 @@ void main() {
         friendlySharedReminderErrorMessage(
           'SharedReminderRepositoryException: Missing user authorization',
         ),
-        'Sign in again to manage trusted contacts.',
+        'Sign in again to manage who gets notified.',
       );
       expect(
         friendlySharedReminderErrorMessage(
           'SharedReminderRepositoryException: Personal Premium is required',
         ),
-        'Premium is required for trusted contacts.',
+        'Premium is required to notify someone.',
       );
     });
   });

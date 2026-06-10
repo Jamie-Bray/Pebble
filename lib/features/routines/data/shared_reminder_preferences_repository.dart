@@ -132,7 +132,7 @@ class SharedReminderPreferencesRepository {
           const Duration(seconds: 10),
           onTimeout: () {
             throw SharedReminderRepositoryException(
-              'Could not check trusted contact status. Please try again.',
+              'Could not check contact status. Please try again.',
             );
           },
         );
@@ -231,7 +231,7 @@ class SharedReminderPreferencesRepository {
           const Duration(seconds: 10),
           onTimeout: () {
             throw SharedReminderRepositoryException(
-              'Could not remove trusted contact. Please try again.',
+              'Could not remove this contact. Please try again.',
             );
           },
         );
@@ -295,7 +295,7 @@ class SharedReminderPreferencesRepository {
   Future<void> _ensureSession(SupabaseClient client) async {
     if (client.auth.currentSession != null) return;
     throw SharedReminderRepositoryException(
-      'Sign in to manage trusted contacts.',
+      'Sign in to manage who gets notified.',
     );
   }
 
