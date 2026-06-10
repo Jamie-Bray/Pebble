@@ -47,8 +47,14 @@ class RoutineRepositoryImpl implements RoutineRepository {
   @override
   Future<void> saveRoutine(Routine routine) async {
     final policy = _ref.read(cloudAccessPolicyProvider);
-    final ownerUserId = policy.cachedOwnerUserId;
     final shouldQueue = policy.canQueuePersonalSync;
+    // Only stamp ownership on rows that have none. Overwriting an existing
+    // owner would silently reassign another account's data to the current
+    // one, bypassing the LocalDataOwnershipGuard resolution flow.
+    final existingOwner = routine.ownerUserId?.trim();
+    final ownerUserId = (existingOwner == null || existingOwner.isEmpty)
+        ? policy.cachedOwnerUserId
+        : existingOwner;
     final prepared = Routine(
       id: routine.id,
       title: routine.title,
@@ -63,7 +69,7 @@ class RoutineRepositoryImpl implements RoutineRepository {
       version: routine.version,
       updatedAt: DateTime.now(),
       cloudId: routine.cloudId,
-      ownerUserId: ownerUserId ?? routine.ownerUserId,
+      ownerUserId: ownerUserId,
       syncStatus: shouldQueue ? 'pendingUpload' : routine.syncStatus,
       lastSyncedAt: routine.lastSyncedAt,
     );

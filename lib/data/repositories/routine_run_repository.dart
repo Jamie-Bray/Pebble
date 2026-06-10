@@ -36,15 +36,21 @@ class RoutineRunRepositoryImpl implements RoutineRunRepository {
   Future<void> saveRun(RoutineRun run) async {
     await enforceRetentionPolicy();
     final policy = _ref.read(cloudAccessPolicyProvider);
-    final ownerUserId = policy.cachedOwnerUserId;
     final shouldQueue = policy.canQueuePersonalSync;
+    // Only stamp ownership on rows that have none. Overwriting an existing
+    // owner would silently reassign another account's data to the current
+    // one, bypassing the LocalDataOwnershipGuard resolution flow.
+    final existingOwner = run.ownerUserId?.trim();
+    final ownerUserId = (existingOwner == null || existingOwner.isEmpty)
+        ? policy.cachedOwnerUserId
+        : existingOwner;
     final prepared = RoutineRun(
       id: run.id,
       routineId: run.routineId,
       routineTitle: run.routineTitle,
       finishedAt: run.finishedAt,
       stepCompletionData: run.stepCompletionData,
-      ownerUserId: ownerUserId ?? run.ownerUserId,
+      ownerUserId: ownerUserId,
       syncStatus: shouldQueue ? 'pendingUpload' : run.syncStatus,
       lastSyncedAt: run.lastSyncedAt,
       syncMetadataJson: run.syncMetadataJson,
