@@ -1423,7 +1423,7 @@ class _ThemePickerPage extends StatelessWidget {
                     fontWeight: FontWeight.w400,
                   ),
                 ),
-                child: const Text('IÃ¢â‚¬â„¢ll decide later'),
+                child: const Text("I'll decide later"),
               ),
             ],
           ),

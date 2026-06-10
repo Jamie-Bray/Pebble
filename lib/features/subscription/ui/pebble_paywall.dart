@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -934,7 +934,7 @@ class _ComparisonLine extends StatelessWidget {
             ),
           ),
           TextSpan(
-            text: '  Ã¢â€ â€™  ',
+            text: '  >  ',
             style: TextStyle(color: foundation.textMuted),
           ),
           TextSpan(
@@ -1515,7 +1515,7 @@ String _ctaLabel(PremiumProduct product) {
 
 String _annualPerLine(PremiumProduct product) {
   final monthly = _yearlyPerMonthLabel(product);
-  return monthly == null ? 'per year' : 'per year Ã‚Â· $monthly';
+  return monthly == null ? 'per year' : 'per year, $monthly';
 }
 
 String? _yearlyPerMonthLabel(PremiumProduct product) {

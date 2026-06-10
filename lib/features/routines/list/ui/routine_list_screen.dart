@@ -1037,7 +1037,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
         ? foundation.textPrimary.withValues(alpha: 0.44)
         : foundation.textPrimary;
     final subtitle = isRestricted
-        ? 'Premium ended Ã¢â‚¬â€œ Upgrade to unlock'
+        ? 'Premium ended - Upgrade to unlock'
         : metadata.join(' / ');
 
     return Material(

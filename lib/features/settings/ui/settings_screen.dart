@@ -165,7 +165,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                       _FlowTile(
                         icon: Icons.info_rounded,
                         title: 'About Pebble',
-                        subtitle: 'Version 1.0.0 Ã‚Â· Privacy, terms, deletion',
+                        subtitle: 'Version 1.0.0 - Privacy, terms, deletion',
                         onTap: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(

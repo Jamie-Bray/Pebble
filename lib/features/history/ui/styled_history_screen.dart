@@ -776,7 +776,7 @@ class _SlimSearchField extends StatelessWidget {
             size: 18,
             color: foundation.textMuted,
           ),
-          hintText: 'Search routinesÃ¢â‚¬Â¦',
+          hintText: 'Search routines...',
           hintStyle: TextStyle(color: foundation.textMuted),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: 12),
@@ -1581,7 +1581,7 @@ class _VaultGridItem extends StatelessWidget {
             storedPath: item.path,
             title: item.label,
             subtitle:
-                '${DateFormat.yMMMd().format(item.timestamp)} Ã¢â‚¬Â¢ ${DateFormat.jm().format(item.timestamp)}',
+                '${DateFormat.yMMMd().format(item.timestamp)}, ${DateFormat.jm().format(item.timestamp)}',
           ),
         )
         .toList();
@@ -1682,7 +1682,7 @@ class _HeroPhotoView extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${DateFormat.yMMMd().format(photo.timestamp)} Ã¢â‚¬Â¢ ${DateFormat.jm().format(photo.timestamp)}',
+                      '${DateFormat.yMMMd().format(photo.timestamp)}, ${DateFormat.jm().format(photo.timestamp)}',
                       style: TextStyle(
                         fontSize: 16,
                         color: Colors.white.withValues(alpha: 0.6),
