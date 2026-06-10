@@ -56,6 +56,25 @@ void main() {
       expect(lifecycle.hasPremiumRetention, isFalse);
       expect(lifecycle.localHistoryRetention, const Duration(hours: 48));
     });
+
+    test('grace countdown is anchored to expiry, not the latest check', () {
+      final expiredAt = DateTime.utc(2026, 5, 1);
+      final lifecycle = subscriptionLifecycleForAccount(
+        const SubscriptionAccountState.initial().copyWith(
+          entitlementStatus: EntitlementStatus.expired,
+          entitlementExpiredAt: expiredAt,
+          // A fresh entitlement check days later must not restart grace.
+          lastEntitlementCheckAt: expiredAt.add(const Duration(days: 5)),
+        ),
+        now: expiredAt.add(const Duration(days: 5)),
+      );
+
+      expect(lifecycle.phase, SubscriptionLifecyclePhase.expiredGrace);
+      expect(
+        lifecycle.graceEndsAt,
+        expiredAt.add(SubscriptionLifecycle.graceDuration),
+      );
+    });
   });
 
   test(
@@ -104,6 +123,44 @@ void main() {
       expect(reader.state.entitlementTier, UserTier.personalFree);
       expect(reader.state.entitlementStatus, EntitlementStatus.expired);
       expect(reader.state.entitlementPeriodEndsAt, isNull);
+    },
+  );
+
+  test(
+    'repeated expiry checks keep the original expiry anchor for grace',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final database = LocalDb.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+      final periodEndsAt = DateTime.now().subtract(const Duration(days: 2));
+      final controller = SubscriptionAccountController(
+        database,
+        prefs: prefs,
+        loadOnInit: false,
+      );
+      await controller.applyRevenueCatEntitlement(
+        UserTier.personalPremium,
+        periodEndsAt: periodEndsAt,
+      );
+
+      // First expiry detection anchors to the real period end.
+      await controller.applyExpiredStoreEntitlement();
+      final firstAnchor = controller.state.entitlementExpiredAt;
+      expect(firstAnchor, periodEndsAt);
+
+      // A later re-check must not move the anchor forward.
+      await controller.applyExpiredStoreEntitlement();
+      expect(controller.state.entitlementExpiredAt, firstAnchor);
+
+      // The anchor survives a restart via persisted metadata.
+      final reader = SubscriptionAccountController(database, prefs: prefs);
+      await Future<void>.delayed(Duration.zero);
+      expect(reader.state.entitlementExpiredAt, firstAnchor);
+
+      // Renewing Premium clears the stale anchor.
+      await controller.applyRevenueCatEntitlement(UserTier.personalPremium);
+      expect(controller.state.entitlementExpiredAt, isNull);
     },
   );
 

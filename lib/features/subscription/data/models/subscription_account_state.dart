@@ -20,6 +20,10 @@ class SubscriptionAccountState {
   final EntitlementSource entitlementSource;
   final DateTime? lastEntitlementCheckAt;
   final DateTime? entitlementPeriodEndsAt;
+
+  /// When the entitlement first became expired. Sticky across repeated
+  /// entitlement checks so the grace countdown does not slide forward.
+  final DateTime? entitlementExpiredAt;
   final String? entitlementError;
 
   const SubscriptionAccountState({
@@ -36,6 +40,7 @@ class SubscriptionAccountState {
     this.entitlementSource = EntitlementSource.localCache,
     this.lastEntitlementCheckAt,
     this.entitlementPeriodEndsAt,
+    this.entitlementExpiredAt,
     this.entitlementError,
   });
 
@@ -53,6 +58,7 @@ class SubscriptionAccountState {
       entitlementSource = EntitlementSource.localCache,
       lastEntitlementCheckAt = null,
       entitlementPeriodEndsAt = null,
+      entitlementExpiredAt = null,
       entitlementError = null;
 
   SubscriptionAccountState copyWith({
@@ -75,6 +81,8 @@ class SubscriptionAccountState {
     DateTime? lastEntitlementCheckAt,
     DateTime? entitlementPeriodEndsAt,
     bool clearEntitlementPeriodEndsAt = false,
+    DateTime? entitlementExpiredAt,
+    bool clearEntitlementExpiredAt = false,
     String? entitlementError,
     bool clearEntitlementError = false,
   }) {
@@ -99,6 +107,9 @@ class SubscriptionAccountState {
       entitlementPeriodEndsAt: clearEntitlementPeriodEndsAt
           ? null
           : entitlementPeriodEndsAt ?? this.entitlementPeriodEndsAt,
+      entitlementExpiredAt: clearEntitlementExpiredAt
+          ? null
+          : entitlementExpiredAt ?? this.entitlementExpiredAt,
       entitlementError: clearEntitlementError
           ? null
           : entitlementError ?? this.entitlementError,

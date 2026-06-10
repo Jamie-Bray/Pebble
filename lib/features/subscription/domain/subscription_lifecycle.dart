@@ -53,7 +53,8 @@ SubscriptionLifecycle subscriptionLifecycleForAccount(
       account.entitlementTier == UserTier.pebbleHousehold;
 
   if (account.entitlementStatus == EntitlementStatus.expired) {
-    final expiredAt = account.lastEntitlementCheckAt ?? clock;
+    final expiredAt =
+        account.entitlementExpiredAt ?? account.lastEntitlementCheckAt ?? clock;
     final graceEndsAt = expiredAt.add(SubscriptionLifecycle.graceDuration);
     return SubscriptionLifecycle(
       phase: clock.isBefore(graceEndsAt)

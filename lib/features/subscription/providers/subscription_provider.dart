@@ -86,6 +86,7 @@ class SubscriptionAccountController
   static const _statusKey = 'pebble.entitlement.status';
   static const _lastCheckedAtKey = 'pebble.entitlement.last_checked_at';
   static const _periodEndsAtKey = 'pebble.entitlement.period_ends_at';
+  static const _expiredAtKey = 'pebble.entitlement.expired_at';
   static const _lastErrorKey = 'pebble.entitlement.last_error';
 
   Future<void> _load() async {
@@ -145,6 +146,7 @@ class SubscriptionAccountController
       lastEntitlementCheckAt: DateTime.now(),
       entitlementPeriodEndsAt: periodEndsAt,
       clearEntitlementPeriodEndsAt: periodEndsAt == null,
+      clearEntitlementExpiredAt: true,
       clearEntitlementError: true,
       bootstrapStatus: newTier == UserTier.personalFree
           ? BootstrapStatus.idle
@@ -172,6 +174,7 @@ class SubscriptionAccountController
       lastEntitlementCheckAt: DateTime.now(),
       entitlementPeriodEndsAt: periodEndsAt,
       clearEntitlementPeriodEndsAt: periodEndsAt == null,
+      clearEntitlementExpiredAt: true,
       clearEntitlementError: true,
       bootstrapStatus: newTier == UserTier.personalFree
           ? BootstrapStatus.idle
@@ -193,6 +196,10 @@ class SubscriptionAccountController
       entitlementStatus: EntitlementStatus.expired,
       entitlementSource: _expiredEntitlementSource(state.entitlementSource),
       lastEntitlementCheckAt: DateTime.now(),
+      entitlementExpiredAt:
+          state.entitlementExpiredAt ??
+          state.entitlementPeriodEndsAt ??
+          DateTime.now(),
       clearEntitlementPeriodEndsAt: true,
       clearEntitlementError: true,
       bootstrapStatus: BootstrapStatus.idle,
@@ -277,6 +284,10 @@ class SubscriptionAccountController
         entitlementStatus: EntitlementStatus.expired,
         entitlementSource: EntitlementSource.serverVerified,
         lastEntitlementCheckAt: checkedAt,
+        entitlementExpiredAt:
+            state.entitlementExpiredAt ??
+            state.entitlementPeriodEndsAt ??
+            checkedAt,
         clearEntitlementPeriodEndsAt: true,
         clearEntitlementError: true,
         bootstrapStatus: BootstrapStatus.idle,
@@ -540,6 +551,7 @@ class SubscriptionAccountController
     );
     final checkedAtRaw = prefs?.getString(_lastCheckedAtKey);
     final periodEndsAtRaw = prefs?.getString(_periodEndsAtKey);
+    final expiredAtRaw = prefs?.getString(_expiredAtKey);
     return state.copyWith(
       entitlementStatus: status,
       entitlementSource: source,
@@ -549,6 +561,9 @@ class SubscriptionAccountController
       entitlementPeriodEndsAt: periodEndsAtRaw == null
           ? null
           : DateTime.tryParse(periodEndsAtRaw),
+      entitlementExpiredAt: expiredAtRaw == null
+          ? null
+          : DateTime.tryParse(expiredAtRaw),
       entitlementError: prefs?.getString(_lastErrorKey),
     );
   }
@@ -569,6 +584,7 @@ class SubscriptionAccountController
       bootstrapStatus: BootstrapStatus.idle,
       entitlementStatus: EntitlementStatus.expired,
       lastEntitlementCheckAt: DateTime.now(),
+      entitlementExpiredAt: state.entitlementExpiredAt ?? periodEndsAt,
       clearEntitlementPeriodEndsAt: true,
       clearLastSyncError: true,
     );
@@ -592,6 +608,12 @@ class SubscriptionAccountController
       await prefs.remove(_periodEndsAtKey);
     } else {
       await prefs.setString(_periodEndsAtKey, periodEndsAt.toIso8601String());
+    }
+    final expiredAt = next.entitlementExpiredAt;
+    if (expiredAt == null) {
+      await prefs.remove(_expiredAtKey);
+    } else {
+      await prefs.setString(_expiredAtKey, expiredAt.toIso8601String());
     }
     final error = next.entitlementError;
     if (error == null || error.isEmpty) {
