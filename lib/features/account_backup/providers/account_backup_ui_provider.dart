@@ -9,6 +9,7 @@ import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
 import 'package:pebble_routines/features/subscription/providers/cloud_access_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
 import 'package:pebble_routines/features/sync/cloud_sync_coordinator.dart';
+import 'package:pebble_routines/features/sync/sync_outbox_repository.dart';
 
 enum AccountBackupChipTone { positive, neutral, attention }
 
@@ -121,6 +122,20 @@ class AccountBackupUiState {
 final syncOutboxCountProvider = StreamProvider<int>((ref) {
   final db = ref.watch(localDbProvider);
   return db.syncOutboxDao.watchItems().map((rows) => rows.length);
+});
+
+/// Items whose automatic retries have given up (parked ~a year out). They
+/// only sync again via a user-initiated "Back up now".
+final stuckSyncCountProvider = StreamProvider<int>((ref) {
+  final db = ref.watch(localDbProvider);
+  return db.syncOutboxDao.watchItems().map(
+    (rows) => rows
+        .where(
+          (row) =>
+              row.attemptCount >= SyncOutboxRepositoryImpl.stuckAttemptThreshold,
+        )
+        .length,
+  );
 });
 
 final accountBackupStatusSummaryProvider = Provider<AccountBackupStatusSummary>((

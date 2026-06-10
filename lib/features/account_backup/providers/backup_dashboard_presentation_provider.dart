@@ -123,8 +123,13 @@ final backupDashboardPresentationProvider = Provider<BackupDashboardPresentation
     runs: runs,
     fairUse: fairUse,
   );
-  final pendingBannerText =
-      pendingCount > 0 && dataItemsLive && !runtime.isRunning
+  final stuckCount = ref
+      .watch(stuckSyncCountProvider)
+      .maybeWhen(data: (value) => value, orElse: () => 0);
+  final pendingBannerText = stuckCount > 0 && dataItemsLive
+      ? '$stuckCount change${stuckCount == 1 ? '' : 's'} couldn\'t back up '
+            'after repeated tries. Use Back up now to retry.'
+      : pendingCount > 0 && dataItemsLive && !runtime.isRunning
       ? '$pendingCount change${pendingCount == 1 ? '' : 's'} waiting to back up'
       : null;
 

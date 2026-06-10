@@ -73,6 +73,18 @@ class SyncOutboxDao extends DatabaseAccessor<LocalDb>
     return (delete(syncOutbox)..where((tbl) => tbl.id.equals(id))).go();
   }
 
+  /// Clears the retry backoff on every queued item so a user-initiated sync
+  /// gives long-failing items a fresh run of automatic retries.
+  Future<void> resetRetrySchedules() {
+    return update(syncOutbox).write(
+      SyncOutboxCompanion(
+        attemptCount: const Value(0),
+        nextAttemptAt: const Value(null),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
   Future<void> updateRetry({
     required String id,
     required int attemptCount,

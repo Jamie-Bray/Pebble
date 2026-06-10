@@ -256,6 +256,11 @@ class CloudSyncCoordinator {
       );
     }
 
+    if (userInitiated) {
+      // A manual sync revives items whose automatic retries gave up, and
+      // gives everything a fresh backoff window afterwards.
+      await _outbox.resetRetrySchedule();
+    }
     var pendingItems = userInitiated
         ? await _outbox.pendingItems()
         : await _outbox.dueItems();

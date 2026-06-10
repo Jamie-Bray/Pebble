@@ -48,10 +48,16 @@ abstract class SyncOutboxRepository {
   Future<List<SyncOutboxItem>> dueItems();
   Future<void> markComplete(String id);
   Future<void> markRetry(String id, Object error, int attemptCount);
+  Future<void> resetRetrySchedule();
 }
 
 class SyncOutboxRepositoryImpl implements SyncOutboxRepository {
   SyncOutboxRepositoryImpl(this._db);
+
+  /// Attempts after which automatic retries effectively stop (the next
+  /// attempt is parked a year out). Items at or past this are "stuck" and
+  /// only revived by a user-initiated sync.
+  static const stuckAttemptThreshold = 20;
 
   static const _uuid = Uuid();
   final LocalDb _db;
@@ -127,7 +133,7 @@ class SyncOutboxRepositoryImpl implements SyncOutboxRepository {
 
   @override
   Future<void> markRetry(String id, Object error, int attemptCount) {
-    final nextAttemptAt = attemptCount >= 20
+    final nextAttemptAt = attemptCount >= stuckAttemptThreshold
         ? DateTime.now().add(const Duration(days: 365))
         : DateTime.now().add(Duration(seconds: attemptCount.clamp(1, 5) * 15));
     return _db.syncOutboxDao.updateRetry(
@@ -136,6 +142,11 @@ class SyncOutboxRepositoryImpl implements SyncOutboxRepository {
       nextAttemptAt: nextAttemptAt,
       lastErrorSummary: error.toString(),
     );
+  }
+
+  @override
+  Future<void> resetRetrySchedule() {
+    return _db.syncOutboxDao.resetRetrySchedules();
   }
 
   SyncOutboxItem _mapRow(SyncOutboxRow row) {
