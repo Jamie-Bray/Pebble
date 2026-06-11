@@ -402,10 +402,12 @@ void main() {
       final chip = harness.container.read(accountBackupChipStateProvider);
       final ui = harness.container.read(accountBackupUiStateProvider);
 
-      expect(chip.show, isFalse);
+      expect(chip.show, isTrue);
+      expect(chip.label, 'Backup off');
+      expect(chip.tone, AccountBackupChipTone.neutral);
       expect(
         ui.backupSummary,
-        'Pebble works without an account. Your routines are stored on this device.',
+        'Pebble works without an account. Your routines are saved on this phone.',
       );
       expect(ui.accountActionLabel, 'Restore Premium');
       expect(ui.planActionLabel, 'Upgrade');
@@ -591,7 +593,7 @@ void main() {
       expect(chip.show, isTrue);
       expect(chip.label, 'Backup on');
       expect(chip.tone, AccountBackupChipTone.positive);
-      expect(ui.backupSummary, 'Backup is active for supported routine data.');
+      expect(ui.backupSummary, 'Your routines are backed up.');
       expect(ui.backupDetail, 'All caught up');
       expect(ui.backupPrimaryActionLabel, 'Refresh status');
     });
@@ -698,7 +700,7 @@ void main() {
       expect(profile.providerLabel, 'Google');
       expect(profile.planName, 'Personal Premium');
       expect(profile.canManagePlan, isTrue);
-      expect(profile.backupRow.label, 'Cloud Backup & Sync');
+      expect(profile.backupRow.label, 'Backup');
       expect(profile.backupRow.needsAttention, isFalse);
       expect(profile.backupRow.trailing, 'On');
     });
@@ -795,7 +797,7 @@ void main() {
             .read(accountProfilePresentationProvider)
             .backupRow;
         expect(blockedRow.needsAttention, isTrue);
-        expect(blockedRow.trailing, 'Review');
+        expect(blockedRow.trailing, 'Choose');
       },
     );
 
@@ -852,6 +854,16 @@ void main() {
         expect(dashboard.primaryActionLabel, 'Turn on backup');
         expect(dashboard.backupSwitchValue, isFalse);
         expect(dashboard.needsAttention, isTrue);
+        expect(dashboard.setupSteps.map((step) => step.label), [
+          'Sign in',
+          'Premium',
+          'Turn on backup',
+        ]);
+        expect(dashboard.setupSteps.map((step) => step.state), [
+          BackupSetupStepState.done,
+          BackupSetupStepState.done,
+          BackupSetupStepState.current,
+        ]);
       },
     );
 
@@ -1062,7 +1074,7 @@ void main() {
       expect(chip.show, isTrue);
       expect(chip.label, 'Set up backup');
       expect(chip.tone, AccountBackupChipTone.attention);
-      expect(ui.backupSummary, 'Review cloud backup before upload starts.');
+      expect(ui.backupSummary, 'Backup is ready to turn on.');
       expect(ui.backupPrimaryActionLabel, 'Review and enable');
     });
 
@@ -1110,10 +1122,10 @@ void main() {
       final ui = harness.container.read(accountBackupUiStateProvider);
 
       expect(chip.show, isTrue);
-      expect(chip.label, 'Backup paused');
+      expect(chip.label, 'Sign in to back up');
       expect(chip.tone, AccountBackupChipTone.neutral);
-      expect(ui.backupSummary, 'Backup is paused. Sign in to resume.');
-      expect(ui.backupDetail, 'Sign in to resume backup.');
+      expect(ui.backupSummary, 'Sign in again and backup will carry on.');
+      expect(ui.backupDetail, 'Sign in again and backup will carry on.');
     });
 
     test(
@@ -1164,7 +1176,7 @@ void main() {
         expect(chip.show, isTrue);
         expect(chip.label, '3 waiting');
         expect(chip.tone, AccountBackupChipTone.neutral);
-        expect(ui.backupSummary, 'Waiting for connection');
+        expect(ui.backupSummary, 'Waiting for internet');
         expect(ui.backupPrimaryActionLabel, 'Refresh status');
       },
     );
@@ -1220,8 +1232,8 @@ void main() {
       expect(chip.show, isTrue);
       expect(chip.label, 'Backing up...');
       expect(chip.tone, AccountBackupChipTone.positive);
-      expect(ui.backupSummary, 'Syncing latest changes');
-      expect(ui.backupDetail, '4 changes still need to sync');
+      expect(ui.backupSummary, 'Saving your latest changes');
+      expect(ui.backupDetail, '4 changes waiting to back up');
     });
 
     test('idle backup checks do not claim a backup job is running', () async {
@@ -1283,7 +1295,7 @@ void main() {
       expect(dashboard.tone, BackupDashboardTone.neutral);
       expect(chip.label, 'Checking backup');
       expect(chip.tone, AccountBackupChipTone.neutral);
-      expect(profile.backupRow.detail, contains('checking backup'));
+      expect(profile.backupRow.detail, contains('backup ready'));
       expect(profile.backupRow.trailing, 'Checking');
     });
 
@@ -1340,15 +1352,12 @@ void main() {
         expect(chip.show, isTrue);
         expect(chip.label, 'Needs attention');
         expect(chip.tone, AccountBackupChipTone.attention);
-        expect(
-          ui.backupSummary,
-          'Backup is active, but Pebble couldn\'t finish syncing everything.',
-        );
+        expect(ui.backupSummary, 'The last backup didn\'t finish.');
         expect(
           ui.backupDetail,
           anyOf(
-            '2 changes still need to sync',
-            'Pebble will try again soon. You can also sync now.',
+            '2 changes waiting to back up',
+            'Pebble will try again soon. You can also try now.',
           ),
         );
       },
@@ -1410,7 +1419,7 @@ void main() {
         expect(chip.tone, AccountBackupChipTone.attention);
         expect(
           ui.backupDetail,
-          'Photo storage full. Routine sync still works.',
+          'Photo storage full. Routine backup still works.',
         );
       },
     );
@@ -1465,7 +1474,7 @@ void main() {
 
       expect(find.text('jamie@example.com'), findsOneWidget);
       expect(find.textContaining('Personal Premium'), findsOneWidget);
-      expect(find.text('Cloud Backup & Sync'), findsOneWidget);
+      expect(find.text('Backup'), findsOneWidget);
       expect(find.text('Restore purchase'), findsOneWidget);
       expect(find.text('Manage plan'), findsOneWidget);
       expect(find.text('Use this account'), findsNothing);
@@ -1518,8 +1527,8 @@ void main() {
 
         await _pumpAccountWidget(tester, harness, const AccountHubScreen());
 
-        expect(find.text('Cloud Backup & Sync'), findsOneWidget);
-        expect(find.text('Review'), findsOneWidget);
+        expect(find.text('Backup'), findsOneWidget);
+        expect(find.text('Choose'), findsOneWidget);
         expect(find.text('Use this account'), findsNothing);
         expect(find.text('Keep backup off'), findsNothing);
         expect(find.text(cloudBackupConsentText), findsNothing);
@@ -1573,9 +1582,9 @@ void main() {
         await _pumpAccountWidget(tester, harness, const CloudBackupScreen());
 
         expect(find.text('Ready to turn on'), findsOneWidget);
-        expect(find.text('Turn on backup'), findsOneWidget);
+        expect(find.text('Turn on backup'), findsNWidgets(2));
 
-        await tester.tap(find.text('Turn on backup').first);
+        await tester.tap(find.widgetWithText(FilledButton, 'Turn on backup'));
         await tester.pumpAndSettle();
 
         expect(find.text(cloudBackupConsentText), findsOneWidget);
@@ -1681,7 +1690,7 @@ void main() {
 
       await _pumpAccountWidget(tester, harness, const CloudBackupScreen());
 
-      expect(find.text('Choose how this device backs up'), findsOneWidget);
+      expect(find.text('Which account should this phone use?'), findsOneWidget);
       expect(find.text('Use this account'), findsWidgets);
       expect(find.text('Keep backup off'), findsWidgets);
     });
@@ -1753,10 +1762,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // Confirm in the ownership sheet.
-        expect(
-          find.text('Use this account for this device?'),
-          findsOneWidget,
-        );
+        expect(find.text('Use this account for this device?'), findsOneWidget);
         await tester.tap(
           find.widgetWithText(FilledButton, 'Use this account').last,
         );
@@ -1825,7 +1831,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Your account'), findsOneWidget);
-      expect(find.text('Cloud Backup & Sync'), findsOneWidget);
+      expect(find.text('Backup'), findsOneWidget);
     });
 
     testWidgets('cloud backup back button pops after normal navigation', (
@@ -1878,9 +1884,9 @@ void main() {
       );
       addTearDown(router.dispose);
 
-      await tester.tap(find.text('Cloud Backup & Sync'));
+      await tester.tap(find.text('Backup'));
       await tester.pumpAndSettle();
-      expect(find.text('Cloud Backup & Sync'), findsWidgets);
+      expect(find.text('Backup'), findsWidgets);
       expect(find.text('Backup is on'), findsOneWidget);
 
       await tester.tap(find.bySemanticsLabel('Back'));
@@ -1970,7 +1976,7 @@ void main() {
           .runManualSync();
 
       expect(result.type, ManualSyncResultType.blockedSignedOut);
-      expect(result.message, 'Sign in to resume backup and sync.');
+      expect(result.message, 'Sign in again and backup will carry on.');
     });
 
     test('manual sync explains cloud backup consent blocker', () async {
@@ -2042,7 +2048,7 @@ void main() {
       expect(result.type, ManualSyncResultType.blockedConsentRequired);
       expect(
         result.message,
-        'Review and enable cloud backup before Pebble uploads data.',
+        'Turn on backup before Pebble saves anything online.',
       );
     });
 
@@ -2372,7 +2378,7 @@ void main() {
             .runManualSync();
 
         expect(result.type, ManualSyncResultType.blockedOffline);
-        expect(result.message, 'You\'re offline. Changes will sync later.');
+        expect(result.message, 'You\'re offline. Changes will back up later.');
       },
     );
 

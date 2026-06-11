@@ -55,9 +55,9 @@ final personalCloudAccessProvider = Provider<PersonalCloudAccessState>((ref) {
   if (lifecycle.phase == SubscriptionLifecyclePhase.expiredGrace) {
     return const PersonalCloudAccessState(
       status: PersonalCloudAccessStatus.expiredGrace,
-      label: 'Premium recently ended',
+      label: 'Premium ended',
       detail:
-          'Cloud uploads are paused. Your 21-day history stays visible for 7 days.',
+          'Backup stopped when Premium ended. Your 21-day history stays visible for 7 days.',
     );
   }
 
@@ -65,22 +65,21 @@ final personalCloudAccessProvider = Provider<PersonalCloudAccessState>((ref) {
     return auth.isSignedIn
         ? const PersonalCloudAccessState(
             status: PersonalCloudAccessStatus.offSignedInNoEntitlement,
-            label: 'Cloud backup is off',
-            detail: 'This plan stays local on this device.',
+            label: 'Backup is off',
+            detail: 'Your routines are saved on this phone only.',
           )
         : const PersonalCloudAccessState(
             status: PersonalCloudAccessStatus.offFree,
-            label: 'Cloud backup is off',
-            detail:
-                'Sign in and Personal Premium are both required for backup.',
+            label: 'Backup is off',
+            detail: 'Backup needs a sign-in and Premium.',
           );
   }
 
   if (!auth.isSignedIn) {
     return const PersonalCloudAccessState(
       status: PersonalCloudAccessStatus.pausedSignedOut,
-      label: 'Backup is paused',
-      detail: 'Sign in again to continue backup and sync.',
+      label: 'Sign in to back up',
+      detail: 'Sign in again and backup will carry on.',
     );
   }
 
@@ -103,9 +102,9 @@ final personalCloudAccessProvider = Provider<PersonalCloudAccessState>((ref) {
   if (!consent.canEnableCloudUpload) {
     return const PersonalCloudAccessState(
       status: PersonalCloudAccessStatus.consentRequired,
-      label: 'Review cloud backup',
+      label: 'Ready to turn on',
       detail:
-          'Before Pebble uploads supported routine data, confirm that cloud backup may include sensitive content.',
+          'Backup can include private details, so Pebble asks you to confirm before it starts.',
     );
   }
 
@@ -113,10 +112,10 @@ final personalCloudAccessProvider = Provider<PersonalCloudAccessState>((ref) {
       _looksAccountSwitchBlocked(account.lastSyncError)) {
     return PersonalCloudAccessState(
       status: PersonalCloudAccessStatus.accountSwitchBlocked,
-      label: 'Backup paused for safety',
+      label: 'Choose an account',
       detail:
           account.lastSyncError ??
-          'Pebble will keep existing local data local until you choose how to handle this account.',
+          'Pebble keeps this phone\'s routines here until you choose how to handle this account.',
     );
   }
 
@@ -125,7 +124,7 @@ final personalCloudAccessProvider = Provider<PersonalCloudAccessState>((ref) {
     case BootstrapStatus.syncing:
       return const PersonalCloudAccessState(
         status: PersonalCloudAccessStatus.syncing,
-        label: 'Syncing your routines',
+        label: 'Getting backup ready',
         detail: 'Pebble is preparing your backup.',
       );
     case BootstrapStatus.error:
@@ -138,13 +137,13 @@ final personalCloudAccessProvider = Provider<PersonalCloudAccessState>((ref) {
       return const PersonalCloudAccessState(
         status: PersonalCloudAccessStatus.syncing,
         label: 'Waiting to start backup',
-        detail: 'Review cloud backup so Pebble can start syncing.',
+        detail: 'Turn on backup when you\'re ready.',
       );
     case BootstrapStatus.ready:
       return const PersonalCloudAccessState(
         status: PersonalCloudAccessStatus.available,
         label: 'Backup is up to date',
-        detail: 'Supported routine data is synced.',
+        detail: 'Your routines are backed up.',
       );
   }
 });

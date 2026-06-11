@@ -17,6 +17,7 @@ enum BackupDashboardTone { neutral, active, syncing, paused, attention }
 enum BackupDashboardAction {
   none,
   signIn,
+  getPremium,
   turnOnBackup,
   pauseBackup,
   backUpNow,
@@ -26,6 +27,22 @@ enum BackupDashboardAction {
 }
 
 enum BackupDataItemState { saved, attention, off }
+
+enum BackupSetupStepState { done, current, locked, attention }
+
+class BackupSetupStep {
+  const BackupSetupStep({
+    required this.icon,
+    required this.label,
+    required this.detail,
+    required this.state,
+  });
+
+  final IconData icon;
+  final String label;
+  final String detail;
+  final BackupSetupStepState state;
+}
 
 class BackupDataItem {
   const BackupDataItem({
@@ -45,6 +62,7 @@ class BackupDashboardPresentation {
   const BackupDashboardPresentation({
     required this.statusLabel,
     required this.detail,
+    required this.setupSteps,
     required this.lastBackupText,
     required this.dataItems,
     required this.dataItemsLive,
@@ -67,6 +85,7 @@ class BackupDashboardPresentation {
 
   final String statusLabel;
   final String detail;
+  final List<BackupSetupStep> setupSteps;
   final String lastBackupText;
   final List<BackupDataItem> dataItems;
   final bool dataItemsLive;
@@ -145,6 +164,7 @@ final backupDashboardPresentationProvider = Provider<BackupDashboardPresentation
   return BackupDashboardPresentation(
     statusLabel: base.statusLabel,
     detail: base.detail,
+    setupSteps: _setupStepsFor(status: status, auth: auth),
     lastBackupText: lastBackupText,
     dataItems: dataItems,
     dataItemsLive: dataItemsLive,
@@ -163,14 +183,100 @@ final backupDashboardPresentationProvider = Provider<BackupDashboardPresentation
     showOwnershipMismatch:
         status == PersonalCloudAccessStatus.accountSwitchBlocked,
     ownershipTitle: status == PersonalCloudAccessStatus.accountSwitchBlocked
-        ? 'Choose how this device backs up'
+        ? 'Which account should this phone use?'
         : null,
     ownershipDetail: status == PersonalCloudAccessStatus.accountSwitchBlocked
         ? account.lastSyncError ??
-              'Pebble found data on this device that is not linked to the signed-in account.'
+              'Pebble found routines on this phone that are not part of the signed-in account.'
         : null,
   );
 });
+
+List<BackupSetupStep> _setupStepsFor({
+  required PersonalCloudAccessStatus status,
+  required AuthSessionSummary auth,
+}) {
+  final signedIn = auth.isSignedIn;
+  final hasPremium = switch (status) {
+    PersonalCloudAccessStatus.pausedSignedOut ||
+    PersonalCloudAccessStatus.consentRequired ||
+    PersonalCloudAccessStatus.syncing ||
+    PersonalCloudAccessStatus.verificationFailed ||
+    PersonalCloudAccessStatus.available ||
+    PersonalCloudAccessStatus.offlinePending ||
+    PersonalCloudAccessStatus.error ||
+    PersonalCloudAccessStatus.accountSwitchBlocked => true,
+    PersonalCloudAccessStatus.offFree ||
+    PersonalCloudAccessStatus.offSignedInNoEntitlement ||
+    PersonalCloudAccessStatus.expiredGrace => false,
+  };
+  final backupOn = _backupSwitchValue(status);
+
+  final signInStep = BackupSetupStep(
+    icon: LucideIcons.logIn,
+    label: 'Sign in',
+    detail: signedIn
+        ? 'Signed in as ${auth.email ?? 'your account'}.'
+        : 'Use your email so Pebble can restore later.',
+    state: signedIn ? BackupSetupStepState.done : BackupSetupStepState.current,
+  );
+
+  final premiumStep = BackupSetupStep(
+    icon: LucideIcons.sparkles,
+    label: 'Premium',
+    detail: hasPremium
+        ? 'Premium is active.'
+        : status == PersonalCloudAccessStatus.expiredGrace
+        ? 'Renew Premium to back up again.'
+        : signedIn
+        ? 'Backup comes with Premium.'
+        : 'Finish sign-in first.',
+    state: hasPremium
+        ? BackupSetupStepState.done
+        : signedIn
+        ? BackupSetupStepState.current
+        : BackupSetupStepState.locked,
+  );
+
+  final backupStepState = switch (status) {
+    PersonalCloudAccessStatus.available => BackupSetupStepState.done,
+    PersonalCloudAccessStatus.syncing ||
+    PersonalCloudAccessStatus.consentRequired => BackupSetupStepState.current,
+    PersonalCloudAccessStatus.verificationFailed ||
+    PersonalCloudAccessStatus.accountSwitchBlocked ||
+    PersonalCloudAccessStatus.offlinePending ||
+    PersonalCloudAccessStatus.error => BackupSetupStepState.attention,
+    PersonalCloudAccessStatus.pausedSignedOut ||
+    PersonalCloudAccessStatus.offFree ||
+    PersonalCloudAccessStatus.offSignedInNoEntitlement ||
+    PersonalCloudAccessStatus.expiredGrace => BackupSetupStepState.locked,
+  };
+  final backupDetail = switch (status) {
+    PersonalCloudAccessStatus.available => 'Your routines are backed up.',
+    PersonalCloudAccessStatus.syncing => 'Pebble is getting backup ready.',
+    PersonalCloudAccessStatus.consentRequired =>
+      'Turn on backup when you are ready.',
+    PersonalCloudAccessStatus.verificationFailed => 'Pebble needs another try.',
+    PersonalCloudAccessStatus.accountSwitchBlocked =>
+      'Choose which account this phone should use.',
+    PersonalCloudAccessStatus.offlinePending =>
+      'Waiting for internet to come back.',
+    PersonalCloudAccessStatus.error => 'The last backup did not finish.',
+    PersonalCloudAccessStatus.pausedSignedOut => 'Sign in first.',
+    PersonalCloudAccessStatus.expiredGrace => 'Renew Premium first.',
+    PersonalCloudAccessStatus.offFree ||
+    PersonalCloudAccessStatus.offSignedInNoEntitlement =>
+      'Finish the steps above first.',
+  };
+  final backupStep = BackupSetupStep(
+    icon: backupOn ? LucideIcons.cloudCheck : LucideIcons.fileCheck,
+    label: 'Turn on backup',
+    detail: backupDetail,
+    state: backupStepState,
+  );
+
+  return [signInStep, premiumStep, backupStep];
+}
 
 class _BackupDashboardBase {
   const _BackupDashboardBase({
@@ -224,22 +330,22 @@ _BackupDashboardBase _baseForStatus({
       return _BackupDashboardBase(
         statusLabel: 'Backup is off',
         detail: auth.isSignedIn
-            ? 'Cloud backup is available with Personal Premium.'
-            : 'Sign in and use Personal Premium when you want backup.',
+            ? 'Your routines are saved on this phone only. Backup comes with Premium.'
+            : 'Your routines are saved on this phone only. Sign in and add Premium to back them up.',
         icon: LucideIcons.cloud,
         tone: BackupDashboardTone.neutral,
         needsAttention: false,
         primaryAction: auth.isSignedIn
-            ? BackupDashboardAction.none
+            ? BackupDashboardAction.getPremium
             : BackupDashboardAction.signIn,
-        primaryActionLabel: auth.isSignedIn ? null : 'Sign in',
+        primaryActionLabel: auth.isSignedIn ? 'Get Premium' : 'Sign in',
         secondaryAction: BackupDashboardAction.none,
         secondaryActionLabel: null,
       );
     case PersonalCloudAccessStatus.pausedSignedOut:
       return const _BackupDashboardBase(
-        statusLabel: 'Backup is paused',
-        detail: 'Sign in to connect Premium backup to this account.',
+        statusLabel: 'Sign in to back up',
+        detail: 'You have Premium. Sign in again and backup will carry on.',
         icon: LucideIcons.cloudOff,
         tone: BackupDashboardTone.paused,
         needsAttention: true,
@@ -252,7 +358,7 @@ _BackupDashboardBase _baseForStatus({
       return const _BackupDashboardBase(
         statusLabel: 'Ready to turn on',
         detail:
-            'Pebble will not upload supported routine data until you choose.',
+            'One tap and Pebble starts keeping a safe copy of your routines.',
         icon: LucideIcons.fileCheck,
         tone: BackupDashboardTone.attention,
         needsAttention: true,
@@ -303,21 +409,22 @@ _BackupDashboardBase _baseForStatus({
       );
     case PersonalCloudAccessStatus.expiredGrace:
       return const _BackupDashboardBase(
-        statusLabel: 'Backup is paused',
-        detail: 'Premium recently ended, so new cloud uploads are paused.',
-        icon: LucideIcons.clock3,
-        tone: BackupDashboardTone.paused,
+        statusLabel: 'Backup is off',
+        detail:
+            'Backup stopped when Premium ended. Everything is still saved on this phone.',
+        icon: LucideIcons.cloud,
+        tone: BackupDashboardTone.neutral,
         needsAttention: false,
-        primaryAction: BackupDashboardAction.none,
-        primaryActionLabel: null,
+        primaryAction: BackupDashboardAction.getPremium,
+        primaryActionLabel: 'Renew Premium',
         secondaryAction: BackupDashboardAction.none,
         secondaryActionLabel: null,
       );
     case PersonalCloudAccessStatus.accountSwitchBlocked:
       return const _BackupDashboardBase(
-        statusLabel: 'Backup is paused',
+        statusLabel: 'Choose an account',
         detail:
-            'Choose whether this device should use your signed-in account for backup.',
+            'This phone has routines from a different account. Choose what to do and backup can carry on.',
         icon: LucideIcons.shieldAlert,
         tone: BackupDashboardTone.attention,
         needsAttention: true,
@@ -328,8 +435,9 @@ _BackupDashboardBase _baseForStatus({
       );
     case PersonalCloudAccessStatus.offlinePending:
       return const _BackupDashboardBase(
-        statusLabel: 'Waiting for connection',
-        detail: 'Changes are saved locally and will sync when Pebble connects.',
+        statusLabel: 'Waiting for internet',
+        detail:
+            'Changes are saved on this phone and will back up when you\'re online.',
         icon: LucideIcons.wifiOff,
         tone: BackupDashboardTone.paused,
         needsAttention: true,
@@ -343,7 +451,7 @@ _BackupDashboardBase _baseForStatus({
         statusLabel: 'Backup needs attention',
         detail:
             lastSyncError ??
-            'Pebble could not finish syncing everything. Local data stays here.',
+            'The last backup didn\'t finish. Your changes are still saved on this phone.',
         icon: LucideIcons.cloudAlert,
         tone: BackupDashboardTone.attention,
         needsAttention: true,

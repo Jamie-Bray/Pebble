@@ -216,38 +216,36 @@ AccountProfileBackupRow _backupRowFor({
       : 'Last backed up ${_relativeTimestamp(lastSyncAt)}';
   switch (status) {
     case PersonalCloudAccessStatus.offFree:
-      return AccountProfileBackupRow(
-        label: 'Cloud Backup & Sync',
-        detail: isSignedIn
-            ? 'Available with Personal Premium.'
-            : 'Sign in only when you want backup.',
-        trailing: null,
+      return const AccountProfileBackupRow(
+        label: 'Backup',
+        detail: 'Keep a safe copy of your routines.',
+        trailing: 'Off',
         icon: LucideIcons.cloud,
         tone: AccountProfileBackupTone.neutral,
         needsAttention: false,
       );
     case PersonalCloudAccessStatus.offSignedInNoEntitlement:
       return const AccountProfileBackupRow(
-        label: 'Cloud Backup & Sync',
-        detail: 'Available with Personal Premium.',
-        trailing: null,
+        label: 'Backup',
+        detail: 'Keep a safe copy of your routines. Comes with Premium.',
+        trailing: 'Off',
         icon: LucideIcons.cloud,
         tone: AccountProfileBackupTone.neutral,
         needsAttention: false,
       );
     case PersonalCloudAccessStatus.pausedSignedOut:
       return const AccountProfileBackupRow(
-        label: 'Cloud Backup & Sync',
-        detail: 'Sign in to use Premium backup.',
-        trailing: 'Sign-in needed',
+        label: 'Backup',
+        detail: 'Sign in again and backup will carry on.',
+        trailing: 'Sign in',
         icon: LucideIcons.cloudOff,
         tone: AccountProfileBackupTone.paused,
         needsAttention: true,
       );
     case PersonalCloudAccessStatus.consentRequired:
       return const AccountProfileBackupRow(
-        label: 'Cloud Backup & Sync',
-        detail: 'Ready when you turn backup on.',
+        label: 'Backup',
+        detail: 'One tap to turn on.',
         trailing: 'Ready',
         icon: LucideIcons.fileCheck,
         tone: AccountProfileBackupTone.attention,
@@ -255,8 +253,8 @@ AccountProfileBackupRow _backupRowFor({
       );
     case PersonalCloudAccessStatus.available:
       return AccountProfileBackupRow(
-        label: 'Cloud Backup & Sync',
-        detail: lastSyncText ?? 'Backup is on for supported routine data.',
+        label: 'Backup',
+        detail: lastSyncText ?? 'Your routines are backed up.',
         trailing: 'On',
         icon: LucideIcons.cloudCheck,
         tone: AccountProfileBackupTone.active,
@@ -265,17 +263,17 @@ AccountProfileBackupRow _backupRowFor({
     case PersonalCloudAccessStatus.syncing:
       if (isSyncRunning) {
         return const AccountProfileBackupRow(
-          label: 'Cloud Backup & Sync',
+          label: 'Backup',
           detail: 'Saving your latest changes now.',
-          trailing: 'Syncing',
+          trailing: 'Backing up',
           icon: LucideIcons.refreshCw,
           tone: AccountProfileBackupTone.active,
           needsAttention: false,
         );
       }
       return const AccountProfileBackupRow(
-        label: 'Cloud Backup & Sync',
-        detail: 'Pebble is checking backup for this account.',
+        label: 'Backup',
+        detail: 'Getting backup ready.',
         trailing: 'Checking',
         icon: LucideIcons.refreshCw,
         tone: AccountProfileBackupTone.neutral,
@@ -283,37 +281,37 @@ AccountProfileBackupRow _backupRowFor({
       );
     case PersonalCloudAccessStatus.verificationFailed:
       return const AccountProfileBackupRow(
-        label: 'Cloud Backup & Sync',
-        detail: 'Premium is active, but backup needs another check.',
-        trailing: 'Needs check',
+        label: 'Backup',
+        detail: 'Premium is active, but setup needs another try.',
+        trailing: 'Try again',
         icon: LucideIcons.cloudAlert,
         tone: AccountProfileBackupTone.attention,
         needsAttention: true,
       );
     case PersonalCloudAccessStatus.expiredGrace:
       return const AccountProfileBackupRow(
-        label: 'Cloud Backup & Sync',
-        detail: 'New uploads are paused while Premium is inactive.',
-        trailing: 'Paused',
+        label: 'Backup',
+        detail: 'Backup stopped when Premium ended. Your routines stay on this phone.',
+        trailing: 'Off',
         icon: LucideIcons.cloudOff,
         tone: AccountProfileBackupTone.paused,
         needsAttention: false,
       );
     case PersonalCloudAccessStatus.accountSwitchBlocked:
       return AccountProfileBackupRow(
-        label: 'Cloud Backup & Sync',
+        label: 'Backup',
         detail:
             accountError ??
-            'Choose how this device should use your signed-in account.',
-        trailing: 'Review',
+            'This phone has routines from a different account. Choose what to do.',
+        trailing: 'Choose',
         icon: LucideIcons.shieldAlert,
         tone: AccountProfileBackupTone.attention,
         needsAttention: true,
       );
     case PersonalCloudAccessStatus.offlinePending:
       return AccountProfileBackupRow(
-        label: 'Cloud Backup & Sync',
-        detail: lastSyncText ?? 'Changes will sync when connection returns.',
+        label: 'Backup',
+        detail: lastSyncText ?? 'Will back up when you\'re online.',
         trailing: 'Offline',
         icon: LucideIcons.wifiOff,
         tone: AccountProfileBackupTone.paused,
@@ -321,8 +319,8 @@ AccountProfileBackupRow _backupRowFor({
       );
     case PersonalCloudAccessStatus.error:
       return AccountProfileBackupRow(
-        label: 'Cloud Backup & Sync',
-        detail: lastSyncText ?? 'Backup needs a quick retry.',
+        label: 'Backup',
+        detail: lastSyncText ?? 'The last backup didn\'t finish.',
         trailing: 'Needs attention',
         icon: LucideIcons.cloudAlert,
         tone: AccountProfileBackupTone.attention,

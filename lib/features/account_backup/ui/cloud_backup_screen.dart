@@ -138,7 +138,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
       context: context,
       builder: (sheetContext) => _BackupActionSheet(
         icon: LucideIcons.userCheck,
-        eyebrow: 'Cloud backup',
+        eyebrow: 'Backup',
         title: 'Use this account for this device?',
         body:
             'This device has Pebble data from another sign-in. Use ${email ?? 'this account'} from now on so backup can continue.',
@@ -171,7 +171,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
       context: context,
       builder: (sheetContext) => _BackupActionSheet(
         icon: LucideIcons.link,
-        eyebrow: 'Cloud backup',
+        eyebrow: 'Backup',
         title: 'Link this device\'s data?',
         body:
             'Pebble found $itemLabel on this device. Link them to ${email ?? 'this account'} so backup can start, or keep them local.',
@@ -265,9 +265,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
         .read(subscriptionAccountControllerProvider.notifier)
         .updateBootstrapStatus(BootstrapStatus.preparing, clearError: true);
     try {
-      await ref
-          .read(cloudRestoreCoordinatorProvider)
-          .bootstrapAndMerge(userId);
+      await ref.read(cloudRestoreCoordinatorProvider).bootstrapAndMerge(userId);
     } catch (error) {
       // A failed merge must not leave the account stuck on "preparing":
       // surface a retryable error state, then let the caller report it.
@@ -369,7 +367,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
           builder: (_, setDialogState) {
             return _BackupActionSheet(
               icon: LucideIcons.cloudUpload,
-              eyebrow: 'Cloud backup',
+              eyebrow: 'Backup',
               title: 'Turn on backup?',
               body:
                   'Pebble will only start backup after you choose. Supported routine data can upload for restore when backup is on.',
@@ -434,7 +432,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
       context: context,
       builder: (sheetContext) => _BackupActionSheet(
         icon: LucideIcons.cloudOff,
-        eyebrow: 'Cloud backup',
+        eyebrow: 'Backup',
         title: 'Pause backup?',
         body:
             'Pebble will stop saving new backup changes for this account. Local routines stay on this device.',
@@ -494,6 +492,8 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
         return;
       case BackupDashboardAction.signIn:
         context.push('/sign-in');
+      case BackupDashboardAction.getPremium:
+        context.push('/paywall');
       case BackupDashboardAction.turnOnBackup:
         _showCloudBackupConsentDialog();
       case BackupDashboardAction.pauseBackup:
@@ -567,8 +567,8 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
       child: Scaffold(
         backgroundColor: colorScheme.surface,
         appBar: PebbleSubscreenAppBar(
-          title: 'Cloud Backup & Sync',
-          subtitle: 'Your data and restore settings',
+          title: 'Backup',
+          subtitle: 'A safe copy of your routines',
           onBack: _exitBackup,
         ),
         body: ListView(
@@ -673,11 +673,15 @@ class _BackupStatusCard extends StatelessWidget {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Switch.adaptive(
-                            value: state.backupSwitchValue,
-                            onChanged: onSwitchChanged,
-                          ),
+                          // A switch you cannot use is noise: only show it
+                          // while backup is on, where flipping it means pause.
+                          if (state.backupSwitchValue) ...[
+                            const SizedBox(width: 12),
+                            Switch.adaptive(
+                              value: state.backupSwitchValue,
+                              onChanged: onSwitchChanged,
+                            ),
+                          ],
                         ],
                       ),
                       const SizedBox(height: 8),
@@ -691,7 +695,9 @@ class _BackupStatusCard extends StatelessWidget {
                           height: 1.45,
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
+                      _BackupSetupChecklist(steps: state.setupSteps),
+                      const SizedBox(height: 14),
                       Row(
                         children: [
                           if (state.needsAttention)
@@ -743,6 +749,118 @@ class _BackupStatusCard extends StatelessWidget {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _BackupSetupChecklist extends StatelessWidget {
+  const _BackupSetupChecklist({required this.steps});
+
+  final List<BackupSetupStep> steps;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Column(
+      children: [
+        for (var index = 0; index < steps.length; index++) ...[
+          _BackupSetupRow(step: steps[index]),
+          if (index != steps.length - 1)
+            Divider(
+              height: 1,
+              color: colorScheme.outline.withValues(alpha: 0.10),
+            ),
+        ],
+      ],
+    );
+  }
+}
+
+class _BackupSetupRow extends StatelessWidget {
+  const _BackupSetupRow({required this.step});
+
+  final BackupSetupStep step;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isCurrent =
+        step.state == BackupSetupStepState.current ||
+        step.state == BackupSetupStepState.attention;
+    final color = switch (step.state) {
+      BackupSetupStepState.done => colorScheme.primary,
+      BackupSetupStepState.current => colorScheme.tertiary,
+      BackupSetupStepState.attention => colorScheme.error,
+      BackupSetupStepState.locked => colorScheme.onSurface.withValues(
+        alpha: 0.36,
+      ),
+    };
+    final stateIcon = switch (step.state) {
+      BackupSetupStepState.done => LucideIcons.circleCheck,
+      BackupSetupStepState.current => LucideIcons.circle,
+      BackupSetupStepState.attention => LucideIcons.circleAlert,
+      BackupSetupStepState.locked => LucideIcons.lock,
+    };
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 11),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: isCurrent ? 0.14 : 0.08),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(stateIcon, size: 18, color: color),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(step.icon, size: 15, color: color),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Text(
+                        step.label,
+                        style: GoogleFonts.outfit(
+                          color: colorScheme.onSurface,
+                          fontSize: 14,
+                          fontWeight: isCurrent
+                              ? FontWeight.w700
+                              : FontWeight.w600,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  step.detail,
+                  style: GoogleFonts.outfit(
+                    color: colorScheme.onSurface.withValues(
+                      alpha: step.state == BackupSetupStepState.locked
+                          ? 0.48
+                          : 0.66,
+                    ),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w300,
+                    letterSpacing: 0,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1024,6 +1142,8 @@ IconData _buttonIcon(BackupDashboardAction action) {
       return LucideIcons.userCheck;
     case BackupDashboardAction.signIn:
       return LucideIcons.logIn;
+    case BackupDashboardAction.getPremium:
+      return LucideIcons.sparkles;
     case BackupDashboardAction.pauseBackup:
     case BackupDashboardAction.keepBackupOff:
       return LucideIcons.cloudOff;

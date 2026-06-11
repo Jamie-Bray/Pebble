@@ -186,7 +186,7 @@ class CloudSyncCoordinator {
       await _refreshRuntimeState();
       return const ManualSyncResult(
         type: ManualSyncResultType.blockedSignedOut,
-        message: 'Sign in to resume backup and sync.',
+        message: 'Sign in again and backup will carry on.',
       );
     }
 
@@ -194,7 +194,7 @@ class CloudSyncCoordinator {
       await _refreshRuntimeState(isRunning: true);
       return const ManualSyncResult(
         type: ManualSyncResultType.synced,
-        message: 'Pebble is already syncing your routines.',
+        message: 'Pebble is already backing up your routines.',
       );
     }
 
@@ -204,7 +204,7 @@ class CloudSyncCoordinator {
       if (access.status == PersonalCloudAccessStatus.consentRequired) {
         return const ManualSyncResult(
           type: ManualSyncResultType.blockedConsentRequired,
-          message: 'Review and enable cloud backup before Pebble uploads data.',
+          message: 'Turn on backup before Pebble saves anything online.',
         );
       }
       if (access.status == PersonalCloudAccessStatus.accountSwitchBlocked) {
@@ -218,7 +218,7 @@ class CloudSyncCoordinator {
       if (access.status == PersonalCloudAccessStatus.expiredGrace) {
         return const ManualSyncResult(
           type: ManualSyncResultType.blockedNoEntitlement,
-          message: 'Cloud uploads are paused because Premium recently ended.',
+          message: 'Backup stopped when Premium ended.',
         );
       }
       if (access.status == PersonalCloudAccessStatus.verificationFailed) {
@@ -232,12 +232,12 @@ class CloudSyncCoordinator {
           access.status == PersonalCloudAccessStatus.offSignedInNoEntitlement) {
         return const ManualSyncResult(
           type: ManualSyncResultType.blockedNoEntitlement,
-          message: 'Upgrade to turn on backup and sync.',
+          message: 'Backup comes with Premium.',
         );
       }
       return const ManualSyncResult(
         type: ManualSyncResultType.failed,
-        message: 'Pebble couldn\'t finish syncing everything. Try again.',
+        message: 'The last backup didn\'t finish. Try again.',
       );
     }
 
@@ -340,7 +340,7 @@ class CloudSyncCoordinator {
         message: syncedCount > 0
             ? 'Everything is up to date.'
             : userInitiated
-            ? 'No new changes to sync.'
+            ? 'No new changes to back up.'
             : 'Everything is up to date.',
       );
     }
@@ -348,22 +348,21 @@ class CloudSyncCoordinator {
     if (syncedCount > 0) {
       return const ManualSyncResult(
         type: ManualSyncResultType.partialRetryScheduled,
-        message: 'Some items haven\'t synced yet. Pebble will keep trying.',
+        message: 'Some changes are still waiting. Pebble will keep trying.',
       );
     }
 
     if (sawOfflineError) {
       return const ManualSyncResult(
         type: ManualSyncResultType.blockedOffline,
-        message: 'You\'re offline. Changes will sync later.',
+        message: 'You\'re offline. Changes will back up later.',
       );
     }
 
     return ManualSyncResult(
       type: ManualSyncResultType.failed,
       message:
-          lastFailureMessage ??
-          'Pebble couldn\'t finish syncing everything. Try again.',
+          lastFailureMessage ?? 'The last backup didn\'t finish. Try again.',
     );
   }
 
@@ -899,7 +898,7 @@ class CloudSyncCoordinator {
 
   String _failureMessageForError(Object error) {
     if (_looksOffline(error)) {
-      return 'You\'re offline. Changes will sync later.';
+      return 'You\'re offline. Changes will back up later.';
     }
     final normalized = error.toString().toLowerCase();
     if (normalized.contains('row-level security') ||
@@ -913,7 +912,7 @@ class CloudSyncCoordinator {
     if (normalized.contains('proof media rolling upload quota exceeded')) {
       return 'Proof photo backup hit the monthly upload limit. Routine backup will keep trying.';
     }
-    return 'Pebble couldn\'t finish syncing everything. Try again.';
+    return 'The last backup didn\'t finish. Try again.';
   }
 
   Future<void> _refreshRuntimeState({bool isRunning = false}) async {

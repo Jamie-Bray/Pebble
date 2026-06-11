@@ -132,7 +132,8 @@ final stuckSyncCountProvider = StreamProvider<int>((ref) {
     (rows) => rows
         .where(
           (row) =>
-              row.attemptCount >= SyncOutboxRepositoryImpl.stuckAttemptThreshold,
+              row.attemptCount >=
+              SyncOutboxRepositoryImpl.stuckAttemptThreshold,
         )
         .length,
   );
@@ -152,17 +153,17 @@ final accountBackupStatusSummaryProvider = Provider<AccountBackupStatusSummary>(
   final isPremium = entitlement.isPersonalPaid;
   final purchaseSetupPending = !isPremium && !purchase.isPurchaseAvailable;
   final pendingDetail = pendingCount > 0
-      ? ' $pendingCount change${pendingCount == 1 ? '' : 's'} will sync when backup can run.'
+      ? ' $pendingCount change${pendingCount == 1 ? '' : 's'} waiting to back up.'
       : '';
 
   if (runtime.isRunning) {
     return AccountBackupStatusSummary(
       kind: AccountBackupStatusKind.syncing,
-      label: 'Cloud backup syncing',
+      label: 'Backing up now',
       detail: pendingCount > 0
-          ? '$pendingCount change${pendingCount == 1 ? '' : 's'} syncing now.'
-          : 'Pebble is syncing supported routine data now.',
-      historyLabel: 'Cloud backup syncing',
+          ? '$pendingCount change${pendingCount == 1 ? '' : 's'} backing up now.'
+          : 'Pebble is saving your latest changes.',
+      historyLabel: 'Backing up now',
       showRunSyncState: true,
     );
   }
@@ -176,42 +177,42 @@ final accountBackupStatusSummaryProvider = Provider<AccountBackupStatusSummary>(
           label: 'Premium setup pending',
           detail:
               'Pebble works locally. Personal Premium cannot be started until Google Play products are configured for this build.',
-          historyLabel: 'Stored on this device',
+          historyLabel: 'Saved on this phone',
           showRunSyncState: false,
         );
       }
       return const AccountBackupStatusSummary(
         kind: AccountBackupStatusKind.localOnly,
-        label: 'Stored on this device',
+        label: 'Saved on this phone',
         detail:
-            'Pebble is local-first. Free keeps recent history for 48 hours on this device. Sign in is only needed for cloud backup and account recovery.',
-        historyLabel: 'Stored on this device',
+            'Everything works on this phone without an account. Free keeps the last 48 hours of history.',
+        historyLabel: 'Saved on this phone',
         showRunSyncState: false,
       );
     case PersonalCloudAccessStatus.pausedSignedOut:
       return const AccountBackupStatusSummary(
         kind: AccountBackupStatusKind.waitingForSignIn,
-        label: 'Waiting for sign-in',
+        label: 'Sign in to back up',
         detail:
-            'Personal Premium is active. Sign in to resume cloud backup; local routines stay on this device.',
-        historyLabel: 'Waiting for sign-in',
+            'You have Premium. Sign in again and backup will carry on. Your routines stay on this phone.',
+        historyLabel: 'Sign in to back up',
         showRunSyncState: false,
       );
     case PersonalCloudAccessStatus.consentRequired:
       return const AccountBackupStatusSummary(
         kind: AccountBackupStatusKind.waitingForConsent,
-        label: 'Waiting for backup consent',
+        label: 'Ready to turn on',
         detail:
-            'Premium is active and sign-in is ready. Cloud backup starts only after you enable backup consent.',
-        historyLabel: 'Waiting for backup consent',
+            'Premium and sign-in are ready. Backup starts only when you turn it on.',
+        historyLabel: 'Ready to turn on',
         showRunSyncState: false,
       );
     case PersonalCloudAccessStatus.available:
       return AccountBackupStatusSummary(
         kind: AccountBackupStatusKind.ready,
-        label: 'Cloud backup ready',
-        detail: 'Supported routine data can sync for restore.$pendingDetail',
-        historyLabel: 'Cloud backup ready',
+        label: 'Backup is on',
+        detail: 'Your routines are kept safe for restore.$pendingDetail',
+        historyLabel: 'Backup is on',
         showRunSyncState: true,
       );
     case PersonalCloudAccessStatus.syncing:
@@ -219,8 +220,7 @@ final accountBackupStatusSummaryProvider = Provider<AccountBackupStatusSummary>(
         return const AccountBackupStatusSummary(
           kind: AccountBackupStatusKind.premiumSetupPending,
           label: 'Checking backup',
-          detail:
-              'Premium is active. Pebble is checking backup for this account.',
+          detail: 'Premium is active. Pebble is getting backup ready.',
           historyLabel: 'Backup pending',
           showRunSyncState: false,
         );
@@ -235,37 +235,37 @@ final accountBackupStatusSummaryProvider = Provider<AccountBackupStatusSummary>(
     case PersonalCloudAccessStatus.verificationFailed:
       return const AccountBackupStatusSummary(
         kind: AccountBackupStatusKind.attention,
-        label: 'Backup setup failed',
+        label: 'Backup needs another try',
         detail:
-            'Premium is active, but backup could not be verified for this account yet.',
+            'Premium is active, but backup setup didn\'t finish. Try again.',
         historyLabel: 'Backup pending',
         showRunSyncState: false,
       );
     case PersonalCloudAccessStatus.expiredGrace:
       return const AccountBackupStatusSummary(
         kind: AccountBackupStatusKind.paused,
-        label: 'Cloud backup paused',
+        label: 'Backup is off',
         detail:
-            'Premium recently ended. New uploads are paused, and your 21-day history remains visible for 7 days.',
-        historyLabel: 'Cloud backup paused',
+            'Backup stopped when Premium ended. Your 21-day history stays visible for 7 days.',
+        historyLabel: 'Backup is off',
         showRunSyncState: false,
       );
     case PersonalCloudAccessStatus.accountSwitchBlocked:
       return const AccountBackupStatusSummary(
         kind: AccountBackupStatusKind.blocked,
-        label: 'Backup blocked for account safety',
+        label: 'Choose an account',
         detail:
-            'Pebble is keeping local data local until you choose how to handle this signed-in account.',
-        historyLabel: 'Backup blocked for account safety',
+            'This phone has routines from a different account. They stay here until you choose what to do.',
+        historyLabel: 'Choose an account',
         showRunSyncState: false,
       );
     case PersonalCloudAccessStatus.offlinePending:
       return const AccountBackupStatusSummary(
         kind: AccountBackupStatusKind.waitingForConnection,
-        label: 'Waiting for connection',
+        label: 'Waiting for internet',
         detail:
-            'Changes are saved locally and will sync when Pebble can connect.',
-        historyLabel: 'Waiting for connection',
+            'Changes are saved on this phone and will back up when Pebble is online.',
+        historyLabel: 'Waiting for internet',
         showRunSyncState: true,
       );
     case PersonalCloudAccessStatus.error:
@@ -273,7 +273,7 @@ final accountBackupStatusSummaryProvider = Provider<AccountBackupStatusSummary>(
         kind: AccountBackupStatusKind.attention,
         label: 'Backup needs attention',
         detail:
-            'Pebble could not finish syncing everything. Local data remains on this device.',
+            'The last backup didn\'t finish. Your changes are still saved on this phone.',
         historyLabel: 'Backup needs attention',
         showRunSyncState: true,
       );
@@ -343,13 +343,21 @@ final accountBackupChipStateProvider = Provider<AccountBackupChipState>((ref) {
   switch (status) {
     case PersonalCloudAccessStatus.offFree:
     case PersonalCloudAccessStatus.offSignedInNoEntitlement:
-      return const AccountBackupChipState.hidden();
+      // Free users still get a door to backup from Home; hiding it was why
+      // backup felt buried inside account settings.
+      return const AccountBackupChipState(
+        show: true,
+        label: 'Backup off',
+        tone: AccountBackupChipTone.neutral,
+        semanticsHint:
+            'Backup is off. Tap to keep a safe copy of your routines.',
+      );
     case PersonalCloudAccessStatus.consentRequired:
       return const AccountBackupChipState(
         show: true,
         label: 'Set up backup',
         tone: AccountBackupChipTone.attention,
-        semanticsHint: 'Cloud backup needs your review before upload starts.',
+        semanticsHint: 'Backup is ready to turn on.',
       );
     case PersonalCloudAccessStatus.syncing:
       if (!runtime.isRunning) {
@@ -395,19 +403,25 @@ final accountBackupChipStateProvider = Provider<AccountBackupChipState>((ref) {
         semanticsHint: 'Changes will back up when connection returns.',
       );
     case PersonalCloudAccessStatus.pausedSignedOut:
+      return const AccountBackupChipState(
+        show: true,
+        label: 'Sign in to back up',
+        tone: AccountBackupChipTone.neutral,
+        semanticsHint: 'Sign in again and backup will carry on.',
+      );
     case PersonalCloudAccessStatus.expiredGrace:
       return const AccountBackupChipState(
         show: true,
-        label: 'Backup paused',
+        label: 'Backup off',
         tone: AccountBackupChipTone.neutral,
-        semanticsHint: 'Backup is paused. Tap for details.',
+        semanticsHint: 'Backup ended with Premium. Tap for details.',
       );
     case PersonalCloudAccessStatus.accountSwitchBlocked:
       return const AccountBackupChipState(
         show: true,
-        label: 'Needs review',
+        label: 'Choose account',
         tone: AccountBackupChipTone.attention,
-        semanticsHint: 'Backup is paused until this device is reviewed.',
+        semanticsHint: 'Choose which account this phone backs up to.',
       );
     case PersonalCloudAccessStatus.verificationFailed:
     case PersonalCloudAccessStatus.error:
@@ -452,7 +466,7 @@ final accountBackupUiStateProvider = Provider<AccountBackupUiState>((ref) {
       : 'Pebble works without an account';
   final accountSupportingText = auth.isSignedIn
       ? _providerLabel(auth.provider)
-      : 'Your routines are stored on this device.';
+      : 'Your routines are saved on this phone.';
 
   final planName = _planLabel(entitlement.personalTier);
   final planSupportingText = _planSupportingText(
@@ -462,9 +476,9 @@ final accountBackupUiStateProvider = Provider<AccountBackupUiState>((ref) {
 
   final lastSyncText = account.lastSyncAt == null
       ? null
-      : 'Last sync ${_relativeTimestamp(account.lastSyncAt!)}';
+      : 'Last backed up ${_relativeTimestamp(account.lastSyncAt!)}';
   final pendingChangesText = pendingCount > 0
-      ? '$pendingCount change${pendingCount == 1 ? '' : 's'} still need to sync'
+      ? '$pendingCount change${pendingCount == 1 ? '' : 's'} waiting to back up'
       : null;
 
   return AccountBackupUiState(
@@ -532,17 +546,17 @@ String? _providerLabel(String? provider) {
 
 String _planSupportingText({required UserTier tier, required bool isSignedIn}) {
   if (tier == UserTier.personalFree && isSignedIn) {
-    return 'Backup is available with Personal Premium.';
+    return 'Backup comes with Premium.';
   }
   if (tier == UserTier.personalFree) {
-    return 'Pebble works without an account. Your routines are stored on this device.';
+    return 'Pebble works without an account. Your routines are saved on this phone.';
   }
   if (!isSignedIn &&
       (tier == UserTier.personalPremium || tier == UserTier.pebbleHousehold)) {
-    return 'Your plan is active. Sign in to resume backup.';
+    return 'Your plan is active. Sign in and backup will carry on.';
   }
   if (tier == UserTier.personalPremium || tier == UserTier.pebbleHousehold) {
-    return 'Backup is active for supported routine data.';
+    return 'Your routines are backed up.';
   }
   return 'Workspace access is managed separately.';
 }
@@ -568,28 +582,28 @@ String _backupSummaryForState(
   switch (status) {
     case PersonalCloudAccessStatus.offFree:
       return isSignedIn
-          ? 'Backup is available with Personal Premium.'
-          : 'Pebble works without an account. Your routines are stored on this device.';
+          ? 'Backup comes with Premium.'
+          : 'Pebble works without an account. Your routines are saved on this phone.';
     case PersonalCloudAccessStatus.offSignedInNoEntitlement:
-      return 'Backup is available with Personal Premium.';
+      return 'Backup comes with Premium.';
     case PersonalCloudAccessStatus.consentRequired:
-      return 'Review cloud backup before upload starts.';
+      return 'Backup is ready to turn on.';
     case PersonalCloudAccessStatus.available:
-      return 'Backup is active for supported routine data.';
+      return 'Your routines are backed up.';
     case PersonalCloudAccessStatus.syncing:
-      return 'Syncing latest changes';
+      return 'Saving your latest changes';
     case PersonalCloudAccessStatus.verificationFailed:
-      return 'Premium is active, but backup could not be set up yet.';
+      return 'Premium is active, but backup setup didn\'t finish.';
     case PersonalCloudAccessStatus.pausedSignedOut:
-      return 'Backup is paused. Sign in to resume.';
+      return 'Sign in again and backup will carry on.';
     case PersonalCloudAccessStatus.expiredGrace:
-      return 'Premium recently ended. Uploads are paused.';
+      return 'Backup stopped when Premium ended.';
     case PersonalCloudAccessStatus.accountSwitchBlocked:
-      return 'Backup is paused until local data is reviewed.';
+      return 'Choose which account this phone backs up to.';
     case PersonalCloudAccessStatus.offlinePending:
-      return 'Waiting for connection';
+      return 'Waiting for internet';
     case PersonalCloudAccessStatus.error:
-      return 'Backup is active, but Pebble couldn\'t finish syncing everything.';
+      return 'The last backup didn\'t finish.';
   }
 }
 
@@ -601,10 +615,10 @@ String? _backupDetailForState({
   required ProofMediaFairUseState? fairUseState,
 }) {
   if (fairUseState?.status == ProofMediaFairUseStatus.full) {
-    return 'Photo storage full. Routine sync still works.';
+    return 'Photo storage full. Routine backup still works.';
   }
   if (fairUseState?.status == ProofMediaFairUseStatus.warning) {
-    return 'Proof photo storage is nearly full. Routine sync still works.';
+    return 'Proof photo storage is nearly full. Routine backup still works.';
   }
   switch (status) {
     case PersonalCloudAccessStatus.offFree:
@@ -615,24 +629,24 @@ String? _backupDetailForState({
     case PersonalCloudAccessStatus.available:
       return pendingChangesText ?? 'All caught up';
     case PersonalCloudAccessStatus.syncing:
-      return pendingChangesText ?? 'Syncing latest changes';
+      return pendingChangesText ?? 'Saving your latest changes';
     case PersonalCloudAccessStatus.verificationFailed:
       return 'Try again to re-check Premium for this account.';
     case PersonalCloudAccessStatus.pausedSignedOut:
-      return 'Sign in to resume backup.';
+      return 'Sign in again and backup will carry on.';
     case PersonalCloudAccessStatus.expiredGrace:
-      return 'Your 21-day history stays visible for 7 days. New cloud uploads are paused.';
+      return 'Your 21-day history stays visible for 7 days. Backup stopped when Premium ended.';
     case PersonalCloudAccessStatus.accountSwitchBlocked:
       return lastError ??
           'Pebble will keep existing local data local until you choose how to handle this account.';
     case PersonalCloudAccessStatus.offlinePending:
-      return pendingChangesText ?? 'Waiting for connection.';
+      return pendingChangesText ?? 'Waiting for internet.';
     case PersonalCloudAccessStatus.error:
       if (nextRetryAt != null) {
         return pendingChangesText ??
-            'Pebble will try again soon. You can also sync now.';
+            'Pebble will try again soon. You can also try now.';
       }
-      return pendingChangesText ?? lastError ?? 'Try again to finish syncing.';
+      return pendingChangesText ?? lastError ?? 'Try again to finish backup.';
   }
 }
 
@@ -667,7 +681,7 @@ String? _primaryBackupActionLabelForState(PersonalCloudAccessStatus status) {
       return 'Refresh status';
     case PersonalCloudAccessStatus.syncing:
     case PersonalCloudAccessStatus.error:
-      return 'Sync now';
+      return 'Back up now';
     case PersonalCloudAccessStatus.verificationFailed:
       return 'Try again';
     case PersonalCloudAccessStatus.offlinePending:

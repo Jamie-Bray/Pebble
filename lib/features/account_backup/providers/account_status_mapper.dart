@@ -147,13 +147,13 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
     return AccountStatusPresentation(
       planLabel: planFacts.label,
       title: unownedOnly
-          ? 'Choose what happens to this device\'s data'
-          : 'Backup is paused',
+          ? 'Choose what happens to this phone\'s routines'
+          : 'Choose how to back up',
       body: unownedOnly
-          ? 'This device already has Pebble data. You can link it to your signed-in account, or keep it only on this device.'
-          : 'Some Pebble data on this device belongs to another account. Pebble will not upload it to this account.',
-      statusLabel: 'Backup is paused',
-      historyLabel: 'Backup is paused',
+          ? 'This phone already has Pebble routines. You can add them to your account, or keep them only on this phone.'
+          : 'Some routines on this phone belong to a different account. Pebble keeps them here until you choose what to do.',
+      statusLabel: 'Choose an account',
+      historyLabel: 'Choose an account',
       limitChips: planFacts.chips,
       featureHighlights: const [],
       primaryAction: AccountStatusAction.reviewLocalData,
@@ -180,8 +180,8 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
       body:
           purchase.unavailableReason ??
           'Premium is not ready in Google Play yet. Pebble still works on this device.',
-      statusLabel: 'Stored on this device',
-      historyLabel: 'Stored on this device',
+      statusLabel: 'Saved on this phone',
+      historyLabel: 'Saved on this phone',
       limitChips: planFacts.chips,
       featureHighlights: const [],
       primaryAction: AccountStatusAction.none,
@@ -202,11 +202,11 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
   if (lifecycle.phase == SubscriptionLifecyclePhase.expiredGrace) {
     return AccountStatusPresentation(
       planLabel: planFacts.label,
-      title: 'Premium recently ended',
+      title: 'Premium ended',
       body:
-          'Your 21-day history is still available for 7 days. Renew Premium to keep longer history and backup.',
-      statusLabel: 'Backup is paused',
-      historyLabel: 'Backup is paused',
+          'Backup stopped with Premium, and everything is still saved on this phone. Your longer history stays visible for 7 days.',
+      statusLabel: 'Backup is off',
+      historyLabel: 'Backup is off',
       limitChips: planFacts.chips,
       featureHighlights: const [],
       primaryAction: purchase.isPurchaseAvailable
@@ -227,10 +227,10 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
   if (lifecycle.phase == SubscriptionLifecyclePhase.expired) {
     return AccountStatusPresentation(
       planLabel: planFacts.label,
-      title: 'Stored on this device',
-      body: 'Pebble is using the free history window again.',
-      statusLabel: 'Stored on this device',
-      historyLabel: 'Stored on this device',
+      title: 'Saved on this phone',
+      body: 'Your routines are saved on this phone, with the free history window.',
+      statusLabel: 'Saved on this phone',
+      historyLabel: 'Saved on this phone',
       limitChips: planFacts.chips,
       featureHighlights: const [],
       primaryAction: purchase.isPurchaseAvailable
@@ -253,11 +253,11 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
     case PersonalCloudAccessStatus.offSignedInNoEntitlement:
       return AccountStatusPresentation(
         planLabel: planFacts.label,
-        title: 'Stored on this device',
+        title: 'Saved on this phone',
         body:
-            'Your routines stay on this device. Everything works, no account needed.',
-        statusLabel: 'Stored on this device',
-        historyLabel: 'Stored on this device',
+            'Your routines are saved on this phone. Everything works, no account needed.',
+        statusLabel: 'Saved on this phone',
+        historyLabel: 'Saved on this phone',
         limitChips: planFacts.chips,
         featureHighlights: const [
           AccountFeatureHighlight(
@@ -288,7 +288,7 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
         title: 'Premium is on this device',
         body:
             'Premium is active on this device. Sign in only if you want backup and account recovery.',
-        statusLabel: 'Backup is paused',
+        statusLabel: 'Sign in to back up',
         historyLabel: 'Waiting for sign-in',
         limitChips: planFacts.chips,
         featureHighlights: const [
@@ -297,7 +297,7 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
             detail: 'is active on this device.',
           ),
           AccountFeatureHighlight(
-            emphasis: 'Cloud backup',
+            emphasis: 'Backup',
             detail: 'is optional and needs sign-in.',
           ),
           AccountFeatureHighlight(
@@ -354,8 +354,8 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
           planLabel: planFacts.label,
           title: 'Premium is active',
           body:
-              'Pebble is waiting for secure purchase verification before cloud backup and email alerts can start.',
-          statusLabel: 'Verifying purchase',
+              'Pebble is double-checking your purchase with Google Play. Backup starts right after.',
+          statusLabel: 'Checking your purchase',
           historyLabel: 'Backup pending',
           limitChips: planFacts.chips,
           featureHighlights: const [
@@ -384,7 +384,7 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
         planLabel: planFacts.label,
         title: 'Backup is on',
         body:
-            'Premium keeps your history backed up, so it is safer if you change phone or reinstall Pebble.',
+            'Your routines and history are backed up. If you lose or change your phone, they come back with you.',
         statusLabel: 'Backup is on',
         historyLabel: 'Backup is on',
         limitChips: planFacts.chips,
@@ -437,11 +437,11 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
     case PersonalCloudAccessStatus.offlinePending:
       return AccountStatusPresentation(
         planLabel: planFacts.label,
-        title: 'Backup is paused',
+        title: 'Waiting for internet',
         body:
             'Pebble will save your latest changes when the connection is back.',
-        statusLabel: 'Backup is paused',
-        historyLabel: 'Backup is paused',
+        statusLabel: 'Waiting for internet',
+        historyLabel: 'Waiting for internet',
         limitChips: planFacts.chips,
         featureHighlights: const [],
         primaryAction: AccountStatusAction.syncNow,
@@ -459,9 +459,9 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
       return AccountStatusPresentation(
         planLabel: planFacts.label,
         title: 'Backup needs attention',
-        body: 'Pebble could not finish saving the latest changes.',
+        body: 'The last backup didn\'t finish. Your changes are still saved on this phone.',
         statusLabel: 'Backup needs attention',
-        historyLabel: 'Backup is paused',
+        historyLabel: 'Backup needs attention',
         limitChips: planFacts.chips,
         featureHighlights: const [],
         primaryAction: AccountStatusAction.syncNow,

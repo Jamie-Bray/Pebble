@@ -441,7 +441,7 @@ class _NoAccountNote extends StatelessWidget {
               fontWeight: FontWeight.w400,
             ),
           ),
-          child: const Text('How does cloud backup work?'),
+          child: const Text('How does backup work?'),
         ),
       ],
     );

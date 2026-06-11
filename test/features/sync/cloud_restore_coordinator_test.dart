@@ -294,7 +294,7 @@ void main() {
       final policy = container.read(cloudAccessPolicyProvider);
 
       expect(access.status, PersonalCloudAccessStatus.pausedSignedOut);
-      expect(access.label, 'Backup is paused');
+      expect(access.label, 'Sign in to back up');
       expect(policy.personalCloudEnabled, isFalse);
       expect(policy.canQueuePersonalSync, isFalse);
     });

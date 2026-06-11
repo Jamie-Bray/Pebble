@@ -89,7 +89,7 @@ class _BackupStatusChip extends StatelessWidget {
 
     return Semantics(
       button: true,
-      label: 'Cloud backup',
+      label: 'Backup',
       hint: state.semanticsHint,
       child: Material(
         color: accent.withValues(alpha: 0.10),
