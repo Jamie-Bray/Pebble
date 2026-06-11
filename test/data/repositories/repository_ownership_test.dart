@@ -86,4 +86,23 @@ void main() {
       expect(saved.single.ownerUserId, 'user-2');
     });
   });
+
+  group('pinning', () {
+    test('stamps pinnedAt when pinning and clears it when unpinning', () async {
+      final repo = container.read(routineRepositoryProvider);
+
+      await repo.saveRoutine(_routine(id: 1, ownerUserId: null));
+      await repo.updateRoutinePinned(1, true);
+
+      final pinned = await database.routineDao.getRoutineById(1);
+      expect(pinned?.isPinned, isTrue);
+      expect(pinned?.pinnedAt, isNotNull);
+
+      await repo.updateRoutinePinned(1, false);
+
+      final unpinned = await database.routineDao.getRoutineById(1);
+      expect(unpinned?.isPinned, isFalse);
+      expect(unpinned?.pinnedAt, isNull);
+    });
+  });
 }

@@ -1417,7 +1417,21 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
     ref.read(navIndexProvider.notifier).state = 1;
   }
 
-  // Removed unused _onTogglePin (use _togglePinRoutine instead)
+  Future<void> _togglePinRoutine(Routine routine) async {
+    final nextPinned = !routine.isPinned;
+    await ref
+        .read(routineManagementProvider)
+        .pinRoutine(routine.id, nextPinned);
+    if (!mounted) return;
+
+    ZenNotifications.showSuccess(
+      context,
+      title: nextPinned ? 'Pinned for widget' : 'Unpinned',
+      message: nextPinned
+          ? '"${routine.title}" will appear on your Pebble widget.'
+          : '"${routine.title}" was removed from the widget.',
+    );
+  }
 
   Future<void> _onEditRoutine(Routine routine, {int? initialStepIndex}) async {
     // Ensure we edit the latest version from DB (quick-add or in-run patches may have changed it)
@@ -1574,6 +1588,23 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                             onTap: () async {
                               Navigator.pop(sheetContext);
                               await _openStyleSheet(routine, themeData);
+                            },
+                          ),
+                          _buildMenuRow(
+                            sheetContext,
+                            icon: routine.isPinned
+                                ? LucideIcons.pinOff
+                                : LucideIcons.pin,
+                            label: routine.isPinned
+                                ? 'Unpin from Widget'
+                                : 'Pin to Widget',
+                            subtitle: routine.isPinned
+                                ? 'Remove this routine from your home widget'
+                                : 'Show this routine on your home widget',
+                            accent: accent,
+                            onTap: () async {
+                              Navigator.pop(sheetContext);
+                              await _togglePinRoutine(routine);
                             },
                           ),
                           const SizedBox(height: 18),

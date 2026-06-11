@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -693,22 +694,47 @@ void main() {
     expect(ctaBottom, lessThan(shelfTop));
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('routine settings exposes widget pin action', (tester) async {
+    final repo = _FakeRoutineRepository([
+      _routine(id: 1, title: 'Morning Reset'),
+    ]);
+
+    await _pumpHome(
+      tester,
+      routines: repo._routines.values.toList(),
+      routineRepository: repo,
+    );
+
+    await tester.tap(find.byTooltip('Routine settings'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Pin to Widget'), findsOneWidget);
+    expect(find.text('Show this routine on your home widget'), findsOneWidget);
+
+    await tester.tap(find.text('Pin to Widget'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(repo.pinnedUpdates, equals([(1, true)]));
+  });
 }
 
 List<Override> _homeOverrides({
   required List<Routine> routines,
   required List<RoutineRun> runs,
   HomeRoutineHighlight? highlight,
+  RoutineRepository? routineRepository,
 }) {
+  final repository = routineRepository ?? _FakeRoutineRepository(routines);
   return [
     currentThemeDataProvider.overrideWithValue(
       AppTheme.fromId(ThemeId.highNoon),
     ),
     currentColorThemeProvider.overrideWithValue(ThemeId.highNoon),
     routineListProvider.overrideWith((ref) => Stream.value(routines)),
-    routineRepositoryProvider.overrideWithValue(
-      _FakeRoutineRepository(routines),
-    ),
+    routineRepositoryProvider.overrideWithValue(repository),
     routineHistoryVmProvider.overrideWith((ref) => Stream.value(runs)),
     activeRoutineSessionsProvider.overrideWith((ref) => Stream.value(const [])),
     latestRoutineRunProvider.overrideWith(
@@ -732,6 +758,7 @@ Future<void> _pumpHome(
   HomeRoutineHighlight? highlight,
   Size? surfaceSize,
   double textScale = 1,
+  RoutineRepository? routineRepository,
 }) async {
   if (surfaceSize != null) {
     tester.view.physicalSize = surfaceSize;
@@ -754,6 +781,7 @@ Future<void> _pumpHome(
         routines: routines,
         runs: runs,
         highlight: highlight,
+        routineRepository: routineRepository,
       ),
       child: MaterialApp(theme: AppTheme.fromId(ThemeId.highNoon), home: home),
     ),
@@ -767,6 +795,7 @@ class _FakeRoutineRepository implements RoutineRepository {
     : _routines = {for (final routine in routines) routine.id: routine};
 
   final Map<int, Routine> _routines;
+  final List<(int, bool)> pinnedUpdates = [];
 
   @override
   Stream<List<Routine>> watchRoutines() =>
@@ -815,7 +844,15 @@ class _FakeRoutineRepository implements RoutineRepository {
   }) async {}
 
   @override
-  Future<void> updateRoutinePinned(int id, bool isPinned) async {}
+  Future<void> updateRoutinePinned(int id, bool isPinned) async {
+    pinnedUpdates.add((id, isPinned));
+    final routine = _routines[id];
+    if (routine == null) return;
+    _routines[id] = routine.copyWith(
+      isPinned: isPinned,
+      pinnedAt: Value(isPinned ? DateTime(2026, 6, 11) : null),
+    );
+  }
 
   @override
   Future<void> updateRoutineReminder({

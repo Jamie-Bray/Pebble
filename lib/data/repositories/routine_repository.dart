@@ -207,11 +207,33 @@ class RoutineRepositoryImpl implements RoutineRepository {
   Future<void> updateRoutinePinned(int id, bool isPinned) async {
     final existing = await getRoutineById(id);
     if (existing == null) return;
-    final updated = existing.copyWith(
+    final policy = _ref.read(cloudAccessPolicyProvider);
+    final existingOwner = existing.ownerUserId?.trim();
+    final ownerUserId = (existingOwner == null || existingOwner.isEmpty)
+        ? policy.cachedOwnerUserId
+        : existingOwner;
+    final shouldQueue = policy.canQueuePersonalSync;
+    final updatedAt = DateTime.now();
+
+    await _dao.updateRoutinePinState(
+      id: id,
       isPinned: isPinned,
+      pinnedAt: isPinned ? updatedAt : null,
       version: existing.version + 1,
+      updatedAt: updatedAt,
+      ownerUserId: ownerUserId,
+      syncStatus: shouldQueue ? 'pendingUpload' : existing.syncStatus,
     );
-    await saveRoutine(updated);
+    if (shouldQueue) {
+      await _ref
+          .read(syncOutboxRepositoryProvider)
+          .enqueue(
+            entityType: SyncEntityType.routine,
+            entityId: id.toString(),
+            operation: SyncOperation.upsert,
+          );
+      await _ref.read(cloudSyncCoordinatorProvider).kick();
+    }
   }
 
   @override

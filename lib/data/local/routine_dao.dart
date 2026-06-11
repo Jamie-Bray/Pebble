@@ -23,6 +23,27 @@ class RoutineDao extends DatabaseAccessor<LocalDb> with _$RoutineDaoMixin {
     routines,
   )..where((tbl) => tbl.cloudId.equals(cloudId))).getSingleOrNull();
 
+  Future<void> updateRoutinePinState({
+    required int id,
+    required bool isPinned,
+    required DateTime? pinnedAt,
+    required int version,
+    required DateTime updatedAt,
+    required String? ownerUserId,
+    required String syncStatus,
+  }) {
+    return (update(routines)..where((tbl) => tbl.id.equals(id))).write(
+      RoutinesCompanion(
+        isPinned: Value(isPinned),
+        pinnedAt: Value(pinnedAt),
+        version: Value(version),
+        updatedAt: Value(updatedAt),
+        ownerUserId: Value(ownerUserId),
+        syncStatus: Value(syncStatus),
+      ),
+    );
+  }
+
   Future<void> markRoutineSynced({
     required int id,
     required String cloudId,
