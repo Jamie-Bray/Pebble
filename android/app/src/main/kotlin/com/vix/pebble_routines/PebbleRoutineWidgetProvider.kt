@@ -46,7 +46,10 @@ class PebbleRoutineWidgetProvider : HomeWidgetProvider() {
                 )
             } else {
                 views.setTextViewText(R.id.widget_title, "Pebble")
-                views.setTextViewText(R.id.widget_subtitle, "Pin a routine to start it from here")
+                views.setTextViewText(
+                    R.id.widget_subtitle,
+                    "Open a routine's menu and tap Pin to Widget",
+                )
                 views.setViewVisibility(R.id.widget_dot, View.GONE)
                 views.setOnClickPendingIntent(
                     R.id.widget_root,
