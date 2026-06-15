@@ -126,6 +126,9 @@ class _FakeRoutineRepository implements RoutineRepository {
   Stream<List<Routine>> watchRoutines() => const Stream<List<Routine>>.empty();
 
   @override
+  Future<void> normalizeLegacyRoutineIcons() async {}
+
+  @override
   Stream<RoutineRun?> watchLatestRunForRoutine(int routineId) {
     return const Stream<RoutineRun?>.empty();
   }

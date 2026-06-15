@@ -1,10 +1,7 @@
 // lib/features/routines/list/providers/routine_list_provider.dart
-import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
-import 'package:pebble_routines/features/routines/data/models/routine_icon_catalog.dart';
 import 'package:pebble_routines/features/subscription/domain/routine_limit_policy.dart';
 import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 
@@ -48,41 +45,21 @@ Routine? selectHomeSpotlightRoutine({
 final routineListProvider = StreamProvider<List<Routine>>((ref) {
   final repo = ref.watch(routineRepositoryProvider);
   return repo.watchRoutines().map((routines) {
-    for (final routine in routines) {
-      final normalizedIconKey = RoutineIconCatalog.resolve(routine.emoji).key;
-      if (routine.emoji == normalizedIconKey) continue;
-
-      // Background one-time normalization of legacy emoji records to icon keys.
-      unawaited(
-        repo.saveRoutine(
-          Routine(
-            id: routine.id,
-            title: routine.title,
-            stepsJson: routine.stepsJson,
-            createdAt: routine.createdAt,
-            emoji: normalizedIconKey,
-            colorHex: routine.colorHex,
-            isPinned: routine.isPinned,
-            pinnedAt: routine.pinnedAt,
-            version: routine.version + 1,
-            updatedAt: DateTime.now(),
-            cloudId: routine.cloudId,
-            ownerUserId: routine.ownerUserId,
-            syncStatus: routine.syncStatus,
-            lastSyncedAt: routine.lastSyncedAt,
-          ),
-        ),
-      );
-    }
-
-    // Sort routines: pinned first, then by creation date (newest first)
-    routines.sort((a, b) {
+    // Pure transform only - never write to the DB from inside this stream.
+    // Legacy emoji are migrated to icon keys once at startup via
+    // RoutineRepository.normalizeLegacyRoutineIcons, and every icon render
+    // resolves through RoutineIconCatalog anyway. A write here re-triggered
+    // this same stream, churning the routines table and (through
+    // routineSessionEntryProvider) resetting live player sessions mid-routine.
+    // See risk_areas memory #9.
+    final sorted = [...routines]..sort((a, b) {
+      // Pinned first, then by creation date (newest first).
       if (a.isPinned != b.isPinned) {
         return a.isPinned ? -1 : 1;
       }
       return b.createdAt.compareTo(a.createdAt);
     });
-    return routines;
+    return sorted;
   });
 });
 

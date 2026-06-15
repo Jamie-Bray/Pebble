@@ -234,14 +234,10 @@ class RoutinePlayerUiState {
       return false;
     }
 
-    switch (presentationState) {
-      case RoutinePlayerPresentationState.photoRequired:
-        return canAddMorePhotos;
-      case RoutinePlayerPresentationState.standard:
-      case RoutinePlayerPresentationState.photoCaptured:
-      case RoutinePlayerPresentationState.finalStep:
-        return hasEnoughPhotos;
-    }
+    // Completion is always gated on having enough photos. Capturing happens
+    // via the Add tile in the photo strip, not the primary button, so the
+    // primary button stays a disabled "Complete step" until a photo exists.
+    return hasEnoughPhotos;
   }
 
   String get primaryLabel {
@@ -259,22 +255,17 @@ class RoutinePlayerUiState {
     }
 
     switch (presentationState) {
-      case RoutinePlayerPresentationState.photoRequired:
-        return 'Take photo';
       case RoutinePlayerPresentationState.finalStep:
         return 'Finish routine';
+      case RoutinePlayerPresentationState.photoRequired:
+        // Photo steps can also be the final step; keep the right verb even
+        // while the button is disabled awaiting the first photo.
+        return isFinalStep ? 'Finish routine' : 'Complete step';
       case RoutinePlayerPresentationState.standard:
       case RoutinePlayerPresentationState.photoCaptured:
         return 'Complete step';
     }
   }
-
-  bool get showAddAnotherPhoto =>
-      hasPhotoRequirement &&
-      hasEnoughPhotos &&
-      canAddMorePhotos &&
-      screenPhase == RoutinePlayerScreenPhase.ready &&
-      !isForegroundBusy;
 
   bool get showCompletionOpenVault =>
       completionSummary != null && completionSummary!.hasPhotos;

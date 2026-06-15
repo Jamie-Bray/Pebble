@@ -41,7 +41,6 @@ class LocalRoutineSessionProofStorage implements RoutineSessionProofStorage {
 
   static const _rootFolder = 'routine_session_proofs';
   static const _uuid = Uuid();
-  static const _fastCopyMaxBytes = 2 * 1024 * 1024;
   final RemoteProofAssetDataSource _remote;
   final ProofMediaFairUseStore _fairUseStore;
 
@@ -63,27 +62,35 @@ class LocalRoutineSessionProofStorage implements RoutineSessionProofStorage {
     }
 
     final proofId = _uuid.v4();
-    final sourceExtension = p.extension(sourceFile.path).toLowerCase();
     final sourceByteCount = await sourceFile.length();
-    final canFastCopy =
-        sourceByteCount <= _fastCopyMaxBytes && sourceExtension.isNotEmpty;
-    final fileName = canFastCopy ? '$proofId$sourceExtension' : '$proofId.webp';
-    final absoluteTarget = p.join(sessionDirectory.path, fileName);
 
-    if (canFastCopy) {
-      await sourceFile.copy(absoluteTarget);
-    } else {
-      final compressed = await FlutterImageCompress.compressAndGetFile(
+    // Every proof must be re-encoded rather than copied: compression drops EXIF
+    // metadata (including GPS coordinates that camera and gallery sources can
+    // embed), so location data never reaches app storage or cloud backup.
+    var absoluteTarget = p.join(sessionDirectory.path, '$proofId.webp');
+    var outputFormat = CompressFormat.webp;
+    var compressed = await FlutterImageCompress.compressAndGetFile(
+      sourceFile.absolute.path,
+      absoluteTarget,
+      quality: 70,
+      format: outputFormat,
+    );
+
+    // Some platforms/codecs can fail WebP re-encoding. JPEG is still a safe
+    // re-encode path, while copying the original bytes would preserve EXIF.
+    if (compressed == null) {
+      absoluteTarget = p.join(sessionDirectory.path, '$proofId.jpg');
+      outputFormat = CompressFormat.jpeg;
+      compressed = await FlutterImageCompress.compressAndGetFile(
         sourceFile.absolute.path,
         absoluteTarget,
-        quality: 70,
-        format: CompressFormat.webp,
+        quality: 72,
+        format: outputFormat,
       );
+    }
 
-      // Fallback if compression fails (unsupported format, etc.)
-      if (compressed == null) {
-        await sourceFile.copy(absoluteTarget);
-      }
+    if (compressed == null) {
+      throw StateError('Could not re-encode proof photo safely.');
     }
 
     final documentsDirectory = await getApplicationDocumentsDirectory();
@@ -100,7 +107,7 @@ class LocalRoutineSessionProofStorage implements RoutineSessionProofStorage {
       capturedAt: DateTime.now(),
     );
     developer.log(
-      'persistCapturedProof ${canFastCopy ? 'copied' : 'compressed'} '
+      'persistCapturedProof compressed ${outputFormat.name} '
       '${sourceByteCount ~/ 1024}KB in ${stopwatch.elapsedMilliseconds}ms',
       name: 'RoutinePlayer',
     );

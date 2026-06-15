@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
+import 'package:pebble_routines/features/routines/data/models/routine_icon_catalog.dart';
 import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
 import 'package:pebble_routines/features/subscription/providers/cloud_access_provider.dart';
 
@@ -18,13 +19,17 @@ const _policySignedInAsUser2 = CloudAccessPolicy(
   isAccountSwitchBlocked: false,
 );
 
-Routine _routine({required int id, String? ownerUserId}) {
+Routine _routine({
+  required int id,
+  String? ownerUserId,
+  String emoji = 'check',
+}) {
   return Routine(
     id: id,
     title: 'Close down',
     stepsJson: jsonEncode(const []),
     createdAt: DateTime(2026, 1, 1),
-    emoji: 'check',
+    emoji: emoji,
     colorHex: null,
     isPinned: false,
     pinnedAt: null,
@@ -84,6 +89,36 @@ void main() {
 
       final saved = await database.routineDao.getAllRoutines();
       expect(saved.single.ownerUserId, 'user-2');
+    });
+  });
+
+  group('normalizeLegacyRoutineIcons', () {
+    test('rewrites a legacy emoji to its resolved icon key', () async {
+      final repo = container.read(routineRepositoryProvider);
+      await repo.saveRoutine(_routine(id: 1, ownerUserId: 'user-2', emoji: '🔒'));
+
+      await repo.normalizeLegacyRoutineIcons();
+
+      final saved = await database.routineDao.getRoutineById(1);
+      final expectedKey = RoutineIconCatalog.resolve('🔒').key;
+      expect(saved?.emoji, expectedKey);
+      // Resolving the stored value must now be a no-op (idempotent).
+      expect(RoutineIconCatalog.resolve(saved?.emoji).key, expectedKey);
+      // The migration is a real content change, so the version is bumped.
+      expect(saved?.version, 2);
+    });
+
+    test('leaves an already-normalized routine untouched', () async {
+      final repo = container.read(routineRepositoryProvider);
+      await repo.saveRoutine(
+        _routine(id: 1, ownerUserId: 'user-2', emoji: 'check'),
+      );
+
+      await repo.normalizeLegacyRoutineIcons();
+
+      final saved = await database.routineDao.getRoutineById(1);
+      expect(saved?.emoji, 'check');
+      expect(saved?.version, 1, reason: 'no rewrite means no version bump');
     });
   });
 

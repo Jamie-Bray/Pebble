@@ -66,6 +66,7 @@ class BackupDashboardPresentation {
     required this.lastBackupText,
     required this.dataItems,
     required this.dataItemsLive,
+    required this.dataFooter,
     required this.pendingBannerText,
     required this.icon,
     required this.tone,
@@ -89,6 +90,7 @@ class BackupDashboardPresentation {
   final String lastBackupText;
   final List<BackupDataItem> dataItems;
   final bool dataItemsLive;
+  final String dataFooter;
   final String? pendingBannerText;
   final IconData icon;
   final BackupDashboardTone tone;
@@ -104,6 +106,9 @@ class BackupDashboardPresentation {
   final bool showOwnershipMismatch;
   final String? ownershipTitle;
   final String? ownershipDetail;
+
+  bool get setupComplete =>
+      setupSteps.every((step) => step.state == BackupSetupStepState.done);
 }
 
 final backupDashboardRunsProvider = StreamProvider<List<RoutineRun>>((ref) {
@@ -155,7 +160,6 @@ final backupDashboardPresentationProvider = Provider<BackupDashboardPresentation
   final base = _baseForStatus(
     status: status,
     summary: summary,
-    auth: auth,
     lastSyncError: account.lastSyncError,
     entitlementError: account.entitlementError,
     runtime: runtime,
@@ -168,6 +172,9 @@ final backupDashboardPresentationProvider = Provider<BackupDashboardPresentation
     lastBackupText: lastBackupText,
     dataItems: dataItems,
     dataItemsLive: dataItemsLive,
+    dataFooter: dataItemsLive
+        ? 'Pebble backs up new changes by itself. Nothing to press.'
+        : 'Once backup is on, Pebble saves changes by itself.',
     pendingBannerText: pendingBannerText,
     icon: base.icon,
     tone: base.tone,
@@ -212,28 +219,31 @@ List<BackupSetupStep> _setupStepsFor({
   };
   final backupOn = _backupSwitchValue(status);
 
+  // Premium can be bought without an account, so it is always step one.
+  final premiumStep = BackupSetupStep(
+    icon: LucideIcons.sparkles,
+    label: 'Get Premium',
+    detail: hasPremium
+        ? 'Premium is active.'
+        : status == PersonalCloudAccessStatus.expiredGrace
+        ? 'Renew Premium to back up again.'
+        : 'Backup comes with Premium.',
+    state: hasPremium
+        ? BackupSetupStepState.done
+        : BackupSetupStepState.current,
+  );
+
   final signInStep = BackupSetupStep(
     icon: LucideIcons.logIn,
     label: 'Sign in',
     detail: signedIn
         ? 'Signed in as ${auth.email ?? 'your account'}.'
-        : 'Use your email so Pebble can restore later.',
-    state: signedIn ? BackupSetupStepState.done : BackupSetupStepState.current,
-  );
-
-  final premiumStep = BackupSetupStep(
-    icon: LucideIcons.sparkles,
-    label: 'Premium',
-    detail: hasPremium
-        ? 'Premium is active.'
-        : status == PersonalCloudAccessStatus.expiredGrace
-        ? 'Renew Premium to back up again.'
-        : signedIn
-        ? 'Backup comes with Premium.'
-        : 'Finish sign-in first.',
-    state: hasPremium
+        : hasPremium
+        ? 'Use your email so Pebble can restore later.'
+        : 'Get Premium first.',
+    state: signedIn
         ? BackupSetupStepState.done
-        : signedIn
+        : hasPremium
         ? BackupSetupStepState.current
         : BackupSetupStepState.locked,
   );
@@ -275,7 +285,7 @@ List<BackupSetupStep> _setupStepsFor({
     state: backupStepState,
   );
 
-  return [signInStep, premiumStep, backupStep];
+  return [premiumStep, signInStep, backupStep];
 }
 
 class _BackupDashboardBase {
@@ -305,7 +315,6 @@ class _BackupDashboardBase {
 _BackupDashboardBase _baseForStatus({
   required PersonalCloudAccessStatus status,
   required AccountBackupStatusSummary summary,
-  required AuthSessionSummary auth,
   required String? lastSyncError,
   required String? entitlementError,
   required CloudSyncRuntimeState runtime,
@@ -327,18 +336,17 @@ _BackupDashboardBase _baseForStatus({
   switch (status) {
     case PersonalCloudAccessStatus.offFree:
     case PersonalCloudAccessStatus.offSignedInNoEntitlement:
-      return _BackupDashboardBase(
+      // Premium needs no account, so it is always the first door in.
+      return const _BackupDashboardBase(
         statusLabel: 'Backup is off',
-        detail: auth.isSignedIn
-            ? 'Your routines are saved on this phone only. Backup comes with Premium.'
-            : 'Your routines are saved on this phone only. Sign in and add Premium to back them up.',
+        detail:
+            'Your routines are saved on this phone only. Backup comes with '
+            'Premium and keeps 21 days of history.',
         icon: LucideIcons.cloud,
         tone: BackupDashboardTone.neutral,
         needsAttention: false,
-        primaryAction: auth.isSignedIn
-            ? BackupDashboardAction.getPremium
-            : BackupDashboardAction.signIn,
-        primaryActionLabel: auth.isSignedIn ? 'Get Premium' : 'Sign in',
+        primaryAction: BackupDashboardAction.getPremium,
+        primaryActionLabel: 'Get Premium',
         secondaryAction: BackupDashboardAction.none,
         secondaryActionLabel: null,
       );
@@ -506,6 +514,8 @@ List<BackupDataItem> _dataItemsFor({
 }) {
   final offState = live ? BackupDataItemState.saved : BackupDataItemState.off;
 
+  // While backup is off the counts only raise questions ("why is it counting
+  // my routines?"), so keep it to a plain description of what backup covers.
   final routineTotal = routines?.length;
   final routineSynced = routines
       ?.where(
@@ -514,15 +524,14 @@ List<BackupDataItem> _dataItemsFor({
       )
       .length;
   final String routineDetail;
-  if (routineTotal == null || routineSynced == null) {
+  if (!live) {
+    routineDetail = 'Every routine and its steps';
+  } else if (routineTotal == null || routineSynced == null) {
     routineDetail = 'Checking routines';
   } else if (routineTotal == 0) {
     routineDetail = 'No routines yet';
-  } else if (live) {
-    routineDetail = '$routineSynced of $routineTotal backed up';
   } else {
-    routineDetail =
-        '$routineTotal routine${routineTotal == 1 ? '' : 's'} on this device';
+    routineDetail = '$routineSynced of $routineTotal backed up';
   }
 
   final runTotal = runs?.length;
@@ -530,23 +539,22 @@ List<BackupDataItem> _dataItemsFor({
       ?.where((run) => run.syncStatus == 'synced' || run.lastSyncedAt != null)
       .length;
   final String runDetail;
-  if (runTotal == null || runSynced == null) {
+  if (!live) {
+    runDetail = 'The runs you\'ve completed';
+  } else if (runTotal == null || runSynced == null) {
     runDetail = 'Checking history';
   } else if (runTotal == 0) {
     runDetail = 'No completed runs yet';
-  } else if (live) {
+  } else {
     runDetail = runSynced == 0
         ? 'Waiting for first backup'
         : '$runSynced completed run${runSynced == 1 ? '' : 's'} backed up';
-  } else {
-    runDetail =
-        '$runTotal completed run${runTotal == 1 ? '' : 's'} on this device';
   }
 
   final String photoDetail;
   var photoState = offState;
   if (!live) {
-    photoDetail = 'Included when backup is on';
+    photoDetail = 'Photos you add along the way';
   } else if (fairUse == null) {
     photoDetail = 'Checking photo storage';
   } else if (fairUse.status == ProofMediaFairUseStatus.full) {

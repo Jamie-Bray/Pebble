@@ -1,43 +1,18 @@
-import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import 'package:pebble_routines/features/account_backup/providers/account_backup_ui_provider.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
-import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
 import 'package:pebble_routines/features/subscription/data/purchase_repository.dart';
 import 'package:pebble_routines/features/subscription/domain/subscription_lifecycle.dart';
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
 import 'package:pebble_routines/features/subscription/providers/cloud_access_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
-import 'package:pebble_routines/features/sync/cloud_sync_coordinator.dart';
-
-enum AccountProfileBackupTone { neutral, active, paused, attention }
 
 class AccountProfileLimit {
   const AccountProfileLimit({required this.value, required this.label});
 
   final String value;
   final String label;
-}
-
-class AccountProfileBackupRow {
-  const AccountProfileBackupRow({
-    required this.label,
-    required this.detail,
-    required this.trailing,
-    required this.icon,
-    required this.tone,
-    required this.needsAttention,
-  });
-
-  final String label;
-  final String detail;
-  final String? trailing;
-  final IconData icon;
-  final AccountProfileBackupTone tone;
-  final bool needsAttention;
 }
 
 class AccountProfilePresentation {
@@ -53,7 +28,6 @@ class AccountProfilePresentation {
     required this.canStartPremium,
     required this.canRestorePurchase,
     required this.canManagePlan,
-    required this.backupRow,
   });
 
   final bool isSignedIn;
@@ -67,7 +41,6 @@ class AccountProfilePresentation {
   final bool canStartPremium;
   final bool canRestorePurchase;
   final bool canManagePlan;
-  final AccountProfileBackupRow backupRow;
 }
 
 final accountProfilePresentationProvider = Provider<AccountProfilePresentation>(
@@ -78,8 +51,6 @@ final accountProfilePresentationProvider = Provider<AccountProfilePresentation>(
     final policy = ref.watch(premiumFeaturePolicyProvider);
     final lifecycle = ref.watch(subscriptionLifecycleProvider);
     final account = ref.watch(subscriptionAccountControllerProvider);
-    final status = ref.watch(effectivePersonalCloudStatusProvider);
-    final runtime = ref.watch(cloudSyncRuntimeStateProvider);
     final limits = _limitsFor(policy);
     final hasLocalPremium =
         policy.localPremiumAccess == LocalPremiumAccess.active ||
@@ -108,13 +79,6 @@ final accountProfilePresentationProvider = Provider<AccountProfilePresentation>(
           entitlement.personalTier == UserTier.personalFree,
       canRestorePurchase: purchase.isPurchaseAvailable,
       canManagePlan: hasLocalPremium && purchase.manageSubscriptionsUrl != null,
-      backupRow: _backupRowFor(
-        status: status,
-        isSignedIn: auth.isSignedIn,
-        lastSyncAt: account.lastSyncAt,
-        accountError: account.lastSyncError,
-        isSyncRunning: runtime.isRunning,
-      ),
     );
   },
 );
@@ -204,131 +168,6 @@ String _planStatusLabel(PremiumFeaturePolicy policy) {
   }
 }
 
-AccountProfileBackupRow _backupRowFor({
-  required PersonalCloudAccessStatus status,
-  required bool isSignedIn,
-  required DateTime? lastSyncAt,
-  required String? accountError,
-  required bool isSyncRunning,
-}) {
-  final lastSyncText = lastSyncAt == null
-      ? null
-      : 'Last backed up ${_relativeTimestamp(lastSyncAt)}';
-  switch (status) {
-    case PersonalCloudAccessStatus.offFree:
-      return const AccountProfileBackupRow(
-        label: 'Backup',
-        detail: 'Keep a safe copy of your routines.',
-        trailing: 'Off',
-        icon: LucideIcons.cloud,
-        tone: AccountProfileBackupTone.neutral,
-        needsAttention: false,
-      );
-    case PersonalCloudAccessStatus.offSignedInNoEntitlement:
-      return const AccountProfileBackupRow(
-        label: 'Backup',
-        detail: 'Keep a safe copy of your routines. Comes with Premium.',
-        trailing: 'Off',
-        icon: LucideIcons.cloud,
-        tone: AccountProfileBackupTone.neutral,
-        needsAttention: false,
-      );
-    case PersonalCloudAccessStatus.pausedSignedOut:
-      return const AccountProfileBackupRow(
-        label: 'Backup',
-        detail: 'Sign in again and backup will carry on.',
-        trailing: 'Sign in',
-        icon: LucideIcons.cloudOff,
-        tone: AccountProfileBackupTone.paused,
-        needsAttention: true,
-      );
-    case PersonalCloudAccessStatus.consentRequired:
-      return const AccountProfileBackupRow(
-        label: 'Backup',
-        detail: 'One tap to turn on.',
-        trailing: 'Ready',
-        icon: LucideIcons.fileCheck,
-        tone: AccountProfileBackupTone.attention,
-        needsAttention: true,
-      );
-    case PersonalCloudAccessStatus.available:
-      return AccountProfileBackupRow(
-        label: 'Backup',
-        detail: lastSyncText ?? 'Your routines are backed up.',
-        trailing: 'On',
-        icon: LucideIcons.cloudCheck,
-        tone: AccountProfileBackupTone.active,
-        needsAttention: false,
-      );
-    case PersonalCloudAccessStatus.syncing:
-      if (isSyncRunning) {
-        return const AccountProfileBackupRow(
-          label: 'Backup',
-          detail: 'Saving your latest changes now.',
-          trailing: 'Backing up',
-          icon: LucideIcons.refreshCw,
-          tone: AccountProfileBackupTone.active,
-          needsAttention: false,
-        );
-      }
-      return const AccountProfileBackupRow(
-        label: 'Backup',
-        detail: 'Getting backup ready.',
-        trailing: 'Checking',
-        icon: LucideIcons.refreshCw,
-        tone: AccountProfileBackupTone.neutral,
-        needsAttention: false,
-      );
-    case PersonalCloudAccessStatus.verificationFailed:
-      return const AccountProfileBackupRow(
-        label: 'Backup',
-        detail: 'Premium is active, but setup needs another try.',
-        trailing: 'Try again',
-        icon: LucideIcons.cloudAlert,
-        tone: AccountProfileBackupTone.attention,
-        needsAttention: true,
-      );
-    case PersonalCloudAccessStatus.expiredGrace:
-      return const AccountProfileBackupRow(
-        label: 'Backup',
-        detail: 'Backup stopped when Premium ended. Your routines stay on this phone.',
-        trailing: 'Off',
-        icon: LucideIcons.cloudOff,
-        tone: AccountProfileBackupTone.paused,
-        needsAttention: false,
-      );
-    case PersonalCloudAccessStatus.accountSwitchBlocked:
-      return AccountProfileBackupRow(
-        label: 'Backup',
-        detail:
-            accountError ??
-            'This phone has routines from a different account. Choose what to do.',
-        trailing: 'Choose',
-        icon: LucideIcons.shieldAlert,
-        tone: AccountProfileBackupTone.attention,
-        needsAttention: true,
-      );
-    case PersonalCloudAccessStatus.offlinePending:
-      return AccountProfileBackupRow(
-        label: 'Backup',
-        detail: lastSyncText ?? 'Will back up when you\'re online.',
-        trailing: 'Offline',
-        icon: LucideIcons.wifiOff,
-        tone: AccountProfileBackupTone.paused,
-        needsAttention: true,
-      );
-    case PersonalCloudAccessStatus.error:
-      return AccountProfileBackupRow(
-        label: 'Backup',
-        detail: lastSyncText ?? 'The last backup didn\'t finish.',
-        trailing: 'Needs attention',
-        icon: LucideIcons.cloudAlert,
-        tone: AccountProfileBackupTone.attention,
-        needsAttention: true,
-      );
-  }
-}
-
 String? _providerLabel(String? provider) {
   switch (provider) {
     case 'google':
@@ -343,18 +182,4 @@ String? _providerLabel(String? provider) {
     default:
       return provider;
   }
-}
-
-String _relativeTimestamp(DateTime timestamp) {
-  final diff = DateTime.now().difference(timestamp);
-  if (diff.inMinutes < 1) {
-    return 'just now';
-  }
-  if (diff.inHours < 1) {
-    return '${diff.inMinutes}m ago';
-  }
-  if (diff.inDays < 1) {
-    return '${diff.inHours}h ago';
-  }
-  return '${diff.inDays}d ago';
 }

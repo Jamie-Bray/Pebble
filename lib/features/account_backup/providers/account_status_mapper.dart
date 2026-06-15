@@ -236,7 +236,7 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
       primaryAction: purchase.isPurchaseAvailable
           ? AccountStatusAction.startPremium
           : AccountStatusAction.none,
-      primaryActionLabel: purchase.isPurchaseAvailable ? 'Start Premium' : null,
+      primaryActionLabel: purchase.isPurchaseAvailable ? 'Get Premium' : null,
       secondaryAction: restoreAction,
       secondaryActionLabel: restoreLabel,
       supportingDetail: null,
@@ -269,7 +269,7 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
             ? AccountStatusAction.startPremium
             : AccountStatusAction.none,
         primaryActionLabel: purchase.isPurchaseAvailable
-            ? 'Start Premium'
+            ? 'Get Premium'
             : null,
         secondaryAction: restoreAction,
         secondaryActionLabel: restoreLabel,

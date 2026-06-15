@@ -39,20 +39,6 @@ class _StarterRoutine {
   final List<_StarterStep> steps;
 }
 
-class _PebblePossibility {
-  const _PebblePossibility({
-    required this.title,
-    required this.prompt,
-    required this.icon,
-    required this.accent,
-  });
-
-  final String title;
-  final String prompt;
-  final IconData icon;
-  final Color accent;
-}
-
 const _starterRoutines = [
   _StarterRoutine(
     cardTitle: 'Everyday Departure Check',
@@ -131,49 +117,6 @@ const _starterRoutines = [
       _StarterStep('Padlock checked', requiresPhoto: true),
       _StarterStep('Bottle filled and sealed'),
     ],
-  ),
-];
-
-const _pebblePossibilities = [
-  _PebblePossibility(
-    title: 'The thing you only do sometimes',
-    prompt:
-        'Travel days, big appointments, setting up for a class, or getting ready for a one-off event.',
-    icon: LucideIcons.calendarClock,
-    accent: Color(0xFFC27D38),
-  ),
-  _PebblePossibility(
-    title: 'The closing-down sweep',
-    prompt:
-        'Doors, tools, water, lights, chargers, and the small checks before you finish.',
-    icon: LucideIcons.keyRound,
-    accent: Color(0xFF4A7C74),
-  ),
-  _PebblePossibility(
-    title: 'The handover',
-    prompt: 'Notes, photos, and steps for the person who takes over next.',
-    icon: LucideIcons.heartHandshake,
-    accent: Color(0xFFA36F7B),
-  ),
-  _PebblePossibility(
-    title: 'The reset after a messy task',
-    prompt:
-        'Clean, refill, put away, check the last detail, and know the job is actually finished.',
-    icon: LucideIcons.paintbrush,
-    accent: Color(0xFF7E7BB8),
-  ),
-  _PebblePossibility(
-    title: 'The day with too many moving parts',
-    prompt:
-        'Documents, timings, supplies, handoffs, reminders, and other details to check.',
-    icon: LucideIcons.route,
-    accent: Color(0xFF5B8FD4),
-  ),
-  _PebblePossibility(
-    title: 'The photo record',
-    prompt: 'A finished setup, packed item, or locked space saved as a photo.',
-    icon: LucideIcons.badgeCheck,
-    accent: Color(0xFF8DA174),
   ),
 ];
 
@@ -788,121 +731,343 @@ class _WelcomeActions extends StatelessWidget {
   }
 }
 
-class _PebblePossibilitiesScreen extends StatelessWidget {
+/// The optional "What can Pebble do?" explainer, reached from the welcome
+/// step. It is pinned to the High Noon onboarding theme on purpose: the theme
+/// picker comes immediately after, so this screen always shows the same warm
+/// light palette as the first onboarding page.
+class _PebblePossibilitiesScreen extends StatefulWidget {
   const _PebblePossibilitiesScreen({required this.onContinue});
 
   final VoidCallback onContinue;
 
   @override
-  Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
+  State<_PebblePossibilitiesScreen> createState() =>
+      _PebblePossibilitiesScreenState();
+}
 
-    return Scaffold(
-      backgroundColor: foundation.bgBase,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SizedBox(
-                height: 40,
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    onPressed: () => Navigator.of(context).maybePop(),
-                    icon: Icon(
-                      LucideIcons.arrowLeft,
-                      size: 16,
-                      color: foundation.textSecondary,
-                    ),
-                    label: Text(
-                      'Back',
-                      style: GoogleFonts.outfit(
-                        color: foundation.textSecondary,
-                        fontWeight: FontWeight.w400,
+class _PebblePossibilitiesScreenState extends State<_PebblePossibilitiesScreen>
+    with TickerProviderStateMixin {
+  late final AnimationController _entrance;
+  late final AnimationController _pulse;
+  bool _motionStarted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _entrance = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_motionStarted) return;
+    _motionStarted = true;
+    if (MediaQuery.of(context).disableAnimations) {
+      // Reduced motion: render everything in its final state.
+      _entrance.value = 1;
+    } else {
+      _entrance.forward();
+      _pulse.repeat();
+    }
+  }
+
+  @override
+  void dispose() {
+    _entrance.dispose();
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  Animation<double> _stagger(double begin, double end) {
+    return CurvedAnimation(
+      parent: _entrance,
+      curve: Interval(begin, end, curve: Curves.easeOut),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Theme(
+      data: AppTheme.fromId(ThemeId.highNoon),
+      child: Builder(
+        builder: (context) {
+          final foundation = context.darkFoundation;
+          final accent = Theme.of(context).colorScheme.primary;
+
+          return Scaffold(
+            backgroundColor: foundation.bgBase,
+            body: Stack(
+              children: [
+                // Atmosphere: a soft accent glow bleeding in behind the top so
+                // the background isn't flat. Purely decorative.
+                Positioned(
+                  top: -150,
+                  left: -40,
+                  right: -40,
+                  child: IgnorePointer(
+                    child: Container(
+                      height: 340,
+                      decoration: BoxDecoration(
+                        gradient: RadialGradient(
+                          center: Alignment.topCenter,
+                          radius: 0.85,
+                          colors: [
+                            accent.withValues(alpha: 0.14),
+                            accent.withValues(alpha: 0),
+                          ],
+                        ),
                       ),
-                    ),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      minimumSize: Size.zero,
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
+                SafeArea(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const _PossibilitiesHero(),
-                      const SizedBox(height: 18),
-                      Text(
-                        'Use it for checks that are personal, occasional, or specific to how you do a task.',
-                        style: GoogleFonts.outfit(
-                          color: foundation.textSecondary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w300,
-                          height: 1.55,
+                      // Sticky top bar.
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                        child: SizedBox(
+                          height: 40,
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton.icon(
+                              onPressed: () => Navigator.of(context).maybePop(),
+                              icon: Icon(
+                                LucideIcons.arrowLeft,
+                                size: 18,
+                                color: foundation.textSecondary,
+                              ),
+                              label: Text(
+                                'Back',
+                                style: GoogleFonts.outfit(
+                                  color: foundation.textSecondary,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
+                                minimumSize: Size.zero,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      const _PossibilityTags(),
-                      const SizedBox(height: 20),
-                      Text(
-                        'Example checks',
-                        style: GoogleFonts.dmSerifDisplay(
-                          color: foundation.textPrimary,
-                          fontSize: 25,
-                          fontWeight: FontWeight.w400,
-                          height: 1.1,
+                      Expanded(
+                        child: Stack(
+                          children: [
+                            SingleChildScrollView(
+                              physics: const BouncingScrollPhysics(),
+                              padding: const EdgeInsets.fromLTRB(24, 6, 24, 128),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'WHAT CAN PEBBLE DO?',
+                                    style: GoogleFonts.outfit(
+                                      color: foundation.textSecondary,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 1.8,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'Checks you only need sometimes.',
+                                    style: GoogleFonts.dmSerifDisplay(
+                                      color: foundation.textPrimary,
+                                      fontSize: 34,
+                                      fontWeight: FontWeight.w400,
+                                      height: 1.05,
+                                      letterSpacing: -0.3,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 300,
+                                    ),
+                                    child: Text(
+                                      "For the tasks you do rarely enough that you'd rather not trust your memory.",
+                                      style: GoogleFonts.outfit(
+                                        color: foundation.textSecondary,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w300,
+                                        height: 1.55,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 30),
+                                  _ExplainerRoutineCard(
+                                    firstTick: _stagger(0.12, 0.5),
+                                    secondTick: _stagger(0.3, 0.7),
+                                    pulse: _pulse,
+                                  ),
+                                  const SizedBox(height: 14),
+                                  Center(
+                                    child: Text(
+                                      'One step at a time, so nothing gets skipped.',
+                                      textAlign: TextAlign.center,
+                                      style: GoogleFonts.outfit(
+                                        color: foundation.textMuted,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w300,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 40),
+                                  Text(
+                                    "Moments it's made for",
+                                    style: GoogleFonts.dmSerifDisplay(
+                                      color: foundation.textPrimary,
+                                      fontSize: 25,
+                                      fontWeight: FontWeight.w400,
+                                      height: 1.1,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    "If one of these sounds familiar, that's the idea.",
+                                    style: GoogleFonts.outfit(
+                                      color: foundation.textSecondary,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w300,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 20),
+                                  ..._explainerMoments.asMap().entries.map(
+                                    (entry) => _ExplainerMomentRow(
+                                      moment: entry.value,
+                                      reveal: _stagger(
+                                        0.5 + entry.key * 0.08,
+                                        1,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            // Pinned CTA with a fade gradient behind it.
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              child: Container(
+                                padding: const EdgeInsets.fromLTRB(
+                                  24,
+                                  24,
+                                  24,
+                                  20,
+                                ),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      foundation.bgBase.withValues(alpha: 0),
+                                      foundation.bgBase,
+                                    ],
+                                    stops: const [0, 0.4],
+                                  ),
+                                ),
+                                child: FilledButton(
+                                  onPressed: widget.onContinue,
+                                  style: FilledButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 17,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    textStyle: GoogleFonts.outfit(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  child: const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text('Continue onboarding'),
+                                      SizedBox(width: 8),
+                                      Icon(LucideIcons.arrowRight, size: 17),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      const _PossibilityGrid(),
-                      const SizedBox(height: 18),
-                      const _PossibilityClosingThought(
-                        text:
-                            'If a check keeps coming back, Pebble can turn it into a routine you can run again.',
                       ),
                     ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: onContinue,
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  textStyle: GoogleFonts.outfit(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text('Continue onboarding'),
-                    SizedBox(width: 8),
-                    Icon(LucideIcons.arrowRight, size: 18),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 }
 
-class _PossibilitiesHero extends StatelessWidget {
-  const _PossibilitiesHero();
+class _ExplainerMoment {
+  const _ExplainerMoment({
+    required this.icon,
+    required this.title,
+    required this.description,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+}
+
+const _explainerMoments = [
+  _ExplainerMoment(
+    icon: LucideIcons.house,
+    title: 'The closing-down sweep',
+    description: 'Doors, water, lights, chargers before you finish.',
+  ),
+  _ExplainerMoment(
+    icon: LucideIcons.heartHandshake,
+    title: 'The handover',
+    description: 'Steps and photos for whoever takes over next.',
+  ),
+  _ExplainerMoment(
+    icon: LucideIcons.clock,
+    title: 'The once-in-a-while task',
+    description: 'Travel days, big appointments, one-off setups.',
+  ),
+  _ExplainerMoment(
+    icon: LucideIcons.rotateCcw,
+    title: 'The reset after a mess',
+    description: 'Putting a space back exactly how it should be.',
+  ),
+];
+
+enum _StepStatus { done, now, todo }
+
+/// The one solid object on the page: the routine card with its stepping-stone
+/// thread running through the tick circles.
+class _ExplainerRoutineCard extends StatelessWidget {
+  const _ExplainerRoutineCard({
+    required this.firstTick,
+    required this.secondTick,
+    required this.pulse,
+  });
+
+  final Animation<double> firstTick;
+  final Animation<double> secondTick;
+  final Animation<double> pulse;
 
   @override
   Widget build(BuildContext context) {
@@ -911,15 +1076,14 @@ class _PossibilitiesHero extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
       decoration: BoxDecoration(
         color: foundation.surfaceLow,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: accent.withValues(alpha: 0.18), width: 1.2),
+        borderRadius: BorderRadius.circular(26),
         boxShadow: [
           BoxShadow(
             color: foundation.shadowSoft,
-            blurRadius: 38,
+            blurRadius: 40,
             offset: const Offset(0, 18),
           ),
         ],
@@ -928,318 +1092,142 @@ class _PossibilitiesHero extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.13),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(LucideIcons.lightbulb, color: accent, size: 18),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                'WHAT CAN PEBBLE DO?',
-                style: GoogleFonts.outfit(
-                  color: accent,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Text(
-            'Checks you only need sometimes.',
-            style: GoogleFonts.dmSerifDisplay(
-              color: foundation.textPrimary,
-              fontSize: 34,
-              fontWeight: FontWeight.w400,
-              height: 1.04,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Use Pebble for step-by-step routines you want ready when the task comes up.',
-            style: GoogleFonts.outfit(
-              color: foundation.textSecondary,
-              fontSize: 13.5,
-              fontWeight: FontWeight.w300,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 20),
-          const _PossibilityMiniStack(),
-        ],
-      ),
-    );
-  }
-}
-
-class _PossibilityMiniStack extends StatelessWidget {
-  const _PossibilityMiniStack();
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        final sideWidth = width * 0.56;
-        final centerWidth = width * 0.62;
-
-        return SizedBox(
-          height: 146,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Positioned(
-                left: 0,
-                top: 24,
-                width: sideWidth,
-                child: _MiniPossibilityCard(
-                  title: 'Before',
-                  line: 'Run the checks',
-                  icon: LucideIcons.listChecks,
-                  accent: Color.lerp(accent, const Color(0xFFC27D38), 0.35)!,
-                ),
-              ),
-              Positioned(
-                right: 0,
-                top: 0,
-                width: sideWidth,
-                child: _MiniPossibilityCard(
-                  title: 'During',
-                  line: 'Follow each step',
-                  icon: LucideIcons.circleCheck,
-                  accent: Color.lerp(accent, const Color(0xFF5B8FD4), 0.36)!,
-                ),
-              ),
-              Positioned(
-                left: (width - centerWidth) / 2,
-                bottom: 0,
-                width: centerWidth,
-                child: _MiniPossibilityCard(
-                  title: 'After',
-                  line: 'Mark it done',
-                  icon: LucideIcons.badgeCheck,
-                  accent: Color.lerp(accent, const Color(0xFFA36F7B), 0.4)!,
-                  isLifted: true,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _MiniPossibilityCard extends StatelessWidget {
-  const _MiniPossibilityCard({
-    required this.title,
-    required this.line,
-    required this.icon,
-    required this.accent,
-    this.isLifted = false,
-  });
-
-  final String title;
-  final String line;
-  final IconData icon;
-  final Color accent;
-  final bool isLifted;
-
-  @override
-  Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isLifted ? foundation.surfaceHigh : foundation.bgBase,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: accent.withValues(alpha: 0.18)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isLifted ? 0.16 : 0.07),
-            blurRadius: isLifted ? 24 : 14,
-            offset: Offset(0, isLifted ? 12 : 7),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, size: 16, color: accent),
-          ),
-          const SizedBox(width: 9),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.outfit(
+              Flexible(
+                child: Text(
+                  'Leaving the rental',
+                  style: GoogleFonts.dmSerifDisplay(
                     color: foundation.textPrimary,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    height: 1.1,
+                    fontSize: 21,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  line,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.outfit(
-                    color: foundation.textSecondary,
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w300,
-                    height: 1.1,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PossibilityTags extends StatelessWidget {
-  const _PossibilityTags();
-
-  static const _tags = [
-    'monthly',
-    'before a handoff',
-    'after a task',
-    'when a check repeats',
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
-    final accent = Theme.of(context).colorScheme.primary;
-
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: _tags
-          .map((tag) {
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: accent.withValues(alpha: 0.14)),
               ),
-              child: Text(
-                tag,
+              const SizedBox(width: 12),
+              Text(
+                '2 of 4',
                 style: GoogleFonts.outfit(
                   color: foundation.textSecondary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w400,
-                  height: 1,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-            );
-          })
-          .toList(growable: false),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // The thread: a line the tick circles render on top of, so they
+              // read as stepping stones strung along it.
+              Positioned(
+                left: 11,
+                top: 22,
+                bottom: 30,
+                child: Container(
+                  width: 2,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.22),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _ExplainerStep(
+                    status: _StepStatus.done,
+                    label: 'Strip the beds',
+                    drawProgress: firstTick,
+                  ),
+                  _ExplainerStep(
+                    status: _StepStatus.done,
+                    label: 'Empty the fridge',
+                    drawProgress: secondTick,
+                  ),
+                  _ExplainerStep(
+                    status: _StepStatus.now,
+                    label: 'Check every window is latched',
+                    pulse: pulse,
+                  ),
+                  const _ExplainerStep(
+                    status: _StepStatus.todo,
+                    label: 'Key back in the lockbox',
+                    photoChipLabel: 'photo to be sure',
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _PossibilityGrid extends StatelessWidget {
-  const _PossibilityGrid();
+class _ExplainerStep extends StatelessWidget {
+  const _ExplainerStep({
+    required this.status,
+    required this.label,
+    this.drawProgress,
+    this.pulse,
+    this.photoChipLabel,
+  });
 
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 560 ? 2 : 1;
-        final spacing = columns == 1 ? 10.0 : 12.0;
-        final itemWidth =
-            (constraints.maxWidth - (spacing * (columns - 1))) / columns;
-
-        return Wrap(
-          spacing: spacing,
-          runSpacing: spacing,
-          children: _pebblePossibilities
-              .map((possibility) {
-                return SizedBox(
-                  width: itemWidth,
-                  child: _PossibilityCard(possibility: possibility),
-                );
-              })
-              .toList(growable: false),
-        );
-      },
-    );
-  }
-}
-
-class _PossibilityCard extends StatelessWidget {
-  const _PossibilityCard({required this.possibility});
-
-  final _PebblePossibility possibility;
+  final _StepStatus status;
+  final String label;
+  final Animation<double>? drawProgress;
+  final Animation<double>? pulse;
+  final String? photoChipLabel;
 
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
-    final tint = possibility.accent;
+    final isDone = status == _StepStatus.done;
 
-    return Container(
-      constraints: const BoxConstraints(minHeight: 122),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: foundation.surfaceLow,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: tint.withValues(alpha: 0.18)),
-      ),
-      child: Column(
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 9),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: tint.withValues(alpha: 0.13),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(possibility.icon, color: tint, size: 17),
+          _ExplainerTick(
+            status: status,
+            drawProgress: drawProgress,
+            pulse: pulse,
           ),
-          const SizedBox(height: 12),
-          Text(
-            possibility.title,
-            style: GoogleFonts.outfit(
-              color: foundation.textPrimary,
-              fontSize: 14.5,
-              fontWeight: FontWeight.w600,
-              height: 1.15,
-            ),
-          ),
-          const SizedBox(height: 7),
-          Text(
-            possibility.prompt,
-            style: GoogleFonts.outfit(
-              color: foundation.textSecondary,
-              fontSize: 12,
-              fontWeight: FontWeight.w300,
-              height: 1.38,
+          const SizedBox(width: 14),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: GoogleFonts.outfit(
+                      color: isDone
+                          ? foundation.textMuted
+                          : foundation.textPrimary,
+                      fontSize: 15,
+                      fontWeight: status == _StepStatus.now
+                          ? FontWeight.w500
+                          : FontWeight.w400,
+                      height: 1.35,
+                      decoration: isDone ? TextDecoration.lineThrough : null,
+                      decorationColor: foundation.textMuted.withValues(
+                        alpha: 0.6,
+                      ),
+                    ),
+                  ),
+                  if (photoChipLabel != null) ...[
+                    const SizedBox(height: 7),
+                    _PhotoChip(label: photoChipLabel!),
+                  ],
+                ],
+              ),
             ),
           ),
         ],
@@ -1248,44 +1236,280 @@ class _PossibilityCard extends StatelessWidget {
   }
 }
 
-class _PossibilityClosingThought extends StatelessWidget {
-  const _PossibilityClosingThought({required this.text});
+class _ExplainerTick extends StatelessWidget {
+  const _ExplainerTick({required this.status, this.drawProgress, this.pulse});
 
-  final String text;
+  final _StepStatus status;
+  final Animation<double>? drawProgress;
+  final Animation<double>? pulse;
 
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
     final accent = Theme.of(context).colorScheme.primary;
 
+    switch (status) {
+      case _StepStatus.done:
+        // Green-filled circle with a white check that draws in.
+        return SizedBox(
+          width: 24,
+          height: 24,
+          child: AnimatedBuilder(
+            animation: drawProgress ?? const AlwaysStoppedAnimation<double>(1),
+            builder: (context, child) {
+              return Container(
+                decoration: BoxDecoration(
+                  color: accent,
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: SizedBox(
+                    width: 13,
+                    height: 13,
+                    child: CustomPaint(
+                      painter: _CheckPainter(
+                        progress: (drawProgress?.value ?? 1).clamp(0.0, 1.0),
+                        color: Theme.of(context).colorScheme.onPrimary,
+                        strokeWidth: 2.4,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      case _StepStatus.now:
+        // Accent ring on an opaque accent-tint fill, with a slow pulse.
+        return SizedBox(
+          width: 24,
+          height: 24,
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              if (pulse != null)
+                AnimatedBuilder(
+                  animation: pulse!,
+                  builder: (context, child) {
+                    final t = pulse!.value;
+                    return Transform.scale(
+                      scale: 1 + 0.5 * t,
+                      child: Container(
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: accent.withValues(
+                              alpha: (0.5 * (1 - t)).clamp(0.0, 1.0).toDouble(),
+                            ),
+                            width: 2,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  // Opaque so the thread reads as passing behind the stone.
+                  color: Color.alphaBlend(
+                    accent.withValues(alpha: 0.14),
+                    foundation.bgBase,
+                  ),
+                  border: Border.all(color: accent, width: 2),
+                ),
+              ),
+            ],
+          ),
+        );
+      case _StepStatus.todo:
+        // Thin grey ring on an opaque fill.
+        return Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: foundation.bgBase,
+            border: Border.all(
+              color: foundation.textMuted.withValues(alpha: 0.4),
+              width: 2,
+            ),
+          ),
+        );
+    }
+  }
+}
+
+class _PhotoChip extends StatelessWidget {
+  const _PhotoChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(15, 14, 15, 14),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: accent.withValues(alpha: 0.15)),
+        color: accent.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(LucideIcons.sparkles, size: 17, color: accent),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              text,
-              style: GoogleFonts.outfit(
-                color: foundation.textPrimary.withValues(alpha: 0.86),
-                fontSize: 12.5,
-                fontWeight: FontWeight.w300,
-                height: 1.42,
-              ),
+          Icon(LucideIcons.camera, size: 12, color: accent),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: GoogleFonts.outfit(
+              color: accent,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
       ),
     );
   }
+}
+
+class _ExplainerMomentRow extends StatelessWidget {
+  const _ExplainerMomentRow({required this.moment, required this.reveal});
+
+  final _ExplainerMoment moment;
+  final Animation<double> reveal;
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+    final accent = Theme.of(context).colorScheme.primary;
+
+    return AnimatedBuilder(
+      animation: reveal,
+      builder: (context, child) {
+        return Opacity(
+          opacity: reveal.value.clamp(0.0, 1.0).toDouble(),
+          child: Transform.translate(
+            offset: Offset(0, 10 * (1 - reveal.value)),
+            child: child,
+          ),
+        );
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: foundation.borderSubtle)),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 17),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(moment.icon, size: 18, color: accent),
+            ),
+            const SizedBox(width: 15),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    moment.title,
+                    style: GoogleFonts.outfit(
+                      color: foundation.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    moment.description,
+                    style: GoogleFonts.outfit(
+                      color: foundation.textSecondary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w300,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Draws the checkmark stroke for a completed step, revealing it from the
+/// short end to the long end as [progress] goes 0 -> 1.
+class _CheckPainter extends CustomPainter {
+  _CheckPainter({
+    required this.progress,
+    required this.color,
+    required this.strokeWidth,
+  });
+
+  final double progress;
+  final Color color;
+  final double strokeWidth;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress <= 0) return;
+    final s = size.width;
+    Offset pt(double x, double y) => Offset(x / 24 * s, y / 24 * s);
+    final a = pt(4, 12);
+    final b = pt(9, 17);
+    final c = pt(20, 6);
+    final segments = [
+      [a, b],
+      [b, c],
+    ];
+    final lengths = segments
+        .map((seg) => (seg[1] - seg[0]).distance)
+        .toList(growable: false);
+    final total = lengths[0] + lengths[1];
+    var remaining = progress.clamp(0.0, 1.0) * total;
+    final path = Path()..moveTo(a.dx, a.dy);
+    for (var i = 0; i < segments.length; i++) {
+      if (remaining <= 0) break;
+      final segLength = lengths[i];
+      if (remaining >= segLength) {
+        path.lineTo(segments[i][1].dx, segments[i][1].dy);
+        remaining -= segLength;
+      } else {
+        final lerp = Offset.lerp(
+          segments[i][0],
+          segments[i][1],
+          remaining / segLength,
+        )!;
+        path.lineTo(lerp.dx, lerp.dy);
+        remaining = 0;
+      }
+    }
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_CheckPainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.color != color;
 }
 
 class _ThemePickerPage extends StatelessWidget {

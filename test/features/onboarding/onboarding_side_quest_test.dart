@@ -27,12 +27,19 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('What can Pebble do?'));
-      await tester.pumpAndSettle();
+      // The explainer has a continuously pulsing "current step" indicator, so
+      // pumpAndSettle would never settle. Pump fixed frames instead.
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
 
       expect(find.text('Checks you only need sometimes.'), findsOneWidget);
       expect(prefs.getBool('has_completed_onboarding'), isFalse);
 
       await tester.tap(find.text('Continue onboarding'));
+      await tester.pump();
+      // Let the route pop and PageView transition run; once the explainer is
+      // disposed the looping animation is gone and we can settle the rest.
+      await tester.pump(const Duration(seconds: 1));
       await tester.pumpAndSettle();
 
       expect(find.text('Choose a look\nthat works for you.'), findsOneWidget);

@@ -259,29 +259,30 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
         backgroundColor: colorScheme.surface,
         appBar: PebbleSubscreenAppBar(
           title: 'Your account',
-          subtitle: 'Works without an account',
+          subtitle: 'Manage your plan',
           onBack: _exitVault,
         ),
         body: ListView(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 60),
           children: [
-            _AccountIdentityHeader(profile: profile),
-            const SizedBox(height: 24),
+            // Free users have no account to show and we don't want to nudge
+            // them into one — sign-in belongs to the backup flow. The plan
+            // card leads instead.
+            if (profile.isSignedIn) ...[
+              _AccountIdentityHeader(profile: profile),
+              const SizedBox(height: 24),
+            ],
             if (profile.canStartPremium) ...[
-              _AccountPlanCard(
-                profile: profile,
-                onStartPremium: () => context.push(
+              _AccountPlanCard(profile: profile),
+              const SizedBox(height: 14),
+              _AccountUpgradeCard(
+                onGetPremium: () => context.push(
                   premiumRoute(source: PremiumEntrySource.backup),
                 ),
               ),
               const SizedBox(height: 16),
             ],
-            _AccountBackupRouteCard(
-              row: profile.backupRow,
-              onTap: () => context.push('/cloud-backup'),
-            ),
-            if (profile.canManagePlan || profile.canRestorePurchase) ...[
-              const SizedBox(height: 16),
+            if (profile.canManagePlan || profile.canRestorePurchase)
               _AccountSettingsRows(
                 canRestorePurchase: profile.canRestorePurchase,
                 canManagePlan: profile.canManagePlan,
@@ -289,7 +290,6 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
                 onRestorePurchase: _restoreInFlight ? null : _restorePurchase,
                 onManagePlan: _openManagePlan,
               ),
-            ],
             const SizedBox(height: 32),
             _buildDestructiveActions(
               context,
@@ -460,168 +460,94 @@ class _AccountIdentityHeader extends StatelessWidget {
 }
 
 class _AccountPlanCard extends StatelessWidget {
-  const _AccountPlanCard({required this.profile, required this.onStartPremium});
+  const _AccountPlanCard({required this.profile});
 
   final AccountProfilePresentation profile;
-  final VoidCallback onStartPremium;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    // Just the facts: plan name and what it includes. The selling happens
+    // in the upgrade card below, not here.
     return _AccountSurface(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _AccountPill(label: profile.planStatusLabel),
-                    const SizedBox(height: 12),
-                    Text(
-                      profile.planName,
-                      style: GoogleFonts.dmSerifDisplay(
-                        color: colorScheme.onSurface,
-                        fontSize: 31,
-                        fontWeight: FontWeight.w400,
-                        letterSpacing: 0,
-                        height: 1.05,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      profile.planDetail,
-                      style: GoogleFonts.outfit(
-                        color: colorScheme.onSurface.withValues(alpha: 0.64),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w300,
-                        letterSpacing: 0,
-                        height: 1.45,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              const _AccountIcon(icon: LucideIcons.sparkles),
-            ],
+          Text(
+            profile.planName,
+            style: GoogleFonts.dmSerifDisplay(
+              color: colorScheme.onSurface,
+              fontSize: 30,
+              fontWeight: FontWeight.w400,
+              letterSpacing: 0,
+              height: 1.05,
+            ),
           ),
           const SizedBox(height: 16),
           _AccountLimitGrid(limits: profile.limits),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: onStartPremium,
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(52),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
-            icon: const Icon(LucideIcons.sparkles, size: 18),
-            label: const Text('Start Premium'),
-          ),
         ],
       ),
     );
   }
 }
 
-class _AccountBackupRouteCard extends StatelessWidget {
-  const _AccountBackupRouteCard({required this.row, required this.onTap});
+class _AccountUpgradeCard extends StatelessWidget {
+  const _AccountUpgradeCard({required this.onGetPremium});
 
-  final AccountProfileBackupRow row;
-  final VoidCallback onTap;
+  final VoidCallback onGetPremium;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final accent = _backupToneColor(colorScheme, row.tone);
-    return Material(
-      color: accent.withValues(alpha: 0.07),
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: accent.withValues(alpha: row.needsAttention ? 0.30 : 0.18),
+    final accent = colorScheme.primary;
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: accent.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Premium',
+            style: GoogleFonts.dmSerifDisplay(
+              color: colorScheme.onSurface,
+              fontSize: 24,
+              fontWeight: FontWeight.w400,
+              letterSpacing: 0,
+              height: 1.05,
             ),
           ),
-          child: Row(
-            children: [
-              _AccountIcon(icon: row.icon, color: accent),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            row.label,
-                            style: GoogleFonts.outfit(
-                              color: colorScheme.onSurface,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0,
-                            ),
-                          ),
-                        ),
-                        if (row.needsAttention)
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: accent,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      row.detail,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.outfit(
-                        color: colorScheme.onSurface.withValues(alpha: 0.62),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w300,
-                        letterSpacing: 0,
-                        height: 1.35,
-                      ),
-                    ),
-                    if (row.trailing != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        row.trailing!,
-                        style: GoogleFonts.outfit(
-                          color: accent,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              Icon(
-                LucideIcons.chevronRight,
-                size: 20,
-                color: colorScheme.onSurface.withValues(alpha: 0.42),
-              ),
-            ],
+          const SizedBox(height: 7),
+          Text(
+            'Upgrade when you want 21 days of history, unlimited routines, '
+            'unlimited steps, and backup.',
+            style: GoogleFonts.outfit(
+              color: colorScheme.onSurface.withValues(alpha: 0.66),
+              fontSize: 13.5,
+              fontWeight: FontWeight.w300,
+              letterSpacing: 0,
+              height: 1.5,
+            ),
           ),
-        ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: onGetPremium,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(54),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+            ),
+            icon: const Icon(LucideIcons.sparkles, size: 18),
+            label: const Text(
+              'Get Premium',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -820,34 +746,10 @@ class _AccountSurface extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.12)),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.10)),
       ),
-      child: Padding(padding: const EdgeInsets.all(18), child: child),
-    );
-  }
-}
-
-class _AccountIcon extends StatelessWidget {
-  const _AccountIcon({required this.icon, this.color});
-
-  final IconData icon;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final accent = color ?? colorScheme.primary;
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: accent.withValues(alpha: 0.20)),
-      ),
-      alignment: Alignment.center,
-      child: Icon(icon, size: 22, color: accent),
+      child: Padding(padding: const EdgeInsets.all(20), child: child),
     );
   }
 }
@@ -879,19 +781,6 @@ class _AccountPill extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-Color _backupToneColor(ColorScheme colorScheme, AccountProfileBackupTone tone) {
-  switch (tone) {
-    case AccountProfileBackupTone.active:
-      return colorScheme.primary;
-    case AccountProfileBackupTone.paused:
-      return colorScheme.secondary;
-    case AccountProfileBackupTone.attention:
-      return colorScheme.error;
-    case AccountProfileBackupTone.neutral:
-      return colorScheme.onSurface.withValues(alpha: 0.60);
   }
 }
 

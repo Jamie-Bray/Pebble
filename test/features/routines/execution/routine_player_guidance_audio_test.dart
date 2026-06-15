@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image_picker/image_picker.dart';
@@ -10,6 +12,7 @@ import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
+import 'package:pebble_routines/core/ui/pebble_photo_gallery_viewer.dart';
 import 'package:pebble_routines/features/routines/composer/data/guidance_audio_storage.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/repositories/routine_session_repository.dart';
@@ -30,6 +33,7 @@ const _unlockedRoutinePolicy = RoutineLimitPolicy(
   hasPremiumRoutineAccess: true,
   isInGrace: false,
 );
+const _pendingCameraCapturePrefsKey = 'routine_player_pending_camera_capture';
 
 void main() {
   setUp(() {
@@ -42,16 +46,16 @@ void main() {
     _FakeRoutineSessionRepository repository, {
     UserTier tier = UserTier.personalPremium,
     RoutinePlayerPhotoPicker? photoPicker,
+    RoutineSessionProofStorage proofStorage = const _FakeProofStorage(),
     RoutineSession? session,
+    bool settle = true,
   }) async {
     repository.session = session ?? _sessionForStep(step);
     final prefs = await SharedPreferences.getInstance();
     final overrides = [
       sharedPreferencesProvider.overrideWithValue(prefs),
       routineSessionRepositoryProvider.overrideWithValue(repository),
-      routineSessionProofStorageProvider.overrideWithValue(
-        const _FakeProofStorage(),
-      ),
+      routineSessionProofStorageProvider.overrideWithValue(proofStorage),
       guidanceAudioStorageProvider.overrideWithValue(
         const _FakeGuidanceAudioStorage(),
       ),
@@ -74,7 +78,11 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    if (settle) {
+      await tester.pumpAndSettle();
+    } else {
+      await tester.pump();
+    }
   }
 
   testWidgets('text-only steps show no guidance audio control', (tester) async {
@@ -86,6 +94,7 @@ void main() {
     );
 
     expect(find.text('Play guidance'), findsNothing);
+    expect(find.text('Voice tip'), findsNothing);
   });
 
   testWidgets('text step renders centered redesign surface', (tester) async {
@@ -121,6 +130,8 @@ void main() {
       repository,
     );
 
+    expect(find.text('Voice tip'), findsOneWidget);
+    expect(find.text('A short reminder for this step'), findsOneWidget);
     expect(find.text('Play guidance'), findsOneWidget);
   });
 
@@ -181,7 +192,7 @@ void main() {
     expect(reviewedRoutine, isTrue);
   });
 
-  testWidgets('take photo opens camera directly without the source sheet', (
+  testWidgets('add tile opens camera directly without the source sheet', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({'has_seen_camera_rationale': true});
@@ -198,37 +209,49 @@ void main() {
       photoPicker: photoPicker,
     );
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Take photo'));
+    await tester.tap(find.text('Add'));
     await tester.pumpAndSettle();
 
     expect(photoPicker.sources, [ImageSource.camera]);
-    expect(find.text('Add photo'), findsNothing);
-    expect(find.text('Choose from library'), findsNothing);
     expect(repository.session?.stepStates.single.proofAssets, hasLength(1));
   });
 
-  testWidgets('photo step renders camera and gallery actions without anchor', (
-    tester,
-  ) async {
-    final repository = _FakeRoutineSessionRepository();
-    await pumpPlayer(
-      tester,
-      const RoutineStep.check(
+  testWidgets(
+    'photo step shows the proof card, gated complete, and no anchor',
+    (tester) async {
+      final repository = _FakeRoutineSessionRepository();
+      const photoStep = RoutineStep.check(
         label: 'Photo proof',
         requiresPhoto: true,
         allowGallery: true,
-      ),
-      repository,
-    );
+      );
+      await pumpPlayer(
+        tester,
+        photoStep,
+        repository,
+        // A following step keeps this off the final step so the primary button
+        // reads "Complete step" (the mockup's step-1-of-many scenario).
+        session: _sessionForSteps(const [
+          photoStep,
+          RoutineStep.check(label: 'Next step'),
+        ]),
+      );
 
-    expect(find.byIcon(LucideIcons.camera), findsNothing);
-    expect(find.text('Photo Needed'), findsNothing);
-    expect(find.byType(AnimatedVisualAnchor), findsNothing);
-    expect(find.widgetWithText(FilledButton, 'Take photo'), findsOneWidget);
-    expect(find.text('Choose from Gallery'), findsOneWidget);
-  });
+      expect(find.byType(AnimatedVisualAnchor), findsNothing);
+      expect(find.text('Proof photo'), findsOneWidget);
+      expect(find.text('Required to complete this step'), findsOneWidget);
+      expect(find.text('Add'), findsOneWidget);
+      expect(find.text('Choose from library'), findsOneWidget);
 
-  testWidgets('gallery action is hidden when gallery is not allowed', (
+      // Complete stays disabled until a photo exists.
+      final complete = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Complete step'),
+      );
+      expect(complete.onPressed, isNull);
+    },
+  );
+
+  testWidgets('gallery link is hidden when gallery is not allowed', (
     tester,
   ) async {
     final repository = _FakeRoutineSessionRepository();
@@ -242,10 +265,11 @@ void main() {
       repository,
     );
 
-    expect(find.text('Choose from Gallery'), findsNothing);
+    expect(find.text('Choose from library'), findsNothing);
+    expect(find.text('Add'), findsOneWidget);
   });
 
-  testWidgets('gallery action opens the gallery picker', (tester) async {
+  testWidgets('gallery link opens the gallery picker', (tester) async {
     SharedPreferences.setMockInitialValues({
       'has_seen_gallery_rationale': true,
     });
@@ -262,7 +286,7 @@ void main() {
       photoPicker: photoPicker,
     );
 
-    await tester.tap(find.text('Choose from Gallery'));
+    await tester.tap(find.text('Choose from library'));
     await tester.pumpAndSettle();
 
     expect(photoPicker.sources, [ImageSource.gallery]);
@@ -352,7 +376,130 @@ void main() {
     expect(find.widgetWithText(FilledButton, 'Finish routine'), findsOneWidget);
   });
 
-  testWidgets('free photo limit shows a softer Plus upsell', (tester) async {
+  testWidgets('denied camera permission shows a settings hint', (tester) async {
+    SharedPreferences.setMockInitialValues({'has_seen_camera_rationale': true});
+    final repository = _FakeRoutineSessionRepository();
+    final photoPicker = _FakePhotoPicker(
+      returnedPath: '/tmp/unused.jpg',
+      pickError: PlatformException(code: 'camera_access_denied'),
+    );
+    await pumpPlayer(
+      tester,
+      const RoutineStep.check(label: 'Photo proof', requiresPhoto: true),
+      repository,
+      photoPicker: photoPicker,
+    );
+
+    await tester.tap(find.text('Add'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('Camera access is turned off for Pebble'),
+      findsOneWidget,
+    );
+    expect(find.text('OPEN SETTINGS'), findsOneWidget);
+    expect(repository.session?.stepStates.single.proofAssets, isEmpty);
+
+    // The capture gate must be released so the user can try again.
+    expect(find.text('Add'), findsOneWidget);
+
+    // Let the notification auto-dismiss so no timers are left pending.
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('lost camera photo is re-attached when the player restores', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(
+      _pendingCameraCapturePrefs(capturedPhotoCount: 0),
+    );
+    final repository = _FakeRoutineSessionRepository();
+    final photoPicker = _FakePhotoPicker(
+      returnedPath: '/tmp/unused.jpg',
+      lostPath: '/tmp/recovered.jpg',
+    );
+    await pumpPlayer(
+      tester,
+      const RoutineStep.check(label: 'Photo proof', requiresPhoto: true),
+      repository,
+      photoPicker: photoPicker,
+    );
+
+    expect(find.text('Proof photo'), findsOneWidget);
+    expect(
+      repository
+          .session
+          ?.stepStates
+          .single
+          .proofAssets
+          .single
+          .localRelativePath,
+      '/tmp/recovered.jpg',
+    );
+  });
+
+  testWidgets('lost camera photo is ignored when pending capture mismatches', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(
+      _pendingCameraCapturePrefs(stepIndex: 1),
+    );
+    final repository = _FakeRoutineSessionRepository();
+    final photoPicker = _FakePhotoPicker(
+      returnedPath: '/tmp/unused.jpg',
+      lostPath: '/tmp/recovered.jpg',
+    );
+    await pumpPlayer(
+      tester,
+      const RoutineStep.check(label: 'Photo proof', requiresPhoto: true),
+      repository,
+      photoPicker: photoPicker,
+    );
+
+    expect(find.text('Proof photo'), findsOneWidget);
+    expect(repository.session?.stepStates.single.proofAssets, isEmpty);
+  });
+
+  testWidgets('failed lost camera attach is handled and attaches nothing', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(
+      _pendingCameraCapturePrefs(capturedPhotoCount: 0),
+    );
+    final repository = _FakeRoutineSessionRepository();
+    final photoPicker = _FakePhotoPicker(
+      returnedPath: '/tmp/unused.jpg',
+      lostPath: '/tmp/recovered.jpg',
+    );
+
+    // settle:false on purpose: a failed attach raises an auto-dismissing
+    // notification whose animation never lets pumpAndSettle finish. Bounded
+    // manual pumps drain the recovery's microtasks without that hang. The temp
+    // is cleared unconditionally in code (unawaited _deletePickerTemp); here we
+    // verify the failure is handled gracefully and nothing is attached.
+    await pumpPlayer(
+      tester,
+      const RoutineStep.check(label: 'Photo proof', requiresPhoto: true),
+      repository,
+      photoPicker: photoPicker,
+      proofStorage: const _FailingProofStorage(),
+      settle: false,
+    );
+    for (var i = 0; i < 12; i += 1) {
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+
+    expect(repository.session?.stepStates.single.proofAssets, isEmpty);
+
+    // Unmount so the notification overlay/timer is disposed cleanly and no
+    // pending timer leaks into the next test.
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('free tier shows a quiet locked Premium tile at the cap', (
+    tester,
+  ) async {
     final repository = _FakeRoutineSessionRepository();
     const step = RoutineStep.check(
       label: 'Photo proof',
@@ -367,17 +514,62 @@ void main() {
       session: _sessionForStepWithProofs(step, [_proofAsset('free-proof')]),
     );
 
-    expect(
-      find.text(
-        '1 photo saved. Pebble Free includes one proof photo per step.',
-      ),
-      findsOneWidget,
-    );
-    expect(find.text('Add more with Pebble Premium'), findsOneWidget);
-    expect(find.text('Choose from Gallery'), findsNothing);
+    // At the free cap: locked signpost present, Add tile gone, no salesy copy.
+    expect(find.text('Premium'), findsOneWidget);
+    expect(find.text('Add'), findsNothing);
+    expect(find.text('Choose from library'), findsNothing);
   });
 
-  testWidgets('premium photo limit uses non-upsell copy', (tester) async {
+  testWidgets('tapping a proof thumbnail opens the step photo viewer', (
+    tester,
+  ) async {
+    final repository = _FakeRoutineSessionRepository();
+    const step = RoutineStep.check(
+      label: 'Photo proof',
+      requiresPhoto: true,
+      allowGallery: true,
+    );
+    await pumpPlayer(
+      tester,
+      step,
+      repository,
+      session: _sessionForStepWithProofs(step, [_proofAsset('proof-1')]),
+    );
+
+    await tester.tapAt(tester.getCenter(find.byIcon(LucideIcons.imageOff)));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PebblePhotoGalleryViewer), findsOneWidget);
+    expect(find.text('Photo proof - Step 1 of 1'), findsOneWidget);
+  });
+
+  testWidgets('multi-photo requirements explain the remaining gate', (
+    tester,
+  ) async {
+    final repository = _FakeRoutineSessionRepository();
+    const step = RoutineStep.check(
+      label: 'Photo proof',
+      requiresPhoto: true,
+      photoCount: 2,
+      allowGallery: true,
+    );
+    await pumpPlayer(
+      tester,
+      step,
+      repository,
+      session: _sessionForStepWithProofs(step, [_proofAsset('proof-1')]),
+    );
+
+    expect(find.text('1 more photo required'), findsOneWidget);
+    final complete = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Finish routine'),
+    );
+    expect(complete.onPressed, isNull);
+  });
+
+  testWidgets('premium at the cap shows a calm full subtitle, no upsell', (
+    tester,
+  ) async {
     final repository = _FakeRoutineSessionRepository();
     const step = RoutineStep.check(
       label: 'Photo proof',
@@ -394,9 +586,10 @@ void main() {
       ),
     );
 
-    expect(find.text('Maximum photos added for this step.'), findsOneWidget);
-    expect(find.text('Add more with Pebble Premium'), findsNothing);
-    expect(find.text('Choose from Gallery'), findsNothing);
+    expect(find.text('All 4 added'), findsOneWidget);
+    expect(find.text('Premium'), findsNothing);
+    expect(find.text('Add'), findsNothing);
+    expect(find.text('Choose from library'), findsNothing);
   });
 
   test('photo attach repairs any stale in-flight lifecycle save', () async {
@@ -554,10 +747,27 @@ RoutineSessionProofAsset _proofAsset(String proofId) {
   );
 }
 
+Map<String, Object> _pendingCameraCapturePrefs({
+  String sessionId = 'session-1',
+  int stepIndex = 0,
+  int capturedPhotoCount = 0,
+}) {
+  return {
+    _pendingCameraCapturePrefsKey: jsonEncode({
+      'sessionId': sessionId,
+      'stepIndex': stepIndex,
+      'capturedPhotoCount': capturedPhotoCount,
+      'createdAt': DateTime.now().toUtc().toIso8601String(),
+    }),
+  };
+}
+
 class _FakePhotoPicker implements RoutinePlayerPhotoPicker {
-  _FakePhotoPicker({required this.returnedPath});
+  _FakePhotoPicker({required this.returnedPath, this.lostPath, this.pickError});
 
   final String returnedPath;
+  final String? lostPath;
+  final Exception? pickError;
   final List<ImageSource> sources = <ImageSource>[];
 
   @override
@@ -567,8 +777,16 @@ class _FakePhotoPicker implements RoutinePlayerPhotoPicker {
     double? maxWidth,
   }) async {
     sources.add(source);
+    final error = pickError;
+    if (error != null) {
+      throw error;
+    }
     return XFile(returnedPath);
   }
+
+  @override
+  Future<XFile?> retrieveLostPhoto() async =>
+      lostPath == null ? null : XFile(lostPath!);
 }
 
 class _FakeRoutineSessionRepository implements RoutineSessionRepository {
@@ -794,6 +1012,18 @@ class _FakeProofStorage implements RoutineSessionProofStorage {
     required String entityId,
   }) async {
     return asset;
+  }
+}
+
+class _FailingProofStorage extends _FakeProofStorage {
+  const _FailingProofStorage();
+
+  @override
+  Future<RoutineSessionProofAsset> persistCapturedProof({
+    required String sessionId,
+    required String sourcePath,
+  }) {
+    throw StateError('persist failed');
   }
 }
 

@@ -13,6 +13,15 @@ enum RoutineMoveDirection { up, down }
 
 abstract class RoutineRepository {
   Stream<List<Routine>> watchRoutines();
+
+  /// Migrates any routine whose stored icon is a legacy emoji/alias to its
+  /// canonical icon key. Idempotent and meant to run once at startup - this
+  /// used to happen inside the routineListProvider stream, where each write
+  /// re-triggered the stream and churned the routines table (see
+  /// risk_areas memory #9). Icon rendering resolves through
+  /// RoutineIconCatalog regardless, so this only tidies the stored value.
+  Future<void> normalizeLegacyRoutineIcons();
+
   Future<void> saveRoutine(Routine routine);
   Future<void> deleteRoutine(int id);
   Future<void> deleteRoutineReminder(RoutineReminder reminder);
@@ -43,6 +52,18 @@ class RoutineRepositoryImpl implements RoutineRepository {
 
   @override
   Stream<List<Routine>> watchRoutines() => _dao.watchAllRoutines();
+
+  @override
+  Future<void> normalizeLegacyRoutineIcons() async {
+    final routines = await _dao.getAllRoutines();
+    for (final routine in routines) {
+      final normalizedKey = RoutineIconCatalog.resolve(routine.emoji).key;
+      if (routine.emoji == normalizedKey) {
+        continue;
+      }
+      await updateRoutineAppearance(id: routine.id, iconKey: normalizedKey);
+    }
+  }
 
   @override
   Future<void> saveRoutine(Routine routine) async {

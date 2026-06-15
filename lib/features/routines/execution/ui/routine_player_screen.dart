@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -9,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:permission_handler/permission_handler.dart' as permissions;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:pebble_routines/core/database/local_db.dart';
@@ -17,6 +19,7 @@ import 'package:pebble_routines/core/navigation/app_shell.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
+import 'package:pebble_routines/core/ui/pebble_photo_gallery_viewer.dart';
 import 'package:pebble_routines/features/history/ui/routine_run_detail_screen.dart';
 import 'package:pebble_routines/features/routines/data/shared_reminder_preferences_repository.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
@@ -44,6 +47,8 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
     with WidgetsBindingObserver {
   final GlobalKey<AnimatedVisualAnchorState> _visualAnchorKey =
       GlobalKey<AnimatedVisualAnchorState>();
+  static const _pendingCameraCapturePrefsKey =
+      'routine_player_pending_camera_capture';
   String? _lastReminderSentRunId;
   bool _isPrimaryPreludeRunning = false;
   AudioPlayer? _chimePlayer;
@@ -52,6 +57,78 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    unawaited(_recoverLostCameraPhoto());
+  }
+
+  /// Android can destroy the activity while the system camera is open, which
+  /// drops the pickImage result on the floor. image_picker parks the captured
+  /// file until retrieveLostData is called, so re-attach it to the restored
+  /// session instead of silently losing the user's photo.
+  Future<void> _recoverLostCameraPhoto() async {
+    final lost = await ref
+        .read(routinePlayerPhotoPickerProvider)
+        .retrieveLostPhoto();
+    if (lost == null) {
+      await _clearPendingCameraCapture();
+      return;
+    }
+
+    final pendingCapture = await _readPendingCameraCapture();
+    if (pendingCapture == null || !mounted) {
+      unawaited(_deletePickerTemp(lost.path));
+      return;
+    }
+
+    final ready = await _waitForPlayerReady();
+    if (!ready || !mounted) {
+      await _clearPendingCameraCapture();
+      unawaited(_deletePickerTemp(lost.path));
+      return;
+    }
+
+    final playerState = ref.read(routinePlayerProvider(widget.sessionId));
+    final session = playerState.session;
+    final isExpectedCapture =
+        session?.sessionId == pendingCapture.sessionId &&
+        playerState.currentStepIndex == pendingCapture.stepIndex &&
+        playerState.capturedPhotoCount == pendingCapture.capturedPhotoCount;
+    if (!isExpectedCapture ||
+        !playerState.hasPhotoRequirement ||
+        !playerState.canAddMorePhotos) {
+      await _clearPendingCameraCapture();
+      unawaited(_deletePickerTemp(lost.path));
+      return;
+    }
+    // Re-attach best-effort; the temp copy is cleared either way so a failed
+    // attach can't leave an orphaned file behind.
+    await ref
+        .read(routinePlayerProvider(widget.sessionId).notifier)
+        .attachProof(lost.path);
+    await _clearPendingCameraCapture();
+    unawaited(_deletePickerTemp(lost.path));
+  }
+
+  Future<bool> _waitForPlayerReady() {
+    final initial = ref.read(routinePlayerProvider(widget.sessionId));
+    if (initial.screenPhase != RoutinePlayerScreenPhase.loading) {
+      return Future.value(
+        initial.screenPhase == RoutinePlayerScreenPhase.ready,
+      );
+    }
+    final completer = Completer<bool>();
+    late final ProviderSubscription<RoutinePlayerUiState> subscription;
+    subscription = ref.listenManual(routinePlayerProvider(widget.sessionId), (
+      previous,
+      next,
+    ) {
+      if (next.screenPhase == RoutinePlayerScreenPhase.loading ||
+          completer.isCompleted) {
+        return;
+      }
+      completer.complete(next.screenPhase == RoutinePlayerScreenPhase.ready);
+      subscription.close();
+    });
+    return completer.future;
   }
 
   @override
@@ -219,12 +296,16 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
     final guidanceAudioStorage = ref.read(guidanceAudioStorageProvider);
     final premiumPolicy = ref.watch(premiumFeaturePolicyProvider);
     final playerSettings = ref.read(playerSettingsControllerProvider);
+    final canAddMore = playerState.canAddMorePhotos;
     final showGalleryAction =
         playerState.hasPhotoRequirement &&
         currentStep.allowGallery &&
-        playerState.canAddMorePhotos;
-    final showPhotoSummary =
-        playerState.hasPhotoRequirement && playerState.proofAssets.isNotEmpty;
+        canAddMore;
+    // The proof-photo card is part of the step itself - it shows from the
+    // start (with the Add tile) so capture lives on the surface, not behind
+    // the primary button.
+    final showPhotoSummary = playerState.hasPhotoRequirement;
+    final isFreeTier = !premiumPolicy.canUseExtraProofPhotos;
     final isStepLocked = playerState.isCurrentStepLocked;
 
     return _RoutineStepSurface(
@@ -233,6 +314,12 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
       stepCount: playerState.totalSteps,
       progress: playerState.progress,
       instruction: _stepInstruction(currentStep),
+      guidanceAudioCard: currentStep.guidanceAudio != null && !isStepLocked
+          ? _PlayerGuidanceAudioCard(
+              audio: currentStep.guidanceAudio!,
+              storage: guidanceAudioStorage,
+            )
+          : null,
       isStepLocked: isStepLocked,
       lockedStepCount: playerState.lockedStepCount,
       photoRequired: playerState.hasPhotoRequirement,
@@ -249,21 +336,20 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
       isPrimaryEnabled: isStepLocked || playerState.isPrimaryEnabled,
       onBack: _attemptExit,
       onComplete: isStepLocked ? _openStepLimitPaywall : _handlePrimaryAction,
-      showGalleryAction: !isStepLocked && showGalleryAction,
-      onGallery: showGalleryAction ? _captureGalleryPhoto : null,
       photoSummary: showPhotoSummary && !isStepLocked
           ? _PlayerPhotoSummary(
-              presentationState: playerState.presentationState,
               proofAssets: playerState.proofAssets,
               capturedPhotoCount: playerState.capturedPhotoCount,
               requiredPhotoCount: playerState.requiredPhotoCount,
               maxPhotoCount: playerState.maxProofPhotosPerStep,
-              isFreeTier: !premiumPolicy.canUseExtraProofPhotos,
+              isFreeTier: isFreeTier,
               resolveProofPath: proofStorage.resolveStoredPath,
-              onPhotoLimitUpgrade:
-                  !premiumPolicy.canUseExtraProofPhotos &&
-                      playerState.capturedPhotoCount >=
-                          playerState.maxProofPhotosPerStep
+              onAddPhoto: canAddMore ? _captureCameraPhoto : null,
+              onChooseFromGallery: showGalleryAction
+                  ? _captureGalleryPhoto
+                  : null,
+              onOpenPhoto: _openCurrentStepProofGallery,
+              onPhotoLimitUpgrade: isFreeTier
                   ? _openProofPhotoLimitPaywall
                   : null,
               onRemovePhoto: !playerState.isForegroundBusy
@@ -278,12 +364,6 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
             )
           : null,
       secondaryActions: _PlayerSecondaryActionRow(
-        guidanceAudioButton: currentStep.guidanceAudio != null && !isStepLocked
-            ? GuidanceAudioPlayButton(
-                audio: currentStep.guidanceAudio!,
-                storage: guidanceAudioStorage,
-              )
-            : null,
         showPrevious: playerState.canGoBack,
         onPrevious: playerState.canGoBack
             ? () async {
@@ -300,10 +380,6 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
                     .skipCurrentStep();
                 await _handlePostCompletion(run);
               }
-            : null,
-        showAddAnotherPhoto: playerState.showAddAnotherPhoto,
-        onAddAnotherPhoto: playerState.showAddAnotherPhoto
-            ? _captureCameraPhoto
             : null,
       ),
     );
@@ -326,18 +402,14 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
       }
     }
 
-    switch (state.presentationState) {
-      case RoutinePlayerPresentationState.photoRequired:
-        await _captureCameraPhoto();
-      case RoutinePlayerPresentationState.standard:
-      case RoutinePlayerPresentationState.photoCaptured:
-      case RoutinePlayerPresentationState.finalStep:
-        _playStepCompleteFeedback();
-        final run = await ref
-            .read(routinePlayerProvider(widget.sessionId).notifier)
-            .completeCurrentStep();
-        await _handlePostCompletion(run);
-    }
+    // The primary button only ever completes the step now. Photo capture is
+    // driven by the Add tile in the strip, and the button stays disabled until
+    // the step has enough photos, so photoRequired never reaches here enabled.
+    _playStepCompleteFeedback();
+    final run = await ref
+        .read(routinePlayerProvider(widget.sessionId).notifier)
+        .completeCurrentStep();
+    await _handlePostCompletion(run);
   }
 
   Future<void> _captureCameraPhoto() {
@@ -346,6 +418,49 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
 
   Future<void> _captureGalleryPhoto() {
     return _capturePhoto(ImageSource.gallery);
+  }
+
+  Future<void> _openCurrentStepProofGallery(String proofId) async {
+    final playerState = ref.read(routinePlayerProvider(widget.sessionId));
+    final proofs = playerState.proofAssets;
+    if (proofs.isEmpty || !mounted) {
+      return;
+    }
+
+    final initialIndex = proofs.indexWhere((asset) => asset.proofId == proofId);
+    if (initialIndex < 0) {
+      return;
+    }
+
+    final stepTitle = playerState.currentStep == null
+        ? 'Proof photo'
+        : _stepTitle(playerState.currentStep!);
+    final photos = [
+      for (var index = 0; index < proofs.length; index += 1)
+        PebbleGalleryPhoto(
+          id: proofs[index].proofId,
+          storedPath: proofs[index].localRelativePath,
+          title: proofs.length == 1
+              ? 'Proof photo'
+              : 'Proof photo ${index + 1}',
+          subtitle:
+              '$stepTitle - Step ${playerState.currentStepIndex + 1} of ${playerState.totalSteps}',
+        ),
+    ];
+    final proofStorage = ref.read(routineSessionProofStorageProvider);
+    await PebblePhotoGalleryViewer.open(
+      context,
+      photos: photos,
+      initialIndex: initialIndex,
+      resolvePhotoFile: (storedPath) async {
+        for (final asset in proofs) {
+          if (asset.localRelativePath == storedPath) {
+            return proofStorage.resolveProofAssetFile(asset);
+          }
+        }
+        return proofStorage.resolveStoredFile(storedPath);
+      },
+    );
   }
 
   Future<void> _capturePhoto(ImageSource source) async {
@@ -370,21 +485,134 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
         return;
       }
 
+      if (source == ImageSource.camera) {
+        await _markPendingCameraCapture(state);
+      }
+
       final picked = await ref
           .read(routinePlayerPhotoPickerProvider)
           .pickImage(source: source, imageQuality: 50, maxWidth: 800);
       if (picked == null) {
+        if (source == ImageSource.camera) {
+          await _clearPendingCameraCapture();
+        }
         controller.cancelPhotoCapture();
         return;
       }
 
       final attached = await controller.attachProof(picked.path);
+      if (source == ImageSource.camera) {
+        await _clearPendingCameraCapture();
+      }
+      unawaited(_deletePickerTemp(picked.path));
       if (!attached && mounted) {
         _showPhotoLimitReachedMessage();
       }
-    } catch (_) {
+    } on PlatformException catch (error) {
+      if (source == ImageSource.camera) {
+        await _clearPendingCameraCapture();
+      }
       controller.cancelPhotoCapture();
-      rethrow;
+      _showPhotoCaptureFailure(source, error.code);
+    } catch (_) {
+      if (source == ImageSource.camera) {
+        await _clearPendingCameraCapture();
+      }
+      controller.cancelPhotoCapture();
+      _showPhotoCaptureFailure(source, null);
+    }
+  }
+
+  Future<void> _markPendingCameraCapture(RoutinePlayerUiState state) async {
+    final session = state.session;
+    if (session == null) {
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _pendingCameraCapturePrefsKey,
+      jsonEncode({
+        'sessionId': session.sessionId,
+        'stepIndex': state.currentStepIndex,
+        'capturedPhotoCount': state.capturedPhotoCount,
+        'createdAt': DateTime.now().toUtc().toIso8601String(),
+      }),
+    );
+  }
+
+  Future<_PendingCameraCapture?> _readPendingCameraCapture() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_pendingCameraCapturePrefsKey);
+    if (raw == null || raw.isEmpty) {
+      return null;
+    }
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) {
+        await _clearPendingCameraCapture();
+        return null;
+      }
+      final pending = _PendingCameraCapture.fromJson(decoded);
+      final age = DateTime.now().toUtc().difference(pending.createdAt);
+      if (age > const Duration(hours: 1)) {
+        await _clearPendingCameraCapture();
+        return null;
+      }
+      return pending;
+    } catch (_) {
+      await _clearPendingCameraCapture();
+      return null;
+    }
+  }
+
+  Future<void> _clearPendingCameraCapture() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_pendingCameraCapturePrefsKey);
+  }
+
+  /// The picker writes captures to the app cache; once the proof is copied
+  /// into app storage (or discarded), the cache copy is just a leftover.
+  Future<void> _deletePickerTemp(String path) async {
+    try {
+      final file = File(path);
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (_) {
+      // Cache cleanup is best-effort.
+    }
+  }
+
+  void _showPhotoCaptureFailure(ImageSource source, String? code) {
+    if (!mounted) {
+      return;
+    }
+    switch (code) {
+      case 'camera_access_denied':
+        ZenNotifications.showWarning(
+          context,
+          message:
+              'Camera access is turned off for Pebble. '
+              'Allow camera in your phone settings to take photos.',
+          actionLabel: 'Open settings',
+          onAction: () => unawaited(permissions.openAppSettings()),
+        );
+      case 'photo_access_denied':
+        ZenNotifications.showWarning(
+          context,
+          message:
+              'Photos access is turned off for Pebble. '
+              'Allow photo access in your phone settings to choose a photo.',
+          actionLabel: 'Open settings',
+          onAction: () => unawaited(permissions.openAppSettings()),
+        );
+      default:
+        ZenNotifications.showError(
+          context,
+          message: source == ImageSource.camera
+              ? 'Could not open the camera. Please try again.'
+              : 'Could not open your photos. Please try again.',
+        );
     }
   }
 
@@ -630,7 +858,16 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
     }
 
     if (mounted) {
-      Navigator.of(context).pop();
+      // When launched from the home-screen widget or a notification tap, the
+      // player is the root of the stack (go() replaced it); popping the last
+      // route would leave an empty navigator behind - a black screen that
+      // survives re-opening the app. Fall back to Home instead.
+      final router = GoRouter.of(context);
+      if (router.canPop()) {
+        router.pop();
+      } else {
+        _goHome();
+      }
     }
   }
 
@@ -667,6 +904,33 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
   }
 }
 
+class _PendingCameraCapture {
+  const _PendingCameraCapture({
+    required this.sessionId,
+    required this.stepIndex,
+    required this.capturedPhotoCount,
+    required this.createdAt,
+  });
+
+  final String sessionId;
+  final int stepIndex;
+  final int capturedPhotoCount;
+  final DateTime createdAt;
+
+  factory _PendingCameraCapture.fromJson(Map<String, dynamic> json) {
+    final createdAt = DateTime.tryParse(json['createdAt']?.toString() ?? '');
+    if (createdAt == null) {
+      throw const FormatException('Missing pending capture timestamp.');
+    }
+    return _PendingCameraCapture(
+      sessionId: json['sessionId']?.toString() ?? '',
+      stepIndex: (json['stepIndex'] as num?)?.toInt() ?? -1,
+      capturedPhotoCount: (json['capturedPhotoCount'] as num?)?.toInt() ?? -1,
+      createdAt: createdAt.toUtc(),
+    );
+  }
+}
+
 class _RoutineStepSurface extends StatelessWidget {
   const _RoutineStepSurface({
     required this.routineName,
@@ -674,6 +938,7 @@ class _RoutineStepSurface extends StatelessWidget {
     required this.stepCount,
     required this.progress,
     required this.instruction,
+    this.guidanceAudioCard,
     required this.isStepLocked,
     required this.lockedStepCount,
     required this.photoRequired,
@@ -685,9 +950,7 @@ class _RoutineStepSurface extends StatelessWidget {
     required this.isPrimaryEnabled,
     required this.onBack,
     required this.onComplete,
-    required this.showGalleryAction,
     required this.secondaryActions,
-    this.onGallery,
     this.photoSummary,
   });
 
@@ -696,6 +959,7 @@ class _RoutineStepSurface extends StatelessWidget {
   final int stepCount;
   final double progress;
   final String instruction;
+  final Widget? guidanceAudioCard;
   final bool isStepLocked;
   final int lockedStepCount;
   final bool photoRequired;
@@ -707,8 +971,6 @@ class _RoutineStepSurface extends StatelessWidget {
   final bool isPrimaryEnabled;
   final Future<void> Function() onBack;
   final Future<void> Function() onComplete;
-  final bool showGalleryAction;
-  final Future<void> Function()? onGallery;
   final Widget? photoSummary;
   final Widget secondaryActions;
 
@@ -818,6 +1080,10 @@ class _RoutineStepSurface extends StatelessWidget {
                         const SizedBox(height: 24),
                         photoSummary!,
                       ],
+                      if (guidanceAudioCard != null) ...[
+                        const SizedBox(height: 16),
+                        guidanceAudioCard!,
+                      ],
                     ],
                   ),
                 ),
@@ -830,8 +1096,6 @@ class _RoutineStepSurface extends StatelessWidget {
           primaryLabel: primaryLabel,
           isPrimaryEnabled: isPrimaryEnabled,
           onComplete: onComplete,
-          showGalleryAction: showGalleryAction,
-          onGallery: onGallery,
           secondaryActions: secondaryActions,
         ),
       ],
@@ -1025,17 +1289,13 @@ class _RoutineStepFooter extends StatelessWidget {
     required this.primaryLabel,
     required this.isPrimaryEnabled,
     required this.onComplete,
-    required this.showGalleryAction,
     required this.secondaryActions,
-    this.onGallery,
   });
 
   final bool isBusy;
   final String primaryLabel;
   final bool isPrimaryEnabled;
   final Future<void> Function() onComplete;
-  final bool showGalleryAction;
-  final Future<void> Function()? onGallery;
   final Widget secondaryActions;
 
   @override
@@ -1080,26 +1340,6 @@ class _RoutineStepFooter extends StatelessWidget {
                       : Text(primaryLabel),
                 ),
               ),
-              if (showGalleryAction) ...[
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: onGallery == null || isBusy
-                        ? null
-                        : () => unawaited(onGallery!()),
-                    icon: const Icon(LucideIcons.images, size: 18),
-                    label: const Text('Choose from Gallery'),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(48),
-                      textStyle: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
               const SizedBox(height: 8),
               Container(
                 constraints: const BoxConstraints(minHeight: 36),
@@ -1134,26 +1374,107 @@ class _TopBackButton extends StatelessWidget {
   }
 }
 
+class _PlayerGuidanceAudioCard extends StatelessWidget {
+  const _PlayerGuidanceAudioCard({required this.audio, required this.storage});
+
+  final StepGuidanceAudio audio;
+  final GuidanceAudioStorage storage;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final onSurface = theme.colorScheme.onSurface;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.78),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: onSurface.withValues(alpha: 0.06)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: theme.colorScheme.primary.withValues(alpha: 0.10),
+            ),
+            child: Icon(
+              LucideIcons.volume2,
+              size: 19,
+              color: theme.colorScheme.primary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Voice tip',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: onSurface,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'A short reminder for this step',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w500,
+                    color: onSurface.withValues(alpha: 0.56),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          GuidanceAudioPlayButton(
+            audio: audio,
+            storage: storage,
+            compact: true,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Fixed-size proof-photo card from the v3 mockup: a single horizontal strip
+/// of ~64px tiles (never a grid, so the surface never has to scroll), a gated
+/// subtitle, and capture driven by the Add tile rather than the primary button.
 class _PlayerPhotoSummary extends StatelessWidget {
   const _PlayerPhotoSummary({
-    required this.presentationState,
     required this.proofAssets,
     required this.capturedPhotoCount,
     required this.requiredPhotoCount,
     required this.maxPhotoCount,
     required this.isFreeTier,
     required this.resolveProofPath,
+    this.onAddPhoto,
+    this.onChooseFromGallery,
+    this.onOpenPhoto,
     this.onRemovePhoto,
     this.onPhotoLimitUpgrade,
   });
 
-  final RoutinePlayerPresentationState presentationState;
+  static const double _tileSize = 64;
+  static const double _tileGap = 12;
+
   final List<RoutineSessionProofAsset> proofAssets;
   final int capturedPhotoCount;
   final int requiredPhotoCount;
   final int maxPhotoCount;
   final bool isFreeTier;
   final Future<String> Function(String storedPath) resolveProofPath;
+  final Future<void> Function()? onAddPhoto;
+  final Future<void> Function()? onChooseFromGallery;
+  final Future<void> Function(String proofId)? onOpenPhoto;
   final Future<void> Function(String proofId)? onRemovePhoto;
   final VoidCallback? onPhotoLimitUpgrade;
 
@@ -1161,120 +1482,129 @@ class _PlayerPhotoSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final onSurface = theme.colorScheme.onSurface;
-    final statusTitle = capturedPhotoCount > 0
-        ? capturedPhotoCount == 1
-              ? 'Photo added'
-              : '$capturedPhotoCount photos added'
-        : 'Take photo';
-    final statusBody = capturedPhotoCount < requiredPhotoCount
-        ? 'Take a photo before completing this step.'
-        : null;
+    final primary = theme.colorScheme.primary;
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
+
+    final hasPhotos = capturedPhotoCount > 0;
+    final atMax = capturedPhotoCount >= maxPhotoCount;
+
+    // One quiet subtitle line carries the gate; no nagging copy.
+    final String subtitle;
+    final Color subtitleColor;
+    final remainingRequired = requiredPhotoCount - capturedPhotoCount;
+    if (remainingRequired > 0) {
+      if (requiredPhotoCount <= 1) {
+        subtitle = 'Required to complete this step';
+      } else if (!hasPhotos) {
+        subtitle = 'Add $requiredPhotoCount photos to complete';
+      } else {
+        final label = remainingRequired == 1 ? 'photo' : 'photos';
+        subtitle = '$remainingRequired more $label required';
+      }
+      subtitleColor = primary;
+    } else if (!isFreeTier && maxPhotoCount > 1 && !atMax) {
+      subtitle = 'Add up to $maxPhotoCount photos';
+      subtitleColor = onSurface.withValues(alpha: 0.55);
+    } else if (!isFreeTier && maxPhotoCount > 1 && atMax) {
+      subtitle = 'All $maxPhotoCount added';
+      subtitleColor = onSurface.withValues(alpha: 0.55);
+    } else {
+      subtitle = '';
+      subtitleColor = onSurface.withValues(alpha: 0.55);
+    }
+
+    final tiles = <Widget>[
+      for (final asset in proofAssets)
+        _PhotoStripPhotoTile(
+          key: ValueKey('proof-${asset.proofId}'),
+          asset: asset,
+          size: _tileSize,
+          reduceMotion: reduceMotion,
+          resolveProofPath: resolveProofPath,
+          onOpen: onOpenPhoto == null
+              ? null
+              : () => onOpenPhoto!(asset.proofId),
+          onRemove: onRemovePhoto == null
+              ? null
+              : () => onRemovePhoto!(asset.proofId),
+        ),
+      if (!atMax && onAddPhoto != null)
+        _PhotoStripActionTile.add(size: _tileSize, onTap: onAddPhoto!),
+      // Free tier always carries a calm, ignorable signpost to Premium.
+      if (isFreeTier && onPhotoLimitUpgrade != null)
+        _PhotoStripActionTile.locked(
+          size: _tileSize,
+          onTap: onPhotoLimitUpgrade!,
+        ),
+    ];
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color:
-              presentationState == RoutinePlayerPresentationState.photoRequired
-              ? theme.colorScheme.primary.withValues(alpha: 0.14)
-              : onSurface.withValues(alpha: 0.06),
+          color: hasPhotos
+              ? onSurface.withValues(alpha: 0.06)
+              : primary.withValues(alpha: 0.16),
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            statusTitle,
+            'Proof photo',
             style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
               color: onSurface,
             ),
           ),
-          if (statusBody != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              statusBody,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                height: 1.45,
-                color: onSurface.withValues(alpha: 0.72),
-              ),
+          const SizedBox(height: 2),
+          // Reserve the line height so the strip never shifts as copy changes.
+          SizedBox(
+            height: 17,
+            child: subtitle.isEmpty
+                ? null
+                : Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w500,
+                      color: subtitleColor,
+                    ),
+                  ),
+          ),
+          const SizedBox(height: 15),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (var i = 0; i < tiles.length; i += 1) ...[
+                  if (i > 0) const SizedBox(width: _tileGap),
+                  tiles[i],
+                ],
+              ],
             ),
-          ],
-          if (proofAssets.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            if (maxPhotoCount > 1)
-              GridView.builder(
-                shrinkWrap: true,
+          ),
+          if (onChooseFromGallery != null) ...[
+            const SizedBox(height: 10),
+            TextButton.icon(
+              onPressed: () => unawaited(onChooseFromGallery!()),
+              icon: const Icon(LucideIcons.images, size: 15),
+              label: const Text('Choose from library'),
+              style: TextButton.styleFrom(
+                foregroundColor: onSurface.withValues(alpha: 0.55),
                 padding: EdgeInsets.zero,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 4 / 3,
+                minimumSize: const Size(0, 32),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                textStyle: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
                 ),
-                itemCount: proofAssets.length,
-                itemBuilder: (context, index) {
-                  final asset = proofAssets[index];
-                  return _PlayerPhotoThumbnail(
-                    asset: asset,
-                    resolveProofPath: resolveProofPath,
-                    onRemove: onRemovePhoto == null
-                        ? null
-                        : () => onRemovePhoto!(asset.proofId),
-                  );
-                },
-              )
-            else
-              ...proofAssets.map(
-                (asset) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _PlayerPhotoThumbnail(
-                    asset: asset,
-                    resolveProofPath: resolveProofPath,
-                    onRemove: onRemovePhoto == null
-                        ? null
-                        : () => onRemovePhoto!(asset.proofId),
-                  ),
-                ),
-              ),
-          ],
-          if (capturedPhotoCount >= maxPhotoCount) ...[
-            const SizedBox(height: 4),
-            Text(
-              isFreeTier && maxPhotoCount == 1
-                  ? '1 photo saved. Pebble Free includes one proof photo per step.'
-                  : 'Maximum photos added for this step.',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: onSurface.withValues(alpha: 0.52),
               ),
             ),
-            if (onPhotoLimitUpgrade != null) ...[
-              const SizedBox(height: 8),
-              TextButton.icon(
-                onPressed: onPhotoLimitUpgrade,
-                icon: const Icon(LucideIcons.sparkles, size: 15),
-                label: const Text('Add more with Pebble Premium'),
-                style: TextButton.styleFrom(
-                  foregroundColor: theme.colorScheme.primary,
-                  padding: EdgeInsets.zero,
-                  minimumSize: const Size(0, 36),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  textStyle: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
           ],
         ],
       ),
@@ -1282,27 +1612,38 @@ class _PlayerPhotoSummary extends StatelessWidget {
   }
 }
 
-class _PlayerPhotoThumbnail extends StatelessWidget {
-  const _PlayerPhotoThumbnail({
+/// A captured proof in the strip: fixed square, rounded, with a scrim remove
+/// button. Animates in with a scale-fade unless reduced-motion is on.
+class _PhotoStripPhotoTile extends StatelessWidget {
+  const _PhotoStripPhotoTile({
+    super.key,
     required this.asset,
+    required this.size,
+    required this.reduceMotion,
     required this.resolveProofPath,
+    this.onOpen,
     this.onRemove,
   });
 
   final RoutineSessionProofAsset asset;
+  final double size;
+  final bool reduceMotion;
   final Future<String> Function(String storedPath) resolveProofPath;
+  final Future<void> Function()? onOpen;
   final Future<void> Function()? onRemove;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return AspectRatio(
-      aspectRatio: 4 / 3,
+    final tile = SizedBox(
+      width: size,
+      height: size,
       child: Stack(
+        clipBehavior: Clip.none,
         children: [
           Positioned.fill(
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(13),
               child: FutureBuilder<String>(
                 future: resolveProofPath(asset.localRelativePath),
                 builder: (context, snapshot) {
@@ -1316,7 +1657,7 @@ class _PlayerPhotoThumbnail extends StatelessWidget {
                     color: theme.colorScheme.surfaceContainerHighest,
                     child: Icon(
                       LucideIcons.imageOff,
-                      size: 36,
+                      size: 22,
                       color: theme.colorScheme.onSurface.withValues(
                         alpha: 0.35,
                       ),
@@ -1329,26 +1670,50 @@ class _PlayerPhotoThumbnail extends StatelessWidget {
           Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(22),
+                borderRadius: BorderRadius.circular(13),
                 border: Border.all(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.05),
                 ),
               ),
             ),
           ),
+          if (onOpen != null)
+            Positioned.fill(
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(13),
+                  onTap: () => unawaited(onOpen!()),
+                ),
+              ),
+            ),
           if (onRemove != null)
             Positioned(
-              top: 10,
-              right: 10,
-              child: Material(
-                color: Colors.black.withValues(alpha: 0.42),
-                shape: const CircleBorder(),
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: () => unawaited(onRemove!()),
-                  child: const Padding(
-                    padding: EdgeInsets.all(7),
-                    child: Icon(LucideIcons.x, size: 14, color: Colors.white),
+              top: -14,
+              right: -14,
+              child: SizedBox(
+                width: 44,
+                height: 44,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: () => unawaited(onRemove!()),
+                    child: Center(
+                      child: Container(
+                        width: 22,
+                        height: 22,
+                        decoration: const BoxDecoration(
+                          color: Color(0x80161612),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          LucideIcons.x,
+                          size: 12,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -1356,27 +1721,176 @@ class _PlayerPhotoThumbnail extends StatelessWidget {
         ],
       ),
     );
+
+    if (reduceMotion) {
+      return tile;
+    }
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutBack,
+      builder: (context, t, child) {
+        return Opacity(
+          opacity: t.clamp(0.0, 1.0),
+          child: Transform.scale(scale: 0.94 + (0.06 * t), child: child),
+        );
+      },
+      child: tile,
+    );
   }
+}
+
+/// The Add and locked-Premium tiles share a square, rounded, labelled shape.
+class _PhotoStripActionTile extends StatelessWidget {
+  const _PhotoStripActionTile._({
+    required this.size,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    required this.locked,
+  });
+
+  factory _PhotoStripActionTile.add({
+    required double size,
+    required Future<void> Function() onTap,
+  }) {
+    return _PhotoStripActionTile._(
+      size: size,
+      icon: LucideIcons.camera,
+      label: 'Add',
+      onTap: () => unawaited(onTap()),
+      locked: false,
+    );
+  }
+
+  factory _PhotoStripActionTile.locked({
+    required double size,
+    required VoidCallback onTap,
+  }) {
+    return _PhotoStripActionTile._(
+      size: size,
+      icon: LucideIcons.lock,
+      label: 'Premium',
+      onTap: onTap,
+      locked: true,
+    );
+  }
+
+  final double size;
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool locked;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final onSurface = theme.colorScheme.onSurface;
+    final accent = locked
+        ? onSurface.withValues(alpha: 0.45)
+        : theme.colorScheme.primary;
+
+    final content = Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, size: locked ? 16 : 19, color: accent),
+        const SizedBox(height: 3),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: locked ? 10 : 10.5,
+            fontWeight: FontWeight.w500,
+            color: accent,
+          ),
+        ),
+      ],
+    );
+
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Material(
+        color: locked
+            ? onSurface.withValues(alpha: 0.03)
+            : theme.colorScheme.primary.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(13),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(13),
+          onTap: onTap,
+          child: locked
+              ? CustomPaint(
+                  painter: _DashedRRectPainter(
+                    color: onSurface.withValues(alpha: 0.22),
+                    radius: 13,
+                  ),
+                  child: Center(child: content),
+                )
+              : DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(13),
+                    border: Border.all(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.30),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Center(child: content),
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Faint dashed rounded-rect outline for the locked Premium tile.
+class _DashedRRectPainter extends CustomPainter {
+  const _DashedRRectPainter({required this.color, required this.radius});
+
+  final Color color;
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+    final rrect = RRect.fromRectAndRadius(
+      Offset.zero & size,
+      Radius.circular(radius),
+    );
+    final path = Path()..addRRect(rrect);
+    const dash = 4.0;
+    const gap = 3.5;
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        final next = distance + dash;
+        canvas.drawPath(
+          metric.extractPath(distance, next.clamp(0.0, metric.length)),
+          paint,
+        );
+        distance = next + gap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedRRectPainter oldDelegate) =>
+      oldDelegate.color != color || oldDelegate.radius != radius;
 }
 
 class _PlayerSecondaryActionRow extends StatelessWidget {
   const _PlayerSecondaryActionRow({
     required this.showPrevious,
     required this.showSkip,
-    required this.showAddAnotherPhoto,
-    this.guidanceAudioButton,
     this.onPrevious,
     this.onSkip,
-    this.onAddAnotherPhoto,
   });
 
   final bool showPrevious;
   final bool showSkip;
-  final bool showAddAnotherPhoto;
-  final Widget? guidanceAudioButton;
   final Future<void> Function()? onPrevious;
   final Future<void> Function()? onSkip;
-  final Future<void> Function()? onAddAnotherPhoto;
 
   @override
   Widget build(BuildContext context) {
@@ -1390,14 +1904,6 @@ class _PlayerSecondaryActionRow extends StatelessWidget {
           icon: const Icon(LucideIcons.chevronLeft, size: 16),
           label: const Text('Previous'),
           style: TextButton.styleFrom(foregroundColor: textColor),
-        ),
-      if (showAddAnotherPhoto)
-        TextButton(
-          onPressed: onAddAnotherPhoto == null
-              ? null
-              : () => unawaited(onAddAnotherPhoto!()),
-          style: TextButton.styleFrom(foregroundColor: textColor),
-          child: const Text('Add another photo'),
         ),
       if (showSkip)
         TextButton(
@@ -1415,15 +1921,6 @@ class _PlayerSecondaryActionRow extends StatelessWidget {
 
     return Row(
       children: [
-        if (guidanceAudioButton != null)
-          Flexible(
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: guidanceAudioButton,
-            ),
-          ),
-        if (guidanceAudioButton != null && actions.isNotEmpty)
-          const SizedBox(width: 8),
         if (actions.isNotEmpty)
           Expanded(
             child: SingleChildScrollView(

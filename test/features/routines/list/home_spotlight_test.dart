@@ -802,6 +802,9 @@ class _FakeRoutineRepository implements RoutineRepository {
       Stream.value(_routines.values.toList());
 
   @override
+  Future<void> normalizeLegacyRoutineIcons() async {}
+
+  @override
   Future<Routine?> getRoutineById(int id) async => _routines[id];
 
   @override

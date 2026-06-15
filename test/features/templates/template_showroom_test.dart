@@ -623,6 +623,9 @@ class _FakeRoutineRepository implements RoutineRepository {
       Stream<List<Routine>>.value(savedRoutines);
 
   @override
+  Future<void> normalizeLegacyRoutineIcons() async {}
+
+  @override
   Future<void> saveRoutine(Routine routine) async {
     savedRoutines.add(routine);
   }

@@ -568,13 +568,13 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
         backgroundColor: colorScheme.surface,
         appBar: PebbleSubscreenAppBar(
           title: 'Backup',
-          subtitle: 'A safe copy of your routines',
+          subtitle: 'Manage your backup',
           onBack: _exitBackup,
         ),
         body: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 60),
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 60),
           children: [
-            _BackupStatusCard(
+            _BackupHero(
               state: presentation,
               onSwitchChanged: presentation.backupSwitchEnabled
                   ? _handleBackupSwitch
@@ -585,7 +585,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
                   : null,
             ),
             if (presentation.pendingBannerText != null) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               _PendingChangesBanner(text: presentation.pendingBannerText!),
             ],
             if (presentation.showOwnershipMismatch) ...[
@@ -604,10 +604,17 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
                     : () => _handleAction(BackupDashboardAction.keepBackupOff),
               ),
             ],
-            const SizedBox(height: 24),
+            // The stepper earns its place only while there is a step left to
+            // take; once backup is on, the screen is a quiet dashboard.
+            if (!presentation.setupComplete) ...[
+              const SizedBox(height: 32),
+              _BackupSetupStepper(steps: presentation.setupSteps),
+            ],
+            const SizedBox(height: 32),
             _BackupDataSection(
               items: presentation.dataItems,
               live: presentation.dataItemsLive,
+              footer: presentation.dataFooter,
             ),
           ],
         ),
@@ -616,8 +623,8 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
   }
 }
 
-class _BackupStatusCard extends StatelessWidget {
-  const _BackupStatusCard({
+class _BackupHero extends StatelessWidget {
+  const _BackupHero({
     required this.state,
     required this.onSwitchChanged,
     required this.primaryBusy,
@@ -634,154 +641,166 @@ class _BackupStatusCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final accent = _toneColor(colorScheme, state.tone);
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: state.needsAttention
-              ? accent.withValues(alpha: 0.32)
-              : colorScheme.outline.withValues(alpha: 0.12),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    // No box around the hero: the headline and one supporting line carry the
+    // state, and the rest of the screen gets room to breathe.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _ToneIcon(icon: state.icon, color: accent),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              state.statusLabel,
-                              style: GoogleFonts.dmSerifDisplay(
-                                color: colorScheme.onSurface,
-                                fontSize: 30,
-                                fontWeight: FontWeight.w400,
-                                letterSpacing: 0,
-                                height: 1.05,
-                              ),
-                            ),
-                          ),
-                          // A switch you cannot use is noise: only show it
-                          // while backup is on, where flipping it means pause.
-                          if (state.backupSwitchValue) ...[
-                            const SizedBox(width: 12),
-                            Switch.adaptive(
-                              value: state.backupSwitchValue,
-                              onChanged: onSwitchChanged,
-                            ),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        state.detail,
-                        style: GoogleFonts.outfit(
-                          color: colorScheme.onSurface.withValues(alpha: 0.68),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w300,
-                          letterSpacing: 0,
-                          height: 1.45,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      _BackupSetupChecklist(steps: state.setupSteps),
-                      const SizedBox(height: 14),
-                      Row(
-                        children: [
-                          if (state.needsAttention)
-                            Container(
-                              width: 8,
-                              height: 8,
-                              margin: const EdgeInsets.only(right: 8),
-                              decoration: BoxDecoration(
-                                color: accent,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          Flexible(
-                            child: Text(
-                              state.lastBackupText,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.outfit(
-                                color: colorScheme.onSurface.withValues(
-                                  alpha: 0.5,
-                                ),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                letterSpacing: 0,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+            Expanded(
+              child: Text(
+                state.statusLabel,
+                style: GoogleFonts.dmSerifDisplay(
+                  color: colorScheme.onSurface,
+                  fontSize: 36,
+                  fontWeight: FontWeight.w400,
+                  letterSpacing: 0,
+                  height: 1.05,
                 ),
-              ],
+              ),
             ),
-            if (onPrimary != null) ...[
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: primaryBusy ? null : onPrimary,
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(52),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                icon: Icon(_buttonIcon(state.primaryAction), size: 18),
-                label: Text(
-                  primaryBusy ? 'Working...' : state.primaryActionLabel ?? '',
-                ),
+            // A switch you cannot use is noise: only show it while backup is
+            // on, where flipping it means pause.
+            if (state.backupSwitchValue) ...[
+              const SizedBox(width: 12),
+              Switch.adaptive(
+                value: state.backupSwitchValue,
+                onChanged: onSwitchChanged,
               ),
             ],
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _BackupSetupChecklist extends StatelessWidget {
-  const _BackupSetupChecklist({required this.steps});
-
-  final List<BackupSetupStep> steps;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Column(
-      children: [
-        for (var index = 0; index < steps.length; index++) ...[
-          _BackupSetupRow(step: steps[index]),
-          if (index != steps.length - 1)
-            Divider(
-              height: 1,
-              color: colorScheme.outline.withValues(alpha: 0.10),
+        const SizedBox(height: 10),
+        Text(
+          state.detail,
+          style: GoogleFonts.outfit(
+            color: colorScheme.onSurface.withValues(alpha: 0.66),
+            fontSize: 14.5,
+            fontWeight: FontWeight.w300,
+            letterSpacing: 0,
+            height: 1.5,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            if (state.needsAttention)
+              Container(
+                width: 8,
+                height: 8,
+                margin: const EdgeInsets.only(right: 8),
+                decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
+              ),
+            Icon(
+              LucideIcons.history,
+              size: 13,
+              color: colorScheme.onSurface.withValues(alpha: 0.42),
             ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                state.lastBackupText,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.outfit(
+                  color: colorScheme.onSurface.withValues(alpha: 0.5),
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0,
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (onPrimary != null) ...[
+          const SizedBox(height: 22),
+          FilledButton.icon(
+            onPressed: primaryBusy ? null : onPrimary,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(54),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+            ),
+            icon: Icon(_buttonIcon(state.primaryAction), size: 18),
+            label: Text(
+              primaryBusy ? 'Working...' : state.primaryActionLabel ?? '',
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            ),
+          ),
         ],
       ],
     );
   }
 }
 
-class _BackupSetupRow extends StatelessWidget {
-  const _BackupSetupRow({required this.step});
+class _BackupSetupStepper extends StatelessWidget {
+  const _BackupSetupStepper({required this.steps});
 
+  final List<BackupSetupStep> steps;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final currentNumber =
+        steps.indexWhere(
+          (step) => step.state != BackupSetupStepState.done,
+        ) +
+        1;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'How to set it up',
+                  style: GoogleFonts.outfit(
+                    color: colorScheme.onSurface.withValues(alpha: 0.56),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ),
+              if (currentNumber > 0)
+                Text(
+                  'Step $currentNumber of ${steps.length}',
+                  style: GoogleFonts.outfit(
+                    color: colorScheme.primary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        for (var index = 0; index < steps.length; index++)
+          _BackupStepperRow(
+            number: index + 1,
+            step: steps[index],
+            isLast: index == steps.length - 1,
+          ),
+      ],
+    );
+  }
+}
+
+class _BackupStepperRow extends StatelessWidget {
+  const _BackupStepperRow({
+    required this.number,
+    required this.step,
+    required this.isLast,
+  });
+
+  final int number;
   final BackupSetupStep step;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
@@ -789,75 +808,115 @@ class _BackupSetupRow extends StatelessWidget {
     final isCurrent =
         step.state == BackupSetupStepState.current ||
         step.state == BackupSetupStepState.attention;
-    final color = switch (step.state) {
-      BackupSetupStepState.done => colorScheme.primary,
-      BackupSetupStepState.current => colorScheme.tertiary,
-      BackupSetupStepState.attention => colorScheme.error,
-      BackupSetupStepState.locked => colorScheme.onSurface.withValues(
-        alpha: 0.36,
+    final isLocked = step.state == BackupSetupStepState.locked;
+    final accent = step.state == BackupSetupStepState.attention
+        ? colorScheme.error
+        : colorScheme.primary;
+
+    final indicator = switch (step.state) {
+      BackupSetupStepState.done => Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: accent.withValues(alpha: 0.13),
+          shape: BoxShape.circle,
+          border: Border.all(color: accent.withValues(alpha: 0.30)),
+        ),
+        child: Icon(LucideIcons.check, size: 15, color: accent),
+      ),
+      BackupSetupStepState.current ||
+      BackupSetupStepState.attention => Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
+        alignment: Alignment.center,
+        child: Text(
+          '$number',
+          style: GoogleFonts.outfit(
+            color: colorScheme.onPrimary,
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            height: 1,
+          ),
+        ),
+      ),
+      BackupSetupStepState.locked => Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: colorScheme.outline.withValues(alpha: 0.24),
+          ),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          '$number',
+          style: GoogleFonts.outfit(
+            color: colorScheme.onSurface.withValues(alpha: 0.38),
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            height: 1,
+          ),
+        ),
       ),
     };
-    final stateIcon = switch (step.state) {
-      BackupSetupStepState.done => LucideIcons.circleCheck,
-      BackupSetupStepState.current => LucideIcons.circle,
-      BackupSetupStepState.attention => LucideIcons.circleAlert,
-      BackupSetupStepState.locked => LucideIcons.lock,
-    };
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 11),
+    return IntrinsicHeight(
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: isCurrent ? 0.14 : 0.08),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(stateIcon, size: 18, color: color),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(step.icon, size: 15, color: color),
-                    const SizedBox(width: 7),
-                    Expanded(
-                      child: Text(
-                        step.label,
-                        style: GoogleFonts.outfit(
-                          color: colorScheme.onSurface,
-                          fontSize: 14,
-                          fontWeight: isCurrent
-                              ? FontWeight.w700
-                              : FontWeight.w600,
-                          letterSpacing: 0,
-                        ),
-                      ),
+          Column(
+            children: [
+              indicator,
+              if (!isLast)
+                Expanded(
+                  child: Container(
+                    width: 2,
+                    margin: const EdgeInsets.symmetric(vertical: 4),
+                    decoration: BoxDecoration(
+                      color: step.state == BackupSetupStepState.done
+                          ? accent.withValues(alpha: 0.30)
+                          : colorScheme.outline.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(1),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  step.detail,
-                  style: GoogleFonts.outfit(
-                    color: colorScheme.onSurface.withValues(
-                      alpha: step.state == BackupSetupStepState.locked
-                          ? 0.48
-                          : 0.66,
-                    ),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w300,
-                    letterSpacing: 0,
-                    height: 1.35,
                   ),
                 ),
-              ],
+            ],
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(top: 5, bottom: isLast ? 0 : 22),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    step.label,
+                    style: GoogleFonts.outfit(
+                      color: colorScheme.onSurface.withValues(
+                        alpha: isLocked ? 0.45 : 1,
+                      ),
+                      fontSize: 15,
+                      fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w600,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    step.detail,
+                    style: GoogleFonts.outfit(
+                      color: colorScheme.onSurface.withValues(
+                        alpha: isLocked ? 0.38 : 0.62,
+                      ),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w300,
+                      letterSpacing: 0,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -905,10 +964,15 @@ class _PendingChangesBanner extends StatelessWidget {
 }
 
 class _BackupDataSection extends StatelessWidget {
-  const _BackupDataSection({required this.items, required this.live});
+  const _BackupDataSection({
+    required this.items,
+    required this.live,
+    required this.footer,
+  });
 
   final List<BackupDataItem> items;
   final bool live;
+  final String footer;
 
   @override
   Widget build(BuildContext context) {
@@ -919,7 +983,7 @@ class _BackupDataSection extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 10),
           child: Text(
-            live ? "What's backed up" : 'What gets backed up',
+            live ? "What's backed up" : 'What backup keeps safe for 21 days',
             style: GoogleFonts.outfit(
               color: colorScheme.onSurface.withValues(alpha: 0.56),
               fontSize: 12,
@@ -928,31 +992,108 @@ class _BackupDataSection extends StatelessWidget {
             ),
           ),
         ),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: colorScheme.outline.withValues(alpha: 0.12),
+        // Off: three quiet tokens, because there is nothing to report yet.
+        // On: the full list with live counts, because now it is a dashboard.
+        if (!live)
+          Row(
+            children: [
+              for (var index = 0; index < items.length; index++) ...[
+                Expanded(child: _BackupDataToken(item: items[index])),
+                if (index != items.length - 1) const SizedBox(width: 8),
+              ],
+            ],
+          )
+        else
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: colorScheme.outline.withValues(alpha: 0.12),
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Column(
+                children: [
+                  for (var index = 0; index < items.length; index++) ...[
+                    _BackupDataRow(item: items[index]),
+                    if (index != items.length - 1)
+                      Divider(
+                        height: 1,
+                        color: colorScheme.outline.withValues(alpha: 0.10),
+                      ),
+                  ],
+                ],
+              ),
             ),
           ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Column(
-              children: [
-                for (var index = 0; index < items.length; index++) ...[
-                  _BackupDataRow(item: items[index]),
-                  if (index != items.length - 1)
-                    Divider(
-                      height: 1,
-                      color: colorScheme.outline.withValues(alpha: 0.10),
-                    ),
-                ],
-              ],
-            ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 12, 4, 0),
+          child: Row(
+            children: [
+              Icon(
+                LucideIcons.wandSparkles,
+                size: 13,
+                color: colorScheme.onSurface.withValues(alpha: 0.42),
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  footer,
+                  style: GoogleFonts.outfit(
+                    color: colorScheme.onSurface.withValues(alpha: 0.5),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    letterSpacing: 0,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
+    );
+  }
+}
+
+class _BackupDataToken extends StatelessWidget {
+  const _BackupDataToken({required this.item});
+
+  final BackupDataItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.10)),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            item.icon,
+            size: 19,
+            color: colorScheme.onSurface.withValues(alpha: 0.55),
+          ),
+          const SizedBox(height: 7),
+          Text(
+            item.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.outfit(
+              color: colorScheme.onSurface.withValues(alpha: 0.82),
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -965,17 +1106,17 @@ class _BackupDataRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final (IconData stateIcon, Color stateColor) = switch (item.state) {
+    // No trailing icon while backup is off: a column of dashes reads like
+    // something is wrong, when really there is just nothing to report yet.
+    final (IconData?, Color?) trailing = switch (item.state) {
       BackupDataItemState.saved => (LucideIcons.check, colorScheme.primary),
       BackupDataItemState.attention => (
         LucideIcons.circleAlert,
         colorScheme.error,
       ),
-      BackupDataItemState.off => (
-        LucideIcons.minus,
-        colorScheme.onSurface.withValues(alpha: 0.30),
-      ),
+      BackupDataItemState.off => (null, null),
     };
+    final (stateIcon, stateColor) = trailing;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 13),
@@ -1016,8 +1157,10 @@ class _BackupDataRow extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 12),
-          Icon(stateIcon, size: 18, color: stateColor),
+          if (stateIcon != null) ...[
+            const SizedBox(width: 12),
+            Icon(stateIcon, size: 18, color: stateColor),
+          ],
         ],
       ),
     );

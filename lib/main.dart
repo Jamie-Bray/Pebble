@@ -52,7 +52,14 @@ final routineSessionEntryProvider = FutureProvider.autoDispose
       final routineRepo = ref.read(routineRepositoryProvider);
       final sessionRepo = ref.read(routineSessionRepositoryProvider);
       final routingContext = ref.read(sessionRoutingContextProvider);
-      final routines = await ref.watch(routineListProvider.future);
+      // Resolve the session exactly once per navigation. This must be `read`,
+      // not `watch`: routineListProvider writes to the routines table on emit
+      // (emoji normalization, cloud sync, retention) and re-emits while the
+      // player is open. Watching it re-runs startOrResumeSession under the live
+      // player, and once the session is no longer active (completed/discarded)
+      // that spawns a brand-new Step 1 session - the completion screen never
+      // sticks and the old session surfaces "no longer resumable".
+      final routines = await ref.read(routineListProvider.future);
       final policy = ref.read(routineLimitPolicyProvider);
       final routine = await routineRepo.getRoutineById(id);
       if (routine == null) {
@@ -587,6 +594,7 @@ class _PebbleAppState extends ConsumerState<PebbleApp>
     WidgetsBinding.instance.addObserver(this);
     Future.microtask(() async {
       ref.read(purchaseRepositoryProvider);
+      await ref.read(routineRepositoryProvider).normalizeLegacyRoutineIcons();
       await ref.read(routineRunRepositoryProvider).enforceRetentionPolicy();
       await ref.read(cloudSyncCoordinatorProvider).kick();
     });

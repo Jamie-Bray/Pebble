@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -700,106 +701,7 @@ void main() {
       expect(profile.providerLabel, 'Google');
       expect(profile.planName, 'Personal Premium');
       expect(profile.canManagePlan, isTrue);
-      expect(profile.backupRow.label, 'Backup');
-      expect(profile.backupRow.needsAttention, isFalse);
-      expect(profile.backupRow.trailing, 'On');
     });
-
-    test(
-      'account profile backup row only shows attention when action is needed',
-      () async {
-        final healthy = _buildUiContainer(
-          auth: const AuthSessionSummary(
-            isSignedIn: true,
-            userId: 'user-1',
-            email: 'jamie@example.com',
-            provider: 'google',
-          ),
-          entitlement: const EntitlementState(
-            personalTier: UserTier.personalPremium,
-            source: EntitlementSource.serverVerified,
-            lastCheckedAt: null,
-            isRefreshing: false,
-            lastError: null,
-            status: EntitlementStatus.personalPremium,
-          ),
-          cloudAccess: const PersonalCloudAccessState(
-            status: PersonalCloudAccessStatus.available,
-            label: 'Backup is up to date',
-            detail: 'Ready.',
-          ),
-          account: const SubscriptionAccountState(
-            entitlementTier: UserTier.personalPremium,
-            entitlementStatus: EntitlementStatus.personalPremium,
-            entitlementSource: EntitlementSource.serverVerified,
-            pendingTier: null,
-            bootstrapStatus: BootstrapStatus.ready,
-            userId: 'user-1',
-            email: 'jamie@example.com',
-            authProvider: 'google',
-            lastBootstrapAt: null,
-            lastSyncAt: null,
-            lastSyncError: null,
-          ),
-          pendingCount: 0,
-        );
-        await _primeUiState(healthy.container);
-        final healthyNeedsAttention = healthy.container
-            .read(accountProfilePresentationProvider)
-            .backupRow
-            .needsAttention;
-        healthy.container.dispose();
-        await healthy.database.close();
-
-        final blocked = _buildUiContainer(
-          auth: const AuthSessionSummary(
-            isSignedIn: true,
-            userId: 'user-2',
-            email: 'jamie@example.com',
-            provider: 'google',
-          ),
-          entitlement: const EntitlementState(
-            personalTier: UserTier.personalPremium,
-            source: EntitlementSource.serverVerified,
-            lastCheckedAt: null,
-            isRefreshing: false,
-            lastError: null,
-            status: EntitlementStatus.personalPremium,
-          ),
-          cloudAccess: const PersonalCloudAccessState(
-            status: PersonalCloudAccessStatus.accountSwitchBlocked,
-            label: 'Backup blocked',
-            detail: 'Review needed.',
-          ),
-          account: const SubscriptionAccountState(
-            entitlementTier: UserTier.personalPremium,
-            entitlementStatus: EntitlementStatus.personalPremium,
-            entitlementSource: EntitlementSource.serverVerified,
-            pendingTier: null,
-            bootstrapStatus: BootstrapStatus.error,
-            userId: 'user-2',
-            email: 'jamie@example.com',
-            authProvider: 'google',
-            lastBootstrapAt: null,
-            lastSyncAt: null,
-            lastSyncError: 'Some Pebble data belongs to another account.',
-          ),
-          pendingCount: 0,
-        );
-        addTearDown(() async {
-          blocked.container.dispose();
-          await blocked.database.close();
-        });
-        await _primeUiState(blocked.container);
-
-        expect(healthyNeedsAttention, isFalse);
-        final blockedRow = blocked.container
-            .read(accountProfilePresentationProvider)
-            .backupRow;
-        expect(blockedRow.needsAttention, isTrue);
-        expect(blockedRow.trailing, 'Choose');
-      },
-    );
 
     test(
       'backup dashboard maps consent-required state to enable action',
@@ -855,8 +757,8 @@ void main() {
         expect(dashboard.backupSwitchValue, isFalse);
         expect(dashboard.needsAttention, isTrue);
         expect(dashboard.setupSteps.map((step) => step.label), [
+          'Get Premium',
           'Sign in',
-          'Premium',
           'Turn on backup',
         ]);
         expect(dashboard.setupSteps.map((step) => step.state), [
@@ -1286,17 +1188,12 @@ void main() {
         backupDashboardPresentationProvider,
       );
       final chip = harness.container.read(accountBackupChipStateProvider);
-      final profile = harness.container.read(
-        accountProfilePresentationProvider,
-      );
 
       expect(dashboard.statusLabel, 'Checking backup');
       expect(dashboard.statusLabel, isNot('Backing up now'));
       expect(dashboard.tone, BackupDashboardTone.neutral);
       expect(chip.label, 'Checking backup');
       expect(chip.tone, AccountBackupChipTone.neutral);
-      expect(profile.backupRow.detail, contains('backup ready'));
-      expect(profile.backupRow.trailing, 'Checking');
     });
 
     test(
@@ -1426,7 +1323,7 @@ void main() {
   });
 
   group('Account and cloud backup screens', () {
-    testWidgets('/account-hub shows identity, plan, billing, and backup row', (
+    testWidgets('/account-hub shows identity, plan, and billing only', (
       tester,
     ) async {
       final harness = _buildUiContainer(
@@ -1474,7 +1371,9 @@ void main() {
 
       expect(find.text('jamie@example.com'), findsOneWidget);
       expect(find.textContaining('Personal Premium'), findsOneWidget);
-      expect(find.text('Backup'), findsOneWidget);
+      // Backup lives on its own screen now; the account page stays focused
+      // on identity, plan, and billing.
+      expect(find.text('Backup'), findsNothing);
       expect(find.text('Restore purchase'), findsOneWidget);
       expect(find.text('Manage plan'), findsOneWidget);
       expect(find.text('Use this account'), findsNothing);
@@ -1527,8 +1426,8 @@ void main() {
 
         await _pumpAccountWidget(tester, harness, const AccountHubScreen());
 
-        expect(find.text('Backup'), findsOneWidget);
-        expect(find.text('Choose'), findsOneWidget);
+        expect(find.text('Backup'), findsNothing);
+        expect(find.text('Choose'), findsNothing);
         expect(find.text('Use this account'), findsNothing);
         expect(find.text('Keep backup off'), findsNothing);
         expect(find.text(cloudBackupConsentText), findsNothing);
@@ -1831,7 +1730,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Your account'), findsOneWidget);
-      expect(find.text('Backup'), findsOneWidget);
+      expect(find.textContaining('Personal Premium'), findsOneWidget);
     });
 
     testWidgets('cloud backup back button pops after normal navigation', (
@@ -1884,9 +1783,10 @@ void main() {
       );
       addTearDown(router.dispose);
 
-      await tester.tap(find.text('Backup'));
+      // Backup is reached from the Home chip these days, so navigate the
+      // same way the chip does: a push onto the stack.
+      unawaited(router.push('/cloud-backup'));
       await tester.pumpAndSettle();
-      expect(find.text('Backup'), findsWidgets);
       expect(find.text('Backup is on'), findsOneWidget);
 
       await tester.tap(find.bySemanticsLabel('Back'));
