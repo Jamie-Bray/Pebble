@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
+import 'package:pebble_routines/core/ui/adaptive_layout.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/features/templates/data/models/template.dart';
 import 'package:pebble_routines/features/templates/ui/templates_providers.dart';
@@ -38,34 +39,36 @@ class TemplatesGalleryScreen extends ConsumerWidget {
 
             return SafeArea(
               bottom: false,
-              child: CustomScrollView(
-                physics: const BouncingScrollPhysics(),
-                slivers: <Widget>[
-                  SliverToBoxAdapter(
-                    child: _TemplatesHeader(fromOnboarding: fromOnboarding),
-                  ),
-                  SliverPadding(
-                    padding: EdgeInsets.fromLTRB(
-                      20,
-                      2,
-                      20,
-                      36 + MediaQuery.of(context).padding.bottom,
+              child: AdaptiveContentWidth(
+                child: CustomScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  slivers: <Widget>[
+                    SliverToBoxAdapter(
+                      child: _TemplatesHeader(fromOnboarding: fromOnboarding),
                     ),
-                    sliver: SliverList(
-                      delegate: SliverChildListDelegate(<Widget>[
-                        for (final entry in grouped.entries) ...<Widget>[
-                          _TemplateGroup(
-                            title: entry.key,
-                            accent: _accentForGroup(context, entry.key),
-                            templates: entry.value,
-                            fromOnboarding: fromOnboarding,
-                          ),
-                          const SizedBox(height: 18),
-                        ],
-                      ]),
+                    SliverPadding(
+                      padding: EdgeInsets.fromLTRB(
+                        20,
+                        2,
+                        20,
+                        36 + MediaQuery.of(context).padding.bottom,
+                      ),
+                      sliver: SliverList(
+                        delegate: SliverChildListDelegate(<Widget>[
+                          for (final entry in grouped.entries) ...<Widget>[
+                            _TemplateGroup(
+                              title: entry.key,
+                              accent: _accentForGroup(context, entry.key),
+                              templates: entry.value,
+                              fromOnboarding: fromOnboarding,
+                            ),
+                            const SizedBox(height: 18),
+                          ],
+                        ]),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           },

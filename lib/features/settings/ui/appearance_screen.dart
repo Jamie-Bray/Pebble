@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
+import 'package:pebble_routines/core/ui/adaptive_layout.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
@@ -43,95 +44,98 @@ class AppearanceScreen extends ConsumerWidget {
         ),
         child: SafeArea(
           bottom: false,
-          child: CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: <Widget>[
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 22),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      PebbleBackChrome(
-                        padding: EdgeInsets.zero,
-                        trailing: _InfoButton(
-                          onTap: () => _showThemeInfoSheet(context),
+          child: AdaptiveContentWidth(
+            child: CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: <Widget>[
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 22),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        PebbleBackChrome(
+                          padding: EdgeInsets.zero,
+                          trailing: _InfoButton(
+                            onTap: () => _showThemeInfoSheet(context),
+                          ),
+                          respectSafeArea: false,
                         ),
-                        respectSafeArea: false,
-                      ),
-                      const SizedBox(height: 18),
-                      Text(
-                        'Themes',
-                        style: Theme.of(context).textTheme.headlineMedium
-                            ?.copyWith(
-                              color: foundation.textPrimary,
-                              fontWeight: FontWeight.w900,
-                              height: 1.02,
-                            ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Choose a look that works for you.\nPreview first, then apply.',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: foundation.textSecondary,
-                          height: 1.45,
+                        const SizedBox(height: 18),
+                        Text(
+                          'Themes',
+                          style: Theme.of(context).textTheme.headlineMedium
+                              ?.copyWith(
+                                color: foundation.textPrimary,
+                                fontWeight: FontWeight.w900,
+                                height: 1.02,
+                              ),
                         ),
-                      ),
-                      const SizedBox(height: 20),
-                      _ActiveThemeBar(
-                        meta: currentMeta,
-                        onTap: () =>
-                            _openThemePreview(context, ref, currentMeta),
-                      ),
-                    ],
+                        const SizedBox(height: 8),
+                        Text(
+                          'Choose a look that works for you.\nPreview first, then apply.',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: foundation.textSecondary,
+                                height: 1.45,
+                              ),
+                        ),
+                        const SizedBox(height: 20),
+                        _ActiveThemeBar(
+                          meta: currentMeta,
+                          onTap: () =>
+                              _openThemePreview(context, ref, currentMeta),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              SliverPadding(
-                padding: EdgeInsets.fromLTRB(
-                  20,
-                  0,
-                  20,
-                  36 + MediaQuery.paddingOf(context).bottom,
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    0,
+                    20,
+                    36 + MediaQuery.paddingOf(context).bottom,
+                  ),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate(<Widget>[
+                      const _SectionHeader(title: 'Included'),
+                      const SizedBox(height: 12),
+                      _ThemeGrid(
+                        themes: included,
+                        canUsePremiumThemes: canUsePremiumThemes,
+                        currentThemeId: currentThemeId,
+                        onThemeTap: (meta) =>
+                            _openThemePreview(context, ref, meta),
+                      ),
+                      const SizedBox(height: 28),
+                      const _SectionHeader(
+                        title: 'Accessibility',
+                        tag: 'Always free',
+                      ),
+                      const SizedBox(height: 12),
+                      _ThemeGrid(
+                        themes: accessibility,
+                        canUsePremiumThemes: canUsePremiumThemes,
+                        currentThemeId: currentThemeId,
+                        onThemeTap: (meta) =>
+                            _openThemePreview(context, ref, meta),
+                      ),
+                      const SizedBox(height: 28),
+                      const _SectionHeader(title: 'Premium'),
+                      const SizedBox(height: 12),
+                      _PremiumCarousel(
+                        themes: premium,
+                        canUsePremiumThemes: canUsePremiumThemes,
+                        currentThemeId: currentThemeId,
+                        onThemeTap: (meta) =>
+                            _openThemePreview(context, ref, meta),
+                      ),
+                    ]),
+                  ),
                 ),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate(<Widget>[
-                    const _SectionHeader(title: 'Included'),
-                    const SizedBox(height: 12),
-                    _ThemeGrid(
-                      themes: included,
-                      canUsePremiumThemes: canUsePremiumThemes,
-                      currentThemeId: currentThemeId,
-                      onThemeTap: (meta) =>
-                          _openThemePreview(context, ref, meta),
-                    ),
-                    const SizedBox(height: 28),
-                    const _SectionHeader(
-                      title: 'Accessibility',
-                      tag: 'Always free',
-                    ),
-                    const SizedBox(height: 12),
-                    _ThemeGrid(
-                      themes: accessibility,
-                      canUsePremiumThemes: canUsePremiumThemes,
-                      currentThemeId: currentThemeId,
-                      onThemeTap: (meta) =>
-                          _openThemePreview(context, ref, meta),
-                    ),
-                    const SizedBox(height: 28),
-                    const _SectionHeader(title: 'Premium'),
-                    const SizedBox(height: 12),
-                    _PremiumCarousel(
-                      themes: premium,
-                      canUsePremiumThemes: canUsePremiumThemes,
-                      currentThemeId: currentThemeId,
-                      onThemeTap: (meta) =>
-                          _openThemePreview(context, ref, meta),
-                    ),
-                  ]),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

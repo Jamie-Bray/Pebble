@@ -13,6 +13,7 @@ import 'package:pebble_routines/features/subscription/providers/premium_feature_
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:pebble_routines/core/ui/adaptive_layout.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/ui/zen_notifications.dart';
 import 'package:pebble_routines/features/routines/list/ui/reminder_editor_sheet.dart';
@@ -183,18 +184,25 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
 
   Widget _buildSingleRoutineView(ColorScheme cs) {
     if (widget.emailOnly) {
-      return ListView(
-        padding: const EdgeInsets.all(24),
-        children: [_buildSharedRemindersCard(cs), const SizedBox(height: 100)],
+      return AdaptiveContentWidth(
+        child: ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            _buildSharedRemindersCard(cs),
+            const SizedBox(height: 100),
+          ],
+        ),
       );
     }
 
-    return ListView(
-      padding: const EdgeInsets.all(24),
-      children: [
-        _buildRoutineReminderExperience(cs),
-        const SizedBox(height: 100),
-      ],
+    return AdaptiveContentWidth(
+      child: ListView(
+        padding: const EdgeInsets.all(24),
+        children: [
+          _buildRoutineReminderExperience(cs),
+          const SizedBox(height: 100),
+        ],
+      ),
     );
   }
 
@@ -1929,17 +1937,19 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
       return _buildEmptyState(cs);
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: 7, // 7 days of the week
-      itemBuilder: (context, index) {
-        final day = index + 1;
-        final dayReminders = _remindersByDay[day] ?? [];
+    return AdaptiveContentWidth(
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: 7, // 7 days of the week
+        itemBuilder: (context, index) {
+          final day = index + 1;
+          final dayReminders = _remindersByDay[day] ?? [];
 
-        if (dayReminders.isEmpty) return const SizedBox.shrink();
+          if (dayReminders.isEmpty) return const SizedBox.shrink();
 
-        return _buildDaySection(day, dayReminders, cs);
-      },
+          return _buildDaySection(day, dayReminders, cs);
+        },
+      ),
     );
   }
 
@@ -1948,13 +1958,15 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
       return _buildEmptyState(cs);
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _allReminders.length,
-      itemBuilder: (context, index) {
-        final reminder = _allReminders[index];
-        return _buildReminderCard(reminder, cs);
-      },
+    return AdaptiveContentWidth(
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: _allReminders.length,
+        itemBuilder: (context, index) {
+          final reminder = _allReminders[index];
+          return _buildReminderCard(reminder, cs);
+        },
+      ),
     );
   }
 

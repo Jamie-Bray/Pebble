@@ -7,6 +7,7 @@ import "package:pebble_routines/features/settings/ui/legal_about_screen.dart";
 import "package:lucide_icons_flutter/lucide_icons.dart";
 import "package:go_router/go_router.dart";
 import "package:pebble_routines/core/ui_kit/animated_background.dart";
+import "package:pebble_routines/core/ui/adaptive_layout.dart";
 import "package:pebble_routines/core/ui/zen_components.dart";
 import "package:pebble_routines/core/ui/pebble_navigation.dart";
 import "package:pebble_routines/features/settings/data/player_settings_provider.dart";
@@ -66,119 +67,122 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
             ambientAnimation: _ambient,
             scrollOffset: _scrollOffset,
           ),
-          CustomScrollView(
-            controller: _scrollController,
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              const SliverToBoxAdapter(
-                child: ZenScreenHeader(
-                  title: 'Settings',
-                  subtitle: 'System configurations & preferences',
+          AdaptiveContentWidth(
+            child: CustomScrollView(
+              controller: _scrollController,
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                const SliverToBoxAdapter(
+                  child: ZenScreenHeader(
+                    title: 'Settings',
+                    subtitle: 'System configurations & preferences',
+                  ),
                 ),
-              ),
 
-              // Appearance & Subscription
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  child: _FlowBlock(
-                    title: 'Service',
-                    children: [
-                      _FlowTile(
-                        icon: LucideIcons.bell,
-                        title: 'Reminders',
-                        subtitle: 'Manage all your routine reminders',
-                        onTap: () {
-                          context.push('/reminders');
-                        },
-                      ),
-                      const _Hairline(),
-                      _FlowSwitchTile(
-                        icon: LucideIcons.focus,
-                        title: 'Routine focus guide',
-                        subtitle:
-                            'Show a visual cue while you move through steps',
-                        value: playerSettings.showVisualAnchor,
-                        onChanged: (value) {
-                          setState(() {
-                            playerSettings.showVisualAnchor = value;
-                          });
-                        },
-                      ),
-                      const _Hairline(),
-                      _FlowSwitchTile(
-                        icon: LucideIcons.vibrate,
-                        title: 'Buzz on step complete',
-                        subtitle: 'A short vibration when you check off a step',
-                        value: playerSettings.stepCompleteHaptic,
-                        onChanged: (value) {
-                          setState(() {
-                            playerSettings.stepCompleteHaptic = value;
-                          });
-                        },
-                      ),
-                      const _Hairline(),
-                      _FlowSwitchTile(
-                        icon: LucideIcons.volume2,
-                        title: 'Sound on step complete',
-                        subtitle: 'A soft chime when you check off a step',
-                        value: playerSettings.stepCompleteSound,
-                        onChanged: (value) {
-                          setState(() {
-                            playerSettings.stepCompleteSound = value;
-                          });
-                        },
-                      ),
-                      const _Hairline(),
-                      _FlowTile(
-                        icon: Icons.palette_rounded,
-                        title: 'Theme & colours',
-                        subtitle: 'Choose a colour theme',
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const AppearanceScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
+                // Appearance & Subscription
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    child: _FlowBlock(
+                      title: 'Service',
+                      children: [
+                        _FlowTile(
+                          icon: LucideIcons.bell,
+                          title: 'Reminders',
+                          subtitle: 'Manage all your routine reminders',
+                          onTap: () {
+                            context.push('/reminders');
+                          },
+                        ),
+                        const _Hairline(),
+                        _FlowSwitchTile(
+                          icon: LucideIcons.focus,
+                          title: 'Routine focus guide',
+                          subtitle:
+                              'Show a visual cue while you move through steps',
+                          value: playerSettings.showVisualAnchor,
+                          onChanged: (value) {
+                            setState(() {
+                              playerSettings.showVisualAnchor = value;
+                            });
+                          },
+                        ),
+                        const _Hairline(),
+                        _FlowSwitchTile(
+                          icon: LucideIcons.vibrate,
+                          title: 'Buzz on step complete',
+                          subtitle:
+                              'A short vibration when you check off a step',
+                          value: playerSettings.stepCompleteHaptic,
+                          onChanged: (value) {
+                            setState(() {
+                              playerSettings.stepCompleteHaptic = value;
+                            });
+                          },
+                        ),
+                        const _Hairline(),
+                        _FlowSwitchTile(
+                          icon: LucideIcons.volume2,
+                          title: 'Sound on step complete',
+                          subtitle: 'A soft chime when you check off a step',
+                          value: playerSettings.stepCompleteSound,
+                          onChanged: (value) {
+                            setState(() {
+                              playerSettings.stepCompleteSound = value;
+                            });
+                          },
+                        ),
+                        const _Hairline(),
+                        _FlowTile(
+                          icon: Icons.palette_rounded,
+                          title: 'Theme & colours',
+                          subtitle: 'Choose a colour theme',
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const AppearanceScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
 
-              // About group
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    16,
-                    8,
-                    16,
-                    40,
-                  ), // More bottom padding for FAB clearance
-                  child: _FlowBlock(
-                    title: 'About',
-                    children: [
-                      _FlowTile(
-                        icon: Icons.info_rounded,
-                        title: 'About Pebble',
-                        subtitle: 'Version 1.0.0 - Privacy, terms, deletion',
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const LegalAboutScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
+                // About group
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      16,
+                      8,
+                      16,
+                      40,
+                    ), // More bottom padding for FAB clearance
+                    child: _FlowBlock(
+                      title: 'About',
+                      children: [
+                        _FlowTile(
+                          icon: Icons.info_rounded,
+                          title: 'About Pebble',
+                          subtitle: 'Version 1.0.0 - Privacy, terms, deletion',
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const LegalAboutScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           const Positioned(
             top: 0,

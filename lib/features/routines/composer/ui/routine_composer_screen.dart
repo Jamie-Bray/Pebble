@@ -20,6 +20,7 @@ import 'package:pebble_routines/features/routines/list/providers/routine_list_pr
 import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 import 'package:pebble_routines/features/subscription/ui/subscription_guard.dart';
+import 'package:pebble_routines/core/ui/adaptive_layout.dart';
 import 'package:pebble_routines/core/ui/zen_notifications.dart';
 import 'package:record/record.dart';
 
@@ -155,65 +156,69 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
           top: false,
           child: composerState.isLoading
               ? const Center(child: CircularProgressIndicator.adaptive())
-              : ListView(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 112),
-                  children: [
-                    _buildTitleField(context),
-                    const SizedBox(height: 20),
-                    if (composerState.steps.isEmpty)
-                      _buildEmptyState(context)
-                    else ...[
-                      _buildStepsLabel(context, composerState),
-                      const SizedBox(height: 12),
-                      for (
-                        var index = 0;
-                        index < composerState.steps.length;
-                        index += 1
-                      )
-                        RoutineComposerStepRow(
-                          rowKey: _rowKeys[composerState.steps[index].id]!,
-                          index: index,
-                          step: composerState.steps[index],
-                          isPrimaryEntryPoint: _isPrimaryEntryPoint(
-                            composerState,
-                            composerState.steps[index],
-                            index,
-                          ),
-                          controller:
-                              _stepControllers[composerState.steps[index].id]!,
-                          focusNode:
-                              _stepFocusNodes[composerState.steps[index].id]!,
-                          isExpanded:
-                              composerState.expandedStepId ==
-                              composerState.steps[index].id,
-                          onTap: () =>
-                              _handleStepTap(composerState.steps[index].id),
-                          onChanged: (value) => _viewModel.updateStepText(
-                            composerState.steps[index].id,
-                            value,
-                          ),
-                          onSubmitted: () => _handleStepSubmitted(
-                            composerState,
-                            composerState.steps[index],
-                          ),
-                          onDelete: () => _handleDeleteStep(
-                            composerState,
-                            composerState.steps[index].id,
-                          ),
-                          onToggleRequiresPhoto: () =>
-                              _viewModel.toggleRequiresPhoto(
+              : AdaptiveContentWidth(
+                  child: ListView(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 112),
+                    children: [
+                      _buildTitleField(context),
+                      const SizedBox(height: 20),
+                      if (composerState.steps.isEmpty)
+                        _buildEmptyState(context)
+                      else ...[
+                        _buildStepsLabel(context, composerState),
+                        const SizedBox(height: 12),
+                        for (
+                          var index = 0;
+                          index < composerState.steps.length;
+                          index += 1
+                        )
+                          RoutineComposerStepRow(
+                            rowKey: _rowKeys[composerState.steps[index].id]!,
+                            index: index,
+                            step: composerState.steps[index],
+                            isPrimaryEntryPoint: _isPrimaryEntryPoint(
+                              composerState,
+                              composerState.steps[index],
+                              index,
+                            ),
+                            controller:
+                                _stepControllers[composerState
+                                    .steps[index]
+                                    .id]!,
+                            focusNode:
+                                _stepFocusNodes[composerState.steps[index].id]!,
+                            isExpanded:
+                                composerState.expandedStepId ==
                                 composerState.steps[index].id,
-                              ),
-                          onToggleAllowSkip: () => _viewModel.toggleAllowSkip(
-                            composerState.steps[index].id,
+                            onTap: () =>
+                                _handleStepTap(composerState.steps[index].id),
+                            onChanged: (value) => _viewModel.updateStepText(
+                              composerState.steps[index].id,
+                              value,
+                            ),
+                            onSubmitted: () => _handleStepSubmitted(
+                              composerState,
+                              composerState.steps[index],
+                            ),
+                            onDelete: () => _handleDeleteStep(
+                              composerState,
+                              composerState.steps[index].id,
+                            ),
+                            onToggleRequiresPhoto: () =>
+                                _viewModel.toggleRequiresPhoto(
+                                  composerState.steps[index].id,
+                                ),
+                            onToggleAllowSkip: () => _viewModel.toggleAllowSkip(
+                              composerState.steps[index].id,
+                            ),
+                            onVoiceTip: () => _showGuidanceAudioSheet(
+                              composerState.steps[index],
+                            ),
                           ),
-                          onVoiceTip: () => _showGuidanceAudioSheet(
-                            composerState.steps[index],
-                          ),
-                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
         ),
         bottomNavigationBar: _buildBottomBar(context, composerState),
