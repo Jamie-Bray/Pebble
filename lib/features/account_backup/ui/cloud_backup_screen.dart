@@ -408,7 +408,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
       await ref.read(cloudBackupConsentControllerProvider.notifier).accept();
       await ref
           .read(authControllerProvider.notifier)
-          .refreshCloudAccessAfterEntitlementChange();
+          .refreshCloudAccessAfterEntitlementChange(refreshEntitlement: false);
       _showBackupNotice(
         'Pebble will back up supported routine data for this account.',
         title: 'Backup is on',
@@ -467,7 +467,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
       await ref.read(cloudBackupConsentControllerProvider.notifier).withdraw();
       await ref
           .read(authControllerProvider.notifier)
-          .refreshCloudAccessAfterEntitlementChange();
+          .refreshCloudAccessAfterEntitlementChange(refreshEntitlement: false);
       _showBackupNotice(
         'Local routines remain on this device.',
         title: 'Backup is paused',
@@ -691,7 +691,10 @@ class _BackupHero extends StatelessWidget {
                 width: 8,
                 height: 8,
                 margin: const EdgeInsets.only(right: 8),
-                decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
+                decoration: BoxDecoration(
+                  color: accent,
+                  shape: BoxShape.circle,
+                ),
               ),
             Icon(
               LucideIcons.history,
@@ -744,10 +747,7 @@ class _BackupSetupStepper extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final currentNumber =
-        steps.indexWhere(
-          (step) => step.state != BackupSetupStepState.done,
-        ) +
-        1;
+        steps.indexWhere((step) => step.state != BackupSetupStepState.done) + 1;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1673,11 +1673,13 @@ class _BackupConsentCheck extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh,
+    // Material (not DecoratedBox) so the tile's ink renders on this surface;
+    // Flutter 3.44's debug assert rejects a decorated ancestor hiding ink.
+    return Material(
+      color: colorScheme.surfaceContainerHigh,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.12)),
+        side: BorderSide(color: colorScheme.outline.withValues(alpha: 0.12)),
       ),
       child: CheckboxListTile.adaptive(
         contentPadding: const EdgeInsets.fromLTRB(10, 6, 14, 6),

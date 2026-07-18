@@ -38,6 +38,28 @@ class RoutineLimitPolicy {
     if (!shouldSoftLockFreeLimits) return 0;
     return math.max(0, stepCount - freeStepLimit);
   }
+
+  // Value equality so providers that recompute an identical policy (e.g. the
+  // silent purchase sync on every app resume) do not notify watchers. The
+  // routine player provider watches this policy; without equality, each
+  // resume rebuilt the player controller mid-session and could race an
+  // in-flight photo save.
+  @override
+  bool operator ==(Object other) {
+    return other is RoutineLimitPolicy &&
+        other.hasPremiumRoutineAccess == hasPremiumRoutineAccess &&
+        other.isInGrace == isInGrace &&
+        other.freeRoutineLimit == freeRoutineLimit &&
+        other.freeStepLimit == freeStepLimit;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    hasPremiumRoutineAccess,
+    isInGrace,
+    freeRoutineLimit,
+    freeStepLimit,
+  );
 }
 
 class RoutineAccessState {

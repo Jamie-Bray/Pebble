@@ -11,8 +11,10 @@ import 'package:pebble_routines/core/home_widget/home_widget_publisher.dart';
 import 'package:intl/intl.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'core/theme/theme_provider.dart';
 import 'core/config/app_runtime_config.dart';
+import 'core/monitoring/crash_reporting.dart';
 import 'core/navigation/app_shell.dart';
 import 'data/remote/supabase_client_provider.dart';
 import 'features/templates/ui/template_detail_screen.dart';
@@ -445,10 +447,21 @@ class _RoutineLockedScreen extends StatelessWidget {
 }
 
 void main() async {
+  final appRuntimeConfig = appRuntimeConfigFromEnvironment();
+  if (!isCrashReportingConfigured) {
+    await _startPebble(appRuntimeConfig);
+    return;
+  }
+  await SentryFlutter.init(
+    (options) => configureSentryOptions(options, appRuntimeConfig),
+    appRunner: () => _startPebble(appRuntimeConfig),
+  );
+}
+
+Future<void> _startPebble(AppRuntimeConfig appRuntimeConfig) async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
   final db = LocalDb();
-  final appRuntimeConfig = appRuntimeConfigFromEnvironment();
   const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
   const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
   const googleWebClientId = String.fromEnvironment(
@@ -533,22 +546,21 @@ void main() async {
   db.routineDao.watchAllRoutines().listen((routines) {
     unawaited(publishHomeWidgetRoutine(selectWidgetRoutine(routines)));
   });
-  HomeWidget.widgetClicked.listen(
-    (uri) {
-      final routineId = routineIdFromWidgetUri(uri);
-      if (routineId != null) {
-        unawaited(_openRoutineFromExternalLaunch(routineId));
-      }
-    },
-    onError: (Object _) {},
-  );
+  HomeWidget.widgetClicked.listen((uri) {
+    final routineId = routineIdFromWidgetUri(uri);
+    if (routineId != null) {
+      unawaited(_openRoutineFromExternalLaunch(routineId));
+    }
+  }, onError: (Object _) {});
   unawaited(
-    HomeWidget.initiallyLaunchedFromHomeWidget().then((uri) {
-      final routineId = routineIdFromWidgetUri(uri);
-      if (routineId != null) {
-        unawaited(_openRoutineFromExternalLaunch(routineId));
-      }
-    }).catchError((Object _) {}),
+    HomeWidget.initiallyLaunchedFromHomeWidget()
+        .then((uri) {
+          final routineId = routineIdFromWidgetUri(uri);
+          if (routineId != null) {
+            unawaited(_openRoutineFromExternalLaunch(routineId));
+          }
+        })
+        .catchError((Object _) {}),
   );
 
   runApp(
@@ -611,16 +623,17 @@ class _PebbleAppState extends ConsumerState<PebbleApp>
     if (state == AppLifecycleState.resumed) {
       unawaited(_refreshPurchasesAndCloudAccess());
       ref.read(routineRunRepositoryProvider).enforceRetentionPolicy();
-      ref.read(cloudSyncCoordinatorProvider).kick();
     }
   }
 
   Future<void> _refreshPurchasesAndCloudAccess() async {
     try {
-      await ref.read(purchaseRepositoryProvider).syncPurchasesSilently();
       await ref
           .read(authControllerProvider.notifier)
           .refreshCloudAccessAfterEntitlementChange();
+      // Refresh consent before any resume-triggered upload. This prevents a
+      // stale in-memory acceptance from racing a withdrawal on another device.
+      await ref.read(cloudSyncCoordinatorProvider).kick();
     } catch (_) {
       // The visible account state keeps the last known entitlement and error.
     }

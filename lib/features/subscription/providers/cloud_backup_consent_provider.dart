@@ -116,6 +116,11 @@ class CloudBackupConsentState {
   final bool isRemoteConfirmed;
 
   bool get isAccepted => record?.isCurrentAccepted == true;
+
+  /// Uploads stay gated on a per-session remote confirmation so a consent
+  /// withdrawn from another device is noticed before anything new uploads.
+  /// UI layers must not read this as "consent missing": [isAccepted] with a
+  /// pending confirmation is a transient checking state, not an ask.
   bool get canEnableCloudUpload => isAccepted && isRemoteConfirmed;
 
   CloudBackupConsentState copyWith({
@@ -135,179 +140,40 @@ class CloudBackupConsentState {
   }
 }
 
-class CloudBackupConsentController
-    extends StateNotifier<CloudBackupConsentState> {
-  CloudBackupConsentController({
+/// Persistence for consent records, deliberately free of any auth-provider
+/// dependency. The sign-in flow must read and write consent while
+/// authentication is still in flight, and reading the auth-scoped controller
+/// from inside the auth controller forms a provider cycle.
+class CloudBackupConsentStore {
+  CloudBackupConsentStore({
     required SharedPreferences prefs,
     required SupabaseClient? client,
-    required AuthSessionSummary auth,
   }) : _prefs = prefs,
-       _client = client,
-       _auth = auth,
-       super(const CloudBackupConsentState.initial()) {
-    Future.microtask(load);
-  }
+       _client = client;
 
   final SharedPreferences _prefs;
   final SupabaseClient? _client;
-  final AuthSessionSummary _auth;
 
-  String? get _userId =>
-      _auth.userId?.trim().isEmpty == false ? _auth.userId!.trim() : null;
+  bool get isRemoteAvailable => _client != null;
 
   String _cacheKey(String userId) => 'pebble.cloud_backup_consent.$userId';
+  String _pendingEnableKey(String userId) =>
+      'pebble.cloud_backup_consent_pending.$userId';
 
-  Future<void> load() async {
-    final userId = _userId;
-    if (!_auth.isSignedIn || userId == null) {
-      state = const CloudBackupConsentState(
-        isLoading: false,
-        record: null,
-        lastError: null,
-        isRemoteConfirmed: false,
-      );
-      return;
-    }
+  bool isEnablePending(String userId) =>
+      _prefs.getBool(_pendingEnableKey(userId)) == true;
 
-    state = state.copyWith(isLoading: true, clearError: true);
-    final localRecord = _readLocalRecord(userId);
-    if (localRecord?.isCurrentAccepted == true) {
-      state = state.copyWith(
-        isLoading: false,
-        record: localRecord,
-        isRemoteConfirmed: false,
-      );
-    }
-
-    final client = _client;
-    if (client == null) {
-      state = state.copyWith(
-        isLoading: false,
-        record: localRecord,
-        isRemoteConfirmed: false,
-      );
-      return;
-    }
-
-    try {
-      final response = await client
-          .from('cloud_backup_consents')
-          .select()
-          .eq('owner_user_id', userId)
-          .eq('feature', cloudBackupConsentFeature)
-          .maybeSingle();
-      final remoteRecord = response == null
-          ? null
-          : CloudBackupConsentRecord.fromRemoteJson(
-              Map<String, dynamic>.from(response),
-            );
-      if (remoteRecord != null) {
-        await _writeLocalRecord(remoteRecord);
-      }
-      state = CloudBackupConsentState(
-        isLoading: false,
-        record: remoteRecord,
-        lastError: null,
-        isRemoteConfirmed: remoteRecord?.isCurrentAccepted == true,
-      );
-    } catch (_) {
-      state = CloudBackupConsentState(
-        isLoading: false,
-        record: localRecord,
-        lastError:
-            'Pebble could not check your cloud backup consent yet. Try again.',
-        isRemoteConfirmed: false,
-      );
-    }
+  Future<void> markEnablePending(String userId) async {
+    await _prefs.setBool(_pendingEnableKey(userId), true);
   }
 
-  Future<void> accept() async {
-    final userId = _userId;
-    final client = _client;
-    if (!_auth.isSignedIn || userId == null || client == null) {
-      throw StateError('Sign in before enabling cloud backup.');
-    }
-
-    final now = DateTime.now().toUtc();
-    final record = CloudBackupConsentRecord(
-      userId: userId,
-      feature: cloudBackupConsentFeature,
-      featureEnabled: true,
-      appVersion: cloudBackupConsentAppVersion,
-      privacyVersion: cloudBackupConsentPrivacyVersion,
-      termsVersion: cloudBackupConsentTermsVersion,
-      consentTextHash: cloudBackupConsentTextHash,
-      consentedAt: now,
-      withdrawnAt: null,
-    );
-
-    state = state.copyWith(isLoading: true, clearError: true);
-    await client.from('cloud_backup_consents').upsert({
-      'owner_user_id': record.userId,
-      'feature': record.feature,
-      'feature_enabled': record.featureEnabled,
-      'app_version': record.appVersion,
-      'privacy_version': record.privacyVersion,
-      'terms_version': record.termsVersion,
-      'consent_text_hash': record.consentTextHash,
-      'consented_at': record.consentedAt!.toIso8601String(),
-      'withdrawn_at': null,
-      'updated_at': now.toIso8601String(),
-    }, onConflict: 'owner_user_id,feature');
-    await _writeLocalRecord(record);
-    state = CloudBackupConsentState(
-      isLoading: false,
-      record: record,
-      lastError: null,
-      isRemoteConfirmed: true,
-    );
+  Future<void> clearEnablePending(String userId) async {
+    await _prefs.remove(_pendingEnableKey(userId));
   }
 
-  Future<void> withdraw() async {
-    final userId = _userId;
-    final client = _client;
-    if (!_auth.isSignedIn || userId == null || client == null) {
-      throw StateError('Sign in before changing cloud backup consent.');
-    }
-
-    final now = DateTime.now().toUtc();
-    final current = state.record;
-    final record = CloudBackupConsentRecord(
-      userId: userId,
-      feature: cloudBackupConsentFeature,
-      featureEnabled: false,
-      appVersion: current?.appVersion ?? cloudBackupConsentAppVersion,
-      privacyVersion:
-          current?.privacyVersion ?? cloudBackupConsentPrivacyVersion,
-      termsVersion: current?.termsVersion ?? cloudBackupConsentTermsVersion,
-      consentTextHash: current?.consentTextHash ?? cloudBackupConsentTextHash,
-      consentedAt: current?.consentedAt,
-      withdrawnAt: now,
-    );
-
-    state = state.copyWith(isLoading: true, clearError: true);
-    await client.from('cloud_backup_consents').upsert({
-      'owner_user_id': record.userId,
-      'feature': record.feature,
-      'feature_enabled': false,
-      'app_version': record.appVersion,
-      'privacy_version': record.privacyVersion,
-      'terms_version': record.termsVersion,
-      'consent_text_hash': record.consentTextHash,
-      'consented_at': record.consentedAt?.toIso8601String(),
-      'withdrawn_at': now.toIso8601String(),
-      'updated_at': now.toIso8601String(),
-    }, onConflict: 'owner_user_id,feature');
-    await _writeLocalRecord(record);
-    state = CloudBackupConsentState(
-      isLoading: false,
-      record: record,
-      lastError: null,
-      isRemoteConfirmed: true,
-    );
-  }
-
-  CloudBackupConsentRecord? _readLocalRecord(String userId) {
+  /// The locally cached record. It is only ever written after a successful
+  /// remote upsert or a remote fetch, so it is proof of consent on its own.
+  CloudBackupConsentRecord? readCachedRecord(String userId) {
     final raw = _prefs.getString(_cacheKey(userId));
     if (raw == null || raw.isEmpty) {
       return null;
@@ -325,11 +191,270 @@ class CloudBackupConsentController
     }
   }
 
-  Future<void> _writeLocalRecord(CloudBackupConsentRecord record) {
+  Future<void> cacheRecord(CloudBackupConsentRecord record) {
     return _prefs.setString(
       _cacheKey(record.userId),
       jsonEncode(record.toJson()),
     );
+  }
+
+  /// The remote record, cached locally when found. Throws when the server
+  /// cannot be reached.
+  Future<CloudBackupConsentRecord?> fetchRecord(String userId) async {
+    final client = _client;
+    if (client == null) {
+      return readCachedRecord(userId);
+    }
+    final response = await client
+        .from('cloud_backup_consents')
+        .select()
+        .eq('owner_user_id', userId)
+        .eq('feature', cloudBackupConsentFeature)
+        .maybeSingle();
+    final remoteRecord = response == null
+        ? null
+        : CloudBackupConsentRecord.fromRemoteJson(
+            Map<String, dynamic>.from(response),
+          );
+    if (remoteRecord == null) {
+      // A successful empty response is authoritative. Leaving an older local
+      // acceptance behind would let a later bootstrap mistake stale consent
+      // for a current server record.
+      await _prefs.remove(_cacheKey(userId));
+    } else {
+      await cacheRecord(remoteRecord);
+    }
+    return remoteRecord;
+  }
+
+  Future<CloudBackupConsentRecord> acceptFor(String userId) async {
+    final client = _client;
+    if (client == null) {
+      throw StateError('Backup is not available in this build.');
+    }
+    final now = DateTime.now().toUtc();
+    final record = CloudBackupConsentRecord(
+      userId: userId,
+      feature: cloudBackupConsentFeature,
+      featureEnabled: true,
+      appVersion: cloudBackupConsentAppVersion,
+      privacyVersion: cloudBackupConsentPrivacyVersion,
+      termsVersion: cloudBackupConsentTermsVersion,
+      consentTextHash: cloudBackupConsentTextHash,
+      consentedAt: now,
+      withdrawnAt: null,
+    );
+    await client.from('cloud_backup_consents').upsert({
+      'owner_user_id': record.userId,
+      'feature': record.feature,
+      'feature_enabled': record.featureEnabled,
+      'app_version': record.appVersion,
+      'privacy_version': record.privacyVersion,
+      'terms_version': record.termsVersion,
+      'consent_text_hash': record.consentTextHash,
+      'consented_at': record.consentedAt!.toIso8601String(),
+      'withdrawn_at': null,
+      'updated_at': now.toIso8601String(),
+    }, onConflict: 'owner_user_id,feature');
+    await cacheRecord(record);
+    return record;
+  }
+
+  Future<CloudBackupConsentRecord> withdrawFor(
+    String userId, {
+    CloudBackupConsentRecord? current,
+  }) async {
+    // A pause always cancels a queued enable retry, even if the server request
+    // itself has to be attempted again later.
+    await clearEnablePending(userId);
+    final client = _client;
+    if (client == null) {
+      throw StateError('Backup is not available in this build.');
+    }
+    final now = DateTime.now().toUtc();
+    final record = CloudBackupConsentRecord(
+      userId: userId,
+      feature: cloudBackupConsentFeature,
+      featureEnabled: false,
+      appVersion: current?.appVersion ?? cloudBackupConsentAppVersion,
+      privacyVersion:
+          current?.privacyVersion ?? cloudBackupConsentPrivacyVersion,
+      termsVersion: current?.termsVersion ?? cloudBackupConsentTermsVersion,
+      consentTextHash: current?.consentTextHash ?? cloudBackupConsentTextHash,
+      consentedAt: current?.consentedAt,
+      withdrawnAt: now,
+    );
+    await client.from('cloud_backup_consents').upsert({
+      'owner_user_id': record.userId,
+      'feature': record.feature,
+      'feature_enabled': false,
+      'app_version': record.appVersion,
+      'privacy_version': record.privacyVersion,
+      'terms_version': record.termsVersion,
+      'consent_text_hash': record.consentTextHash,
+      'consented_at': record.consentedAt?.toIso8601String(),
+      'withdrawn_at': now.toIso8601String(),
+      'updated_at': now.toIso8601String(),
+    }, onConflict: 'owner_user_id,feature');
+    await cacheRecord(record);
+    return record;
+  }
+}
+
+final cloudBackupConsentStoreProvider = Provider<CloudBackupConsentStore>((
+  ref,
+) {
+  return CloudBackupConsentStore(
+    prefs: ref.watch(sharedPreferencesProvider),
+    client: ref.watch(supabaseClientProvider),
+  );
+});
+
+class CloudBackupConsentController
+    extends StateNotifier<CloudBackupConsentState> {
+  CloudBackupConsentController({
+    required SharedPreferences prefs,
+    required SupabaseClient? client,
+    required AuthSessionSummary auth,
+    CloudBackupConsentStore? store,
+  }) : _store = store ?? CloudBackupConsentStore(prefs: prefs, client: client),
+       _hasClient = store?.isRemoteAvailable ?? client != null,
+       _auth = auth,
+       super(const CloudBackupConsentState.initial()) {
+    Future.microtask(load);
+  }
+
+  final CloudBackupConsentStore _store;
+  final bool _hasClient;
+  final AuthSessionSummary _auth;
+  int _loadRevision = 0;
+  bool _mutationInFlight = false;
+
+  String? get _userId =>
+      _auth.userId?.trim().isEmpty == false ? _auth.userId!.trim() : null;
+
+  Future<void> load() async {
+    if (_mutationInFlight) {
+      return;
+    }
+    final revision = ++_loadRevision;
+    final userId = _userId;
+    if (!_auth.isSignedIn || userId == null) {
+      if (revision != _loadRevision) return;
+      state = const CloudBackupConsentState(
+        isLoading: false,
+        record: null,
+        lastError: null,
+        isRemoteConfirmed: false,
+      );
+      return;
+    }
+
+    state = state.copyWith(isLoading: true, clearError: true);
+    final localRecord = _store.readCachedRecord(userId);
+    if (localRecord?.isCurrentAccepted == true) {
+      if (revision != _loadRevision) return;
+      state = state.copyWith(
+        isLoading: false,
+        record: localRecord,
+        isRemoteConfirmed: false,
+      );
+    }
+
+    if (!_hasClient) {
+      if (revision != _loadRevision) return;
+      state = state.copyWith(
+        isLoading: false,
+        record: localRecord,
+        isRemoteConfirmed: false,
+      );
+      return;
+    }
+
+    try {
+      final remoteRecord = await _store.fetchRecord(userId);
+      if (revision != _loadRevision || _mutationInFlight) return;
+      state = CloudBackupConsentState(
+        isLoading: false,
+        record: remoteRecord,
+        lastError: null,
+        isRemoteConfirmed: remoteRecord?.isCurrentAccepted == true,
+      );
+    } catch (_) {
+      if (revision != _loadRevision || _mutationInFlight) return;
+      state = CloudBackupConsentState(
+        isLoading: false,
+        record: localRecord,
+        lastError:
+            'Pebble could not check your cloud backup consent yet. Try again.',
+        isRemoteConfirmed: false,
+      );
+    }
+  }
+
+  Future<void> accept() async {
+    final userId = _userId;
+    if (!_auth.isSignedIn || userId == null || !_hasClient) {
+      throw StateError('Sign in before enabling cloud backup.');
+    }
+
+    final previous = state;
+    _mutationInFlight = true;
+    _loadRevision++;
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      await _store.markEnablePending(userId);
+      final record = await _store.acceptFor(userId);
+      await _store.clearEnablePending(userId);
+      state = CloudBackupConsentState(
+        isLoading: false,
+        record: record,
+        lastError: null,
+        isRemoteConfirmed: true,
+      );
+    } catch (_) {
+      state = CloudBackupConsentState(
+        isLoading: false,
+        record: previous.record,
+        lastError:
+            'Backup is still off. Pebble will try again when you are online.',
+        isRemoteConfirmed: previous.isRemoteConfirmed,
+      );
+      rethrow;
+    } finally {
+      _mutationInFlight = false;
+    }
+  }
+
+  Future<void> withdraw() async {
+    final userId = _userId;
+    if (!_auth.isSignedIn || userId == null || !_hasClient) {
+      throw StateError('Sign in before changing cloud backup consent.');
+    }
+
+    final previous = state;
+    _mutationInFlight = true;
+    _loadRevision++;
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final record = await _store.withdrawFor(userId, current: previous.record);
+      state = CloudBackupConsentState(
+        isLoading: false,
+        record: record,
+        lastError: null,
+        isRemoteConfirmed: true,
+      );
+    } catch (_) {
+      state = CloudBackupConsentState(
+        isLoading: false,
+        record: previous.record,
+        lastError: 'Backup could not be paused. Please try again.',
+        isRemoteConfirmed: previous.isRemoteConfirmed,
+      );
+      rethrow;
+    } finally {
+      _mutationInFlight = false;
+    }
   }
 }
 

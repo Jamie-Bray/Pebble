@@ -514,8 +514,10 @@ void main() {
       session: _sessionForStepWithProofs(step, [_proofAsset('free-proof')]),
     );
 
-    // At the free cap: locked signpost present, Add tile gone, no salesy copy.
-    expect(find.text('Premium'), findsOneWidget);
+    // At the free cap: locked signpost present, Add tile gone, and a quiet
+    // subtitle names the gate.
+    expect(find.text('Add more'), findsOneWidget);
+    expect(find.text('More photos with Premium'), findsOneWidget);
     expect(find.text('Add'), findsNothing);
     expect(find.text('Choose from library'), findsNothing);
   });
@@ -587,7 +589,7 @@ void main() {
     );
 
     expect(find.text('All 4 added'), findsOneWidget);
-    expect(find.text('Premium'), findsNothing);
+    expect(find.text('Add more'), findsNothing);
     expect(find.text('Add'), findsNothing);
     expect(find.text('Choose from library'), findsNothing);
   });

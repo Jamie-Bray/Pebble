@@ -10,6 +10,7 @@ import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:pebble_routines/core/database/local_db.dart';
+import 'package:pebble_routines/core/ui/adaptive_layout.dart';
 import 'package:pebble_routines/core/ui/pebble_confirmation_sheet.dart';
 import 'package:pebble_routines/core/ui/pebble_photo_gallery_viewer.dart';
 import 'package:pebble_routines/features/account_backup/providers/account_status_mapper.dart';
@@ -19,6 +20,7 @@ import 'package:pebble_routines/features/routines/list/providers/routine_list_pr
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
 import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
+import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/ui/zen_error_view.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
@@ -223,41 +225,43 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
       onRefresh: () async {
         ref.invalidate(routineHistoryVmProvider);
       },
-      child: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 124),
-        itemCount: grouped.length + (backupStatus.showRunSyncState ? 0 : 1),
-        itemBuilder: (context, index) {
-          if (index >= grouped.length) {
-            return const _HistoryBackupFooter();
-          }
+      child: AdaptiveContentWidth(
+        child: ListView.builder(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 124),
+          itemCount: grouped.length + (backupStatus.showRunSyncState ? 0 : 1),
+          itemBuilder: (context, index) {
+            if (index >= grouped.length) {
+              return const _HistoryBackupFooter();
+            }
 
-          final section = grouped.keys.elementAt(index);
-          final runsInSection = grouped[section]!;
-          if (runsInSection.isEmpty) return const SizedBox.shrink();
+            final section = grouped.keys.elementAt(index);
+            final runsInSection = grouped[section]!;
+            if (runsInSection.isEmpty) return const SizedBox.shrink();
 
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _HistoryDateLabel(title: _sectionLabel(section)),
-                const SizedBox(height: 10),
-                ...runsInSection.map(
-                  (run) => _HistoryCard(
-                    run: run,
-                    routine: byId[run.routineId],
-                    proofStorage: proofStorage,
-                    showSyncState: backupStatus.showRunSyncState,
-                    onDismiss: () => _confirmDismissRun(context, ref, run),
-                    onManage: () {
-                      _showManageRunSheet(context, ref, run, proofStorage);
-                    },
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _HistoryDateLabel(title: _sectionLabel(section)),
+                  const SizedBox(height: 10),
+                  ...runsInSection.map(
+                    (run) => _HistoryCard(
+                      run: run,
+                      routine: byId[run.routineId],
+                      proofStorage: proofStorage,
+                      showSyncState: backupStatus.showRunSyncState,
+                      onDismiss: () => _confirmDismissRun(context, ref, run),
+                      onManage: () {
+                        _showManageRunSheet(context, ref, run, proofStorage);
+                      },
+                    ),
                   ),
-                ),
-              ],
-            ),
-          );
-        },
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -276,21 +280,28 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
         }
         if (allPhotos.isEmpty) return _buildVaultEmptyState();
 
-        return GridView.builder(
-          padding: const EdgeInsets.all(24),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 1,
-          ),
-          itemCount: allPhotos.length,
-          itemBuilder: (context, index) {
-            return _VaultGridItem(
-              photo: allPhotos[index],
-              photos: allPhotos,
-              photoIndex: index,
-              proofStorage: proofStorage,
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            // Phones keep 2 columns; wider screens step up so photo
+            // thumbnails stay a sensible size instead of growing huge.
+            final columns = adaptiveGridColumns(constraints.maxWidth);
+            return GridView.builder(
+              padding: const EdgeInsets.all(24),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: columns,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 1,
+              ),
+              itemCount: allPhotos.length,
+              itemBuilder: (context, index) {
+                return _VaultGridItem(
+                  photo: allPhotos[index],
+                  photos: allPhotos,
+                  photoIndex: index,
+                  proofStorage: proofStorage,
+                );
+              },
             );
           },
         );
@@ -1407,7 +1418,8 @@ class _HistoryBackupFooter extends StatelessWidget {
           ),
           const SizedBox(width: 16),
           TextButton(
-            onPressed: () => context.push('/account-hub'),
+            onPressed: () =>
+                context.push(premiumRoute(source: PremiumEntrySource.backup)),
             style: TextButton.styleFrom(
               padding: EdgeInsets.zero,
               minimumSize: Size.zero,

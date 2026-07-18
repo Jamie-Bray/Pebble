@@ -2669,6 +2669,15 @@ class _HomeHeroStepRow extends StatelessWidget {
       timer: (duration) => 'Timer (${duration}s)',
     );
 
+    // Multi-accent themes (Sandstone) colour each step badge from a small
+    // rotating palette; single-accent themes keep the quiet grey badge.
+    final themeX = Theme.of(context).extension<PebbleThemeX>();
+    final usesCategoryBadges =
+        themeX != null && themeX.categoryAccents.length > 1;
+    final categoryColor = usesCategoryBadges
+        ? themeX.categoryAccentAt(index - 1)
+        : null;
+
     final semanticsLabel = 'Edit step: $label';
 
     return Semantics(
@@ -2697,15 +2706,21 @@ class _HomeHeroStepRow extends StatelessWidget {
                     margin: const EdgeInsets.only(top: 1),
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: foundation.textPrimary.withValues(alpha: 0.10),
+                      color:
+                          categoryColor ??
+                          foundation.textPrimary.withValues(alpha: 0.10),
                       shape: BoxShape.circle,
                     ),
                     child: Text(
                       '$index',
                       style: TextStyle(
-                        color: foundation.textMuted,
+                        color: categoryColor != null
+                            ? context.onActionAccent
+                            : foundation.textMuted,
                         fontSize: 10,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: categoryColor != null
+                            ? FontWeight.w700
+                            : FontWeight.w600,
                       ),
                     ),
                   ),

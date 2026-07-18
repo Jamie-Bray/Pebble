@@ -34,11 +34,26 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
           !_isBlockingBackupSetup(accountState);
       if (isReady) {
         final isPremium = ref.read(entitlementStateProvider).isPersonalPaid;
+        // The consent provider is rebuilt only after auth flips to signed in,
+        // so it can briefly report "checking" even when the awaited bootstrap
+        // above already completed. The persisted account state is the accurate
+        // result for this one-time confirmation message.
+        final backupIsOn =
+            isPremium &&
+            accountState.entitlementSource ==
+                EntitlementSource.serverVerified &&
+            accountState.bootstrapStatus == BootstrapStatus.ready;
+        final backupNeedsAttention =
+            isPremium && accountState.bootstrapStatus == BootstrapStatus.error;
         ZenNotifications.showSuccess(
           context,
           title: 'Signed in',
-          message: isPremium
-              ? 'Backup and restore are getting ready.'
+          message: backupIsOn
+              ? 'Backup is on for this account.'
+              : backupNeedsAttention
+              ? 'Premium is on. Backup needs another try in Your Account.'
+              : isPremium
+              ? 'Premium is on. Backup will finish when Pebble can verify this account.'
               : 'Your routines stay on this device unless you unlock Personal Premium.',
         );
         context.go('/account-hub');
@@ -151,6 +166,12 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                             ? null
                             : () => showEmailOtpSheet(context, ref),
                       ),
+                      if (ref
+                          .watch(entitlementStateProvider)
+                          .isPersonalPaid) ...[
+                        const SizedBox(height: 16),
+                        const _BackupOnSignInNote(),
+                      ],
                     ],
                     const SizedBox(height: 28),
                     _NoAccountNote(onTap: () => showAuthMethodSheet(context)),
@@ -180,7 +201,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     switch (cloudAccess.status) {
       case PersonalCloudAccessStatus.syncing:
       case PersonalCloudAccessStatus.offlinePending:
-        return 'Preparing your backup...';
+        return 'Turning on backup...';
       case PersonalCloudAccessStatus.consentRequired:
         return 'Getting your account ready...';
       case PersonalCloudAccessStatus.available:
@@ -377,6 +398,41 @@ class _SignInPerk extends StatelessWidget {
               fontWeight: FontWeight.w300,
               height: 1.45,
               color: colorScheme.onSurface.withValues(alpha: 0.45),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Shown to Premium users only: signing in is also the moment backup turns
+/// on, so the choice has to be stated right here, where they act on it.
+class _BackupOnSignInNote extends StatelessWidget {
+  const _BackupOnSignInNote();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          LucideIcons.cloudUpload,
+          size: 15,
+          color: colorScheme.primary.withValues(alpha: 0.65),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            'Signing in turns on backup for this account. Pebble backs up '
+            'routines, history, and proof photos, which can include personal '
+            'details. You can pause backup any time in Your Account.',
+            style: GoogleFonts.outfit(
+              fontSize: 12,
+              fontWeight: FontWeight.w300,
+              height: 1.5,
+              color: colorScheme.onSurface.withValues(alpha: 0.48),
             ),
           ),
         ),

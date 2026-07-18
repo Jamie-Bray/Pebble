@@ -10,6 +10,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
+import 'package:pebble_routines/core/ui/adaptive_layout.dart';
 import 'package:pebble_routines/core/ui/pebble_photo_gallery_viewer.dart';
 import 'package:pebble_routines/features/account_backup/providers/account_status_mapper.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
@@ -325,32 +326,34 @@ class RoutineRunDetailScreen extends ConsumerWidget {
 
     final stepData = completionData?['steps'] as List<dynamic>? ?? [];
 
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 36),
-      itemCount: steps.length,
-      itemBuilder: (context, index) {
-        final step = steps[index];
-        final stepCompletion = stepData.length > index
-            ? stepData[index] as Map<String, dynamic>?
-            : null;
-        final isCompleted = (stepCompletion?['completed'] as bool?) ?? false;
-        final isSkipped = (stepCompletion?['skipped'] as bool?) ?? false;
-        final completedAt = DateTime.tryParse(
-          stepCompletion?['completedAt']?.toString() ?? '',
-        );
+    return AdaptiveContentWidth(
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 36),
+        itemCount: steps.length,
+        itemBuilder: (context, index) {
+          final step = steps[index];
+          final stepCompletion = stepData.length > index
+              ? stepData[index] as Map<String, dynamic>?
+              : null;
+          final isCompleted = (stepCompletion?['completed'] as bool?) ?? false;
+          final isSkipped = (stepCompletion?['skipped'] as bool?) ?? false;
+          final completedAt = DateTime.tryParse(
+            stepCompletion?['completedAt']?.toString() ?? '',
+          );
 
-        return _buildTimelineItem(
-          context: context,
-          step: step,
-          stepIndex: index,
-          isCompleted: isCompleted,
-          isSkipped: isSkipped,
-          completedAt: completedAt,
-          isLast: index == steps.length - 1,
-          stepPhotos: stepCompletion?['photos'] as List<dynamic>? ?? [],
-          proofStorage: proofStorage,
-        );
-      },
+          return _buildTimelineItem(
+            context: context,
+            step: step,
+            stepIndex: index,
+            isCompleted: isCompleted,
+            isSkipped: isSkipped,
+            completedAt: completedAt,
+            isLast: index == steps.length - 1,
+            stepPhotos: stepCompletion?['photos'] as List<dynamic>? ?? [],
+            proofStorage: proofStorage,
+          );
+        },
+      ),
     );
   }
 
@@ -496,7 +499,11 @@ class RoutineRunDetailScreen extends ConsumerWidget {
                       ),
 
                       if (stepPhotos.isNotEmpty)
-                        _buildPhotosSection(stepPhotos, proofStorage),
+                        _buildPhotosSection(
+                          stepPhotos,
+                          proofStorage,
+                          stepTitle: _getStepTitle(step),
+                        ),
                     ],
                   ),
                 ),
@@ -696,8 +703,9 @@ class RoutineRunDetailScreen extends ConsumerWidget {
 
   Widget _buildPhotosSection(
     List<dynamic> stepPhotos,
-    RoutineSessionProofStorage proofStorage,
-  ) {
+    RoutineSessionProofStorage proofStorage, {
+    required String stepTitle,
+  }) {
     final photos = stepPhotos.cast<String>();
 
     if (photos.isEmpty) {
@@ -737,12 +745,18 @@ class RoutineRunDetailScreen extends ConsumerWidget {
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: photos.map((photoPath) {
-                return Container(
-                  margin: const EdgeInsets.only(right: 8),
-                  child: _buildPhotoThumbnail(photoPath, proofStorage),
-                );
-              }).toList(),
+              children: [
+                for (var i = 0; i < photos.length; i++)
+                  Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    child: _buildPhotoThumbnail(
+                      photos,
+                      i,
+                      proofStorage,
+                      stepTitle: stepTitle,
+                    ),
+                  ),
+              ],
             ),
           ),
         ],
@@ -751,12 +765,23 @@ class RoutineRunDetailScreen extends ConsumerWidget {
   }
 
   Widget _buildPhotoThumbnail(
-    String photoPath,
-    RoutineSessionProofStorage proofStorage,
-  ) {
+    List<String> stepPhotos,
+    int photoIndex,
+    RoutineSessionProofStorage proofStorage, {
+    required String stepTitle,
+  }) {
+    final photoPath = stepPhotos[photoIndex];
     return Builder(
       builder: (context) => GestureDetector(
-        onTap: () => _showPhotoDialog(context, photoPath, proofStorage),
+        onTap: () => PebblePhotoGalleryViewer.open(
+          context,
+          photos: [
+            for (final path in stepPhotos)
+              PebbleGalleryPhoto(id: path, storedPath: path, title: stepTitle),
+          ],
+          initialIndex: photoIndex,
+          resolvePhotoFile: proofStorage.resolveStoredFile,
+        ),
         child: Container(
           width: 80,
           height: 80,
@@ -776,43 +801,6 @@ class RoutineRunDetailScreen extends ConsumerWidget {
                   Icons.photo,
                   color: Colors.white.withValues(alpha: 0.5),
                   size: 32,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showPhotoDialog(
-    BuildContext context,
-    String photoPath,
-    RoutineSessionProofStorage proofStorage,
-  ) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: GestureDetector(
-          onTap: () => Navigator.of(context).pop(),
-          child: InteractiveViewer(
-            child: Container(
-              margin: const EdgeInsets.all(20),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(24),
-                child: _StoredPhotoView(
-                  proofStorage: proofStorage,
-                  storedPath: photoPath,
-                  missing: Container(
-                    height: 300,
-                    color: Colors.white.withValues(alpha: 0.1),
-                    child: Icon(
-                      LucideIcons.imageOff,
-                      color: Colors.white.withValues(alpha: 0.3),
-                      size: 64,
-                    ),
-                  ),
                 ),
               ),
             ),

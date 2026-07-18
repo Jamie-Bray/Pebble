@@ -866,7 +866,12 @@ class _PebblePossibilitiesScreenState extends State<_PebblePossibilitiesScreen>
                           children: [
                             SingleChildScrollView(
                               physics: const BouncingScrollPhysics(),
-                              padding: const EdgeInsets.fromLTRB(24, 6, 24, 128),
+                              padding: const EdgeInsets.fromLTRB(
+                                24,
+                                6,
+                                24,
+                                128,
+                              ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -881,22 +886,24 @@ class _PebblePossibilitiesScreenState extends State<_PebblePossibilitiesScreen>
                                   ),
                                   const SizedBox(height: 16),
                                   Text(
-                                    'Checks you only need sometimes.',
+                                    'Step out the door with total confidence.',
                                     style: GoogleFonts.dmSerifDisplay(
                                       color: foundation.textPrimary,
-                                      fontSize: 34,
+                                      fontSize: 33,
                                       fontWeight: FontWeight.w400,
-                                      height: 1.05,
+                                      height: 1.08,
                                       letterSpacing: -0.3,
                                     ),
                                   ),
                                   const SizedBox(height: 16),
                                   ConstrainedBox(
                                     constraints: const BoxConstraints(
-                                      maxWidth: 300,
+                                      maxWidth: 320,
                                     ),
                                     child: Text(
-                                      "For the tasks you do rarely enough that you'd rather not trust your memory.",
+                                      'Daily routine or twice-a-year job: Pebble '
+                                      'logs each step as you do it, so the doubt '
+                                      'that hits later already has an answer.',
                                       style: GoogleFonts.outfit(
                                         color: foundation.textSecondary,
                                         fontSize: 16,
@@ -907,8 +914,9 @@ class _PebblePossibilitiesScreenState extends State<_PebblePossibilitiesScreen>
                                   ),
                                   const SizedBox(height: 30),
                                   _ExplainerRoutineCard(
-                                    firstTick: _stagger(0.12, 0.5),
-                                    secondTick: _stagger(0.3, 0.7),
+                                    firstTick: _stagger(0.1, 0.42),
+                                    secondTick: _stagger(0.24, 0.56),
+                                    thirdTick: _stagger(0.38, 0.7),
                                     pulse: _pulse,
                                   ),
                                   const SizedBox(height: 14),
@@ -935,7 +943,8 @@ class _PebblePossibilitiesScreenState extends State<_PebblePossibilitiesScreen>
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    "If one of these sounds familiar, that's the idea.",
+                                    "The routines you'd normally double-check, "
+                                    "and why the camera roll won't cut it.",
                                     style: GoogleFonts.outfit(
                                       color: foundation.textSecondary,
                                       fontSize: 14,
@@ -943,15 +952,9 @@ class _PebblePossibilitiesScreenState extends State<_PebblePossibilitiesScreen>
                                       height: 1.4,
                                     ),
                                   ),
-                                  const SizedBox(height: 20),
-                                  ..._explainerMoments.asMap().entries.map(
-                                    (entry) => _ExplainerMomentRow(
-                                      moment: entry.value,
-                                      reveal: _stagger(
-                                        0.5 + entry.key * 0.08,
-                                        1,
-                                      ),
-                                    ),
+                                  const SizedBox(height: 18),
+                                  _ExplainerMomentsCarousel(
+                                    reveal: _stagger(0.55, 1),
                                   ),
                                 ],
                               ),
@@ -1033,24 +1036,32 @@ class _ExplainerMoment {
 
 const _explainerMoments = [
   _ExplainerMoment(
+    icon: LucideIcons.power,
+    title: '"Did I unplug the straighteners?"',
+    description:
+        'The doubt hits halfway down the street. Open Pebble: you ticked '
+        'it off two minutes ago, with a photo. No going back to check.',
+  ),
+  _ExplainerMoment(
     icon: LucideIcons.house,
-    title: 'The closing-down sweep',
-    description: 'Doors, water, lights, chargers before you finish.',
+    title: '"Are the windows actually shut?"',
+    description:
+        "The worry lands when you're miles away. Your photo is pinned to "
+        "today's checklist, not buried somewhere in your camera roll.",
   ),
   _ExplainerMoment(
-    icon: LucideIcons.heartHandshake,
-    title: 'The handover',
-    description: 'Steps and photos for whoever takes over next.',
+    icon: LucideIcons.idCard,
+    title: '"Where\'s my work pass?"',
+    description:
+        "You're at the barrier with your bag half-open. No digging: you "
+        'ticked it off on the way out the door.',
   ),
   _ExplainerMoment(
-    icon: LucideIcons.clock,
-    title: 'The once-in-a-while task',
-    description: 'Travel days, big appointments, one-off setups.',
-  ),
-  _ExplainerMoment(
-    icon: LucideIcons.rotateCcw,
-    title: 'The reset after a mess',
-    description: 'Putting a space back exactly how it should be.',
+    icon: LucideIcons.timer,
+    title: '"How did I set this up last time?"',
+    description:
+        'The boiler timer you only touch twice a year. Your steps from '
+        "last time are still here, so there's no guessing.",
   ),
 ];
 
@@ -1062,11 +1073,13 @@ class _ExplainerRoutineCard extends StatelessWidget {
   const _ExplainerRoutineCard({
     required this.firstTick,
     required this.secondTick,
+    required this.thirdTick,
     required this.pulse,
   });
 
   final Animation<double> firstTick;
   final Animation<double> secondTick;
+  final Animation<double> thirdTick;
   final Animation<double> pulse;
 
   @override
@@ -1098,7 +1111,7 @@ class _ExplainerRoutineCard extends StatelessWidget {
             children: [
               Flexible(
                 child: Text(
-                  'Leaving the rental',
+                  'Leaving for work',
                   style: GoogleFonts.dmSerifDisplay(
                     color: foundation.textPrimary,
                     fontSize: 21,
@@ -1108,7 +1121,7 @@ class _ExplainerRoutineCard extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Text(
-                '2 of 4',
+                '3 of 5',
                 style: GoogleFonts.outfit(
                   color: foundation.textSecondary,
                   fontSize: 12,
@@ -1140,23 +1153,28 @@ class _ExplainerRoutineCard extends StatelessWidget {
                 children: [
                   _ExplainerStep(
                     status: _StepStatus.done,
-                    label: 'Strip the beds',
+                    label: 'Hair straighteners off',
                     drawProgress: firstTick,
                   ),
                   _ExplainerStep(
                     status: _StepStatus.done,
-                    label: 'Empty the fridge',
+                    label: 'Hob off',
                     drawProgress: secondTick,
                   ),
                   _ExplainerStep(
+                    status: _StepStatus.done,
+                    label: 'Windows shut',
+                    drawProgress: thirdTick,
+                    photoChipLabel: 'photo to be sure',
+                  ),
+                  _ExplainerStep(
                     status: _StepStatus.now,
-                    label: 'Check every window is latched',
+                    label: 'Front door locked',
                     pulse: pulse,
                   ),
                   const _ExplainerStep(
                     status: _StepStatus.todo,
-                    label: 'Key back in the lockbox',
-                    photoChipLabel: 'photo to be sure',
+                    label: 'Lanyard in the bag',
                   ),
                 ],
               ),
@@ -1379,73 +1397,138 @@ class _PhotoChip extends StatelessWidget {
   }
 }
 
-class _ExplainerMomentRow extends StatelessWidget {
-  const _ExplainerMomentRow({required this.moment, required this.reveal});
+/// The moments as swipeable cards: one story at a time instead of a wall of
+/// text, with the next card peeking in from the right as the swipe affordance.
+class _ExplainerMomentsCarousel extends StatefulWidget {
+  const _ExplainerMomentsCarousel({required this.reveal});
+
+  final Animation<double> reveal;
+
+  @override
+  State<_ExplainerMomentsCarousel> createState() =>
+      _ExplainerMomentsCarouselState();
+}
+
+class _ExplainerMomentsCarouselState extends State<_ExplainerMomentsCarousel> {
+  final PageController _controller = PageController(viewportFraction: 0.9);
+  int _page = 0;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+
+    return AnimatedBuilder(
+      animation: widget.reveal,
+      builder: (context, child) {
+        return Opacity(
+          opacity: widget.reveal.value.clamp(0.0, 1.0).toDouble(),
+          child: Transform.translate(
+            offset: Offset(0, 12 * (1 - widget.reveal.value)),
+            child: child,
+          ),
+        );
+      },
+      child: Column(
+        children: [
+          SizedBox(
+            height: 224,
+            child: PageView.builder(
+              controller: _controller,
+              padEnds: false,
+              itemCount: _explainerMoments.length,
+              onPageChanged: (page) => setState(() => _page = page),
+              itemBuilder: (context, index) => Padding(
+                padding: EdgeInsets.only(
+                  right: index == _explainerMoments.length - 1 ? 0 : 12,
+                ),
+                child: _ExplainerMomentCard(moment: _explainerMoments[index]),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(_explainerMoments.length, (index) {
+              final isActive = index == _page;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: isActive ? 18 : 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? Theme.of(context).colorScheme.primary
+                      : foundation.borderSubtle,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              );
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExplainerMomentCard extends StatelessWidget {
+  const _ExplainerMomentCard({required this.moment});
 
   final _ExplainerMoment moment;
-  final Animation<double> reveal;
 
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
     final accent = Theme.of(context).colorScheme.primary;
 
-    return AnimatedBuilder(
-      animation: reveal,
-      builder: (context, child) {
-        return Opacity(
-          opacity: reveal.value.clamp(0.0, 1.0).toDouble(),
-          child: Transform.translate(
-            offset: Offset(0, 10 * (1 - reveal.value)),
-            child: child,
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+      decoration: BoxDecoration(
+        color: foundation.surfaceLow,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: foundation.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(moment.icon, size: 18, color: accent),
           ),
-        );
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border(top: BorderSide(color: foundation.borderSubtle)),
-        ),
-        padding: const EdgeInsets.symmetric(vertical: 17),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(moment.icon, size: 18, color: accent),
+          const SizedBox(height: 14),
+          Text(
+            moment.title,
+            style: GoogleFonts.outfit(
+              color: foundation.textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              height: 1.25,
             ),
-            const SizedBox(width: 15),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    moment.title,
-                    style: GoogleFonts.outfit(
-                      color: foundation.textPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      height: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    moment.description,
-                    style: GoogleFonts.outfit(
-                      color: foundation.textSecondary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w300,
-                      height: 1.4,
-                    ),
-                  ),
-                ],
+          ),
+          const SizedBox(height: 7),
+          Expanded(
+            child: Text(
+              moment.description,
+              style: GoogleFonts.outfit(
+                color: foundation.textSecondary,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w300,
+                height: 1.5,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -2034,28 +2117,13 @@ class _StartingPointPage extends StatelessWidget {
                     ),
                   ),
                   _BrowseTemplatesTile(onTap: onBrowseTemplates),
+                  const SizedBox(height: 8),
+                  _BuildOwnTile(onTap: onBuildOwn),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 14),
-          OutlinedButton(
-            onPressed: onBuildOwn,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: foundation.textPrimary,
-              side: BorderSide(color: foundation.borderSubtle, width: 1.2),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              textStyle: GoogleFonts.outfit(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            child: const Text('Start from scratch instead'),
-          ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           TextButton(
             onPressed: onSkip,
             style: TextButton.styleFrom(
@@ -2217,6 +2285,81 @@ class _BrowseTemplatesTile extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Icon(LucideIcons.chevronRight, size: 18, color: accent),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BuildOwnTile extends StatelessWidget {
+  const _BuildOwnTile({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+    final accent = Theme.of(context).colorScheme.primary;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 13, 12, 13),
+        decoration: BoxDecoration(
+          color: foundation.surfaceLow,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: foundation.borderSubtle),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Icon(LucideIcons.pencil, size: 20, color: accent),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Start from scratch',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.outfit(
+                      color: foundation.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      height: 1.15,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    'Build your own routine, step by step',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.outfit(
+                      color: foundation.textMuted,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w300,
+                      height: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              LucideIcons.chevronRight,
+              size: 18,
+              color: foundation.textMuted,
+            ),
           ],
         ),
       ),

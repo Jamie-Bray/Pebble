@@ -64,6 +64,42 @@ class PremiumFeaturePolicy {
 
   bool get isStoreUnavailable =>
       localPremiumAccess == LocalPremiumAccess.unavailable;
+
+  // Value equality so watchers only rebuild when the policy actually changes.
+  // Upstream subscription state churns on every app resume (silent purchase
+  // sync); without this, every resume re-notified the whole policy chain.
+  @override
+  bool operator ==(Object other) {
+    return other is PremiumFeaturePolicy &&
+        other.localPremiumAccess == localPremiumAccess &&
+        other.serverFeatureStatus == serverFeatureStatus &&
+        other.canUseUnlimitedRoutines == canUseUnlimitedRoutines &&
+        other.canUsePremiumThemes == canUsePremiumThemes &&
+        other.canUseGuidanceAudio == canUseGuidanceAudio &&
+        other.canUseExtraProofPhotos == canUseExtraProofPhotos &&
+        other.hasPremiumHistoryRetention == hasPremiumHistoryRetention &&
+        other.canUseSharedAlerts == canUseSharedAlerts &&
+        other.canUseCloudBackup == canUseCloudBackup &&
+        other.needsSignInForServerFeatures == needsSignInForServerFeatures &&
+        other.hasServerVerifiedPremium == hasServerVerifiedPremium &&
+        other.userFacingStatus == userFacingStatus;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    localPremiumAccess,
+    serverFeatureStatus,
+    canUseUnlimitedRoutines,
+    canUsePremiumThemes,
+    canUseGuidanceAudio,
+    canUseExtraProofPhotos,
+    hasPremiumHistoryRetention,
+    canUseSharedAlerts,
+    canUseCloudBackup,
+    needsSignInForServerFeatures,
+    hasServerVerifiedPremium,
+    userFacingStatus,
+  );
 }
 
 final premiumFeaturePolicyProvider = Provider<PremiumFeaturePolicy>((ref) {

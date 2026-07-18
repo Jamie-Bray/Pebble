@@ -33,6 +33,21 @@ void main() {
       expect(lockedPolicy.lockedStepCount(14), 4);
     });
 
+    test('recomputed identical policies are equal, so providers stay quiet', () {
+      // The routine player provider watches this policy. Without value
+      // equality, the silent purchase sync on every app resume produced a
+      // new instance, rebuilt the player controller mid-session, and lost
+      // in-flight photo attaches.
+      expect(
+        lockedPolicy,
+        const RoutineLimitPolicy(
+          hasPremiumRoutineAccess: false,
+          isInGrace: false,
+        ),
+      );
+      expect(lockedPolicy, isNot(gracePolicy));
+    });
+
     test('detects when routine risk card can be hidden', () {
       expect(
         isFreeTierFootprint(

@@ -16,7 +16,9 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+26
+# Play Console already has build 28 (built on a machine that no longer
+# exists; its 27/28 changes are not in git). The next release must be 29+.
+version: 1.0.0+31
 
 environment:
   sdk: '>=3.8.0 <4.0.0'
@@ -53,6 +55,8 @@ dependencies:
   just_audio: ^0.10.0
   purchases_flutter: ^10.1.1
   home_widget: ^0.9.3
+  sentry_flutter: ^9.0.0
+  gal: ^2.3.2
 
 dev_dependencies:
   flutter_test:
@@ -62,6 +66,20 @@ dev_dependencies:
   freezed: ^2.4.6
   json_serializable: ^6.7.1
   drift_dev: ^2.13.0
+  flutter_launcher_icons: ^0.14.3
+
+# Launcher icon generation (run: dart run flutter_launcher_icons).
+# Source art lives in assets/icon/. app_icon_full.png is the full-bleed icon
+# (green background baked in) used for iOS and the legacy Android icon;
+# ic_launcher_foreground.png is the transparent cairn sized for the Android
+# adaptive-icon safe zone, on the #2C4434 green background.
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/app_icon_full.png"
+  adaptive_icon_background: "#2C4434"
+  adaptive_icon_foreground: "assets/icon/ic_launcher_foreground.png"
+  remove_alpha_ios: true
 
 flutter:
   uses-material-design: true

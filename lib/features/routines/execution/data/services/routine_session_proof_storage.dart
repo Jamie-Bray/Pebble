@@ -228,7 +228,19 @@ class LocalRoutineSessionProofStorage implements RoutineSessionProofStorage {
     await deleteStoredProof(asset.localRelativePath);
     final remoteObjectKey = asset.remoteObjectKey;
     if (remoteObjectKey != null && remoteObjectKey.isNotEmpty) {
-      await _remote.deleteObject(remoteObjectKey);
+      // Remote cleanup is best-effort: RLS denies proof_asset_usage writes
+      // once premium lapses, and the server-side retention job removes
+      // expired objects regardless, so a failure here must never block
+      // local deletion (history pruning runs inside the watchRuns stream).
+      try {
+        await _remote.deleteObject(remoteObjectKey);
+      } catch (error) {
+        developer.log(
+          'Best-effort remote proof delete failed for $remoteObjectKey: '
+          '$error',
+          name: 'RoutinePlayer',
+        );
+      }
     }
   }
 

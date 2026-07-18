@@ -217,8 +217,9 @@ class AuthController extends StateNotifier<AuthState> {
     Future<AuthIdentity> Function() signInAction,
   ) async {
     state = state.copyWith(status: AuthStatus.authenticating, clearError: true);
+    final AuthIdentity identity;
     try {
-      final identity = await signInAction();
+      identity = await signInAction();
       await _repository.upsertProfile(identity: identity);
       await _ref
           .read(subscriptionAccountControllerProvider.notifier)
@@ -234,34 +235,109 @@ class AuthController extends StateNotifier<AuthState> {
         activeProvider: identity.provider,
         clearError: true,
       );
-      await _refreshStoreEntitlement();
-      debugPrint(
-        '[PremiumEntitlement] Entitlement refreshed after account sign-in.',
-      );
-      await _ensureCloudReady(identity.userId);
-      state = state.copyWith(status: AuthStatus.signedIn, clearError: true);
-      return true;
     } catch (error) {
-      await _ref
-          .read(subscriptionAccountControllerProvider.notifier)
-          .noteSyncFailure(
-            'Backup setup is not ready yet. Your routines are still available on this device.',
-          );
+      // Only a real authentication failure may fail the sign-in. Backup work
+      // below is best-effort and must never bounce a signed-in user back to
+      // an error screen.
       state = state.copyWith(
         status: AuthStatus.authError,
         errorMessage: error.toString(),
       );
       return false;
     }
+
+    try {
+      await _refreshStoreEntitlement();
+      debugPrint(
+        '[PremiumEntitlement] Entitlement refreshed after account sign-in.',
+      );
+      final confirmedConsent = await _grantBackupConsentIfPremium(
+        identity.userId,
+      );
+      await _ensureCloudReady(
+        identity.userId,
+        remotelyConfirmedConsent: confirmedConsent,
+        consentCheckCompleted: confirmedConsent != null,
+      );
+    } catch (error) {
+      debugPrint('Backup setup after sign-in failed: $error');
+      await _ref
+          .read(subscriptionAccountControllerProvider.notifier)
+          .noteSyncFailure(
+            'Backup setup is not ready yet. Your routines are still available on this device.',
+          );
+    }
+    state = state.copyWith(status: AuthStatus.signedIn, clearError: true);
+    return true;
   }
 
-  Future<void> refreshCloudAccessAfterEntitlementChange() async {
+  /// The sign-in screen tells Premium users that signing in turns on backup,
+  /// so record that choice here — the moment they act on it. This runs before
+  /// [_ensureCloudReady] so the bootstrap can start in the same flow instead
+  /// of stranding the account in a "waiting to turn on" state.
+  ///
+  /// Uses the auth-free [CloudBackupConsentStore]: the auth-scoped consent
+  /// controller cannot be read from here without a provider cycle, and it
+  /// still reports signed-out while this flow is in progress anyway.
+  Future<CloudBackupConsentRecord?> _grantBackupConsentIfPremium(
+    String userId,
+  ) async {
+    if (!_hasPaidPersonalEntitlement(
+      _ref.read(subscriptionAccountControllerProvider),
+    )) {
+      return null;
+    }
+    final store = _ref.read(cloudBackupConsentStoreProvider);
+    await store.markEnablePending(userId);
+    final record = await _completePendingBackupConsent(userId);
+    if (record != null) {
+      debugPrint('[PremiumEntitlement] Backup consent recorded at sign-in.');
+    }
+    return record;
+  }
+
+  Future<CloudBackupConsentRecord?> _completePendingBackupConsent(
+    String userId,
+  ) async {
+    final store = _ref.read(cloudBackupConsentStoreProvider);
+    if (!store.isEnablePending(userId)) {
+      return null;
+    }
+    var record = await store.fetchRecord(userId);
+    if (record?.isCurrentAccepted != true) {
+      record = await store.acceptFor(userId);
+    }
+    await store.clearEnablePending(userId);
+    return record;
+  }
+
+  Future<void> refreshCloudAccessAfterEntitlementChange({
+    bool refreshEntitlement = true,
+  }) async {
     if (state.activeUserId == null || state.activeUserId!.isEmpty) {
       state = state.copyWith(status: AuthStatus.signedOut, clearError: true);
       return;
     }
-    await _refreshStoreEntitlement();
-    await _ensureCloudReady(state.activeUserId!);
+    final userId = state.activeUserId!;
+    if (refreshEntitlement) {
+      await _refreshStoreEntitlement();
+    }
+    await _completePendingBackupConsent(userId);
+    final consentController = _ref.read(
+      cloudBackupConsentControllerProvider.notifier,
+    );
+    await consentController.load();
+    final consent = _ref.read(cloudBackupConsentControllerProvider);
+    if (consent.lastError != null) {
+      throw StateError(consent.lastError!);
+    }
+    await _ensureCloudReady(
+      userId,
+      remotelyConfirmedConsent: consent.canEnableCloudUpload
+          ? consent.record
+          : null,
+      consentCheckCompleted: true,
+    );
     state = state.copyWith(status: AuthStatus.signedIn, clearError: true);
   }
 
@@ -291,26 +367,33 @@ class AuthController extends StateNotifier<AuthState> {
     if (_hasPaidPersonalEntitlement(
       _ref.read(subscriptionAccountControllerProvider),
     )) {
-      final refreshedAccount = _ref.read(subscriptionAccountControllerProvider);
-      final needsBootstrap =
-          refreshedAccount.bootstrapStatus != BootstrapStatus.ready ||
-          refreshedAccount.lastBootstrapAt == null;
       try {
-        if (needsBootstrap) {
-          await _ensureCloudReady(identity.userId);
-        } else {
-          unawaited(_ref.read(cloudSyncCoordinatorProvider).kick());
+        await _completePendingBackupConsent(identity.userId);
+        final consentController = _ref.read(
+          cloudBackupConsentControllerProvider.notifier,
+        );
+        await consentController.load();
+        final consent = _ref.read(cloudBackupConsentControllerProvider);
+        if (consent.lastError != null) {
+          throw StateError(consent.lastError!);
         }
+        await _ensureCloudReady(
+          identity.userId,
+          remotelyConfirmedConsent: consent.canEnableCloudUpload
+              ? consent.record
+              : null,
+          consentCheckCompleted: true,
+        );
       } catch (error) {
+        debugPrint('Backup setup after session restore failed: $error');
         await _ref
             .read(subscriptionAccountControllerProvider.notifier)
             .noteSyncFailure(
               'Backup setup is not ready yet. Your routines are still available on this device.',
             );
-        state = state.copyWith(
-          status: AuthStatus.authError,
-          errorMessage: error.toString(),
-        );
+        // The stored auth session is valid. A cloud problem must not turn it
+        // into a misleading "Could not sign in" state on app launch.
+        state = state.copyWith(status: AuthStatus.signedIn, clearError: true);
       }
     }
   }
@@ -320,7 +403,11 @@ class AuthController extends StateNotifier<AuthState> {
         accountState.entitlementTier == UserTier.pebbleHousehold;
   }
 
-  Future<void> _ensureCloudReady(String userId) async {
+  Future<void> _ensureCloudReady(
+    String userId, {
+    CloudBackupConsentRecord? remotelyConfirmedConsent,
+    bool consentCheckCompleted = false,
+  }) async {
     var account = _ref.read(subscriptionAccountControllerProvider);
     if (!_hasPaidPersonalEntitlement(account)) {
       return;
@@ -339,7 +426,14 @@ class AuthController extends StateNotifier<AuthState> {
           .updateBootstrapStatus(BootstrapStatus.idle, clearError: true);
       return;
     }
-    if (!_ref.read(cloudBackupConsentControllerProvider).canEnableCloudUpload) {
+    // During sign-in the auth-scoped consent controller still reports signed
+    // out, so the caller can pass the record it just confirmed remotely. All
+    // other callers perform a fresh server read before bootstrap; stale local
+    // consent is never enough to start cloud work.
+    final consentRecord = consentCheckCompleted
+        ? remotelyConfirmedConsent
+        : await _ref.read(cloudBackupConsentStoreProvider).fetchRecord(userId);
+    if (consentRecord?.isCurrentAccepted != true) {
       await _ref
           .read(subscriptionAccountControllerProvider.notifier)
           .updateBootstrapStatus(BootstrapStatus.idle, clearError: true);
@@ -363,6 +457,13 @@ class AuthController extends StateNotifier<AuthState> {
       await _ref
           .read(subscriptionAccountControllerProvider.notifier)
           .noteSyncFailure(ownership.userFacingMessage);
+      return;
+    }
+
+    account = _ref.read(subscriptionAccountControllerProvider);
+    if (account.bootstrapStatus == BootstrapStatus.ready &&
+        account.userId == userId) {
+      unawaited(_ref.read(cloudSyncCoordinatorProvider).kick());
       return;
     }
 

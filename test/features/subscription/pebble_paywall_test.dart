@@ -6,6 +6,7 @@ import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
 import 'package:pebble_routines/features/subscription/data/purchase_repository.dart';
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
+import 'package:pebble_routines/features/subscription/providers/cloud_backup_consent_provider.dart';
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 
 void main() {
@@ -24,7 +25,7 @@ void main() {
 
     expect(find.byType(PageView), findsNothing);
     expect(find.text('Pebble Premium'), findsOneWidget);
-    expect(find.text('Build more.\nWorry less.'), findsOneWidget);
+    expect(find.text('Never wonder\ntwice.'), findsOneWidget);
 
     await _scrollUntilVisible(tester, find.text('WHAT PREMIUM GIVES YOU'));
     expect(find.text('WHAT PREMIUM GIVES YOU'), findsOneWidget);
@@ -235,6 +236,48 @@ void main() {
     expect(find.text('Sign in to back up'), findsOneWidget);
     expect(find.text('Continue without sign-in'), findsOneWidget);
     expect(find.textContaining('PlatformException'), findsNothing);
+  });
+
+  testWidgets('purchase success while signed in offers one-tap backup', (
+    tester,
+  ) async {
+    await _pumpPaywall(
+      tester,
+      overrides: [
+        authSessionProvider.overrideWithValue(
+          const AuthSessionSummary(
+            isSignedIn: true,
+            userId: '11111111-1111-1111-1111-111111111111',
+            email: 'jamie@example.com',
+            provider: 'google',
+          ),
+        ),
+        cloudBackupConsentStateProvider.overrideWithValue(
+          const CloudBackupConsentState(
+            isLoading: false,
+            record: null,
+            lastError: null,
+          ),
+        ),
+        purchaseRepositoryProvider.overrideWith(
+          (ref) => _PlanPurchaseRepository.both(),
+        ),
+      ],
+    );
+
+    final startButton = find.text('Continue with \$6.99/year');
+    await _scrollUntilVisible(tester, startButton);
+    await tester.tap(startButton);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('Premium activated'), findsOneWidget);
+    expect(find.text('Turn on backup'), findsOneWidget);
+    expect(find.text('Not now'), findsOneWidget);
+    expect(
+      find.textContaining('proof photos, which can include personal details'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('premium page dynamically displays App Store references on iOS', (

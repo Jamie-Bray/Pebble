@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/data/local/routine_run_dao.dart';
@@ -130,7 +131,17 @@ class RoutineRunRepositoryImpl implements RoutineRunRepository {
         .toList(growable: false);
 
     for (final run in expiredRuns) {
-      await _deleteProofsForRun(run);
+      // Proof cleanup must never error the watchRuns stream: a failure here
+      // would render the whole history screen unusable. Orphaned files are
+      // swept later by the local retention pass and server-side cleanup.
+      try {
+        await _deleteProofsForRun(run);
+      } catch (error) {
+        developer.log(
+          'Proof cleanup failed while pruning run ${run.id}: $error',
+          name: 'RoutineHistory',
+        );
+      }
       await _dao.deleteRun(run.id);
     }
 

@@ -1,6 +1,6 @@
 # Pebble Processor and Data-Flow Map
 
-Last scanned: May 22, 2026
+Last scanned: July 14, 2026
 
 This map is generated from the current codebase and should be used when filling
 Google Play Data safety, Apple privacy declarations, and the public Privacy
@@ -10,8 +10,12 @@ Policy.
 
 - Android declares camera, microphone, notifications, boot completed, vibrate,
   and wake lock permissions.
-- Android does not currently declare location, contacts, SMS, phone, or legacy
-  storage permissions.
+- Android declares `WRITE_EXTERNAL_STORAGE` capped at `maxSdkVersion="29"` so
+  "Save a copy to Photos" works on Android 9 and below; Android 10+ saves via
+  MediaStore with no permission. No read, manage-storage, or delete
+  permissions are declared.
+- Android does not currently declare location, contacts, SMS, or phone
+  permissions.
 - iOS declares microphone, camera, and photo-library usage descriptions.
 
 ## Third-Party Services Present In Code
@@ -27,11 +31,18 @@ Policy.
   entitlement state, and purchase webhooks to Supabase.
 - Email/support provider: not hard-coded in the app, but used when users email
   support or privacy inboxes from the legal pages.
+- Sentry: crash reporting only, and only in builds where a `SENTRY_DSN`
+  dart-define is supplied. Configured with PII sending off, no screenshots, no
+  view hierarchy, no user identity, no tracing, and no session replay. Crash
+  events carry stack traces, device model, OS version, and app version/build.
+  `beforeSend` strips the user object as a defensive measure. Routine content,
+  photos, audio, and account identity are never attached.
 
 ## Third-Party SDKs Not Found
 
-- No Firebase, Crashlytics, Sentry, PostHog, OneSignal, Cloudflare, ad SDK, or
-  analytics SDK was found in `pubspec.yaml` or the app code scan.
+- No Firebase, Crashlytics, PostHog, OneSignal, Cloudflare, ad SDK, or
+  behavioural analytics SDK was found in `pubspec.yaml` or the app code scan.
+  Sentry is present for crash reporting only (see above).
 
 ## Outbound Network Calls Found
 
@@ -49,6 +60,8 @@ Policy.
   `https://apps.apple.com/account/subscriptions`.
 - RevenueCat SDK calls for offerings, purchases, restores, and customer
   entitlement info.
+- Sentry ingest endpoint (from the build's `SENTRY_DSN`) for crash events, only
+  in builds where crash reporting is enabled.
 - Supabase Edge Functions import Deno and Supabase client libraries from
   `deno.land` and `esm.sh` at deploy/build time.
 
@@ -64,8 +77,12 @@ Policy.
   adds audio-file cloud backup.
 - Photos/media library access because users can choose existing proof photos.
 - Camera and microphone permission usage.
-- Diagnostics only to the extent app stores or operating systems provide them;
-  this codebase does not include a dedicated crash/analytics SDK.
+- Diagnostics: crash logs (stack traces, device model, OS version, app
+  version/build) sent to Sentry when crash reporting is enabled in the build.
+  Declare under Play Data safety as "App activity / Diagnostics → Crash logs",
+  collected, not shared for advertising, not linked to user identity. Update
+  `web/privacy.html` to name Sentry as a processor before shipping a
+  crash-reporting build.
 
 ## Launch Checks
 

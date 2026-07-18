@@ -26,6 +26,10 @@ $accountDeletionUrl = [Environment]::GetEnvironmentVariable(
   "PEBBLE_ACCOUNT_DELETION_URL",
   "User"
 )
+$sentryDsn = [Environment]::GetEnvironmentVariable("PEBBLE_PROD_SENTRY_DSN", "User")
+if ([string]::IsNullOrWhiteSpace($sentryDsn)) {
+  $sentryDsn = [Environment]::GetEnvironmentVariable("PEBBLE_PROD_SENTRY_DSN", "Process")
+}
 
 $arguments = @(
   "build",
@@ -43,11 +47,20 @@ if (-not [string]::IsNullOrWhiteSpace($accountDeletionUrl)) {
   $arguments += "--dart-define=PEBBLE_ACCOUNT_DELETION_URL=$accountDeletionUrl"
 }
 
+if (-not [string]::IsNullOrWhiteSpace($sentryDsn)) {
+  $arguments += "--dart-define=SENTRY_DSN=$sentryDsn"
+}
+
 if ($DryRun) {
   Write-Output "Would build production Android App Bundle."
   Write-Output "Required production env vars are present, including Google sign-in."
   if ([string]::IsNullOrWhiteSpace($accountDeletionUrl)) {
     Write-Output "PEBBLE_ACCOUNT_DELETION_URL is not set; the app will use its in-app deletion request path only."
+  }
+  if ([string]::IsNullOrWhiteSpace($sentryDsn)) {
+    Write-Output "PEBBLE_PROD_SENTRY_DSN is not set; crash reporting will be disabled in this build."
+  } else {
+    Write-Output "Crash reporting (Sentry) will be enabled."
   }
   exit 0
 }

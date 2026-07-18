@@ -100,6 +100,33 @@ final personalCloudAccessProvider = Provider<PersonalCloudAccessState>((ref) {
   }
 
   if (!consent.canEnableCloudUpload) {
+    if (consent.lastError != null && consent.isAccepted) {
+      return const PersonalCloudAccessState(
+        status: PersonalCloudAccessStatus.offlinePending,
+        label: 'Waiting for internet',
+        detail:
+            'Backup stays paused until Pebble can confirm this account again.',
+      );
+    }
+    if (consent.lastError != null) {
+      return PersonalCloudAccessState(
+        status: PersonalCloudAccessStatus.consentRequired,
+        label: 'Backup is still off',
+        detail: consent.lastError,
+      );
+    }
+    // Consent that is still loading, or accepted but awaiting this session's
+    // remote confirmation, is a transient check — not a missing consent.
+    // Labelling it "turn backup on" at users whose backup was already on was
+    // one of the stuck-looking states after sign-in and on offline starts.
+    if (consent.isLoading || consent.isAccepted) {
+      return const PersonalCloudAccessState(
+        status: PersonalCloudAccessStatus.syncing,
+        label: 'Checking backup',
+        detail:
+            'Premium is active. Pebble is checking backup for this account.',
+      );
+    }
     return const PersonalCloudAccessState(
       status: PersonalCloudAccessStatus.consentRequired,
       label: 'Ready to turn on',
@@ -124,8 +151,8 @@ final personalCloudAccessProvider = Provider<PersonalCloudAccessState>((ref) {
     case BootstrapStatus.syncing:
       return const PersonalCloudAccessState(
         status: PersonalCloudAccessStatus.syncing,
-        label: 'Getting backup ready',
-        detail: 'Pebble is preparing your backup.',
+        label: 'Turning on backup',
+        detail: 'Almost there. Your routines stay on this phone too.',
       );
     case BootstrapStatus.error:
       return PersonalCloudAccessState(
@@ -134,10 +161,12 @@ final personalCloudAccessProvider = Provider<PersonalCloudAccessState>((ref) {
         detail: account.lastSyncError ?? 'Backup is not ready yet.',
       );
     case BootstrapStatus.idle:
+      // Consent is on but the first backup pass has not run yet. This is
+      // transient: sign-in, app start, and app resume all restart it.
       return const PersonalCloudAccessState(
         status: PersonalCloudAccessStatus.syncing,
-        label: 'Waiting to start backup',
-        detail: 'Turn on backup when you\'re ready.',
+        label: 'Starting backup',
+        detail: 'Backup begins in a moment.',
       );
     case BootstrapStatus.ready:
       return const PersonalCloudAccessState(

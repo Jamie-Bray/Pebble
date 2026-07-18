@@ -463,25 +463,29 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
     );
   }
 
+  /// Always resolve the notifier fresh: the player provider can rebuild while
+  /// the camera is open (any watched policy change disposes the old
+  /// controller), and calls on a stale reference are silently dropped in
+  /// release builds.
+  RoutinePlayerController get _playerController =>
+      ref.read(routinePlayerProvider(widget.sessionId).notifier);
+
   Future<void> _capturePhoto(ImageSource source) async {
-    final controller = ref.read(
-      routinePlayerProvider(widget.sessionId).notifier,
-    );
     final state = ref.read(routinePlayerProvider(widget.sessionId));
     final step = state.currentStep;
-    if (step == null || !controller.beginPhotoCapture()) {
+    if (step == null || !_playerController.beginPhotoCapture()) {
       return;
     }
 
     try {
       if (source == ImageSource.gallery && !step.allowGallery) {
-        controller.cancelPhotoCapture();
+        _playerController.cancelPhotoCapture();
         return;
       }
 
       final acceptedPrompt = await _showPhotoPermissionRationale(source);
       if (!acceptedPrompt) {
-        controller.cancelPhotoCapture();
+        _playerController.cancelPhotoCapture();
         return;
       }
 
@@ -496,29 +500,32 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
         if (source == ImageSource.camera) {
           await _clearPendingCameraCapture();
         }
-        controller.cancelPhotoCapture();
+        _playerController.cancelPhotoCapture();
         return;
       }
 
-      final attached = await controller.attachProof(picked.path);
+      final attachResult = await _playerController.attachProof(picked.path);
       if (source == ImageSource.camera) {
         await _clearPendingCameraCapture();
       }
       unawaited(_deletePickerTemp(picked.path));
-      if (!attached && mounted) {
+      // Save failures already surface their own error toast; only a real
+      // limit should show the limit message.
+      if (attachResult == RoutinePlayerProofAttachResult.limitReached &&
+          mounted) {
         _showPhotoLimitReachedMessage();
       }
     } on PlatformException catch (error) {
       if (source == ImageSource.camera) {
         await _clearPendingCameraCapture();
       }
-      controller.cancelPhotoCapture();
+      _playerController.cancelPhotoCapture();
       _showPhotoCaptureFailure(source, error.code);
     } catch (_) {
       if (source == ImageSource.camera) {
         await _clearPendingCameraCapture();
       }
-      controller.cancelPhotoCapture();
+      _playerController.cancelPhotoCapture();
       _showPhotoCaptureFailure(source, null);
     }
   }
@@ -1508,6 +1515,9 @@ class _PlayerPhotoSummary extends StatelessWidget {
     } else if (!isFreeTier && maxPhotoCount > 1 && atMax) {
       subtitle = 'All $maxPhotoCount added';
       subtitleColor = onSurface.withValues(alpha: 0.55);
+    } else if (isFreeTier && onPhotoLimitUpgrade != null) {
+      subtitle = 'More photos with Premium';
+      subtitleColor = onSurface.withValues(alpha: 0.55);
     } else {
       subtitle = '';
       subtitleColor = onSurface.withValues(alpha: 0.55);
@@ -1770,7 +1780,7 @@ class _PhotoStripActionTile extends StatelessWidget {
     return _PhotoStripActionTile._(
       size: size,
       icon: LucideIcons.lock,
-      label: 'Premium',
+      label: 'Add more',
       onTap: onTap,
       locked: true,
     );

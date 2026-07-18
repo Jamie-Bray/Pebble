@@ -172,6 +172,9 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 
   Widget _buildCreateAnchor() {
+    // The warm action accent: terracotta on Sandstone, and identical to the
+    // structural primary on every other theme.
+    final action = context.actionAccent;
     return ZenBounceButton(
       onTap: () {
         openRoutineCreationChoice(context, ref);
@@ -187,21 +190,14 @@ class _AppShellState extends ConsumerState<AppShell> {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Theme.of(context).colorScheme.primary,
-                  Color.lerp(
-                        Theme.of(context).colorScheme.primary,
-                        Colors.black,
-                        0.12,
-                      ) ??
-                      Theme.of(context).colorScheme.primary,
+                  action,
+                  Color.lerp(action, Colors.black, 0.12) ?? action,
                 ],
               ),
               borderRadius: BorderRadius.circular(18),
               boxShadow: [
                 BoxShadow(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.primary.withValues(alpha: 0.28),
+                  color: action.withValues(alpha: 0.28),
                   blurRadius: 18,
                   offset: const Offset(0, 7),
                 ),
@@ -209,7 +205,7 @@ class _AppShellState extends ConsumerState<AppShell> {
             ),
             child: Icon(
               LucideIcons.plus,
-              color: Theme.of(context).colorScheme.onPrimary,
+              color: context.onActionAccent,
               size: 26,
             ),
           ),

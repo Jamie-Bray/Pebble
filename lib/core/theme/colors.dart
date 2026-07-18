@@ -24,6 +24,9 @@ enum ThemeId {
   colourBlindSafe,
   softPink,
   sageMist,
+  // Keep new themes appended at the END: the selected theme is persisted by
+  // enum index, so inserting mid-list would silently reassign saved themes.
+  sandstone,
 }
 
 enum ThemePickerCategory { included, premium, accessibility }
@@ -43,6 +46,15 @@ abstract class _BaseThemeFactory {
     Color? error,
     LinearGradient? gradient,
     PebbleDarkFoundation? darkFoundation,
+    // Semantic accent roles for the design system. Both default so every
+    // existing theme is byte-for-byte unchanged; only multi-accent themes
+    // (e.g. Sandstone) override them.
+    // - actionAccent: the "warm" call-to-action colour (center + button,
+    //   inline links) when it should differ from the structural primary.
+    // - categoryAccents: a small palette cycled across step-number badges.
+    Color? actionAccent,
+    Color? onActionAccent,
+    List<Color>? categoryAccents,
   }) {
     final foundation =
         darkFoundation ??
@@ -194,6 +206,10 @@ abstract class _BaseThemeFactory {
           themeId: id,
           focusRing: accent.withValues(alpha: 0.2),
           gradient: gradient,
+          actionAccent: actionAccent ?? accent,
+          onActionAccent:
+              onActionAccent ?? (isDark ? foundation.bgBase : Colors.white),
+          categoryAccents: categoryAccents ?? <Color>[accent],
         ),
         foundation,
         templatesTokens,
@@ -280,6 +296,28 @@ class SageMistThemeFactory {
     accent: const Color(0xFF6B8A72), // sage accent
     secondary: const Color(0xFF8B9E8E),
     isDark: true,
+  );
+}
+
+/// Sandstone (Signature multi-accent light)
+/// Warm sand cream + deep forest green structure, with a terracotta action
+/// accent and a sage / terracotta / tan badge palette. This is the only theme
+/// that leans on the design system's multi-accent roles.
+class SandstoneThemeFactory {
+  static const _forest = Color(0xFF3E5E45); // primary / structure
+  static const _terracotta = Color(0xFFC4714A); // warm action accent
+  static const _sage = Color(0xFF8DA174);
+  static const _tan = Color(0xFFD9A85C);
+
+  static ThemeData build() => _BaseThemeFactory.build(
+    id: ThemeId.sandstone,
+    bg: const Color(0xFFF4EDDF), // warm sand cream
+    fg: const Color(0xFF2C3A2E), // deep forest ink
+    accent: _forest,
+    secondary: _terracotta,
+    actionAccent: _terracotta,
+    onActionAccent: const Color(0xFFFBF6EC),
+    categoryAccents: const [_sage, _terracotta, _tan],
   );
 }
 
@@ -537,6 +575,8 @@ class AppTheme {
         return SoftPinkThemeFactory.build();
       case ThemeId.sageMist:
         return SageMistThemeFactory.build();
+      case ThemeId.sandstone:
+        return SandstoneThemeFactory.build();
     }
   }
 }
@@ -547,22 +587,48 @@ class PebbleThemeX extends ThemeExtension<PebbleThemeX> {
   final ThemeId? themeId;
   final Color focusRing;
 
+  /// The warm call-to-action colour (center + button, inline links). Equal to
+  /// the structural primary for single-accent themes; a distinct warm hue
+  /// (e.g. terracotta) for multi-accent themes like Sandstone.
+  final Color actionAccent;
+
+  /// Foreground drawn on top of [actionAccent].
+  final Color onActionAccent;
+
+  /// Palette cycled across step-number badges. A single-item list ([primary])
+  /// for most themes; a small set (sage / terracotta / tan) for Sandstone.
+  final List<Color> categoryAccents;
+
   const PebbleThemeX({
     required this.gradient,
     required this.themeId,
     required this.focusRing,
+    required this.actionAccent,
+    required this.onActionAccent,
+    required this.categoryAccents,
   });
+
+  /// The category accent for a given zero-based index, wrapping around the
+  /// palette so any number of steps is coloured.
+  Color categoryAccentAt(int index) =>
+      categoryAccents[index % categoryAccents.length];
 
   @override
   PebbleThemeX copyWith({
     LinearGradient? gradient,
     ThemeId? themeId,
     Color? focusRing,
+    Color? actionAccent,
+    Color? onActionAccent,
+    List<Color>? categoryAccents,
   }) {
     return PebbleThemeX(
       gradient: gradient ?? this.gradient,
       themeId: themeId ?? this.themeId,
       focusRing: focusRing ?? this.focusRing,
+      actionAccent: actionAccent ?? this.actionAccent,
+      onActionAccent: onActionAccent ?? this.onActionAccent,
+      categoryAccents: categoryAccents ?? this.categoryAccents,
     );
   }
 
@@ -573,6 +639,13 @@ class PebbleThemeX extends ThemeExtension<PebbleThemeX> {
       gradient: LinearGradient.lerp(gradient, other.gradient, t),
       themeId: other.themeId ?? themeId,
       focusRing: Color.lerp(focusRing, other.focusRing, t) ?? focusRing,
+      actionAccent:
+          Color.lerp(actionAccent, other.actionAccent, t) ?? actionAccent,
+      onActionAccent:
+          Color.lerp(onActionAccent, other.onActionAccent, t) ?? onActionAccent,
+      // Colour lists can differ in length between themes, so snap at the
+      // midpoint of the cross-fade rather than risk an index mismatch.
+      categoryAccents: t < 0.5 ? categoryAccents : other.categoryAccents,
     );
   }
 }
@@ -843,6 +916,17 @@ class ThemeMetadata {
       category == ThemePickerCategory.accessibility;
 
   static const Map<ThemeId, ThemeMetadata> metadata = {
+    ThemeId.sandstone: ThemeMetadata(
+      id: ThemeId.sandstone,
+      name: 'Sandstone',
+      icon: LucideIcons.mountain,
+      subtitle: 'Signature warm light',
+      description:
+          'Warm sand and forest green, lifted by a terracotta accent and '
+          'soft category tints.',
+      category: ThemePickerCategory.included,
+      sortOrder: 5,
+    ),
     ThemeId.highNoon: ThemeMetadata(
       id: ThemeId.highNoon,
       name: 'High Noon',
@@ -1088,6 +1172,23 @@ extension ThemeHelpers on BuildContext {
   Color get focusRing =>
       Theme.of(this).extension<PebbleThemeX>()?.focusRing ??
       const Color(0x33000000);
+
+  /// Warm call-to-action colour. Falls back to primary so any code path
+  /// without the extension still gets the structural accent.
+  Color get actionAccent =>
+      Theme.of(this).extension<PebbleThemeX>()?.actionAccent ??
+      Theme.of(this).colorScheme.primary;
+
+  Color get onActionAccent =>
+      Theme.of(this).extension<PebbleThemeX>()?.onActionAccent ??
+      Theme.of(this).colorScheme.onPrimary;
+
+  /// Step-badge category colour for [index], wrapping around the palette.
+  Color categoryAccentAt(int index) {
+    final x = Theme.of(this).extension<PebbleThemeX>();
+    if (x == null) return Theme.of(this).colorScheme.primary;
+    return x.categoryAccentAt(index);
+  }
 
   PebbleDarkFoundation get darkFoundation {
     final theme = Theme.of(this);

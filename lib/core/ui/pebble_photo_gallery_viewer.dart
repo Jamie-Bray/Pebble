@@ -1,7 +1,11 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:pebble_routines/core/services/proof_photo_export_service.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
+import 'package:pebble_routines/core/ui/zen_notifications.dart';
 
 class PebbleGalleryPhoto {
   final String id;
@@ -17,7 +21,7 @@ class PebbleGalleryPhoto {
   });
 }
 
-class PebblePhotoGalleryViewer extends StatefulWidget {
+class PebblePhotoGalleryViewer extends ConsumerStatefulWidget {
   const PebblePhotoGalleryViewer({
     super.key,
     required this.photos,
@@ -51,13 +55,50 @@ class PebblePhotoGalleryViewer extends StatefulWidget {
   }
 
   @override
-  State<PebblePhotoGalleryViewer> createState() =>
+  ConsumerState<PebblePhotoGalleryViewer> createState() =>
       _PebblePhotoGalleryViewerState();
 }
 
-class _PebblePhotoGalleryViewerState extends State<PebblePhotoGalleryViewer> {
+class _PebblePhotoGalleryViewerState
+    extends ConsumerState<PebblePhotoGalleryViewer> {
   late final PageController _pageController;
   late int _currentIndex;
+  bool _isSavingCopy = false;
+
+  Future<void> _saveCopyToPhotos() async {
+    if (_isSavingCopy) {
+      return;
+    }
+    final storedPath = widget.photos[_currentIndex].storedPath;
+    final exportService = ref.read(proofPhotoExportServiceProvider);
+    setState(() => _isSavingCopy = true);
+    try {
+      final file = await widget.resolvePhotoFile(storedPath);
+      if (!mounted) {
+        return;
+      }
+      if (file == null || !file.existsSync()) {
+        ZenNotifications.showWarning(
+          context,
+          message: 'This proof photo is no longer available.',
+        );
+        return;
+      }
+      final result = await exportService.saveCopyToPhotos(file);
+      if (!mounted) {
+        return;
+      }
+      if (result.saved) {
+        ZenNotifications.showSuccess(context, message: result.message);
+      } else {
+        ZenNotifications.showWarning(context, message: result.message);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSavingCopy = false);
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -164,6 +205,27 @@ class _PebblePhotoGalleryViewerState extends State<PebblePhotoGalleryViewer> {
                         fontSize: 14,
                         height: 1.35,
                         color: colorScheme.onSurface.withValues(alpha: 0.64),
+                      ),
+                    ),
+                  ],
+                  if (ref
+                      .watch(proofPhotoExportServiceProvider)
+                      .canSaveCopyToPhotos) ...[
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _isSavingCopy ? null : _saveCopyToPhotos,
+                        icon: _isSavingCopy
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(LucideIcons.imageDown, size: 18),
+                        label: const Text('Save a copy to Photos'),
                       ),
                     ),
                   ],

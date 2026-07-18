@@ -227,8 +227,8 @@ final accountBackupStatusSummaryProvider = Provider<AccountBackupStatusSummary>(
       }
       return AccountBackupStatusSummary(
         kind: AccountBackupStatusKind.premiumSetupPending,
-        label: 'Preparing backup',
-        detail: baseAccess.detail ?? 'Pebble is preparing backup.',
+        label: 'Turning on backup',
+        detail: baseAccess.detail ?? 'Pebble is turning on backup.',
         historyLabel: 'Backup pending',
         showRunSyncState: false,
       );
@@ -364,11 +364,11 @@ final accountBackupChipStateProvider = Provider<AccountBackupChipState>((ref) {
         final checking = baseAccess.label == 'Checking backup';
         return AccountBackupChipState(
           show: true,
-          label: checking ? 'Checking backup' : 'Preparing backup',
+          label: checking ? 'Checking backup' : 'Turning on backup',
           tone: AccountBackupChipTone.neutral,
           semanticsHint: checking
               ? 'Pebble is checking backup for this account.'
-              : 'Pebble is preparing backup.',
+              : 'Pebble is turning on backup.',
         );
       }
       return const AccountBackupChipState(

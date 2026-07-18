@@ -163,11 +163,13 @@ Manual export is not a Premium-only feature.
 Current status:
 
 - The product wording should be "Save a copy to Photos", not "Download".
-- It should be available to Free and Premium users while the proof photo is
-  still retained.
-- Do not request broad photo/gallery/delete permissions.
-- A service/interface placeholder exists until the least-permission platform
-  implementation is chosen.
+- It is available to Free and Premium users while the proof photo is still
+  retained, from the shared full-screen photo viewer (history, run detail,
+  and the routine player all use it).
+- Implemented with the least-permission platform APIs: Android 10+ and iOS
+  save with no runtime permission prompt; only Android 9 and below ask, and
+  only at the moment the user exports. Do not add broad photo/gallery/delete
+  permissions for this feature.
 
 ## Permissions
 

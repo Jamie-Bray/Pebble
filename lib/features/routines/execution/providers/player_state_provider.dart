@@ -24,6 +24,11 @@ enum RoutinePlayerPresentationState {
   finalStep,
 }
 
+/// Why a proof attach did or did not land, so the UI can respond precisely:
+/// only a real limit shows the limit message, and failures rely on the
+/// controller's errorMessage instead of a misleading limit toast.
+enum RoutinePlayerProofAttachResult { attached, limitReached, notAttached }
+
 enum RoutinePlayerOperation {
   none,
   savingStep,
@@ -595,12 +600,12 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
     }
   }
 
-  Future<bool> attachProof(String sourcePath) {
+  Future<RoutinePlayerProofAttachResult> attachProof(String sourcePath) {
     final alreadyCapturing =
         state.activeOperation == RoutinePlayerOperation.savingPhoto;
     if (!alreadyCapturing &&
         !_beginForegroundOperation(RoutinePlayerOperation.savingPhoto)) {
-      return Future<bool>.value(false);
+      return Future.value(RoutinePlayerProofAttachResult.notAttached);
     }
 
     return _attachProof(sourcePath).whenComplete(() {
@@ -608,14 +613,14 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
     });
   }
 
-  Future<bool> _attachProof(String sourcePath) async {
+  Future<RoutinePlayerProofAttachResult> _attachProof(String sourcePath) async {
     final session = _requireSession();
     final stepState = session.currentStepState;
-    if (stepState == null ||
-        !session.isActive ||
-        state.isCurrentStepLocked ||
-        stepState.proofAssets.length >= state.maxProofPhotosPerStep) {
-      return false;
+    if (stepState == null || !session.isActive || state.isCurrentStepLocked) {
+      return RoutinePlayerProofAttachResult.notAttached;
+    }
+    if (stepState.proofAssets.length >= state.maxProofPhotosPerStep) {
+      return RoutinePlayerProofAttachResult.limitReached;
     }
 
     try {
@@ -631,12 +636,12 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
       );
 
       await _persistSession(session.copyWith(stepStates: updatedStates));
-      return true;
+      return RoutinePlayerProofAttachResult.attached;
     } catch (_) {
       state = state.copyWith(
         errorMessage: 'Could not save photo. Please try again.',
       );
-      return false;
+      return RoutinePlayerProofAttachResult.notAttached;
     }
   }
 

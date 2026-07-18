@@ -41,11 +41,15 @@ alter policy proof_asset_usage_insert_with_entitlement on public.proof_asset_usa
 alter policy proof_asset_usage_select_own on public.proof_asset_usage
   to authenticated
   using ((select auth.uid()) = owner_user_id);
+-- Kept in sync with 015: owners may always soft-delete their own rows even
+-- without an active entitlement, so re-applying this migration never
+-- reintroduces the lapsed-premium history crash.
 alter policy proof_asset_usage_update_with_entitlement on public.proof_asset_usage
   to authenticated
   using ((select auth.uid()) = owner_user_id)
   with check (((select auth.uid()) = owner_user_id)
-    and public.has_personal_cloud_write_access((select auth.uid())));
+    and (public.has_personal_cloud_write_access((select auth.uid()))
+      or deleted_at is not null));
 
 -- routine_reminders
 alter policy routine_reminders_delete_own on public.routine_reminders

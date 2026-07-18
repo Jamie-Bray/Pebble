@@ -391,7 +391,7 @@ _BackupDashboardBase _baseForStatus({
       return _BackupDashboardBase(
         statusLabel: summary.label == 'Checking backup'
             ? 'Checking backup'
-            : 'Preparing backup',
+            : 'Turning on backup',
         detail: summary.detail,
         icon: LucideIcons.refreshCw,
         tone: BackupDashboardTone.neutral,

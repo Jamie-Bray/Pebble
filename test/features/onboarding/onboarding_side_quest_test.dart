@@ -32,7 +32,10 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
 
-      expect(find.text('Checks you only need sometimes.'), findsOneWidget);
+      expect(
+        find.text('Step out the door with total confidence.'),
+        findsOneWidget,
+      );
       expect(prefs.getBool('has_completed_onboarding'), isFalse);
 
       await tester.tap(find.text('Continue onboarding'));
@@ -81,4 +84,33 @@ void main() {
       expect(find.text('Pick a routine\nto start with.'), findsOneWidget);
     },
   );
+
+  testWidgets('start from scratch is part of the scrollable choice list', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          theme: AppTheme.fromId(ThemeId.highNoon),
+          home: const OnboardingScreen(initialPage: 2),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final scratch = find.text('Start from scratch');
+    expect(scratch, findsOneWidget);
+    expect(find.text('Start from scratch instead'), findsNothing);
+    expect(
+      find.ancestor(of: scratch, matching: find.byType(SingleChildScrollView)),
+      findsOneWidget,
+    );
+
+    await tester.ensureVisible(scratch);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
 }

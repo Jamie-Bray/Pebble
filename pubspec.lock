@@ -49,6 +49,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.4"
+  archive:
+    dependency: transitive
+    description:
+      name: archive
+      sha256: a96e8b390886ee8abb49b7bd3ac8df6f451c621619f52a26e815fdcf568959ff
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.0.9"
   args:
     dependency: transitive
     description:
@@ -305,6 +313,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.0"
+  ffi_leak_tracker:
+    dependency: transitive
+    description:
+      name: ffi_leak_tracker
+      sha256: "4093d4ef9ca06ffe2786e73bfb25e22aa92112b9bb4ec941f11e3e6b61489a97"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.2"
   file:
     dependency: transitive
     description:
@@ -406,6 +422,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.1.5"
+  flutter_launcher_icons:
+    dependency: "direct dev"
+    description:
+      name: flutter_launcher_icons
+      sha256: "10f13781741a2e3972126fae08393d3c4e01fa4cd7473326b94b72cf594195e7"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.14.4"
   flutter_lints:
     dependency: "direct dev"
     description:
@@ -504,6 +528,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.5.0"
+  gal:
+    dependency: "direct main"
+    description:
+      name: gal
+      sha256: "969598f986789127fd407a750413249e1352116d4c2be66e81837ffeeaafdfee"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.3.2"
   glob:
     dependency: transitive
     description:
@@ -640,6 +672,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.1.2"
+  image:
+    dependency: transitive
+    description:
+      name: image
+      sha256: f9881ff4998044947ec38d098bc7c8316ae1186fa786eddffdb867b9bc94dfce
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.8.0"
   image_picker:
     dependency: "direct main"
     description:
@@ -720,6 +760,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.5"
+  jni:
+    dependency: transitive
+    description:
+      name: jni
+      sha256: d2c361082d554d4593c3012e26f6b188f902acd291330f13d6427641a92b3da1
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.14.2"
   js:
     dependency: transitive
     description:
@@ -820,10 +868,10 @@ packages:
     dependency: "direct main"
     description:
       name: lucide_icons_flutter
-      sha256: df29c1cf4f19f9309f5204d40e0ba95338d9946a8ffdb4d75cf9aaccf449ce41
+      sha256: "234155b10641b8ef7bab8a077b93ea6c92fe849c06740cf89dcd86dcf350934f"
       url: "https://pub.dev"
     source: hosted
-    version: "3.1.12"
+    version: "3.1.15"
   matcher:
     dependency: transitive
     description:
@@ -844,10 +892,10 @@ packages:
     dependency: transitive
     description:
       name: meta
-      sha256: "23f08335362185a5ea2ad3a4e597f1375e78bce8a040df5c600c8d3552ef2394"
+      sha256: "1741988757a65eb6b36abe716829688cf01910bbf91c34354ff7ec1c3de2b349"
       url: "https://pub.dev"
     source: hosted
-    version: "1.17.0"
+    version: "1.18.0"
   mime:
     dependency: transitive
     description:
@@ -880,6 +928,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.0"
+  package_info_plus:
+    dependency: transitive
+    description:
+      name: package_info_plus
+      sha256: f5c435dc0e0d461e5b32471a870f769b6a1cc46930637efe24fbc535314e78ad
+      url: "https://pub.dev"
+    source: hosted
+    version: "10.2.0"
+  package_info_plus_platform_interface:
+    dependency: transitive
+    description:
+      name: package_info_plus_platform_interface
+      sha256: db762cb2f4f25ee60fb6359773861b0f199e00b90d237bd85a76a1e806b46ef4
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.1.0"
   path:
     dependency: "direct main"
     description:
@@ -1024,6 +1088,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.5.2"
+  posix:
+    dependency: transitive
+    description:
+      name: posix
+      sha256: "185ef7606574f789b40f289c233efa52e96dead518aed988e040a10737febb07"
+      url: "https://pub.dev"
+    source: hosted
+    version: "6.5.0"
   postgrest:
     dependency: transitive
     description:
@@ -1160,6 +1232,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.28.0"
+  sentry:
+    dependency: transitive
+    description:
+      name: sentry
+      sha256: "09c573f98ff6c5e98d527f351f037eb8ea9ff684a6e9e84b2e91357144016254"
+      url: "https://pub.dev"
+    source: hosted
+    version: "9.24.0"
+  sentry_flutter:
+    dependency: "direct main"
+    description:
+      name: sentry_flutter
+      sha256: "4a04b7e1901b8128df783b6d36d48706b07b0cd055e621517c998de87f5dafb9"
+      url: "https://pub.dev"
+    source: hosted
+    version: "9.24.0"
   shared_preferences:
     dependency: "direct main"
     description:
@@ -1393,10 +1481,10 @@ packages:
     dependency: transitive
     description:
       name: test_api
-      sha256: "8161c84903fd860b26bfdefb7963b3f0b68fee7adea0f59ef805ecca346f0c7a"
+      sha256: "949a932224383300f01be9221c39180316445ecb8e7547f70a41a35bf421fb9e"
       url: "https://pub.dev"
     source: hosted
-    version: "0.7.10"
+    version: "0.7.11"
   timezone:
     dependency: "direct main"
     description:
@@ -1541,6 +1629,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.3"
+  win32:
+    dependency: transitive
+    description:
+      name: win32
+      sha256: ba6f4bba816c8d7e3c1580e170f3786d216951cc6b94babc3b814c08d2cb2738
+      url: "https://pub.dev"
+    source: hosted
+    version: "6.3.0"
   xdg_directories:
     dependency: transitive
     description:

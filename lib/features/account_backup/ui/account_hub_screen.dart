@@ -84,7 +84,9 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
       if (auth.isSignedIn) {
         await ref
             .read(authControllerProvider.notifier)
-            .refreshCloudAccessAfterEntitlementChange();
+            .refreshCloudAccessAfterEntitlementChange(
+              refreshEntitlement: false,
+            );
       }
       if (mounted) {
         context.go('/account-hub');

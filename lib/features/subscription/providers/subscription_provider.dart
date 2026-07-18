@@ -417,6 +417,11 @@ class SubscriptionAccountController
       userId: userId,
       email: email,
       authProvider: authProvider,
+      bootstrapStatus: previousUserId != null && previousUserId != userId
+          ? BootstrapStatus.idle
+          : null,
+      clearLastBootstrapAt: previousUserId != null && previousUserId != userId,
+      clearLastSyncAt: previousUserId != null && previousUserId != userId,
       clearLastSyncError: true,
     );
     state = next;

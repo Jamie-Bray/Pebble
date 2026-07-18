@@ -73,7 +73,9 @@ class SubscriptionAccountState {
     String? authProvider,
     bool clearAuthProvider = false,
     DateTime? lastBootstrapAt,
+    bool clearLastBootstrapAt = false,
     DateTime? lastSyncAt,
+    bool clearLastSyncAt = false,
     String? lastSyncError,
     bool clearLastSyncError = false,
     EntitlementStatus? entitlementStatus,
@@ -95,8 +97,10 @@ class SubscriptionAccountState {
       authProvider: clearAuthProvider
           ? null
           : authProvider ?? this.authProvider,
-      lastBootstrapAt: lastBootstrapAt ?? this.lastBootstrapAt,
-      lastSyncAt: lastSyncAt ?? this.lastSyncAt,
+      lastBootstrapAt: clearLastBootstrapAt
+          ? null
+          : lastBootstrapAt ?? this.lastBootstrapAt,
+      lastSyncAt: clearLastSyncAt ? null : lastSyncAt ?? this.lastSyncAt,
       lastSyncError: clearLastSyncError
           ? null
           : lastSyncError ?? this.lastSyncError,
