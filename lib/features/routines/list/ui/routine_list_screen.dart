@@ -25,6 +25,7 @@ import 'package:pebble_routines/core/ui/pebble_confirmation_sheet.dart';
 import 'package:pebble_routines/features/account_backup/ui/account_backup_header_action.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 
+import 'package:pebble_routines/core/ui/adaptive_layout.dart';
 import 'package:pebble_routines/core/ui/zen_components.dart';
 import 'package:pebble_routines/features/routines/data/models/routine_icon_catalog.dart';
 import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
@@ -321,70 +322,72 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                 ),
               ),
             ),
-            CustomScrollView(
-              physics: const BouncingScrollPhysics(),
-              slivers: [
-                const ZenHeader(extraActions: [AccountBackupHeaderAction()]),
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: SafeArea(
-                    top: false,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Spacer(),
-                          Text(
-                            'Start with one routine.',
-                            style: TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.w700,
-                              height: 1.06,
-                              color: foundation.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            'A reliable checklist for the routines you repeat.',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w400,
-                              height: 1.36,
-                              color: foundation.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 28),
-                          SizedBox(
-                            width: double.infinity,
-                            child: FilledButton.icon(
-                              onPressed: _openNewRoutine,
-                              icon: const Icon(LucideIcons.plus, size: 18),
-                              label: const Text('Create routine'),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          SizedBox(
-                            width: double.infinity,
-                            child: TextButton.icon(
-                              onPressed: () => context.push('/templates'),
-                              icon: const Icon(
-                                LucideIcons.layoutTemplate,
-                                size: 17,
-                              ),
-                              label: const Text('Use template'),
-                              style: TextButton.styleFrom(
-                                foregroundColor: foundation.textSecondary,
+            AdaptiveContentWidth(
+              child: CustomScrollView(
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  const ZenHeader(extraActions: [AccountBackupHeaderAction()]),
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: SafeArea(
+                      top: false,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Spacer(),
+                            Text(
+                              'Start with one routine.',
+                              style: TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.w700,
+                                height: 1.06,
+                                color: foundation.textPrimary,
                               ),
                             ),
-                          ),
-                          const Spacer(flex: 2),
-                        ],
+                            const SizedBox(height: 10),
+                            Text(
+                              'A reliable checklist for the routines you repeat.',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w400,
+                                height: 1.36,
+                                color: foundation.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 28),
+                            SizedBox(
+                              width: double.infinity,
+                              child: FilledButton.icon(
+                                onPressed: _openNewRoutine,
+                                icon: const Icon(LucideIcons.plus, size: 18),
+                                label: const Text('Create routine'),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            SizedBox(
+                              width: double.infinity,
+                              child: TextButton.icon(
+                                onPressed: () => context.push('/templates'),
+                                icon: const Icon(
+                                  LucideIcons.layoutTemplate,
+                                  size: 17,
+                                ),
+                                label: const Text('Use template'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: foundation.textSecondary,
+                                ),
+                              ),
+                            ),
+                            const Spacer(flex: 2),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
@@ -580,56 +583,65 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
 
         return Stack(
           children: [
-            Column(
-              children: [
-                _buildHomeHeader(themeData),
-                if (resumeSession != null)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 14),
-                    child: _buildResumeCard(themeData, resumeSession),
-                  ),
-                Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(24, 0, 24, heroBottomPadding),
-                    child: spotlightRoutine == null
-                        ? const SizedBox.shrink()
-                        : _HomeHeroStage(
-                            routine: spotlightRoutine,
-                            themeData: themeData,
-                            steps: _stepsForRoutine(spotlightRoutine),
-                            accentColor: _routineAccentColor(
-                              spotlightRoutine,
-                              themeData,
-                              0,
-                            ),
-                            availableHeight:
-                                constraints.maxHeight - heroBottomPadding,
-                            onSettings: () {
-                              _showContextMenu(
-                                context,
+            // Content column caps at 640 on wide screens; the scrim and
+            // ambient background behind it stay full-bleed.
+            AdaptiveContentWidth(
+              child: Column(
+                children: [
+                  _buildHomeHeader(themeData),
+                  if (resumeSession != null)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 14),
+                      child: _buildResumeCard(themeData, resumeSession),
+                    ),
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        24,
+                        0,
+                        24,
+                        heroBottomPadding,
+                      ),
+                      child: spotlightRoutine == null
+                          ? const SizedBox.shrink()
+                          : _HomeHeroStage(
+                              routine: spotlightRoutine,
+                              themeData: themeData,
+                              steps: _stepsForRoutine(spotlightRoutine),
+                              accentColor: _routineAccentColor(
                                 spotlightRoutine,
                                 themeData,
-                              );
-                            },
-                            onReminders: () {
-                              _openRoutineReminders(spotlightRoutine);
-                            },
-                            onEmail: () {
-                              _openRoutineEmail(spotlightRoutine);
-                            },
-                            onBegin: () {
-                              _onPlayRoutine(spotlightRoutine);
-                            },
-                            onPreviewStepTap: (stepIndex) {
-                              _onEditRoutine(
-                                spotlightRoutine,
-                                initialStepIndex: stepIndex,
-                              );
-                            },
-                          ),
+                                0,
+                              ),
+                              availableHeight:
+                                  constraints.maxHeight - heroBottomPadding,
+                              onSettings: () {
+                                _showContextMenu(
+                                  context,
+                                  spotlightRoutine,
+                                  themeData,
+                                );
+                              },
+                              onReminders: () {
+                                _openRoutineReminders(spotlightRoutine);
+                              },
+                              onEmail: () {
+                                _openRoutineEmail(spotlightRoutine);
+                              },
+                              onBegin: () {
+                                _onPlayRoutine(spotlightRoutine);
+                              },
+                              onPreviewStepTap: (stepIndex) {
+                                _onEditRoutine(
+                                  spotlightRoutine,
+                                  initialStepIndex: stepIndex,
+                                );
+                              },
+                            ),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             ValueListenableBuilder<double>(
               valueListenable: _routineSheetExtent,
@@ -673,13 +685,18 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                       duration: const Duration(milliseconds: 280),
                       curve: Curves.easeOutCubic,
                       height: targetHeight,
-                      child: _buildRoutineLibrarySheet(
-                        visibleRoutines,
-                        themeData,
-                        hostHeight: constraints.maxHeight,
-                        bottomSafe: bottomSafe,
-                        expandProgress: expandProgress,
-                        activeRoutineId: spotlightRoutine?.id,
+                      // Same 640 cap as Material 3 gives every modal sheet,
+                      // so the routines sheet matches the app's other sheets
+                      // on wide screens.
+                      child: AdaptiveContentWidth(
+                        child: _buildRoutineLibrarySheet(
+                          visibleRoutines,
+                          themeData,
+                          hostHeight: constraints.maxHeight,
+                          bottomSafe: bottomSafe,
+                          expandProgress: expandProgress,
+                          activeRoutineId: spotlightRoutine?.id,
+                        ),
                       ),
                     ),
                   ),
