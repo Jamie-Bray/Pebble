@@ -1095,7 +1095,7 @@ class _PremiumBadge extends StatelessWidget {
             const SizedBox(width: 6),
             Flexible(
               child: Text(
-                'Pebble Premium',
+                'Personal Premium',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: accent,
                   fontSize: 12,
@@ -1923,7 +1923,7 @@ class _FinePrint extends StatelessWidget {
     final selected = product;
     final summary = selected == null || !_hasPrice(selected)
         ? ''
-        : 'Pebble Premium ${selected.plan == BillingPlan.yearly ? 'Annual' : 'Monthly'}: '
+        : 'Personal Premium ${selected.plan == BillingPlan.yearly ? 'Annual' : 'Monthly'}: '
               '${selected.priceLabel} per ${_planTypeForBillingPlan(selected.plan).ctaCadence}. ';
     return Text(
       '$summary${platformCopy.renewalLine}',

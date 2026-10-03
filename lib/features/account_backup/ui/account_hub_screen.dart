@@ -613,7 +613,7 @@ class _AccountUpgradeCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Pebble Premium',
+            'Personal Premium',
             style: GoogleFonts.dmSerifDisplay(
               color: colorScheme.onSurface,
               fontSize: 24,

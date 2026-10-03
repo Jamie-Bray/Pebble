@@ -840,6 +840,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
     ColorScheme cs, {
     required SharedReminderContact? contact,
   }) {
+    final previewSentAt = DateTime.now();
     final routineTitle = widget.routine?.title.trim();
     final title = routineTitle == null || routineTitle.isEmpty
         ? 'Bedtime House Check'
@@ -921,7 +922,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
                 ),
                 const SizedBox(width: 10),
                 Text(
-                  '21:07',
+                  DateFormat('HH:mm').format(previewSentAt),
                   style: TextStyle(
                     fontSize: 11,
                     color: cs.onSurface.withValues(alpha: 0.42),
@@ -944,7 +945,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
                 _buildPreviewLogRow(
                   cs,
                   label: 'Time',
-                  value: '09 May 2026, 21:07',
+                  value: DateFormat('dd MMM yyyy, HH:mm').format(previewSentAt),
                 ),
                 _buildPreviewLogRow(
                   cs,

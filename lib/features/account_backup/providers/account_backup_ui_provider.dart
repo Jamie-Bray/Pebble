@@ -516,7 +516,7 @@ String _planLabel(UserTier tier) {
     case UserTier.personalFree:
       return 'Pebble Personal';
     case UserTier.personalPremium:
-      return 'Pebble Premium';
+      return 'Personal Premium';
     case UserTier.pebbleHousehold:
       return 'Household';
     case UserTier.workspace:

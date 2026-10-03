@@ -1081,7 +1081,7 @@ class _ThemePreviewSheet extends ConsumerWidget {
                       const SizedBox(height: 14),
                       const _SheetNote(
                         text:
-                            'Preview available. Applying this theme requires Pebble Premium.',
+                            'Preview available. Applying this theme requires Personal Premium.',
                       ),
                     ],
                     if (meta.accessibilityNote != null) ...<Widget>[

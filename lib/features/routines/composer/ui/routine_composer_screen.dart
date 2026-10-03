@@ -1455,7 +1455,7 @@ class _LockedGuidanceAudio extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Voice tips are included with Pebble Premium.',
+          'Voice tips are included with Personal Premium.',
           style: TextStyle(
             fontSize: 14,
             height: 1.45,

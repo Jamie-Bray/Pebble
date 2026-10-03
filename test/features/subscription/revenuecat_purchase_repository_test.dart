@@ -137,8 +137,8 @@ rc.Package _package({
     packageType,
     rc.StoreProduct(
       productIdentifier,
-      'Pebble Premium',
-      'Pebble Premium',
+      'Personal Premium',
+      'Personal Premium',
       0.99,
       price,
       'USD',

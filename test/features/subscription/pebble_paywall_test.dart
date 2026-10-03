@@ -24,7 +24,7 @@ void main() {
     );
 
     expect(find.byType(PageView), findsNothing);
-    expect(find.text('Pebble Premium'), findsOneWidget);
+    expect(find.text('Personal Premium'), findsOneWidget);
     expect(find.text('Never wonder\ntwice.'), findsOneWidget);
 
     await _scrollUntilVisible(tester, find.text('WHAT PREMIUM GIVES YOU'));
@@ -250,7 +250,7 @@ void main() {
           // Price, plan length and renewal terms sit with the button.
           expect(find.text('\$6.99'), findsWidgets);
           expect(
-            find.textContaining('Pebble Premium Annual: \$6.99 per year.'),
+            find.textContaining('Personal Premium Annual: \$6.99 per year.'),
             findsOneWidget,
           );
           expect(find.textContaining('Renews automatically'), findsOneWidget);
@@ -293,7 +293,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.byType(SnackBar), findsNothing);
-    expect(find.text('Pebble Premium'), findsOneWidget);
+    expect(find.text('Personal Premium'), findsOneWidget);
   });
 
   testWidgets('purchase success while signed out explains local Premium', (
@@ -615,7 +615,7 @@ class _PlanPurchaseRepository extends ChangeNotifier
       tier: UserTier.personalPremium,
       plan: BillingPlan.monthly,
       requiresSignIn: false,
-      message: 'Pebble Premium restored from RevenueCat.',
+      message: 'Personal Premium restored from RevenueCat.',
     );
   }
 

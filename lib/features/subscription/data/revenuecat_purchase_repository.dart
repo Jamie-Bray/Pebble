@@ -164,8 +164,8 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     if (package == null) {
       throw StateError(
         plan == BillingPlan.yearly
-            ? 'Yearly Pebble Premium is not available yet.'
-            : 'Monthly Pebble Premium is not available yet.',
+            ? 'Yearly Personal Premium is not available yet.'
+            : 'Monthly Personal Premium is not available yet.',
       );
     }
     late final rc.PurchaseResult result;
@@ -397,7 +397,7 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     _billingAvailable = _packagesByPlan.isNotEmpty;
     _unavailableReason = _billingAvailable
         ? null
-        : 'Pebble Premium is not available from the store yet.';
+        : 'Personal Premium is not available from the store yet.';
     notifyListeners();
   }
 
@@ -416,7 +416,7 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
         await _ref.read(entitlementStoreProvider).applyExpiredEntitlement();
       }
       throw StateError(
-        'No active Pebble Premium purchase was found on this store account.',
+        'No active Personal Premium purchase was found on this store account.',
       );
     }
     await _applyVerifiedEntitlement(
@@ -428,8 +428,8 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
       plan: plan,
       requiresSignIn: false,
       message: purchased
-          ? 'Welcome to Pebble Premium.'
-          : 'Pebble Premium restored.',
+          ? 'Welcome to Personal Premium.'
+          : 'Personal Premium restored.',
     );
   }
 

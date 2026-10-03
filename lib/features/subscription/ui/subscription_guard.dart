@@ -76,7 +76,7 @@ class SubscriptionGuard {
               ),
               const SizedBox(height: 10),
               Text(
-                'Pebble is free to use with no login and no ads. Free includes $limit routines; unlimited routines are part of Pebble Premium.',
+                'Pebble is free to use with no login and no ads. Free includes $limit routines; unlimited routines are part of Personal Premium.',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   height: 1.45,
                   color: cs.onSurface.withValues(alpha: 0.72),
@@ -90,7 +90,7 @@ class SubscriptionGuard {
                     context,
                   ).push(premiumRoute(source: PremiumEntrySource.routineLimit));
                 },
-                child: const Text('View Pebble Premium'),
+                child: const Text('View Personal Premium'),
               ),
               const SizedBox(height: 10),
               TextButton(
@@ -140,7 +140,7 @@ class SubscriptionGuard {
               ),
               const SizedBox(height: 10),
               Text(
-                'Pebble is free to use with no login and no ads. Free includes $limit steps per routine; unlimited steps are part of Pebble Premium.',
+                'Pebble is free to use with no login and no ads. Free includes $limit steps per routine; unlimited steps are part of Personal Premium.',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   height: 1.45,
                   color: cs.onSurface.withValues(alpha: 0.72),
@@ -154,7 +154,7 @@ class SubscriptionGuard {
                     context,
                   ).push(premiumRoute(source: PremiumEntrySource.stepLimit));
                 },
-                child: const Text('View Pebble Premium'),
+                child: const Text('View Personal Premium'),
               ),
               const SizedBox(height: 10),
               TextButton(

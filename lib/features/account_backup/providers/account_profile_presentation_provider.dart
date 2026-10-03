@@ -134,7 +134,7 @@ String _planName(UserTier tier, SubscriptionLifecycle lifecycle) {
   }
   switch (tier) {
     case UserTier.personalPremium:
-      return 'Pebble Premium';
+      return 'Personal Premium';
     case UserTier.pebbleHousehold:
       return 'Household';
     case UserTier.workspace:

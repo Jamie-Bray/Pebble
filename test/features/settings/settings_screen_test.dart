@@ -270,7 +270,7 @@ void main() {
     expect(find.text('Use this theme'), findsNothing);
     expect(
       find.text(
-        'Preview available. Applying this theme requires Pebble Premium.',
+        'Preview available. Applying this theme requires Personal Premium.',
       ),
       findsOneWidget,
     );

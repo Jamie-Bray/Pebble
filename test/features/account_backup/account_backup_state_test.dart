@@ -705,7 +705,7 @@ void main() {
 
       expect(profile.identityLabel, 'jamie@example.com');
       expect(profile.providerLabel, 'Google');
-      expect(profile.planName, 'Pebble Premium');
+      expect(profile.planName, 'Personal Premium');
       expect(profile.canManagePlan, isTrue);
     });
 
@@ -1376,7 +1376,7 @@ void main() {
       await _pumpAccountWidget(tester, harness, const AccountHubScreen());
 
       expect(find.text('jamie@example.com'), findsOneWidget);
-      expect(find.textContaining('Pebble Premium'), findsOneWidget);
+      expect(find.textContaining('Personal Premium'), findsOneWidget);
       // Backup lives on its own screen; the account page links to it with
       // its current status.
       expect(find.text('Backup'), findsOneWidget);
@@ -1485,7 +1485,7 @@ void main() {
 
       await _pumpAccountWidget(tester, harness, const AccountHubScreen());
 
-      expect(find.text('Pebble Premium'), findsOneWidget);
+      expect(find.text('Personal Premium'), findsOneWidget);
       expect(find.text('Signed in with Apple'), findsOneWidget);
       expect(
         find.textContaining('Current period ends 26 October 2026'),
@@ -1892,7 +1892,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Your account'), findsOneWidget);
-      expect(find.textContaining('Pebble Premium'), findsOneWidget);
+      expect(find.textContaining('Personal Premium'), findsOneWidget);
     });
 
     testWidgets('cloud backup back button pops after normal navigation', (
@@ -1955,7 +1955,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Your account'), findsOneWidget);
-      expect(find.textContaining('Pebble Premium'), findsOneWidget);
+      expect(find.textContaining('Personal Premium'), findsOneWidget);
     });
   });
 
