@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
@@ -26,6 +27,8 @@ import 'package:pebble_routines/features/account_backup/ui/account_backup_header
 import 'package:pebble_routines/core/database/routine_step.dart';
 
 import 'package:pebble_routines/core/ui/adaptive_layout.dart';
+import 'package:pebble_routines/core/ui/readable_colors.dart';
+import 'package:pebble_routines/features/history/domain/run_step_tally.dart';
 import 'package:pebble_routines/core/ui/zen_components.dart';
 import 'package:pebble_routines/features/routines/data/models/routine_icon_catalog.dart';
 import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
@@ -37,6 +40,12 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/repositories/routine_session_repository.dart';
+
+/// Whether this platform has a Pebble home-screen widget to pin routines to.
+/// Only Android ships one (`pebble_routine_widget_info.xml`); there is no iOS
+/// WidgetKit extension yet.
+bool get supportsHomeScreenWidget =>
+    !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
 class RoutineListScreen extends ConsumerStatefulWidget {
   const RoutineListScreen({super.key});
@@ -270,7 +279,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
       error: (e, st) => _buildErrorScreen(e, themeData),
       data: (routines) {
         if (routines.isEmpty) {
-          return _buildEmptyHome(currentTheme);
+          return _buildEmptyHome(currentTheme, themeData);
         }
 
         return _buildZenSanctuary(routines, themeData);
@@ -302,7 +311,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
     );
   }
 
-  Widget _buildEmptyHome(ThemeId currentTheme) {
+  Widget _buildEmptyHome(ThemeId currentTheme, ThemeData themeData) {
     final foundation = context.darkFoundation;
 
     return Scaffold(
@@ -326,7 +335,9 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
               child: CustomScrollView(
                 physics: const BouncingScrollPhysics(),
                 slivers: [
-                  const ZenHeader(extraActions: [AccountBackupHeaderAction()]),
+                  // Same header as the populated Home, so the wordmark,
+                  // tagline and settings control never change under the user.
+                  SliverToBoxAdapter(child: _buildHomeHeader(themeData)),
                   SliverFillRemaining(
                     hasScrollBody: false,
                     child: SafeArea(
@@ -339,10 +350,11 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                             const Spacer(),
                             Text(
                               'Start with one routine.',
-                              style: TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.w700,
+                              style: GoogleFonts.dmSerifDisplay(
+                                fontSize: 36,
+                                fontWeight: FontWeight.w400,
                                 height: 1.06,
+                                letterSpacing: -0.6,
                                 color: foundation.textPrimary,
                               ),
                             ),
@@ -592,7 +604,11 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                   if (resumeSession != null)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(24, 0, 24, 14),
-                      child: _buildResumeCard(themeData, resumeSession),
+                      child: _buildResumeCard(
+                        themeData,
+                        resumeSession,
+                        compact: mediaQuery.size.height < 720,
+                      ),
                     ),
                   Expanded(
                     child: Padding(
@@ -713,58 +729,72 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
     final foundation = context.darkFoundation;
     final colorScheme = themeData.colorScheme;
 
+    // The header is branding plus compact controls, so it grows with the
+    // user's text size only up to 1.3x; beyond that the wordmark broke one
+    // letter per line and pushed the hero (and its Start button) off-screen.
     return SafeArea(
       bottom: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text.rich(
-                    TextSpan(
-                      children: [
-                        const TextSpan(text: 'pebble'),
+      child: MediaQuery.withClampedTextScaling(
+        maxScaleFactor: 1.3,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text.rich(
                         TextSpan(
-                          text: '.',
-                          style: TextStyle(color: colorScheme.primary),
+                          children: [
+                            const TextSpan(text: 'pebble'),
+                            TextSpan(
+                              text: '.',
+                              style: TextStyle(color: colorScheme.primary),
+                            ),
+                          ],
                         ),
-                      ],
+                        maxLines: 1,
+                        softWrap: false,
+                        style: GoogleFonts.dmSerifDisplay(
+                          fontSize: 22,
+                          fontStyle: FontStyle.italic,
+                          height: 1,
+                          letterSpacing: -0.3,
+                          color: foundation.textPrimary,
+                        ),
+                      ),
                     ),
-                    style: GoogleFonts.dmSerifDisplay(
-                      fontSize: 22,
-                      fontStyle: FontStyle.italic,
-                      height: 1,
-                      letterSpacing: -0.3,
-                      color: foundation.textPrimary,
+                    const SizedBox(height: 4),
+                    Text(
+                      'Small steps, big ripples',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontStyle: FontStyle.italic,
+                        fontWeight: FontWeight.w400,
+                        height: 1.15,
+                        letterSpacing: 0.2,
+                        color: context.readableSecondaryText,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Small steps, big ripples',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontStyle: FontStyle.italic,
-                      fontWeight: FontWeight.w300,
-                      height: 1,
-                      letterSpacing: 0.2,
-                      color: foundation.textMuted,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            _buildHeaderIconButton(
-              tooltip: 'App settings',
-              icon: LucideIcons.slidersHorizontal,
-              onPressed: () => context.push('/settings'),
-              themeData: themeData,
-            ),
-            const SizedBox(width: 2),
-            const AccountBackupHeaderAction(),
-          ],
+              _buildHeaderIconButton(
+                tooltip: 'App settings',
+                icon: LucideIcons.slidersHorizontal,
+                onPressed: () => context.push('/settings'),
+                themeData: themeData,
+              ),
+              const SizedBox(width: 2),
+              const AccountBackupHeaderAction(),
+            ],
+          ),
         ),
       ),
     );
@@ -780,7 +810,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
     return IconButton(
       tooltip: tooltip,
       onPressed: onPressed,
-      icon: Icon(icon, size: 15, color: foundation.textMuted),
+      icon: Icon(icon, size: 15, color: context.readableSecondaryText),
       style: IconButton.styleFrom(
         fixedSize: const Size(36, 36),
         minimumSize: const Size(36, 36),
@@ -889,14 +919,20 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                         ),
                       ),
                     )
-                  : SizedBox(
+                  : ConstrainedBox(
                       key: const ValueKey('expanded-routines-header'),
-                      height: 70,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
+                      constraints: const BoxConstraints(minHeight: 70),
+                      // Side by side when they fit; at large text sizes the
+                      // hint drops under the title instead of colliding.
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: Wrap(
+                          alignment: WrapAlignment.spaceBetween,
+                          crossAxisAlignment: WrapCrossAlignment.start,
+                          spacing: 12,
+                          runSpacing: 2,
+                          children: [
+                            Text(
                               'Your Routines',
                               style: GoogleFonts.dmSerifDisplay(
                                 fontSize: 22,
@@ -905,19 +941,20 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                                 color: foundation.textPrimary,
                               ),
                             ),
-                          ),
-                          Text(
-                            'Hold to reorder',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w300,
-                              fontStyle: FontStyle.italic,
-                              color: foundation.textPrimary.withValues(
-                                alpha: 0.22,
+                            Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Text(
+                                'Hold to reorder',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w400,
+                                  fontStyle: FontStyle.italic,
+                                  color: context.readableSecondaryText,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
             ),
@@ -1037,7 +1074,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
     final icon = RoutineIconCatalog.resolve(routine.emoji).icon;
     final metadata = <String>[
       '$steps ${steps == 1 ? 'step' : 'steps'}',
-      if (routine.isPinned) 'Pinned',
+      if (routine.isPinned && supportsHomeScreenWidget) 'Pinned',
       if (routine.reminderTime != null) 'Reminder set',
     ];
     final rowBackground = isRestricted
@@ -1076,9 +1113,11 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOutCubic,
-          height: _routineSheetRowHeight,
+          // A minimum, not a fixed height: at large text sizes the title and
+          // subtitle need more room, and the sheet already scrolls.
+          constraints: const BoxConstraints(minHeight: _routineSheetRowHeight),
           margin: EdgeInsets.only(bottom: isLast ? 0 : 8),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
           decoration: BoxDecoration(
             color: rowBackground,
             borderRadius: BorderRadius.circular(16),
@@ -1132,18 +1171,18 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                       const SizedBox(height: 3),
                       Text(
                         subtitle,
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: isRestricted
                               ? FontWeight.w500
-                              : FontWeight.w300,
+                              : FontWeight.w400,
                           color: isRestricted
-                              ? themeData.colorScheme.primary.withValues(
-                                  alpha: 0.74,
+                              ? context.readableAccentText(
+                                  themeData.colorScheme.primary,
                                 )
-                              : foundation.textMuted,
+                              : context.readableSecondaryText,
                         ),
                       ),
                     ],
@@ -1211,7 +1250,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w400,
-            color: foundation.textMuted,
+            color: context.readableSecondaryText,
           ),
         ),
       ],
@@ -1259,16 +1298,18 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
 
   Widget _buildResumeCard(
     ThemeData themeData,
-    RoutineSessionResumeSummary session,
-  ) {
+    RoutineSessionResumeSummary session, {
+    bool compact = false,
+  }) {
     final colorScheme = themeData.colorScheme;
     final foundation = context.darkFoundation;
     return Material(
+      key: const ValueKey('home_resume_card'),
       color: foundation.surfaceLow,
       borderRadius: BorderRadius.circular(22),
       elevation: 0,
       child: Padding(
-        padding: const EdgeInsets.all(10),
+        padding: EdgeInsets.all(compact ? 2 : 10),
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(22),
@@ -1295,12 +1336,12 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                   borderRadius: BorderRadius.circular(18),
                   onTap: () => context.push('/play/${session.routineId}'),
                   child: Padding(
-                    padding: const EdgeInsets.all(14),
+                    padding: EdgeInsets.all(compact ? 10 : 14),
                     child: Row(
                       children: [
                         Container(
-                          width: 48,
-                          height: 48,
+                          width: compact ? 40 : 48,
+                          height: compact ? 40 : 48,
                           decoration: BoxDecoration(
                             color: colorScheme.primary.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(16),
@@ -1337,7 +1378,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                                   ),
                                 ),
                               ),
-                              const SizedBox(height: 8),
+                              SizedBox(height: compact ? 4 : 8),
                               Text(
                                 'Resume ${session.routineTitleSnapshot}',
                                 maxLines: 1,
@@ -1348,7 +1389,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                                   color: foundation.textPrimary,
                                 ),
                               ),
-                              const SizedBox(height: 4),
+                              SizedBox(height: compact ? 2 : 4),
                               Text(
                                 'Step ${session.displayStepNumber} of ${session.totalStepCount}',
                                 style: TextStyle(
@@ -1607,23 +1648,26 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                               await _openStyleSheet(routine, themeData);
                             },
                           ),
-                          _buildMenuRow(
-                            sheetContext,
-                            icon: routine.isPinned
-                                ? LucideIcons.pinOff
-                                : LucideIcons.pin,
-                            label: routine.isPinned
-                                ? 'Unpin from Widget'
-                                : 'Pin to Widget',
-                            subtitle: routine.isPinned
-                                ? 'Remove this routine from your home widget'
-                                : 'Show this routine on your home widget',
-                            accent: accent,
-                            onTap: () async {
-                              Navigator.pop(sheetContext);
-                              await _togglePinRoutine(routine);
-                            },
-                          ),
+                          // Only Android ships a home-screen widget; iOS has
+                          // no WidgetKit extension, so don't offer it there.
+                          if (supportsHomeScreenWidget)
+                            _buildMenuRow(
+                              sheetContext,
+                              icon: routine.isPinned
+                                  ? LucideIcons.pinOff
+                                  : LucideIcons.pin,
+                              label: routine.isPinned
+                                  ? 'Unpin from Widget'
+                                  : 'Pin to Widget',
+                              subtitle: routine.isPinned
+                                  ? 'Remove this routine from your home widget'
+                                  : 'Show this routine on your home widget',
+                              accent: accent,
+                              onTap: () async {
+                                Navigator.pop(sheetContext);
+                                await _togglePinRoutine(routine);
+                              },
+                            ),
                           const SizedBox(height: 18),
                           _buildSectionHeader(sheetContext, 'INSIGHTS'),
                           const SizedBox(height: 8),
@@ -1718,7 +1762,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
     final steps = _stepCountForRoutine(routine);
     final meta = [
       '$steps ${steps == 1 ? 'step' : 'steps'}',
-      if (routine.isPinned) 'Pinned',
+      if (routine.isPinned && supportsHomeScreenWidget) 'Pinned',
     ].join(' - ');
 
     return Row(
@@ -2124,8 +2168,8 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 1.5,
-                    color: widget.themeData.colorScheme.primary.withValues(
-                      alpha: 0.72,
+                    color: context.readableAccentText(
+                      widget.themeData.colorScheme.primary,
                     ),
                   ),
                 ),
@@ -2199,11 +2243,18 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
           ),
         );
 
+        // The metrics above size the hero to fit; scrolling is only the
+        // fallback for very short screens (or a resume card above it), so
+        // the Start button is never clipped or hidden behind the shelf.
         return MediaQuery(
           data: MediaQuery.of(
             context,
           ).copyWith(textScaler: TextScaler.linear(metrics.effectiveTextScale)),
-          child: hero,
+          child: SingleChildScrollView(
+            key: const ValueKey('home_hero_scroll'),
+            physics: const ClampingScrollPhysics(),
+            child: hero,
+          ),
         );
       },
     );
@@ -2365,15 +2416,17 @@ class _HomeHeroPreviewHeader extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 10),
-                Text(
-                  'Steps',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 0.8,
-                    color: foundation.textMuted,
+                Flexible(
+                  child: Text(
+                    'Steps',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0.8,
+                      color: context.readableSecondaryText,
+                    ),
                   ),
                 ),
               ],
@@ -2466,7 +2519,6 @@ class _HomeHeroPreviewIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
     final size = compact ? 28.0 : 32.0;
     return Semantics(
       label: tooltip,
@@ -2477,7 +2529,7 @@ class _HomeHeroPreviewIconButton extends StatelessWidget {
         child: IconButton(
           onPressed: onPressed,
           tooltip: tooltip,
-          icon: Icon(icon, size: 14, color: foundation.textMuted),
+          icon: Icon(icon, size: 14, color: context.readableSecondaryText),
           style: IconButton.styleFrom(
             padding: EdgeInsets.zero,
             minimumSize: Size(size, size),
@@ -2502,74 +2554,70 @@ class _HomeHeroMetaRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
+    final style = TextStyle(
+      fontSize: 11,
+      fontWeight: FontWeight.w400,
+      letterSpacing: 0.1,
+      color: context.readableSecondaryText,
+    );
 
-    return SizedBox(
+    return ConstrainedBox(
       key: const ValueKey('home_hero_meta_row'),
-      height: 26,
+      constraints: const BoxConstraints(minHeight: 26),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           latestRun.maybeWhen(
-            data: (run) => run == null
-                ? Text(
+            data: (run) {
+              if (run == null) {
+                return Flexible(
+                  child: Text(
                     '$steps ${steps == 1 ? 'step' : 'steps'} ready',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w300,
-                      letterSpacing: 0.1,
-                      color: foundation.textPrimary.withValues(alpha: 0.24),
+                    style: style,
+                  ),
+                );
+              }
+              // What the last run actually recorded, not the routine's
+              // current step count: a skipped step is never shown as done.
+              final tally = RunStepTally.fromRun(run);
+              return Flexible(
+                child: Row(
+                  key: const ValueKey('home_hero_last_run_meta'),
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        lastRunTextFor(run.finishedAt),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: style,
+                      ),
                     ),
-                  )
-                : Flexible(
-                    child: Row(
-                      key: const ValueKey('home_hero_last_run_meta'),
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            lastRunTextFor(run.finishedAt),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w300,
-                              letterSpacing: 0.1,
-                              color: foundation.textPrimary.withValues(
-                                alpha: 0.24,
-                              ),
-                            ),
-                          ),
+                    if (tally.total > 0) ...[
+                      Container(
+                        width: 3,
+                        height: 3,
+                        margin: const EdgeInsets.symmetric(horizontal: 8),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: style.color!.withValues(alpha: 0.6),
                         ),
-                        Container(
-                          width: 3,
-                          height: 3,
-                          margin: const EdgeInsets.symmetric(horizontal: 8),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: foundation.textPrimary.withValues(
-                              alpha: 0.18,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          '$steps of $steps steps',
+                      ),
+                      Flexible(
+                        child: Text(
+                          tally.summary,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w300,
-                            letterSpacing: 0.1,
-                            color: foundation.textPrimary.withValues(
-                              alpha: 0.24,
-                            ),
-                          ),
+                          style: style,
                         ),
-                      ],
-                    ),
-                  ),
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            },
             orElse: () => const SizedBox.shrink(),
           ),
         ],
