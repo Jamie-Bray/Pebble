@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -19,7 +18,9 @@ import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/core/navigation/app_shell.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
+import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
+import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/core/ui/pebble_photo_gallery_viewer.dart';
 import 'package:pebble_routines/features/history/ui/routine_run_detail_screen.dart';
@@ -1180,7 +1181,8 @@ class AnimatedVisualAnchorState extends State<AnimatedVisualAnchor>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final success = Colors.green.shade600;
+    // The theme's "done" role, not stock Material green.
+    final success = context.done;
 
     return SizedBox(
       key: const ValueKey('routine-player-visual-anchor'),
@@ -1196,7 +1198,7 @@ class AnimatedVisualAnchorState extends State<AnimatedVisualAnchor>
               shape: BoxShape.circle,
               color: Color.lerp(
                 theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.82),
-                success.withValues(alpha: 0.12),
+                context.doneContainer,
                 t,
               ),
               border: Border.all(
@@ -2189,47 +2191,48 @@ class _RoutineSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    const completionText = Color(0xFF2D2B2A);
+    final foundation = context.darkFoundation;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    // Card style (DESIGN_DIRECTION.md §3.4): themed fill, a hairline in light
+    // themes, no shadow. It used to be a hard-coded white slab in every theme.
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(PebbleSpacing.xl),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: theme.colorScheme.primary.withValues(alpha: 0.06),
-            blurRadius: 32,
-            offset: const Offset(0, 12),
-          ),
-        ],
-        border: Border.all(color: completionText.withValues(alpha: 0.04)),
+        color: foundation.surfaceLow,
+        borderRadius: PebbleRadius.lgAll,
+        border: isDark
+            ? null
+            : Border.all(color: foundation.textPrimary.withValues(alpha: 0.10)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'SUMMARY',
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w800,
               letterSpacing: 1.2,
-              color: Color(0xFF746D66),
+              color: context.readableSecondaryText,
             ),
           ),
           const SizedBox(height: 16),
           // Same counting as History: a skipped step is never shown as done.
           _RoutineSummaryRow(
             icon: LucideIcons.circleCheck,
+            iconColor: context.done,
             label: 'Steps completed',
             value: skippedSteps > 0
                 ? '$totalStepsCompleted of $totalSteps · $skippedSteps skipped'
                 : '$totalStepsCompleted of $totalSteps',
           ),
           if (showPhotoSummary) ...[
-            Divider(height: 25, color: completionText.withValues(alpha: 0.08)),
+            Divider(
+              height: 25,
+              color: foundation.textPrimary.withValues(alpha: 0.08),
+            ),
             _RoutineSummaryRow(
               icon: LucideIcons.image,
               label: 'Photos saved',
@@ -2248,26 +2251,28 @@ class _RoutineSummaryRow extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
+    this.iconColor,
   });
 
   final IconData icon;
+  final Color? iconColor;
   final String label;
   final String value;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    const completionText = Color(0xFF2D2B2A);
-    const mutedText = Color(0xFF6F6861);
+    final completionText = context.darkFoundation.textPrimary;
+    final mutedText = context.readableSecondaryText;
 
     return Row(
       children: [
-        Icon(icon, size: 20, color: theme.colorScheme.primary),
+        Icon(icon, size: 20, color: iconColor ?? theme.colorScheme.primary),
         const SizedBox(width: 12),
         Expanded(
           child: Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w700,
               color: completionText,
@@ -2277,7 +2282,7 @@ class _RoutineSummaryRow extends StatelessWidget {
         const SizedBox(width: 12),
         Text(
           value,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w600,
             color: mutedText,

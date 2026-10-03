@@ -436,6 +436,11 @@ class _FlowSwitchTile extends StatelessWidget {
             onChanged: onChanged,
             // Theme accent instead of the bright iOS system green.
             activeTrackColor: theme.colorScheme.primary,
+            thumbColor: WidgetStateProperty.resolveWith(
+              (states) => states.contains(WidgetState.selected)
+                  ? theme.colorScheme.onPrimary
+                  : null,
+            ),
           ),
         ],
       ),

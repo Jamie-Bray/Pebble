@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -10,7 +9,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:pebble_routines/core/config/legal_links.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
+import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
+import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/core/ui/zen_notifications.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
 import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
@@ -551,10 +552,7 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _PaywallHeader(entrySource: widget.entrySource),
-                    if (inlinePricing) ...[
-                      const SizedBox(height: 28),
-                      pricing,
-                    ],
+                    if (inlinePricing) ...[const SizedBox(height: 28), pricing],
                     const SizedBox(height: 28),
                     const _SectionLabel('What Premium gives you'),
                     const SizedBox(height: 2),
@@ -667,7 +665,7 @@ class _PostPurchaseBackupSheetState
                   'Premium activated',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: accent,
+                    color: _premiumAccentText(context),
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.25,
@@ -682,7 +680,7 @@ class _PostPurchaseBackupSheetState
                       TextSpan(
                         text: 'this account?',
                         style: TextStyle(
-                          color: accent,
+                          color: _premiumAccentText(context),
                           fontStyle: FontStyle.italic,
                         ),
                       ),
@@ -814,7 +812,7 @@ class _PremiumActivatedSheet extends StatelessWidget {
                     'Premium activated',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: accent,
+                      color: _premiumAccentText(context),
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 1.25,
@@ -829,7 +827,7 @@ class _PremiumActivatedSheet extends StatelessWidget {
                         TextSpan(
                           text: 'back it all up.',
                           style: TextStyle(
-                            color: accent,
+                            color: _premiumAccentText(context),
                             fontStyle: FontStyle.italic,
                           ),
                         ),
@@ -1022,7 +1020,6 @@ class _PaywallHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
-    final accent = _premiumGlow(context);
     // The paywall knows what wall the user just hit, so the headline names
     // that moment instead of a generic slogan.
     final (headlineLead, headlineAccent) = switch (entrySource) {
@@ -1062,7 +1059,10 @@ class _PaywallHeader extends StatelessWidget {
               TextSpan(text: headlineLead),
               TextSpan(
                 text: headlineAccent,
-                style: TextStyle(color: accent, fontStyle: FontStyle.italic),
+                style: TextStyle(
+                  color: _premiumAccentText(context),
+                  fontStyle: FontStyle.italic,
+                ),
               ),
             ],
           ),
@@ -1105,7 +1105,7 @@ class _PremiumBadge extends StatelessWidget {
               child: Text(
                 'Personal Premium',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: accent,
+                  color: _premiumAccentText(context),
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0.3,
@@ -1420,7 +1420,9 @@ class _TierPill extends StatelessWidget {
           Text(
             tier.toUpperCase(),
             style: TextStyle(
-              color: accented ? accent : foundation.textMuted,
+              color: accented
+                  ? _premiumAccentText(context)
+                  : foundation.textMuted,
               fontSize: 9,
               fontWeight: FontWeight.w700,
               letterSpacing: 1,
@@ -1431,7 +1433,9 @@ class _TierPill extends StatelessWidget {
           Text(
             value,
             style: TextStyle(
-              color: accented ? accent : foundation.textSecondary,
+              color: accented
+                  ? _premiumAccentText(context)
+                  : foundation.textSecondary,
               fontSize: 12.5,
               fontWeight: accented ? FontWeight.w600 : FontWeight.w400,
               height: 1.2,
@@ -1730,7 +1734,9 @@ class _PlanOption extends StatelessWidget {
                   Text(
                     isAnnual ? 'Annual' : 'Monthly',
                     style: TextStyle(
-                      color: selected ? accent : foundation.textSecondary,
+                      color: selected
+                          ? _premiumAccentText(context)
+                          : foundation.textSecondary,
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.5,
@@ -2085,19 +2091,15 @@ TextStyle _serifStyle(
   );
 }
 
-Color _premiumGlow(BuildContext context) {
-  final theme = Theme.of(context);
-  return _legibleThemeAccent(theme, theme.colorScheme.primary);
-}
+/// The paywall's accent is the app's own action colour (the theme primary),
+/// not a re-saturated variant, so the CTA matches every other screen.
+Color _premiumGlow(BuildContext context) =>
+    Theme.of(context).colorScheme.primary;
 
-Color _legibleThemeAccent(ThemeData theme, Color color) {
-  final hsl = HSLColor.fromColor(color);
-  final saturation = (hsl.saturation * 1.08).clamp(0.36, 0.88).toDouble();
-  final lightness = theme.brightness == Brightness.dark
-      ? hsl.lightness.clamp(0.58, 0.76).toDouble()
-      : hsl.lightness.clamp(0.34, 0.50).toDouble();
-  return hsl.withSaturation(saturation).withLightness(lightness).toColor();
-}
+/// [_premiumGlow] for small accent text: firmed up toward the text colour
+/// only where the theme's primary is too faint to read (never saturated).
+Color _premiumAccentText(BuildContext context) =>
+    context.readableAccentText(_premiumGlow(context));
 
 List<PremiumProduct> _sortedProducts(List<PremiumProduct> products) {
   return [

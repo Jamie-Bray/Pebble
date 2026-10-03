@@ -240,7 +240,6 @@ bool _hasBackupConsent(_Account a) =>
     a == _Account.premiumBillingIssue;
 
 class _FakePurchases extends ChangeNotifier implements PurchaseRepository {
-
   @override
   bool get isLoadingProducts => false;
 
@@ -315,6 +314,7 @@ class _FakePurchases extends ChangeNotifier implements PurchaseRepository {
         throw const PurchaseCancelledException();
     }
   }
+
   @override
   Future<PurchaseResult> restorePurchases() async =>
       throw const PurchaseFlowException('No purchases to restore.');
@@ -1084,6 +1084,21 @@ void main() {
     await env.settle(30);
     await env.shot('player_complete');
   });
+  _capture(
+    'player complete nordicNight',
+    theme: ThemeId.nordicNight,
+    account: _Account.signedInPremium,
+    (env) async {
+      await _openPlayer(env, 3);
+      for (var i = 0; i < 4; i++) {
+        await _tapPrimary(env);
+        await env.realWait(3);
+      }
+      await env.realWait(10);
+      await env.settle(30);
+      await env.shot('theme_nordicNight_complete');
+    },
+  );
   _capture('player voice', account: _Account.signedInPremium, (env) async {
     await _openPlayer(env, 2);
     await env.shot('player_voice_step');

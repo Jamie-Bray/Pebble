@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:pebble_routines/features/routines/composer/models/routine_composer_step_draft.dart';
 
 class RoutineComposerStepRow extends StatelessWidget {
@@ -436,7 +436,8 @@ class _StepToneColors {
     final color = switch (tone) {
       _StepOptionTone.amber => cs.primary,
       _StepOptionTone.sage => cs.secondary,
-      _StepOptionTone.clay => cs.error,
+      // Red is reserved for destructive actions (DESIGN_DIRECTION.md §3.5).
+      _StepOptionTone.clay => cs.secondary,
       _StepOptionTone.neutral => cs.onSurface,
     };
 

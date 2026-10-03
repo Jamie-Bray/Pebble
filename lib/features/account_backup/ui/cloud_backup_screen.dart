@@ -1,11 +1,11 @@
 import 'dart:async';
-import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/ui/zen_notifications.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
@@ -677,6 +677,11 @@ class _BackupHero extends StatelessWidget {
                 value: state.backupSwitchValue,
                 onChanged: onSwitchChanged,
                 activeTrackColor: colorScheme.primary,
+                thumbColor: WidgetStateProperty.resolveWith(
+                  (states) => states.contains(WidgetState.selected)
+                      ? colorScheme.onPrimary
+                      : null,
+                ),
               ),
             ],
           ],
