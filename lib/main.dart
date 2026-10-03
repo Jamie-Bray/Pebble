@@ -7,12 +7,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:go_router/go_router.dart';
 import 'package:home_widget/home_widget.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/home_widget/home_widget_publisher.dart';
 import 'package:intl/intl.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'core/theme/pebble_fonts.dart';
+import 'core/theme/tokens.dart';
+import 'core/ui/pebble_buttons.dart';
 import 'core/theme/theme_provider.dart';
 import 'core/config/app_runtime_config.dart';
 import 'core/monitoring/crash_reporting.dart';
@@ -44,6 +47,7 @@ import 'features/subscription/data/revenuecat_runtime_config.dart';
 import 'features/subscription/domain/routine_limit_policy.dart';
 import 'features/subscription/providers/kept_routines_provider.dart';
 import 'features/subscription/providers/premium_feature_policy_provider.dart';
+
 // duplicate import removed
 
 class RoutineSessionEntry {
@@ -383,9 +387,9 @@ class _RoutineUnavailableScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 24),
-                FilledButton(
+                PebbleButton.primary(
                   onPressed: () => GoRouter.of(context).go('/'),
-                  child: const Text('Back to Home'),
+                  label: 'Back to Home',
                 ),
               ],
             ),
@@ -413,11 +417,7 @@ class _RoutineLockedScreen extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.lock_outline_rounded,
-                  size: 42,
-                  color: colorScheme.primary,
-                ),
+                Icon(LucideIcons.lock, size: 40, color: colorScheme.primary),
                 const SizedBox(height: 16),
                 Text(
                   'Premium ended',
@@ -438,24 +438,22 @@ class _RoutineLockedScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 24),
-                FilledButton(
+                PebbleButton.primary(
                   onPressed: () => GoRouter.of(
                     context,
                   ).push(premiumRoute(source: PremiumEntrySource.routineLimit)),
-                  child: const Text('Renew Premium'),
+                  label: 'Renew Premium',
                 ),
-                const SizedBox(height: 8),
-                OutlinedButton(
-                  onPressed: () => showKeepRoutinesSheet(
-                    context,
-                    preselect: routineId,
-                  ),
-                  child: const Text('Choose routines to keep'),
+                const SizedBox(height: PebbleSpacing.sm),
+                PebbleButton.secondary(
+                  onPressed: () =>
+                      showKeepRoutinesSheet(context, preselect: routineId),
+                  label: 'Choose routines to keep',
                 ),
-                const SizedBox(height: 8),
-                TextButton(
+                const SizedBox(height: PebbleSpacing.xxs),
+                PebbleButton.tertiary(
                   onPressed: () => GoRouter.of(context).go('/'),
-                  child: const Text('Back to Home'),
+                  label: 'Back to Home',
                 ),
               ],
             ),

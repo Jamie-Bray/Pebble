@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:pebble_routines/core/config/legal_links.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/theme/pebble_fonts.dart';
+import 'package:pebble_routines/core/ui/pebble_buttons.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/core/ui/zen_notifications.dart';
@@ -1802,7 +1803,7 @@ class _PlanBadge extends StatelessWidget {
   }
 }
 
-class _PremiumActionButton extends StatefulWidget {
+class _PremiumActionButton extends StatelessWidget {
   const _PremiumActionButton({
     super.key,
     required this.busy,
@@ -1821,103 +1822,19 @@ class _PremiumActionButton extends StatefulWidget {
   final IconData? icon;
   final String? semanticsLabel;
 
-  /// Shows a small spinner beside [label] (store still loading) instead of
-  /// replacing the label with one.
+  /// Shows a small spinner beside [label] (store still loading).
   final bool showSpinnerLabel;
 
   @override
-  State<_PremiumActionButton> createState() => _PremiumActionButtonState();
-}
-
-class _PremiumActionButtonState extends State<_PremiumActionButton>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 90),
-    lowerBound: 0.99,
-    upperBound: 1,
-    value: 1,
-  );
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final accent = _premiumGlow(context);
-    final onAccent = Theme.of(context).colorScheme.onPrimary;
-    final enabled = widget.enabled && !widget.busy;
-    final spinner = SizedBox(
-      width: 18,
-      height: 18,
-      child: CircularProgressIndicator.adaptive(
-        strokeWidth: 2.2,
-        valueColor: AlwaysStoppedAnimation<Color>(onAccent),
-      ),
-    );
-    final label = Text(
-      widget.label,
-      textAlign: TextAlign.center,
-      style: TextStyle(
-        color: onAccent,
-        fontSize: 16,
-        fontWeight: FontWeight.w600,
-        height: 1.25,
-      ),
-    );
-    final Widget child;
-    if (widget.busy) {
-      child = SizedBox(width: 22, height: 22, child: spinner);
-    } else if (widget.showSpinnerLabel || widget.icon != null) {
-      child = Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (widget.showSpinnerLabel)
-            spinner
-          else
-            Icon(widget.icon, size: 18, color: onAccent),
-          const SizedBox(width: 10),
-          Flexible(child: label),
-        ],
-      );
-    } else {
-      child = label;
-    }
-    return Semantics(
-      button: true,
-      enabled: enabled,
-      label: widget.semanticsLabel,
-      child: GestureDetector(
-        onTapDown: enabled ? (_) => _controller.reverse() : null,
-        onTapCancel: enabled ? () => _controller.forward() : null,
-        onTapUp: enabled
-            ? (_) {
-                _controller.forward();
-                widget.onPressed();
-              }
-            : null,
-        child: ScaleTransition(
-          scale: _controller,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            width: double.infinity,
-            // Grows with large text instead of clipping a wrapped label.
-            constraints: const BoxConstraints(minHeight: 58),
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: enabled || widget.busy
-                  ? accent
-                  : accent.withValues(alpha: 0.38),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: child,
-          ),
-        ),
-      ),
+    // The app's one primary button: same colour, shape and type as every
+    // other screen's main action.
+    return PebbleButton.primary(
+      label: label,
+      icon: icon,
+      busy: busy || showSpinnerLabel,
+      semanticsLabel: semanticsLabel,
+      onPressed: enabled ? onPressed : null,
     );
   }
 }

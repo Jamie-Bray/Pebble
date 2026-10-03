@@ -1,11 +1,13 @@
 import 'dart:async';
-import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:pebble_routines/core/theme/pebble_fonts.dart';
+import 'package:pebble_routines/core/theme/tokens.dart';
+import 'package:pebble_routines/core/ui/pebble_buttons.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/navigation/app_shell.dart';
@@ -665,76 +667,24 @@ class _WelcomeActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        FilledButton(
+        PebbleButton.primary(
           onPressed: onContinue,
-          style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            textStyle: PebbleFonts.sans(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          child: const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text('Choose your theme'),
-              SizedBox(width: 8),
-              Icon(LucideIcons.arrowRight, size: 18),
-            ],
-          ),
+          label: 'Choose your theme',
+          trailingIcon: LucideIcons.arrowRight,
         ),
-        const SizedBox(height: 10),
-        OutlinedButton(
+        const SizedBox(height: PebbleSpacing.sm),
+        PebbleButton.secondary(
           onPressed: onExplore,
-          style: OutlinedButton.styleFrom(
-            foregroundColor: foundation.textPrimary,
-            side: BorderSide(
-              color: Theme.of(
-                context,
-              ).colorScheme.primary.withValues(alpha: 0.24),
-              width: 1.2,
-            ),
-            padding: const EdgeInsets.symmetric(vertical: 15),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            textStyle: PebbleFonts.sans(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          child: const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(LucideIcons.sparkles, size: 17),
-              SizedBox(width: 8),
-              Text('What can Pebble do?'),
-            ],
-          ),
+          icon: LucideIcons.sparkles,
+          label: 'What can Pebble do?',
         ),
-        const SizedBox(height: 8),
-        TextButton(
+        const SizedBox(height: PebbleSpacing.xs),
+        PebbleButton.tertiary(
           onPressed: onSkip,
-          style: TextButton.styleFrom(
-            foregroundColor: context.readableSecondaryText,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            textStyle: PebbleFonts.sans(
-              fontSize: 14,
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-          child: const Text('Skip setup, go straight in'),
+          label: 'Skip setup, go straight in',
         ),
       ],
     );
@@ -992,28 +942,10 @@ class _PebblePossibilitiesScreenState extends State<_PebblePossibilitiesScreen>
                                     stops: const [0, 0.4],
                                   ),
                                 ),
-                                child: FilledButton(
+                                child: PebbleButton.primary(
                                   onPressed: widget.onContinue,
-                                  style: FilledButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 17,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    textStyle: PebbleFonts.sans(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  child: const Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text('Continue'),
-                                      SizedBox(width: 8),
-                                      Icon(LucideIcons.arrowRight, size: 17),
-                                    ],
-                                  ),
+                                  label: 'Continue',
+                                  trailingIcon: LucideIcons.arrowRight,
                                 ),
                               ),
                             ),
@@ -1709,42 +1641,15 @@ class _ThemePickerPage extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              FilledButton(
+              PebbleButton.primary(
                 onPressed: onContinue,
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  textStyle: PebbleFonts.sans(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text('Continue'),
-                    SizedBox(width: 8),
-                    Icon(LucideIcons.arrowRight, size: 18),
-                  ],
-                ),
+                label: 'Continue',
+                trailingIcon: LucideIcons.arrowRight,
               ),
-              const SizedBox(height: 8),
-              TextButton(
+              const SizedBox(height: PebbleSpacing.xs),
+              PebbleButton.tertiary(
                 onPressed: onDecideLater,
-                style: TextButton.styleFrom(
-                  foregroundColor: context.readableSecondaryText,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  textStyle: PebbleFonts.sans(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-                child: const Text("I'll decide later"),
+                label: "I'll decide later",
               ),
             ],
           ),
@@ -2143,20 +2048,10 @@ class _StartingPointPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          TextButton(
+          PebbleButton.tertiary(
+            expand: true,
             onPressed: onSkip,
-            style: TextButton.styleFrom(
-              foregroundColor: context.readableSecondaryText,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              textStyle: PebbleFonts.sans(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-            child: const Text('Skip for now'),
+            label: 'Skip for now',
           ),
         ],
       ),
@@ -2407,20 +2302,10 @@ class _StarterPreviewPage extends StatelessWidget {
       bottom: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          FilledButton(
-            onPressed: isCreating ? null : onUseStarter,
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 18),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-            ),
-            child: isCreating
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                  )
-                : const Text('Use this starter routine'),
+          PebbleButton.primary(
+            onPressed: onUseStarter,
+            busy: isCreating,
+            label: 'Use this starter routine',
           ),
           const SizedBox(height: 12),
           Text(
@@ -2432,13 +2317,10 @@ class _StarterPreviewPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          TextButton(
+          PebbleButton.tertiary(
+            expand: true,
             onPressed: isCreating ? null : onPickAnother,
-            style: TextButton.styleFrom(
-              foregroundColor: foundation.textSecondary,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-            ),
-            child: const Text('Pick another starting point'),
+            label: 'Pick another starting point',
           ),
         ],
       ),

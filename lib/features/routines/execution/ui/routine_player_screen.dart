@@ -15,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
+import 'package:pebble_routines/core/ui/pebble_buttons.dart';
 import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/core/navigation/app_shell.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
@@ -825,37 +826,23 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
                   ),
                 ),
                 const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () =>
-                        Navigator.pop(context, _RoutineExitAction.leaveAndSave),
-                    child: const Text('Leave and save'),
-                  ),
+                PebbleButton.primary(
+                  onPressed: () =>
+                      Navigator.pop(context, _RoutineExitAction.leaveAndSave),
+                  label: 'Leave and save',
                 ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () =>
-                        Navigator.pop(context, _RoutineExitAction.stay),
-                    child: const Text('Stay here'),
-                  ),
+                const SizedBox(height: PebbleSpacing.sm),
+                PebbleButton.secondary(
+                  onPressed: () =>
+                      Navigator.pop(context, _RoutineExitAction.stay),
+                  label: 'Stay here',
                 ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: TextButton(
-                    onPressed: () =>
-                        Navigator.pop(context, _RoutineExitAction.discard),
-                    style: TextButton.styleFrom(
-                      foregroundColor: themeData.colorScheme.error.withValues(
-                        alpha: 0.78,
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    child: const Text('Discard progress'),
-                  ),
+                const SizedBox(height: PebbleSpacing.xs),
+                PebbleButton.destructive(
+                  expand: true,
+                  onPressed: () =>
+                      Navigator.pop(context, _RoutineExitAction.discard),
+                  label: 'Discard progress',
                 ),
               ],
             ),
@@ -1337,29 +1324,12 @@ class _RoutineStepFooter extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: isPrimaryEnabled && !isBusy
-                      ? () => unawaited(onComplete())
-                      : null,
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(56),
-                    textStyle: PebbleFonts.sans(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  child: isBusy
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator.adaptive(
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : Text(primaryLabel),
-                ),
+              PebbleButton.primary(
+                label: primaryLabel,
+                busy: isBusy,
+                onPressed: isPrimaryEnabled
+                    ? () => unawaited(onComplete())
+                    : null,
               ),
               const SizedBox(height: 8),
               Container(
@@ -1921,27 +1891,17 @@ class _PlayerSecondaryActionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textColor = context.readableSecondaryText;
-
     final actions = <Widget>[
       if (showPrevious)
-        TextButton.icon(
+        PebbleButton.tertiary(
           onPressed: onPrevious == null ? null : () => unawaited(onPrevious!()),
-          icon: const Icon(LucideIcons.chevronLeft, size: 16),
-          label: const Text('Previous'),
-          style: TextButton.styleFrom(foregroundColor: textColor),
+          icon: LucideIcons.chevronLeft,
+          label: 'Previous',
         ),
       if (showSkip)
-        TextButton(
+        PebbleButton.tertiary(
           onPressed: onSkip == null ? null : () => unawaited(onSkip!()),
-          style: TextButton.styleFrom(
-            foregroundColor: textColor,
-            textStyle: PebbleFonts.sans(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          child: const Text('Skip step'),
+          label: 'Skip step',
         ),
     ];
 
@@ -2119,50 +2079,14 @@ class _RoutineCompleteScreenState extends State<RoutineCompleteScreen>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: widget.onBackToHome,
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(58),
-                        backgroundColor: primary,
-                        foregroundColor: theme.colorScheme.onPrimary,
-                        elevation: 0,
-                        shadowColor: primary.withValues(alpha: 0.25),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        textStyle: PebbleFonts.sans(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      child: const Text('Back to Home'),
-                    ),
+                  PebbleButton.primary(
+                    onPressed: widget.onBackToHome,
+                    label: 'Back to Home',
                   ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: widget.onReviewRoutine,
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(56),
-                        backgroundColor: Colors.transparent,
-                        foregroundColor: primary,
-                        side: BorderSide(
-                          color: primary.withValues(alpha: 0.36),
-                          width: 1.6,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        textStyle: PebbleFonts.sans(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      child: const Text('Review routine'),
-                    ),
+                  const SizedBox(height: PebbleSpacing.sm),
+                  PebbleButton.secondary(
+                    onPressed: widget.onReviewRoutine,
+                    label: 'Review routine',
                   ),
                 ],
               ),
@@ -2384,16 +2308,16 @@ class _PlayerStatusView extends StatelessWidget {
                   ),
                   if (primaryLabel != null && onPrimary != null) ...[
                     const SizedBox(height: 24),
-                    FilledButton(
+                    PebbleButton.primary(
                       onPressed: onPrimary,
-                      child: Text(primaryLabel!),
+                      label: primaryLabel!,
                     ),
                   ],
                   if (secondaryLabel != null && onSecondary != null) ...[
-                    const SizedBox(height: 10),
-                    TextButton(
+                    const SizedBox(height: PebbleSpacing.xs),
+                    PebbleButton.tertiary(
                       onPressed: onSecondary,
-                      child: Text(secondaryLabel!),
+                      label: secondaryLabel!,
                     ),
                   ],
                 ],

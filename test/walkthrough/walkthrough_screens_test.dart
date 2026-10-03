@@ -1289,7 +1289,7 @@ void main() {
   _capture('home actions', (env) async {
     await env.tapFinder(find.byTooltip('Routine settings').first);
     await env.shot('home_routine_actions_menu');
-    await env.tapText('Reorder Steps');
+    await env.tapText('Reorder steps');
     await env.realWait();
     await env.shot('reorder_steps');
   });

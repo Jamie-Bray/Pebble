@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:pebble_routines/core/theme/tokens.dart';
+import 'package:pebble_routines/core/ui/pebble_buttons.dart';
 import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 
@@ -83,19 +85,20 @@ class SubscriptionGuard {
                 ),
               ),
               const SizedBox(height: 24),
-              FilledButton(
+              PebbleButton.primary(
                 onPressed: () {
                   Navigator.of(sheetContext).pop();
                   GoRouter.of(
                     context,
                   ).push(premiumRoute(source: PremiumEntrySource.routineLimit));
                 },
-                child: const Text('View Personal Premium'),
+                label: 'View Personal Premium',
               ),
-              const SizedBox(height: 10),
-              TextButton(
+              const SizedBox(height: PebbleSpacing.xs),
+              PebbleButton.tertiary(
+                expand: true,
                 onPressed: () => Navigator.of(sheetContext).pop(),
-                child: const Text('Maybe later'),
+                label: 'Maybe later',
               ),
             ],
           ),
@@ -147,19 +150,20 @@ class SubscriptionGuard {
                 ),
               ),
               const SizedBox(height: 24),
-              FilledButton(
+              PebbleButton.primary(
                 onPressed: () {
                   Navigator.of(sheetContext).pop();
                   GoRouter.of(
                     context,
                   ).push(premiumRoute(source: PremiumEntrySource.stepLimit));
                 },
-                child: const Text('View Personal Premium'),
+                label: 'View Personal Premium',
               ),
-              const SizedBox(height: 10),
-              TextButton(
+              const SizedBox(height: PebbleSpacing.xs),
+              PebbleButton.tertiary(
+                expand: true,
                 onPressed: () => Navigator.of(sheetContext).pop(),
-                child: const Text('Maybe later'),
+                label: 'Maybe later',
               ),
             ],
           ),

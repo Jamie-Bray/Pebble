@@ -1,11 +1,13 @@
 import 'dart:async';
-import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pebble_routines/core/theme/pebble_fonts.dart';
+import 'package:pebble_routines/core/theme/tokens.dart';
+import 'package:pebble_routines/core/ui/pebble_buttons.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/features/routines/creator/ui/routine_creation_choice_sheet.dart';
 import 'package:pebble_routines/features/routines/creator/ui/routine_style_picker_sheet.dart';
@@ -186,7 +188,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Unlock Routine Style',
+                  'Unlock routine style',
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
@@ -204,42 +206,19 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                   ),
                 ),
                 const SizedBox(height: 30),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: accent,
-                    foregroundColor:
-                        ThemeData.estimateBrightnessForColor(accent) ==
-                            Brightness.dark
-                        ? Colors.white
-                        : Colors.black,
-                    minimumSize: const Size(double.infinity, 56),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                  ),
+                PebbleButton.primary(
                   onPressed: () {
                     Navigator.pop(ctx);
                     context.push(
                       premiumRoute(source: PremiumEntrySource.backup),
                     );
                   },
-                  child: const Text(
-                    'See Personal Premium',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                  ),
+                  label: 'See Personal Premium',
                 ),
-                const SizedBox(height: 10),
-                TextButton(
+                const SizedBox(height: PebbleSpacing.xs),
+                PebbleButton.tertiary(
                   onPressed: () => Navigator.pop(ctx),
-                  child: Text(
-                    'Not now',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      color: cs.onSurface.withValues(alpha: 0.72),
-                    ),
-                  ),
+                  label: 'Not now',
                 ),
               ],
             ),
@@ -371,28 +350,17 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                               ),
                             ),
                             const SizedBox(height: 28),
-                            SizedBox(
-                              width: double.infinity,
-                              child: FilledButton.icon(
-                                onPressed: _openNewRoutine,
-                                icon: const Icon(LucideIcons.plus, size: 18),
-                                label: const Text('Create routine'),
-                              ),
+                            PebbleButton.primary(
+                              onPressed: _openNewRoutine,
+                              icon: LucideIcons.plus,
+                              label: 'Create routine',
                             ),
-                            const SizedBox(height: 10),
-                            SizedBox(
-                              width: double.infinity,
-                              child: TextButton.icon(
-                                onPressed: () => context.push('/templates'),
-                                icon: const Icon(
-                                  LucideIcons.layoutTemplate,
-                                  size: 17,
-                                ),
-                                label: const Text('Use template'),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: foundation.textSecondary,
-                                ),
-                              ),
+                            const SizedBox(height: PebbleSpacing.xs),
+                            PebbleButton.tertiary(
+                              expand: true,
+                              onPressed: () => context.push('/templates'),
+                              icon: LucideIcons.layoutTemplate,
+                              label: 'Use template',
                             ),
                             const Spacer(flex: 2),
                           ],
@@ -1630,7 +1598,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                           _buildMenuRow(
                             sheetContext,
                             icon: LucideIcons.listOrdered,
-                            label: 'Reorder Steps',
+                            label: 'Reorder steps',
                             subtitle: 'Drag steps into a new order',
                             accent: accent,
                             onTap: () async {
@@ -1678,7 +1646,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                           _buildMenuRow(
                             sheetContext,
                             icon: LucideIcons.trendingUp,
-                            label: 'Stats & History',
+                            label: 'Stats & history',
                             subtitle: 'See how often you run this',
                             accent: accent,
                             onTap: () {
@@ -1689,7 +1657,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                           _buildMenuRow(
                             sheetContext,
                             icon: LucideIcons.copy,
-                            label: 'Duplicate Routine',
+                            label: 'Duplicate routine',
                             subtitle: 'Create an editable copy',
                             accent: accent,
                             onTap: () {
@@ -1703,7 +1671,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                           _buildMenuRow(
                             sheetContext,
                             icon: LucideIcons.trash2,
-                            label: 'Delete Routine',
+                            label: 'Delete routine',
                             subtitle: deleteOpen
                                 ? 'Confirm removal below'
                                 : 'Reveal removal options',
@@ -2213,26 +2181,11 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
                   key: const ValueKey('home_hero_cta_box'),
                   width: double.infinity,
                   height: 58,
-                  child: FilledButton.icon(
+                  child: PebbleButton.primary(
                     key: const ValueKey('home_hero_cta'),
                     onPressed: widget.onBegin,
-                    icon: const Icon(LucideIcons.play, size: 16),
-                    label: const Text('Start'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: widget.themeData.colorScheme.primary,
-                      foregroundColor: foundation.bgBase,
-                      elevation: 0,
-                      shadowColor: widget.themeData.colorScheme.primary
-                          .withValues(alpha: 0.28),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      textStyle: PebbleFonts.sans(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -0.1,
-                      ),
-                    ),
+                    icon: LucideIcons.play,
+                    label: 'Start',
                   ),
                 ),
                 SizedBox(height: metrics.ctaMetaGap),

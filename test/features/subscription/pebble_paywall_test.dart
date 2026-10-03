@@ -240,7 +240,7 @@ void main() {
           // The label is not clipped by a fixed-height button.
           final button = find.ancestor(
             of: cta,
-            matching: find.byType(AnimatedContainer),
+            matching: find.byType(FilledButton),
           );
           expect(
             tester.getRect(button.first).bottom,
