@@ -38,7 +38,7 @@ void main() {
       );
       expect(prefs.getBool('has_completed_onboarding'), isFalse);
 
-      await tester.tap(find.text('Continue onboarding'));
+      await tester.tap(find.text('Continue'));
       await tester.pump();
       // Let the route pop and PageView transition run; once the explainer is
       // disposed the looping animation is gone and we can settle the rest.
@@ -73,7 +73,7 @@ void main() {
       await tester.tap(find.text('Medication Check'));
       await tester.pumpAndSettle();
 
-      expect(find.text("Here's how this could work"), findsOneWidget);
+      expect(find.text("Here's how this could work."), findsOneWidget);
       expect(find.text('Use this starter routine'), findsOneWidget);
       expect(find.text('Pick another starting point'), findsOneWidget);
       expect(prefs.getBool('has_completed_onboarding'), isFalse);

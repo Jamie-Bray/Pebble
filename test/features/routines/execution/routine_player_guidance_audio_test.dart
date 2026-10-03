@@ -49,6 +49,7 @@ void main() {
     RoutineSessionProofStorage proofStorage = const _FakeProofStorage(),
     RoutineSession? session,
     bool settle = true,
+    double textScale = 1,
   }) async {
     repository.session = session ?? _sessionForStep(step);
     final prefs = await SharedPreferences.getInstance();
@@ -73,8 +74,17 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: overrides,
-        child: const MaterialApp(
-          home: RoutinePlayerScreen(sessionId: 'session-1'),
+        child: MaterialApp(
+          home: textScale == 1
+              ? const RoutinePlayerScreen(sessionId: 'session-1')
+              : Builder(
+                  builder: (context) => MediaQuery(
+                    data: MediaQuery.of(
+                      context,
+                    ).copyWith(textScaler: TextScaler.linear(textScale)),
+                    child: const RoutinePlayerScreen(sessionId: 'session-1'),
+                  ),
+                ),
         ),
       ),
     );
@@ -180,16 +190,63 @@ void main() {
     expect(find.text('Routine complete'), findsOneWidget);
     expect(find.text('Evening close down'), findsOneWidget);
     expect(find.text('SUMMARY'), findsOneWidget);
-    expect(find.text('Steps Completed'), findsOneWidget);
-    expect(find.text('4 / 4'), findsOneWidget);
-    expect(find.text('Evidence Saved'), findsOneWidget);
-    expect(find.text('2 Photos'), findsOneWidget);
+    expect(find.text('Steps completed'), findsOneWidget);
+    expect(find.text('4 of 4'), findsOneWidget);
+    expect(find.text('Photos saved'), findsOneWidget);
+    expect(find.text('2 photos'), findsOneWidget);
 
     await tester.tap(find.text('Back to Home'));
     expect(wentHome, isTrue);
 
-    await tester.tap(find.text('Review Routine'));
+    await tester.tap(find.text('Review routine'));
     expect(reviewedRoutine, isTrue);
+  });
+
+  testWidgets('completion summary reports skipped steps and hides an '
+      'empty photo row', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RoutineCompleteScreen(
+          routineName: 'Morning reset',
+          totalStepsCompleted: 3,
+          totalPhotosSaved: 0,
+          totalSteps: 4,
+          skippedSteps: 1,
+          showPhotoSummary: false,
+          onBackToHome: () {},
+          onReviewRoutine: () {},
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 900));
+
+    expect(find.text('3 of 4 · 1 skipped'), findsOneWidget);
+    expect(find.text('3 / 3'), findsNothing);
+    expect(find.text('Photos saved'), findsNothing);
+  });
+
+  testWidgets('photo step at 2.0x text keeps the instruction readable', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repository = _FakeRoutineSessionRepository();
+    await pumpPlayer(
+      tester,
+      const RoutineStep.check(label: 'Back door locked', requiresPhoto: true),
+      repository,
+      textScale: 2.0,
+    );
+
+    expect(tester.takeException(), isNull);
+    final instruction = find.text('Required to complete this step');
+    expect(instruction, findsOneWidget);
+    // It wraps onto more lines rather than being sliced by a fixed box.
+    expect(tester.getSize(instruction).height, greaterThan(17 * 2.0));
+    expect(find.text('Add'), findsOneWidget);
   });
 
   testWidgets('add tile opens camera directly without the source sheet', (

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:drift/drift.dart' show Value;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,6 +14,7 @@ import 'package:pebble_routines/features/account_backup/providers/account_backup
 import 'package:pebble_routines/features/history/providers/routine_history_vm.dart';
 import 'package:pebble_routines/features/routines/composer/data/routine_composer_draft_repository.dart';
 import 'package:pebble_routines/features/routines/composer/ui/routine_composer_screen.dart';
+import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/repositories/routine_session_repository.dart';
 import 'package:pebble_routines/features/routines/execution/ui/routine_player_screen.dart';
 import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
@@ -764,6 +766,152 @@ void main() {
       everyElement(RoutineMoveDirection.up),
     );
   });
+
+  testWidgets('routine settings hides the widget pin action on iOS', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    try {
+      final repo = _FakeRoutineRepository([
+        _routine(id: 1, title: 'Morning Reset', isPinned: true),
+      ]);
+
+      await _pumpHome(
+        tester,
+        routines: repo._routines.values.toList(),
+        routineRepository: repo,
+      );
+
+      await tester.tap(find.byTooltip('Routine settings'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('Edit'), findsOneWidget);
+      expect(find.text('Pin to Widget'), findsNothing);
+      expect(find.text('Unpin from Widget'), findsNothing);
+      expect(find.textContaining('home widget'), findsNothing);
+      expect(find.textContaining('Pinned'), findsNothing);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  testWidgets('home at 2.0x text on an iPhone keeps Start and the header '
+      'intact', (tester) async {
+    await _pumpHome(
+      tester,
+      surfaceSize: const Size(390, 844),
+      viewPadding: const EdgeInsets.only(top: 47, bottom: 34),
+      textScale: 2.0,
+      routines: [
+        _routine(
+          id: 1,
+          title: 'Leaving the house',
+          isPinned: true,
+          steps: List.generate(5, (i) => _step('Step $i')),
+        ),
+        _routine(id: 2, title: 'Morning reset'),
+        _routine(id: 3, title: 'Wind down'),
+      ],
+    );
+
+    expect(tester.takeException(), isNull);
+
+    // The wordmark stays on one line instead of breaking per letter.
+    final wordmark = find.text('pebble.');
+    expect(wordmark, findsOneWidget);
+    expect(tester.getSize(wordmark).height, lessThan(40));
+
+    // Start is on screen, above the routine shelf, without scrolling.
+    final cta = find.byKey(const ValueKey('home_hero_cta_box'));
+    expect(cta, findsOneWidget);
+    final ctaBottom = tester.getBottomLeft(cta).dy;
+    final shelfTop = tester.getTopLeft(find.text('Your Routines')).dy;
+    expect(ctaBottom, lessThan(shelfTop));
+    expect(tester.getTopLeft(cta).dy, greaterThan(0));
+
+    // The expanded routine list grows its rows instead of clipping them.
+    await tester.tap(find.text('Your Routines'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(find.text('Morning reset'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('small phone keeps Start visible while a routine is in '
+      'progress', (tester) async {
+    await _pumpHome(
+      tester,
+      surfaceSize: const Size(360, 640),
+      viewPadding: const EdgeInsets.only(top: 24),
+      routines: [
+        _routine(
+          id: 1,
+          title: 'Leaving the house',
+          steps: List.generate(5, (i) => _step('Step $i')),
+        ),
+        _routine(id: 2, title: 'Wind down'),
+      ],
+      resumeSessions: [
+        RoutineSessionResumeSummary(
+          sessionId: 's1',
+          routineId: 2,
+          routineTitleSnapshot: 'Wind down',
+          currentStepIndex: 1,
+          totalStepCount: 4,
+          updatedAt: DateTime(2026, 10, 3),
+        ),
+      ],
+      latestRun: _run(routineId: 1, finishedAt: DateTime(2026, 10, 3)),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const ValueKey('home_resume_card')), findsOneWidget);
+    final cta = find.byKey(const ValueKey('home_hero_cta_box'));
+    final ctaBottom = tester.getBottomLeft(cta).dy;
+    final shelfTop = tester.getTopLeft(find.text('Your Routines')).dy;
+    expect(ctaBottom, lessThan(shelfTop));
+    final metaBottom = tester
+        .getBottomLeft(find.byKey(const ValueKey('home_hero_meta_row')))
+        .dy;
+    expect(metaBottom, lessThanOrEqualTo(shelfTop));
+  });
+
+  testWidgets('home last-run line reports skipped steps', (tester) async {
+    final finishedAt = DateTime.now().subtract(const Duration(hours: 3));
+    await _pumpHome(
+      tester,
+      surfaceSize: const Size(390, 844),
+      routines: [
+        _routine(
+          id: 1,
+          title: 'Morning reset',
+          steps: List.generate(4, (i) => _step('Step $i')),
+        ),
+      ],
+      latestRun: RoutineRun(
+        id: 'run-1',
+        routineId: '1',
+        routineTitle: 'Morning reset',
+        finishedAt: finishedAt,
+        stepCompletionData: jsonEncode({
+          'steps': [
+            for (var i = 0; i < 4; i++)
+              {'stepIndex': i, 'completed': i != 3, 'skipped': i == 3},
+          ],
+        }),
+        ownerUserId: null,
+        syncStatus: 'localOnly',
+        lastSyncedAt: null,
+        syncMetadataJson: null,
+        updatedAt: finishedAt,
+      ),
+    );
+
+    expect(find.text('Last completed 3h ago'), findsOneWidget);
+    expect(find.text('3 of 4 steps · 1 skipped'), findsOneWidget);
+    expect(find.text('4 of 4 steps'), findsNothing);
+  });
 }
 
 List<Override> _homeOverrides({
@@ -771,6 +919,8 @@ List<Override> _homeOverrides({
   required List<RoutineRun> runs,
   HomeRoutineHighlight? highlight,
   RoutineRepository? routineRepository,
+  List<RoutineSessionResumeSummary> resumeSessions = const [],
+  RoutineRun? latestRun,
 }) {
   final repository = routineRepository ?? _FakeRoutineRepository(routines);
   return [
@@ -781,9 +931,11 @@ List<Override> _homeOverrides({
     routineListProvider.overrideWith((ref) => Stream.value(routines)),
     routineRepositoryProvider.overrideWithValue(repository),
     routineHistoryVmProvider.overrideWith((ref) => Stream.value(runs)),
-    activeRoutineSessionsProvider.overrideWith((ref) => Stream.value(const [])),
+    activeRoutineSessionsProvider.overrideWith(
+      (ref) => Stream.value(resumeSessions),
+    ),
     latestRoutineRunProvider.overrideWith(
-      (ref, routineId) => Stream.value(null),
+      (ref, routineId) => Stream.value(latestRun),
     ),
     sharedPreferencesProvider.overrideWithValue(_prefs),
     routineComposerDraftRepositoryProvider.overrideWithValue(
@@ -804,6 +956,9 @@ Future<void> _pumpHome(
   Size? surfaceSize,
   double textScale = 1,
   RoutineRepository? routineRepository,
+  List<RoutineSessionResumeSummary> resumeSessions = const [],
+  RoutineRun? latestRun,
+  EdgeInsets viewPadding = EdgeInsets.zero,
 }) async {
   if (surfaceSize != null) {
     tester.view.physicalSize = surfaceSize;
@@ -813,10 +968,16 @@ Future<void> _pumpHome(
   }
 
   Widget home = const RoutineListScreen();
-  if (textScale != 1) {
-    home = MediaQuery(
-      data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
-      child: home,
+  if (textScale != 1 || viewPadding != EdgeInsets.zero) {
+    home = Builder(
+      builder: (context) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          textScaler: TextScaler.linear(textScale),
+          padding: viewPadding,
+          viewPadding: viewPadding,
+        ),
+        child: const RoutineListScreen(),
+      ),
     );
   }
 
@@ -827,6 +988,8 @@ Future<void> _pumpHome(
         runs: runs,
         highlight: highlight,
         routineRepository: routineRepository,
+        resumeSessions: resumeSessions,
+        latestRun: latestRun,
       ),
       child: MaterialApp(theme: AppTheme.fromId(ThemeId.highNoon), home: home),
     ),
