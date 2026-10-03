@@ -1097,8 +1097,8 @@ class _LapsedHero extends StatelessWidget {
         const SizedBox(height: 12),
         Text(
           inGrace
-              ? 'Everything stays as it is on this phone until $graceEndDate. '
-                    'Here is what changes after that.'
+              ? 'Your routines and history stay as they are until '
+                    '$graceEndDate. Here is what changes after that.'
               : 'Pebble now uses Free limits. Here is what that means for '
                     'what you saved.',
           style: GoogleFonts.outfit(
