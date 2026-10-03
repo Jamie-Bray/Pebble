@@ -56,13 +56,13 @@ class SupabaseAuthRepository implements AuthRepository {
   }
 
   GoogleSignIn get _requiredGoogleSignIn {
-    final webClientId = _config.googleWebClientId;
-    if (webClientId == null || webClientId.isEmpty) {
+    if (!_config.supportsGoogleSignIn) {
       throw StateError('Google sign-in is not available in this build yet.');
     }
     return _googleSignIn ??= GoogleSignIn(
       scopes: const ['email'],
-      serverClientId: webClientId,
+      clientId: Platform.isIOS ? _config.googleIosClientId : null,
+      serverClientId: _config.googleWebClientId,
     );
   }
 
@@ -166,10 +166,20 @@ class SupabaseAuthRepository implements AuthRepository {
 
     final rawNonce = _generateNonce();
     final nonce = sha256.convert(utf8.encode(rawNonce)).toString();
-    final credential = await SignInWithApple.getAppleIDCredential(
-      scopes: const [AppleIDAuthorizationScopes.email],
-      nonce: nonce,
-    );
+    final AuthorizationCredentialAppleID credential;
+    try {
+      credential = await SignInWithApple.getAppleIDCredential(
+        scopes: const [AppleIDAuthorizationScopes.email],
+        nonce: nonce,
+      );
+    } on SignInWithAppleAuthorizationException catch (error) {
+      if (error.code == AuthorizationErrorCode.canceled) {
+        throw StateError('Apple sign-in was canceled.');
+      }
+      throw StateError(
+        'Apple sign-in could not be completed. Please try again.',
+      );
+    }
     final identityToken = credential.identityToken;
     if (identityToken == null || identityToken.isEmpty) {
       throw StateError(

@@ -5,6 +5,12 @@ import 'package:pebble_routines/features/subscription/data/revenuecat_purchase_r
 import 'package:purchases_flutter/purchases_flutter.dart' as rc;
 
 void main() {
+  test('only Android restores purchases without a user tap', () {
+    // iOS restores can raise the Apple ID sheet, so they stay button-only.
+    expect(revenueCatAllowsSilentRestore(TargetPlatform.android), isTrue);
+    expect(revenueCatAllowsSilentRestore(TargetPlatform.iOS), isFalse);
+  });
+
   group('RevenueCat purchase mapping', () {
     test('maps monthly and yearly packages to Pebble premium products', () {
       final monthly = _package(

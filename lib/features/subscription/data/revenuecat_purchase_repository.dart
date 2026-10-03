@@ -183,7 +183,9 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     }
     var entitlement = _activeEntitlement(customerInfo);
     var restoredAfterLogin = false;
-    if (entitlement == null && userId != null) {
+    if (entitlement == null &&
+        userId != null &&
+        revenueCatAllowsSilentRestore(defaultTargetPlatform)) {
       debugPrint(
         '[PremiumEntitlement] No active RevenueCat entitlement after '
         'logIn; attempting restore for signed-in user=$userId.',
@@ -552,6 +554,17 @@ String? revenueCatManageSubscriptionsUrl({
       return null;
   }
 }
+
+/// Whether a background sync may call `restorePurchases()` on its own.
+///
+/// On iOS a restore can raise the Apple ID sign-in sheet, which must only
+/// follow an explicit tap (the Restore buttons). StoreKit transactions are
+/// observed by RevenueCat automatically, so `getCustomerInfo()` after
+/// `logIn()` already reflects them. Android keeps its silent restore, which
+/// reattaches Play purchases made before sign-in.
+@visibleForTesting
+bool revenueCatAllowsSilentRestore(TargetPlatform platform) =>
+    platform == TargetPlatform.android;
 
 @visibleForTesting
 String revenueCatMessageForPurchasesError(rc.PurchasesErrorCode code) {

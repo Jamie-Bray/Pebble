@@ -467,6 +467,9 @@ Future<void> _startPebble(AppRuntimeConfig appRuntimeConfig) async {
   const googleWebClientId = String.fromEnvironment(
     'SUPABASE_GOOGLE_WEB_CLIENT_ID',
   );
+  const googleIosClientId = String.fromEnvironment(
+    'SUPABASE_GOOGLE_IOS_CLIENT_ID',
+  );
   const revenueCatAndroidApiKey = String.fromEnvironment(
     'REVENUECAT_ANDROID_API_KEY',
   );
@@ -516,6 +519,9 @@ Future<void> _startPebble(AppRuntimeConfig appRuntimeConfig) async {
           googleWebClientId: googleWebClientId.isEmpty
               ? null
               : googleWebClientId,
+          googleIosClientId: googleIosClientId.isEmpty
+              ? null
+              : googleIosClientId,
         )
       : const SupabaseRuntimeConfig.disabled();
   const revenueCatConfig = RevenueCatRuntimeConfig(

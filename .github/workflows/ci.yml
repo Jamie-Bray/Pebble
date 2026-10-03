@@ -1,0 +1,104 @@
+# Pebble Routines CI.
+#
+# Runs on every push and pull request. Green tick = the app analyses, the
+# tests pass and Android still compiles. Red cross = something broke; open
+# the run on GitHub to see which step failed.
+#
+# No secrets are used here. Release builds (signed AAB, TestFlight) happen on
+# Codemagic; see codemagic.yaml and docs/BUILD_AND_RELEASE.md.
+
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# A newer push to the same branch/PR cancels the older, still-running build.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Keep in step with codemagic.yaml (environment.flutter).
+  FLUTTER_VERSION: "3.47.6"
+
+jobs:
+  analyze-and-test:
+    name: Analyze and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+          pub-cache: true
+
+      - name: Get packages
+        run: flutter pub get
+
+      # Formatting check is intentionally off: the codebase is not fully
+      # `dart format`-clean yet (10 files differ). Once it is, enable:
+      #   - name: Check formatting
+      #     run: dart format --output=none --set-exit-if-changed lib test
+
+      # Info-level hints (e.g. deprecations from newer Flutter) are shown but
+      # do not fail the build; warnings and errors still do.
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos
+
+      # Golden (screenshot) tests compare pixels and depend on the OS and
+      # fonts they were recorded on, so they run separately below and do not
+      # turn CI red on their own.
+      - name: Unit and widget tests
+        run: |
+          mapfile -t test_files < <(find test -name '*_test.dart' ! -name '*golden*' | sort)
+          flutter test "${test_files[@]}"
+
+      - name: Golden tests (informational)
+        continue-on-error: true
+        run: |
+          mapfile -t golden_files < <(find test -name '*golden*_test.dart' | sort)
+          if [ "${#golden_files[@]}" -eq 0 ]; then
+            echo "No golden tests found."
+            exit 0
+          fi
+          flutter test "${golden_files[@]}"
+
+  android-debug-build:
+    name: Android debug build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+          cache-dependency-path: |
+            android/*.gradle*
+            android/app/*.gradle*
+            android/gradle/wrapper/gradle-wrapper.properties
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+          pub-cache: true
+
+      - name: Get packages
+        run: flutter pub get
+
+      # Debug build with no secrets: catches Gradle/plugin breakage only.
+      # (Release builds need signing keys and production settings.)
+      - name: Build debug APK
+        run: flutter build apk --debug
