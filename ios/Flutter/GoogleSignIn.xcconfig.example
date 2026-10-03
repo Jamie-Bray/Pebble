@@ -1,0 +1,7 @@
+// Copy to GoogleSignIn.xcconfig (same folder) and fill in the reversed iOS
+// OAuth client ID from Google Cloud Console > APIs & Services > Credentials
+// (the iOS client for bundle ID com.vix.pebbleroutines). The matching
+// forward client ID is passed to the app as the dart-define
+// SUPABASE_GOOGLE_IOS_CLIENT_ID. Neither value is secret: both ship inside
+// the app bundle.
+GOOGLE_IOS_REVERSED_CLIENT_ID = com.googleusercontent.apps.REPLACE_ME
