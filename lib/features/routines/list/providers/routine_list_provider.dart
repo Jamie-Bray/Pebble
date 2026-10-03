@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/features/subscription/domain/routine_limit_policy.dart';
+import 'package:pebble_routines/features/subscription/providers/kept_routines_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 
 class HomeRoutineHighlight {
@@ -66,7 +67,25 @@ final routineListProvider = StreamProvider<List<Routine>>((ref) {
 final routineAccessListProvider =
     Provider<AsyncValue<List<RoutineAccessState>>>((ref) {
       final policy = ref.watch(routineLimitPolicyProvider);
+      final kept = ref.watch(keptRoutinesProvider);
       return ref.watch(routineListProvider).whenData((routines) {
-        return buildRoutineAccessStates(routines: routines, policy: policy);
+        return buildRoutineAccessStates(
+          routines: routines,
+          policy: policy,
+          keptRoutineIds: kept,
+        );
       });
     });
+
+/// Routines locked by Free limits after Premium ends. Empty while Premium (or
+/// its grace period) is on. The user picks which routines stay unlocked with
+/// [keptRoutinesProvider].
+final restrictedRoutineIdsProvider = Provider<Set<int>>((ref) {
+  final routines = ref.watch(routineListProvider).valueOrNull;
+  if (routines == null) return const <int>{};
+  return restrictedRoutineIds(
+    routines: routines,
+    policy: ref.watch(routineLimitPolicyProvider),
+    keptRoutineIds: ref.watch(keptRoutinesProvider),
+  );
+});

@@ -6,20 +6,17 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:pebble_routines/core/config/app_runtime_config.dart';
-import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/ui/zen_notifications.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/features/account_backup/providers/account_backup_ui_provider.dart';
 import 'package:pebble_routines/features/account_backup/providers/account_profile_presentation_provider.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
-import 'package:pebble_routines/features/history/providers/routine_history_vm.dart';
-import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
 import 'package:pebble_routines/features/subscription/data/purchase_repository.dart';
-import 'package:pebble_routines/features/subscription/domain/routine_limit_policy.dart';
 import 'package:pebble_routines/features/subscription/domain/subscription_lifecycle.dart';
-import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
+import 'package:pebble_routines/features/subscription/providers/premium_lapse_provider.dart';
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
+import 'package:pebble_routines/features/subscription/ui/premium_lapse_ui.dart';
 
 class AccountHubScreen extends ConsumerStatefulWidget {
   const AccountHubScreen({super.key});
@@ -182,6 +179,15 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
             icon: LucideIcons.smartphone,
             text: 'Local routines on this device stay here.',
           ),
+          // Required by Apple and Google: deleting the account is not the
+          // same as cancelling the store subscription.
+          _AccountSheetWarningRow(
+            icon: LucideIcons.creditCard,
+            text:
+                'If you have Personal Premium, this does not cancel it. To '
+                'stop renewals, cancel in your app store subscription '
+                'settings.',
+          ),
         ],
         primaryLabel: 'Delete account',
         primaryTone: _AccountSheetButtonTone.danger,
@@ -242,16 +248,6 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
         lifecycle.phase == SubscriptionLifecyclePhase.expiredGrace ||
         lifecycle.phase == SubscriptionLifecyclePhase.expired;
 
-    if (isLapsedPremium) {
-      return _LapsedPremiumAccountScreen(
-        state: _buildLapsedPremiumState(lifecycle),
-        onBack: _exitVault,
-        onRenew: () =>
-            context.push(premiumRoute(source: PremiumEntrySource.routineLimit)),
-        onManagePlan: _openManagePlan,
-      );
-    }
-
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -263,7 +259,9 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
         backgroundColor: colorScheme.surface,
         appBar: PebbleSubscreenAppBar(
           title: 'Your account',
-          subtitle: 'Plan, sign-in and backup',
+          subtitle: isLapsedPremium
+              ? 'Premium ended'
+              : 'Plan, sign-in and backup',
           onBack: _exitVault,
         ),
         body: ListView(
@@ -274,10 +272,23 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
               const SizedBox(height: 24),
             ],
             // The plan always leads: what you have, and (for Premium) when
-            // the current period ends.
-            _AccountPlanCard(profile: profile),
-            const SizedBox(height: 14),
-            if (profile.canStartPremium) ...[
+            // the current period ends. After a lapse, what changed and by
+            // when leads instead; the account rows below stay available.
+            if (isLapsedPremium) ...[
+              _LapsedPremiumSection(
+                state: _buildLapsedPremiumState(lifecycle),
+                onRenew: () => context.push(
+                  premiumRoute(source: PremiumEntrySource.routineLimit),
+                ),
+                onManagePlan: _openManagePlan,
+                onChooseRoutines: () => showKeepRoutinesSheet(context),
+              ),
+              const SizedBox(height: 28),
+            ] else ...[
+              _AccountPlanCard(profile: profile),
+              const SizedBox(height: 14),
+            ],
+            if (profile.canStartPremium && !isLapsedPremium) ...[
               _AccountUpgradeCard(
                 onGetPremium: () => context.push(
                   premiumRoute(source: PremiumEntrySource.backup),
@@ -296,7 +307,8 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
             ],
             _AccountSettingsRows(
               canRestorePurchase: profile.canRestorePurchase,
-              canManagePlan: profile.canManagePlan,
+              // After a lapse the section above already offers it.
+              canManagePlan: profile.canManagePlan && !isLapsedPremium,
               restoreInFlight: _restoreInFlight,
               backupStatus: backupSummary.label,
               onRestorePurchase: _restoreInFlight ? null : _restorePurchase,
@@ -373,25 +385,14 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
   _LapsedPremiumState _buildLapsedPremiumState(
     SubscriptionLifecycle lifecycle,
   ) {
-    final historyRuns = ref.watch(routineHistoryVmProvider).valueOrNull;
-    final routines = ref.watch(routineListProvider).valueOrNull;
-    final policy = ref.watch(routineLimitPolicyProvider);
     final purchase = ref.watch(purchaseRepositoryProvider);
-    final historyGraceDays = _remainingGraceDays(lifecycle);
-    final routineGraceDays = historyGraceDays;
-    final totalHistoryDays = _distinctHistoryDays(historyRuns ?? const []);
-    final showRoutineRiskCard = routines == null
-        ? true
-        : !isFreeTierFootprint(routines: routines, policy: policy);
     final products = purchase.personalPremiumProducts;
     final monthly = _productForPlan(products, BillingPlan.monthly);
     final yearly = _productForPlan(products, BillingPlan.yearly);
 
     return _LapsedPremiumState(
-      totalHistoryDays: totalHistoryDays,
-      historyGraceDays: historyGraceDays,
-      routineGraceDays: routineGraceDays,
-      showRoutineRiskCard: showRoutineRiskCard,
+      summary: ref.watch(premiumLapseSummaryProvider),
+      graceDays: _remainingGraceDays(lifecycle),
       // Only real store prices; never a made-up fallback.
       monthlyPrice: monthly?.priceLabel.trim().isNotEmpty == true
           ? monthly!.priceLabel
@@ -399,7 +400,6 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
       yearlyPrice: yearly?.priceLabel.trim().isNotEmpty == true
           ? yearly!.priceLabel
           : null,
-      canRenew: purchase.isPurchaseAvailable,
     );
   }
 }
@@ -925,13 +925,6 @@ int _remainingGraceDays(SubscriptionLifecycle lifecycle) {
   return (remaining.inHours / 24).ceil().clamp(0, 7);
 }
 
-int _distinctHistoryDays(List<RoutineRun> runs) {
-  return {
-    for (final run in runs)
-      DateTime(run.finishedAt.year, run.finishedAt.month, run.finishedAt.day),
-  }.length;
-}
-
 PremiumProduct? _productForPlan(
   List<PremiumProduct> products,
   BillingPlan plan,
@@ -944,98 +937,136 @@ PremiumProduct? _productForPlan(
 
 class _LapsedPremiumState {
   const _LapsedPremiumState({
-    required this.totalHistoryDays,
-    required this.historyGraceDays,
-    required this.routineGraceDays,
-    required this.showRoutineRiskCard,
+    required this.summary,
+    required this.graceDays,
     required this.monthlyPrice,
     required this.yearlyPrice,
-    required this.canRenew,
   });
 
-  final int totalHistoryDays;
-  final int historyGraceDays;
-  final int routineGraceDays;
-  final bool showRoutineRiskCard;
+  final PremiumLapseSummary summary;
+  final int graceDays;
   final String? monthlyPrice;
   final String? yearlyPrice;
-  final bool canRenew;
 }
 
-class _LapsedPremiumAccountScreen extends StatelessWidget {
-  const _LapsedPremiumAccountScreen({
+/// Top of the account screen once Premium has ended: what changed, by when,
+/// and what the user can do (renew, choose routines to keep). The normal
+/// account rows (sign in, restore, backup, sign out, delete) follow it.
+class _LapsedPremiumSection extends StatelessWidget {
+  const _LapsedPremiumSection({
     required this.state,
-    required this.onBack,
     required this.onRenew,
     required this.onManagePlan,
+    required this.onChooseRoutines,
   });
 
   final _LapsedPremiumState state;
-  final VoidCallback onBack;
   final VoidCallback onRenew;
   final VoidCallback onManagePlan;
+  final VoidCallback onChooseRoutines;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Scaffold(
-      backgroundColor: colorScheme.surface,
-      appBar: PebbleSubscreenAppBar(
-        title: 'Your account',
-        subtitle: 'Premium ended',
-        onBack: onBack,
-      ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: ListView(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 48),
-            children: [
-              const _LapsedHero(),
-              const SizedBox(height: 24),
-              _RiskCard.history(
-                totalHistoryDays: state.totalHistoryDays,
-                graceDays: state.historyGraceDays,
-              ),
-              if (state.showRoutineRiskCard) ...[
-                const SizedBox(height: 10),
-                _RiskCard.routines(graceDays: state.routineGraceDays),
-              ],
-              const SizedBox(height: 24),
-              Divider(
-                height: 1,
-                color: colorScheme.outline.withValues(alpha: 0.12),
-              ),
-              const SizedBox(height: 20),
-              _LapsedCtaSection(
-                monthlyPrice: state.monthlyPrice,
-                yearlyPrice: state.yearlyPrice,
-                canRenew: state.canRenew,
-                onRenew: onRenew,
-                onManagePlan: onManagePlan,
-              ),
-              const SizedBox(height: 18),
-              Text(
-                'Works without an account · Cancel anytime',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.outfit(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w300,
-                  letterSpacing: 0.3,
-                  color: colorScheme.onSurface.withValues(alpha: 0.38),
-                ),
-              ),
-            ],
+    final summary = state.summary;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _LapsedHero(
+          inGrace: summary.inGrace,
+          graceEndDate: summary.graceEndDateLabel,
+        ),
+        const SizedBox(height: 24),
+        _RiskCard(
+          icon: LucideIcons.clock3,
+          title: 'Longer history',
+          body: _historyBody(summary),
+          countdown: summary.inGrace
+              ? _countdownLabel(state.graceDays)
+              : 'FREE LIMITS APPLY',
+          progress: summary.inGrace ? state.graceDays / 7 : 0,
+        ),
+        if (summary.hasMoreRoutinesThanFree) ...[
+          const SizedBox(height: 10),
+          _RiskCard(
+            icon: LucideIcons.listChecks,
+            title: 'Extra routines and steps',
+            body: _routinesBody(summary),
+            countdown: summary.inGrace
+                ? _countdownLabel(state.graceDays)
+                : 'FREE LIMITS APPLY',
+            progress: summary.inGrace ? state.graceDays / 7 : 0,
+            actionLabel: 'Choose ${summary.freeRoutineLimit} routines to keep',
+            onAction: onChooseRoutines,
+          ),
+        ],
+        const SizedBox(height: 24),
+        Divider(height: 1, color: colorScheme.outline.withValues(alpha: 0.12)),
+        const SizedBox(height: 20),
+        _LapsedCtaSection(
+          monthlyPrice: state.monthlyPrice,
+          yearlyPrice: state.yearlyPrice,
+          onRenew: onRenew,
+          onManagePlan: onManagePlan,
+        ),
+        const SizedBox(height: 18),
+        Text(
+          'Works without an account · Cancel anytime',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.outfit(
+            fontSize: 11,
+            fontWeight: FontWeight.w300,
+            letterSpacing: 0.3,
+            color: colorScheme.onSurface.withValues(alpha: 0.5),
           ),
         ),
-      ),
+      ],
     );
+  }
+
+  static String _countdownLabel(int days) =>
+      '$days ${days == 1 ? 'DAY' : 'DAYS'} LEFT';
+
+  static String _historyBody(PremiumLapseSummary summary) {
+    final backupLine = summary.isSignedIn
+        ? ' If backup was on, your account keeps a copy, and the last 21 days '
+              'come back when you renew.'
+        : ' If backup was on, your account keeps a copy. Renew and sign in to '
+              'bring back the last 21 days.';
+    if (summary.inGrace) {
+      final date = summary.graceEndDateLabel;
+      if (summary.olderHistoryRunCount == 0) {
+        return 'Your history is still here. From $date, Free keeps the last '
+            '48 hours on this phone.$backupLine';
+      }
+      final count = summary.olderHistoryRunCount;
+      return '$count completed ${count == 1 ? 'routine' : 'routines'} older '
+          'than 48 hours stay on this phone until $date. After that they are '
+          'removed from this phone, because Free keeps 48 hours. Renew before '
+          'then to keep them.$backupLine';
+    }
+    return 'Free keeps the last 48 hours of history on this phone.$backupLine';
+  }
+
+  static String _routinesBody(PremiumLapseSummary summary) {
+    final limit = summary.freeRoutineLimit;
+    if (summary.inGrace) {
+      return 'Free includes $limit routines with up to 10 steps each. From '
+          '${summary.graceEndDateLabel}, the others lock until you renew. '
+          'Nothing is deleted, and you choose which $limit stay unlocked.';
+    }
+    final locked = summary.lockedRoutineCount;
+    return '$locked ${locked == 1 ? 'routine is' : 'routines are'} locked and '
+        'still saved. Steps after the 10th are locked too. Everything unlocks '
+        'again when you renew.';
   }
 }
 
 class _LapsedHero extends StatelessWidget {
-  const _LapsedHero();
+  const _LapsedHero({required this.inGrace, required this.graceEndDate});
+
+  final bool inGrace;
+  final String graceEndDate;
 
   @override
   Widget build(BuildContext context) {
@@ -1065,12 +1096,16 @@ class _LapsedHero extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Text(
-          'Pebble now uses Free limits. Here is what that means for what you saved.',
+          inGrace
+              ? 'Everything stays as it is on this phone until $graceEndDate. '
+                    'Here is what changes after that.'
+              : 'Pebble now uses Free limits. Here is what that means for '
+                    'what you saved.',
           style: GoogleFonts.outfit(
             fontSize: 14,
             fontWeight: FontWeight.w300,
             height: 1.6,
-            color: colorScheme.onSurface.withValues(alpha: 0.62),
+            color: colorScheme.onSurface.withValues(alpha: 0.7),
           ),
         ),
       ],
@@ -1078,73 +1113,31 @@ class _LapsedHero extends StatelessWidget {
   }
 }
 
-enum _RiskCardKind { history, routines }
-
 class _RiskCard extends StatelessWidget {
-  const _RiskCard.history({
-    required this.totalHistoryDays,
-    required this.graceDays,
-  }) : kind = _RiskCardKind.history;
+  const _RiskCard({
+    required this.icon,
+    required this.title,
+    required this.body,
+    required this.countdown,
+    required this.progress,
+    this.actionLabel,
+    this.onAction,
+  });
 
-  const _RiskCard.routines({required this.graceDays})
-    : kind = _RiskCardKind.routines,
-      totalHistoryDays = 0;
-
-  final _RiskCardKind kind;
-  final int totalHistoryDays;
-  final int graceDays;
+  final IconData icon;
+  final String title;
+  final String body;
+  final String countdown;
+  final double progress;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     // Information, not an alarm: one calm accent for both cards.
     final accent = colorScheme.primary;
-    final emphasis = TextStyle(
-      color: colorScheme.onSurface.withValues(alpha: 0.82),
-      fontWeight: FontWeight.w500,
-    );
-    final icon = kind == _RiskCardKind.history
-        ? LucideIcons.clock3
-        : LucideIcons.listChecks;
-    final title = kind == _RiskCardKind.history
-        ? 'Longer history'
-        : 'Extra routines and steps';
-    final body = kind == _RiskCardKind.history
-        ? TextSpan(
-            children: [
-              TextSpan(
-                text:
-                    '$totalHistoryDays days of completed routines are still here. ',
-              ),
-              TextSpan(
-                text: graceDays <= 0
-                    ? 'History older than 48 hours is locked'
-                    : 'History older than 48 hours locks in $graceDays '
-                          '${graceDays == 1 ? 'day' : 'days'}',
-                style: emphasis,
-              ),
-              TextSpan(
-                text: graceDays <= 0 ? ' until you renew.' : ' unless you renew.',
-              ),
-            ],
-          )
-        : TextSpan(
-            children: [
-              const TextSpan(text: 'Free accounts keep '),
-              TextSpan(text: '2 routines', style: emphasis),
-              const TextSpan(text: ' with up to '),
-              TextSpan(text: '10 steps each', style: emphasis),
-              TextSpan(
-                text: graceDays <= 0
-                    ? '. The rest are locked until you renew. Nothing is deleted.'
-                    : '. The rest lock in $graceDays days unless you renew. Nothing is deleted.',
-              ),
-            ],
-          );
-    final countdown = graceDays <= 0
-        ? 'FREE LIMITS APPLY'
-        : '$graceDays ${graceDays == 1 ? 'DAY' : 'DAYS'} LEFT';
-    final clampedProgress = (graceDays / 7).clamp(0.0, 1.0);
+    final actionLabel = this.actionLabel;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
@@ -1179,13 +1172,13 @@ class _RiskCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 3),
-                Text.rich(
+                Text(
                   body,
                   style: GoogleFonts.outfit(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w300,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w400,
                     height: 1.5,
-                    color: colorScheme.onSurface.withValues(alpha: 0.62),
+                    color: colorScheme.onSurface.withValues(alpha: 0.72),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -1193,7 +1186,7 @@ class _RiskCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(100),
                   child: LinearProgressIndicator(
                     minHeight: 2,
-                    value: clampedProgress,
+                    value: progress.clamp(0.0, 1.0),
                     backgroundColor: colorScheme.onSurface.withValues(
                       alpha: 0.08,
                     ),
@@ -1207,9 +1200,23 @@ class _RiskCard extends StatelessWidget {
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.6,
-                    color: accent.withValues(alpha: 0.75),
+                    color: accent,
                   ),
                 ),
+                if (actionLabel != null) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton(
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(0, 40),
+                      ),
+                      onPressed: onAction,
+                      child: Text(actionLabel),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -1223,14 +1230,12 @@ class _LapsedCtaSection extends StatelessWidget {
   const _LapsedCtaSection({
     required this.monthlyPrice,
     required this.yearlyPrice,
-    required this.canRenew,
     required this.onRenew,
     required this.onManagePlan,
   });
 
   final String? monthlyPrice;
   final String? yearlyPrice;
-  final bool canRenew;
   final VoidCallback onRenew;
   final VoidCallback onManagePlan;
 
@@ -1242,33 +1247,36 @@ class _LapsedCtaSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (monthlyPrice != null) Wrap(
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            Text(
-              monthlyPrice,
-              style: GoogleFonts.dmSerifDisplay(
-                fontSize: 30,
-                color: colorScheme.onSurface,
+        if (monthlyPrice != null)
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              Text(
+                monthlyPrice,
+                style: GoogleFonts.dmSerifDisplay(
+                  fontSize: 30,
+                  color: colorScheme.onSurface,
+                ),
               ),
-            ),
-            Text(
-              '/ month',
-              style: GoogleFonts.outfit(
-                fontSize: 13,
-                fontWeight: FontWeight.w300,
-                color: colorScheme.onSurface.withValues(alpha: 0.62),
+              Text(
+                '/ month',
+                style: GoogleFonts.outfit(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w300,
+                  color: colorScheme.onSurface.withValues(alpha: 0.62),
+                ),
               ),
-            ),
-            if (yearlyPrice != null)
-              _AccountPill(label: 'or $yearlyPrice/year'),
-          ],
-        ),
+              if (yearlyPrice != null)
+                _AccountPill(label: 'or $yearlyPrice/year'),
+            ],
+          ),
         if (monthlyPrice != null) const SizedBox(height: 14),
+        // Always tappable: the paywall explains a store problem and offers
+        // Try again, which a disabled button here never could.
         FilledButton.icon(
-          onPressed: canRenew ? onRenew : null,
+          onPressed: onRenew,
           style: FilledButton.styleFrom(
             minimumSize: const Size.fromHeight(52),
             shape: RoundedRectangleBorder(
@@ -1276,7 +1284,7 @@ class _LapsedCtaSection extends StatelessWidget {
             ),
           ),
           icon: const Icon(LucideIcons.refreshCw, size: 16),
-          label: Text(canRenew ? 'Renew Premium' : 'Premium unavailable'),
+          label: const Text('Renew Premium'),
         ),
         const SizedBox(height: 10),
         OutlinedButton(

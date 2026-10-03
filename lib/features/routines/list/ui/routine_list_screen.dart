@@ -32,7 +32,9 @@ import 'package:pebble_routines/features/history/domain/run_step_tally.dart';
 import 'package:pebble_routines/core/ui/zen_components.dart';
 import 'package:pebble_routines/features/routines/data/models/routine_icon_catalog.dart';
 import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
+import 'package:pebble_routines/features/subscription/providers/premium_lapse_provider.dart';
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
+import 'package:pebble_routines/features/subscription/ui/premium_lapse_ui.dart';
 import 'package:pebble_routines/features/subscription/ui/subscription_guard.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -609,6 +611,11 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                         resumeSession,
                         compact: mediaQuery.size.height < 720,
                       ),
+                    )
+                  else
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(24, 0, 24, 0),
+                      child: _HomeLapseNotice(),
                     ),
                   Expanded(
                     child: Padding(
@@ -1066,8 +1073,9 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
     required bool isLast,
   }) {
     final foundation = context.darkFoundation;
-    final softLockPolicy = ref.watch(routineLimitPolicyProvider);
-    final isRestricted = softLockPolicy.isRoutineRestricted(index);
+    final isRestricted = ref
+        .watch(restrictedRoutineIdsProvider)
+        .contains(routine.id);
     final steps = _stepCountForRoutine(routine);
     final routineColor = _routineAccentColor(routine, themeData, index);
     final icon = RoutineIconCatalog.resolve(routine.emoji).icon;
@@ -1090,7 +1098,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
         ? foundation.textPrimary.withValues(alpha: 0.44)
         : foundation.textPrimary;
     final subtitle = isRestricted
-        ? 'Premium ended - Upgrade to unlock'
+        ? 'Locked on Free. Saved, not deleted.'
         : metadata.join(' / ');
 
     return Material(
@@ -1099,7 +1107,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
       child: InkWell(
         onTap: () {
           if (isRestricted) {
-            context.push(premiumRoute(source: PremiumEntrySource.routineLimit));
+            showLockedRoutineSheet(context, routine);
             return;
           }
           ref.read(homeRoutineHighlightProvider.notifier).state = null;
@@ -1457,11 +1465,8 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
   }
 
   void _onPlayRoutine(Routine routine) {
-    final routines = ref.read(routineListProvider).valueOrNull;
-    final index = routines?.indexWhere((item) => item.id == routine.id) ?? -1;
-    if (index >= 0 &&
-        ref.read(routineLimitPolicyProvider).isRoutineRestricted(index)) {
-      context.push(premiumRoute(source: PremiumEntrySource.routineLimit));
+    if (ref.read(restrictedRoutineIdsProvider).contains(routine.id)) {
+      showLockedRoutineSheet(context, routine);
       return;
     }
     _clearHighlightFor(routine.id);
@@ -2927,6 +2932,23 @@ class _HomeHeroMetrics {
       titleFontSize: titleFontSize,
       previewHeight: previewHeight,
       effectiveTextScale: effectiveScale,
+    );
+  }
+}
+
+/// Shows [PremiumLapseNoticeCard] with spacing only when it has something to
+/// say, so Home looks unchanged for everyone else.
+class _HomeLapseNotice extends ConsumerWidget {
+  const _HomeLapseNotice();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!ref.watch(premiumLapseSummaryProvider).needsAttention) {
+      return const SizedBox.shrink();
+    }
+    return const Padding(
+      padding: EdgeInsets.only(bottom: 14),
+      child: PremiumLapseNoticeCard(),
     );
   }
 }

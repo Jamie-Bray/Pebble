@@ -80,10 +80,61 @@ class RoutineAccessState {
   bool get hasLockedSteps => lockedStepCount > 0;
 }
 
+/// Ids of the routines that are locked under Free limits.
+///
+/// [routines] is the home list order (pinned, then newest). Routines the user
+/// chose to keep ([keptRoutineIds]) stay unlocked first; any free slots left
+/// are filled in list order. Nothing is ever deleted: locked routines stay
+/// saved and unlock again with Premium.
+Set<int> restrictedRoutineIds({
+  required List<Routine> routines,
+  required RoutineLimitPolicy policy,
+  Set<int> keptRoutineIds = const <int>{},
+}) {
+  if (!policy.shouldSoftLockFreeLimits ||
+      routines.length <= policy.freeRoutineLimit) {
+    return const <int>{};
+  }
+  final unlocked = unlockedRoutineIds(
+    routines: routines,
+    limit: policy.freeRoutineLimit,
+    keptRoutineIds: keptRoutineIds,
+  );
+  return {
+    for (final routine in routines)
+      if (!unlocked.contains(routine.id)) routine.id,
+  };
+}
+
+/// The routines that stay usable on Free: the user's kept choice first, then
+/// list order, up to [limit].
+Set<int> unlockedRoutineIds({
+  required List<Routine> routines,
+  required int limit,
+  Set<int> keptRoutineIds = const <int>{},
+}) {
+  final unlocked = <int>{};
+  for (final routine in routines) {
+    if (unlocked.length >= limit) break;
+    if (keptRoutineIds.contains(routine.id)) unlocked.add(routine.id);
+  }
+  for (final routine in routines) {
+    if (unlocked.length >= limit) break;
+    unlocked.add(routine.id);
+  }
+  return unlocked;
+}
+
 List<RoutineAccessState> buildRoutineAccessStates({
   required List<Routine> routines,
   required RoutineLimitPolicy policy,
+  Set<int> keptRoutineIds = const <int>{},
 }) {
+  final restricted = restrictedRoutineIds(
+    routines: routines,
+    policy: policy,
+    keptRoutineIds: keptRoutineIds,
+  );
   return List.generate(routines.length, (index) {
     final routine = routines[index];
     final stepCount = routineStepCount(routine);
@@ -91,7 +142,7 @@ List<RoutineAccessState> buildRoutineAccessStates({
       routine: routine,
       index: index,
       stepCount: stepCount,
-      isRestricted: policy.isRoutineRestricted(index),
+      isRestricted: restricted.contains(routine.id),
       lockedStepCount: policy.lockedStepCount(stepCount),
     );
   });
