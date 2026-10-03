@@ -1057,6 +1057,31 @@ Future<void> _openPlayer(_Env env, int id) async {
   await env.settle(20);
 }
 
+/// Opens the hero routine's actions sheet from the Home meta line and taps
+/// [label] in it.
+Future<void> _openRoutineAction(_Env env, String label) async {
+  await env.tapFinder(find.byTooltip('Routine settings').first);
+  await env.tapText(label, last: true);
+}
+
+/// Runs "Leaving the house" end to end with one photo on the photo step,
+/// then taps Done, landing on Home in its Checked state.
+Future<void> _runLeavingHouseToHome(_Env env) async {
+  await _openPlayer(env, 1);
+  for (var i = 0; i < 3; i++) {
+    await _tapPrimary(env);
+    await env.realWait(2);
+  }
+  await env.tapText('Add');
+  await env.realWait(12);
+  await _tapPrimary(env);
+  await env.realWait(2);
+  await _tapPrimary(env);
+  await env.realWait(10);
+  await env.settle(20);
+  await env.realWait(4);
+}
+
 Future<void> _tapPrimary(_Env env) async {
   await env.tapFinder(find.byType(FilledButton).last);
   await env.settle(20);
@@ -1131,6 +1156,33 @@ void main() {
     await env.settle(10);
     await env.shot('home_premium_routines_sheet_open');
   });
+  // Moment 3: Home after a run.
+  for (final cfg in [
+    (ThemeId.highNoon, _iphone, 1.0, ''),
+    (ThemeId.nordicNight, _iphone, 1.0, 'theme_nordicNight_'),
+    (ThemeId.highNoon, _small, 1.0, ''),
+    (ThemeId.highNoon, _iphone, 2.0, 'a11y2.0x_'),
+  ]) {
+    _capture(
+      'home checked ${cfg.$1.name} ${cfg.$2.id} ${cfg.$3}',
+      theme: cfg.$1,
+      device: cfg.$2,
+      textScale: cfg.$3,
+      account: _Account.signedInPremium,
+      extraPrefs: const {'has_seen_camera_rationale': true},
+      (env) async {
+        await _runLeavingHouseToHome(env);
+        if (cfg.$2 == _iphone && cfg.$3 == 1.0 && cfg.$1 == ThemeId.highNoon) {
+          await env.shot('player_complete_photo');
+        }
+        await env.tapText('Done');
+        await env.realWait(6);
+        await env.settle(10);
+        await env.realWait(4);
+        await env.shot('${cfg.$4}home_checked');
+      },
+    );
+  }
   _capture('home empty', seed: _Seed.empty, (env) async {
     await env.shot('home_empty');
   });
@@ -1226,6 +1278,21 @@ void main() {
       await env.realWait(10);
       await env.settle(30);
       await env.shot('theme_nordicNight_complete');
+    },
+  );
+  _capture(
+    'player complete sandstone',
+    theme: ThemeId.sandstone,
+    account: _Account.signedInPremium,
+    (env) async {
+      await _openPlayer(env, 3);
+      for (var i = 0; i < 4; i++) {
+        await _tapPrimary(env);
+        await env.realWait(3);
+      }
+      await env.realWait(10);
+      await env.settle(30);
+      await env.shot('theme_sandstone_complete');
     },
   );
   // Moment 1: the trail of checked steps, and the check-off as a strip.
@@ -1558,19 +1625,19 @@ void main() {
     await env.shot('home_style_studio_premium');
   });
   _capture('home reminders bell', (env) async {
-    await env.tapFinder(find.byTooltip('Reminders').first);
+    await _openRoutineAction(env, 'Reminders');
     await env.realWait(6);
     await env.shot('routine_reminders_from_home');
   });
   _capture('home email free', (env) async {
-    await env.tapFinder(find.byTooltip('Email').first);
+    await _openRoutineAction(env, 'Completion emails');
     await env.realWait(6);
     await env.shot('routine_email_alerts_from_home');
   });
   _capture('home email premium', account: _Account.signedInPremium, (
     env,
   ) async {
-    await env.tapFinder(find.byTooltip('Email').first);
+    await _openRoutineAction(env, 'Completion emails');
     await env.realWait(6);
     await env.shot('routine_email_alerts_premium');
   });
@@ -1593,7 +1660,7 @@ void main() {
       sharedContact: entry.value,
       fakeSharedReminders: true,
       (env) async {
-        await env.tapFinder(find.byTooltip('Email').first);
+        await _openRoutineAction(env, 'Completion emails');
         await env.realWait(6);
         await env.shot('email_contact_${entry.key}');
         await env.scrollDown(700);
@@ -1606,7 +1673,7 @@ void main() {
     account: _Account.signedInPremium,
     fakeSharedReminders: true,
     (env) async {
-      await env.tapFinder(find.byTooltip('Email').first);
+      await _openRoutineAction(env, 'Completion emails');
       await env.realWait(6);
       await env.tapText('Add someone to notify', last: true);
       await env.realWait(4);

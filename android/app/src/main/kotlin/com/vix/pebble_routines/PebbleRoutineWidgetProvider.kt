@@ -30,10 +30,21 @@ class PebbleRoutineWidgetProvider : HomeWidgetProvider() {
             val routineId = widgetData.getString("widget_routine_id", null)
             val title = widgetData.getString("widget_routine_title", null)
             val colorHex = widgetData.getString("widget_routine_color", null)
+            // Mirrors Home's "Checked" state ("Checked · 8:04 AM") until the
+            // Flutter side's cut-off, so a stale check never shows.
+            val checkedLabel = widgetData.getString("widget_checked_label", null)
+            val checkedUntil = widgetData
+                .getString("widget_checked_until", null)
+                ?.toLongOrNull() ?: 0L
+            val isChecked = !checkedLabel.isNullOrBlank() &&
+                System.currentTimeMillis() < checkedUntil
 
             if (routineId != null && !title.isNullOrBlank()) {
                 views.setTextViewText(R.id.widget_title, title)
-                views.setTextViewText(R.id.widget_subtitle, "Tap to start")
+                views.setTextViewText(
+                    R.id.widget_subtitle,
+                    if (isChecked) checkedLabel else "Tap to start",
+                )
                 views.setViewVisibility(R.id.widget_dot, View.VISIBLE)
                 views.setInt(R.id.widget_dot, "setColorFilter", parseColor(colorHex))
                 views.setOnClickPendingIntent(

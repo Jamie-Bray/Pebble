@@ -9,6 +9,7 @@ import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
+import 'package:pebble_routines/core/ui/pebble_time.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/features/account_backup/providers/account_backup_ui_provider.dart';
 import 'package:pebble_routines/features/history/providers/routine_history_vm.dart';
@@ -17,6 +18,8 @@ import 'package:pebble_routines/features/routines/composer/ui/routine_composer_s
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/repositories/routine_session_repository.dart';
 import 'package:pebble_routines/features/routines/execution/ui/routine_player_screen.dart';
+import 'package:pebble_routines/features/history/domain/checked_window.dart';
+import 'package:pebble_routines/features/routines/list/providers/home_hero_state_provider.dart';
 import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
 import 'package:pebble_routines/features/routines/list/ui/routine_list_screen.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
@@ -131,9 +134,12 @@ void main() {
     expect(find.byTooltip('App settings'), findsOneWidget);
     expect(find.text('Reminders'), findsNothing);
     expect(find.text('Email'), findsNothing);
-    expect(find.byTooltip('Reminders'), findsOneWidget);
-    expect(find.byTooltip('Email'), findsOneWidget);
-    expect(find.text('2 steps'), findsNothing);
+    // The unlabelled bell/mail/gear bar is gone: a meta line opens the
+    // routine's actions instead.
+    expect(find.byTooltip('Reminders'), findsNothing);
+    expect(find.byTooltip('Email'), findsNothing);
+    expect(find.byTooltip('Routine settings'), findsOneWidget);
+    expect(find.text('2 steps'), findsOneWidget);
     expect(find.text('Your Routines'), findsOneWidget);
     expect(find.text('2 routines'), findsOneWidget);
     expect(find.text('Last Run'), findsNothing);
@@ -289,7 +295,12 @@ void main() {
         .dy;
     expect(find.text('Settings'), findsNothing);
     expect(find.byKey(const ValueKey('home_hero_action_strip')), findsNothing);
-    expect(find.text('4 steps'), findsNothing);
+    // "4 steps" is the meta line, between the title and the steps preview.
+    expect(find.text('4 steps'), findsOneWidget);
+    final metaLineTop = tester
+        .getTopLeft(find.byKey(const ValueKey('home_hero_routine_meta')))
+        .dy;
+    expect(metaLineTop, greaterThan(titleBottom));
 
     final previewTop = tester
         .getTopLeft(find.byKey(const ValueKey('home_hero_preview_card')))
@@ -302,6 +313,14 @@ void main() {
     final metaTop = tester
         .getTopLeft(find.byKey(const ValueKey('home_hero_meta_row')))
         .dy;
+    expect(
+      metaLineTop,
+      lessThan(
+        tester
+            .getTopLeft(find.byKey(const ValueKey('home_hero_preview_card')))
+            .dy,
+      ),
+    );
     final settingsCog = find.descendant(
       of: find.byKey(const ValueKey('home_hero_preview_header')),
       matching: find.byTooltip('Routine settings'),
@@ -327,9 +346,9 @@ void main() {
       matching: find.byType(ShaderMask),
     );
     expect(find.text('Steps'), findsOneWidget);
-    expect(settingsCog, findsOneWidget);
-    expect(previewHeaderReminders, findsOneWidget);
-    expect(previewHeaderEmail, findsOneWidget);
+    expect(settingsCog, findsNothing);
+    expect(previewHeaderReminders, findsNothing);
+    expect(previewHeaderEmail, findsNothing);
     expect(previewCardReminders, findsNothing);
     expect(previewCardEmail, findsNothing);
     expect(previewMask, findsNothing);
@@ -667,8 +686,7 @@ void main() {
     expect(find.byTooltip('App settings'), findsOneWidget);
     expect(find.text('Reminders'), findsNothing);
     expect(find.text('Email'), findsNothing);
-    expect(find.byTooltip('Reminders'), findsOneWidget);
-    expect(find.byTooltip('Email'), findsOneWidget);
+    expect(find.byTooltip('Routine settings'), findsOneWidget);
     expect(find.text('Start'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -715,6 +733,8 @@ void main() {
     expect(find.text('Pin to Widget'), findsOneWidget);
     expect(find.text('Show this routine on your home widget'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('Pin to Widget'));
+    await tester.pump();
     await tester.tap(find.text('Pin to Widget'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
@@ -882,6 +902,8 @@ void main() {
     await _pumpHome(
       tester,
       surfaceSize: const Size(390, 844),
+      // Past the Checked window, so the hero is back to Start.
+      clock: () => finishedAt.add(const Duration(days: 1)),
       routines: [
         _routine(
           id: 1,
@@ -912,6 +934,224 @@ void main() {
     expect(find.text('3 of 4 steps · 1 skipped'), findsOneWidget);
     expect(find.text('4 of 4 steps'), findsNothing);
   });
+
+  _checkedTests();
+}
+
+
+void _checkedTests() {
+  group('checkedUntil (the Checked reset rule)', () {
+    final at = DateTime(2026, 10, 3, 8, 4);
+
+    test('a run from earlier today, under six hours ago, is Checked', () {
+      expect(checkedUntil(at, DateTime(2026, 10, 3, 9)), at.add(kCheckedWindow));
+      expect(checkedUntil(at, DateTime(2026, 10, 3, 14, 3)), isNotNull);
+    });
+
+    test('six hours after the run it is back to Start', () {
+      expect(checkedUntil(at, DateTime(2026, 10, 3, 14, 4)), isNull);
+      expect(checkedUntil(at, DateTime(2026, 10, 3, 20)), isNull);
+    });
+
+    test('a late check never carries over past midnight', () {
+      final late = DateTime(2026, 10, 3, 23, 30);
+      expect(checkedUntil(late, DateTime(2026, 10, 3, 23, 50)),
+          DateTime(2026, 10, 4));
+      expect(checkedUntil(late, DateTime(2026, 10, 4, 0, 10)), isNull);
+    });
+
+    test('a run from another day is never Checked', () {
+      expect(checkedUntil(at, DateTime(2026, 10, 4, 8)), isNull);
+    });
+  });
+
+  testWidgets('Home shows Checked with the time after a run', (tester) async {
+    final finishedAt = DateTime(2026, 10, 3, 8, 4);
+    await _pumpHome(
+      tester,
+      surfaceSize: const Size(390, 844),
+      clock: () => DateTime(2026, 10, 3, 8, 30),
+      routines: [
+        _routine(
+          id: 1,
+          title: 'Leaving the house',
+          steps: List.generate(5, (i) => _step('Step $i')),
+        ),
+      ],
+      latestRun: _runWithSteps(routineId: 1, finishedAt: finishedAt, total: 5),
+    );
+
+    expect(find.byKey(const ValueKey('home_hero_checked_card')), findsOneWidget);
+    expect(find.text('CHECKED'), findsOneWidget);
+    // The time is the hero, in the big serif.
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is PebbleBigTime && widget.at == finishedAt,
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Leaving the house · all 5 steps'), findsOneWidget);
+    // Run again is tonal: no filled Start competing with the answer.
+    expect(find.text('Run again'), findsOneWidget);
+    expect(find.text('Start'), findsNothing);
+    expect(find.text('YOUR NEXT RIPPLE'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Checked names skipped steps', (tester) async {
+    await _pumpHome(
+      tester,
+      surfaceSize: const Size(390, 844),
+      clock: () => DateTime(2026, 10, 3, 9),
+      routines: [
+        _routine(
+          id: 1,
+          title: 'Morning reset',
+          steps: List.generate(4, (i) => _step('Step $i')),
+        ),
+      ],
+      latestRun: _runWithSteps(
+        routineId: 1,
+        finishedAt: DateTime(2026, 10, 3, 8, 4),
+        total: 4,
+        skipped: {3},
+      ),
+    );
+
+    expect(find.text('CHECKED · 1 SKIPPED'), findsOneWidget);
+    expect(find.text('Morning reset · 3 of 4 steps'), findsOneWidget);
+  });
+
+  testWidgets('Checked goes back to Start at the cut-off while Home is open', (
+    tester,
+  ) async {
+    final finishedAt = DateTime(2026, 10, 3, 8, 4);
+    var now = DateTime(2026, 10, 3, 14);
+    await _pumpHome(
+      tester,
+      surfaceSize: const Size(390, 844),
+      clock: () => now,
+      routines: [
+        _routine(id: 1, title: 'Leaving the house', steps: [_step('Door')]),
+      ],
+      latestRun: _runWithSteps(routineId: 1, finishedAt: finishedAt, total: 1),
+    );
+    expect(find.text('Run again'), findsOneWidget);
+
+    now = DateTime(2026, 10, 3, 14, 5);
+    await tester.pump(const Duration(minutes: 5));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Run again'), findsNothing);
+    expect(find.text('Start'), findsOneWidget);
+    expect(find.text('YOUR NEXT RIPPLE'), findsOneWidget);
+  });
+
+  testWidgets('a saved run of the hero routine shows Resume, not Checked', (
+    tester,
+  ) async {
+    await _pumpHome(
+      tester,
+      surfaceSize: const Size(390, 844),
+      clock: () => DateTime(2026, 10, 3, 9),
+      routines: [
+        _routine(
+          id: 1,
+          title: 'Leaving the house',
+          steps: List.generate(5, (i) => _step('Step $i')),
+        ),
+      ],
+      latestRun: _runWithSteps(
+        routineId: 1,
+        finishedAt: DateTime(2026, 10, 3, 8, 4),
+        total: 5,
+      ),
+      resumeSessions: [
+        RoutineSessionResumeSummary(
+          sessionId: 's1',
+          routineId: 1,
+          routineTitleSnapshot: 'Leaving the house',
+          currentStepIndex: 2,
+          totalStepCount: 5,
+          updatedAt: DateTime(2026, 10, 3, 8, 50),
+        ),
+      ],
+    );
+
+    expect(find.byKey(const ValueKey('home_hero_checked_card')), findsNothing);
+    expect(find.text('Resume'), findsOneWidget);
+    expect(find.text('Saved at step 3 of 5'), findsOneWidget);
+    // Its own run is in the hero, so no separate resume card.
+    expect(find.byKey(const ValueKey('home_resume_card')), findsNothing);
+  });
+
+  testWidgets('the meta line names photos and the next reminder', (
+    tester,
+  ) async {
+    await _pumpHome(
+      tester,
+      surfaceSize: const Size(390, 844),
+      routines: [
+        _routine(
+          id: 1,
+          title: 'Leaving the house',
+          steps: [
+            _step('Stove off'),
+            const RoutineStep.check(label: 'Back door', requiresPhoto: true),
+          ],
+        ),
+      ],
+      nextReminder: DateTime(2026, 10, 6, 8, 15),
+    );
+
+    expect(find.text('2 steps · 1 photo · Reminder 8:15 AM'), findsOneWidget);
+  });
+
+  test('next reminder picks the soonest enabled time', () {
+    // Saturday 3 Oct 2026, 09:00.
+    final now = DateTime(2026, 10, 3, 9);
+    expect(
+      nextReminderAt([(1, '8:15 AM'), (6, '10:00 PM'), (6, '8:15 AM')], now),
+      DateTime(2026, 10, 3, 22),
+    );
+    expect(
+      nextReminderAt([(1, '8:15 AM'), (5, '10:00 PM')], now),
+      DateTime(2026, 10, 5, 8, 15),
+    );
+    expect(nextReminderAt(const [], now), isNull);
+    expect(parseReminderTime('12:05 AM'), (0, 5));
+    expect(parseReminderTime('20:15'), (20, 15));
+  });
+}
+
+RoutineRun _runWithSteps({
+  required int routineId,
+  required DateTime finishedAt,
+  required int total,
+  Set<int> skipped = const {},
+}) {
+  return RoutineRun(
+    id: 'run-$routineId',
+    routineId: '$routineId',
+    routineTitle: 'Routine $routineId',
+    finishedAt: finishedAt,
+    stepCompletionData: jsonEncode({
+      'steps': [
+        for (var i = 0; i < total; i++)
+          {
+            'stepIndex': i,
+            'completed': !skipped.contains(i),
+            'skipped': skipped.contains(i),
+            'photos': <String>[],
+          },
+      ],
+    }),
+    ownerUserId: null,
+    syncStatus: 'localOnly',
+    lastSyncedAt: null,
+    syncMetadataJson: null,
+    updatedAt: finishedAt,
+  );
 }
 
 List<Override> _homeOverrides({
@@ -921,9 +1161,15 @@ List<Override> _homeOverrides({
   RoutineRepository? routineRepository,
   List<RoutineSessionResumeSummary> resumeSessions = const [],
   RoutineRun? latestRun,
+  DateTime Function()? clock,
+  DateTime? nextReminder,
 }) {
   final repository = routineRepository ?? _FakeRoutineRepository(routines);
   return [
+    if (clock != null) homeClockProvider.overrideWithValue(clock),
+    routineNextReminderProvider.overrideWith(
+      (ref, routineId) => Stream.value(nextReminder),
+    ),
     currentThemeDataProvider.overrideWithValue(
       AppTheme.fromId(ThemeId.highNoon),
     ),
@@ -959,6 +1205,8 @@ Future<void> _pumpHome(
   List<RoutineSessionResumeSummary> resumeSessions = const [],
   RoutineRun? latestRun,
   EdgeInsets viewPadding = EdgeInsets.zero,
+  DateTime Function()? clock,
+  DateTime? nextReminder,
 }) async {
   if (surfaceSize != null) {
     tester.view.physicalSize = surfaceSize;
@@ -990,6 +1238,8 @@ Future<void> _pumpHome(
         routineRepository: routineRepository,
         resumeSessions: resumeSessions,
         latestRun: latestRun,
+        clock: clock,
+        nextReminder: nextReminder,
       ),
       child: MaterialApp(theme: AppTheme.fromId(ThemeId.highNoon), home: home),
     ),

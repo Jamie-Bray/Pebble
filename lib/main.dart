@@ -584,8 +584,26 @@ Future<void> _startPebble(AppRuntimeConfig appRuntimeConfig) async {
   // Home-screen widget: republish display data whenever routines change
   // (covers startup, pin/unpin, rename, delete - all in-app events, so no
   // background refresh is ever needed) and handle widget taps.
+  // The widget also mirrors Home's "Checked" state, so runs republish too.
+  var widgetRoutines = const <Routine>[];
+  var widgetRuns = const <RoutineRun>[];
+  void publishWidget() {
+    final routine = selectWidgetRoutine(widgetRoutines);
+    unawaited(
+      publishHomeWidgetRoutine(
+        routine,
+        latestRun: latestRunFor(routine, widgetRuns),
+      ),
+    );
+  }
+
   db.routineDao.watchAllRoutines().listen((routines) {
-    unawaited(publishHomeWidgetRoutine(selectWidgetRoutine(routines)));
+    widgetRoutines = routines;
+    publishWidget();
+  });
+  db.routineRunDao.watchAllRuns().listen((runs) {
+    widgetRuns = runs;
+    publishWidget();
   });
   HomeWidget.widgetClicked.listen((uri) {
     final routineId = routineIdFromWidgetUri(uri);

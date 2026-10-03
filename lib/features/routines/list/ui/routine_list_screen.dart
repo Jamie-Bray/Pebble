@@ -14,7 +14,10 @@ import 'package:pebble_routines/features/routines/creator/ui/routine_style_picke
 import 'package:pebble_routines/features/routines/creator/ui/reorder_steps_screen.dart';
 import 'package:pebble_routines/core/ui/zen_error_view.dart';
 import 'package:pebble_routines/features/routines/list/ui/routine_reminders_screen.dart';
+import 'package:pebble_routines/core/ui/pebble_navigation.dart';
+import 'package:pebble_routines/features/routines/list/providers/home_hero_state_provider.dart';
 import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
+import 'package:pebble_routines/features/routines/list/ui/home_hero_widgets.dart';
 import 'package:pebble_routines/features/routines/list/providers/routine_management_provider.dart';
 import 'package:pebble_routines/core/ui/zen_notifications.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
@@ -26,13 +29,11 @@ import 'package:pebble_routines/features/history/providers/routine_history_vm.da
 import 'package:pebble_routines/features/history/ui/styled_history_screen.dart';
 import 'package:pebble_routines/core/navigation/app_shell.dart';
 import 'package:pebble_routines/core/ui/pebble_confirmation_sheet.dart';
-import 'package:pebble_routines/features/account_backup/ui/account_backup_header_action.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 
 import 'package:pebble_routines/core/ui/adaptive_layout.dart';
 import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/features/history/domain/run_step_tally.dart';
-import 'package:pebble_routines/core/ui/zen_components.dart';
 import 'package:pebble_routines/features/routines/data/models/routine_icon_catalog.dart';
 import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/premium_lapse_provider.dart';
@@ -58,15 +59,12 @@ class RoutineListScreen extends ConsumerStatefulWidget {
   ConsumerState<RoutineListScreen> createState() => _RoutineListScreenState();
 }
 
-class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
-    with TickerProviderStateMixin {
+class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
   static const double _routineSheetRowHeight = 76;
   static const double _bottomNavHeight = 70;
   static const double _routineSheetHeaderHeight = 104;
   static const double _collapsedRoutineSheetPeekHeight = 112;
 
-  // Breathing animation controllers
-  late AnimationController _breathingController;
   final ValueNotifier<double> _routineSheetExtent = ValueNotifier<double>(0);
 
   int? _focusedRoutineId;
@@ -229,22 +227,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
   }
 
   @override
-  void initState() {
-    super.initState();
-
-    // Breathing animation - 4 second cycle
-    _breathingController = AnimationController(
-      duration: const Duration(seconds: 4),
-      vsync: this,
-    );
-
-    // Start animations
-    _breathingController.repeat(reverse: true);
-  }
-
-  @override
   void dispose() {
-    _breathingController.dispose();
     _routineSheetExtent.dispose();
     super.dispose();
   }
@@ -299,19 +282,9 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
       backgroundColor: foundation.bgBase,
       body: Container(
         decoration: BoxDecoration(color: foundation.bgBase),
+        // Flat page (DESIGN_DIRECTION.md §3.4): no ambient particles.
         child: Stack(
           children: [
-            Positioned.fill(
-              child: AnimatedBuilder(
-                animation: _breathingController,
-                builder: (context, child) => CustomPaint(
-                  painter: AmbientParticlesPainter(
-                    _breathingController.value,
-                    currentTheme == ThemeId.nordicNight,
-                  ),
-                ),
-              ),
-            ),
             AdaptiveContentWidth(
               child: CustomScrollView(
                 physics: const BouncingScrollPhysics(),
@@ -571,7 +544,10 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
               child: Column(
                 children: [
                   _buildHomeHeader(themeData),
-                  if (resumeSession != null)
+                  // The hero routine's own saved run shows as Resume in the
+                  // hero; the card is for another routine's.
+                  if (resumeSession != null &&
+                      resumeSession.routineId != spotlightRoutine?.id)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(24, 0, 24, 14),
                       child: _buildResumeCard(
@@ -612,12 +588,6 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                                   spotlightRoutine,
                                   themeData,
                                 );
-                              },
-                              onReminders: () {
-                                _openRoutineReminders(spotlightRoutine);
-                              },
-                              onEmail: () {
-                                _openRoutineEmail(spotlightRoutine);
                               },
                               onBegin: () {
                                 _onPlayRoutine(spotlightRoutine);
@@ -703,94 +673,77 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
   Widget _buildHomeHeader(ThemeData themeData) {
     final foundation = context.darkFoundation;
     final colorScheme = themeData.colorScheme;
+    final width = MediaQuery.sizeOf(context).width;
 
-    // The header is branding plus compact controls, so it grows with the
-    // user's text size only up to 1.3x; beyond that the wordmark broke one
-    // letter per line and pushed the hero (and its Start button) off-screen.
+    // One line: the wordmark and tagline, then two glass controls. The
+    // tagline drops below 375 pt rather than wrapping. The header is
+    // branding plus compact controls, so it grows with the user's text size
+    // only up to 1.3x.
     return SafeArea(
       bottom: false,
       child: MediaQuery.withClampedTextScaling(
         maxScaleFactor: 1.3,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+          padding: EdgeInsets.fromLTRB(
+            PebbleSpacing.gutter(width),
+            PebbleSpacing.lg,
+            PebbleSpacing.gutter(width),
+            PebbleSpacing.sm,
+          ),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              Text.rich(
+                TextSpan(
                   children: [
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text.rich(
-                        TextSpan(
-                          children: [
-                            const TextSpan(text: 'pebble'),
-                            TextSpan(
-                              text: '.',
-                              style: TextStyle(color: colorScheme.primary),
-                            ),
-                          ],
-                        ),
-                        maxLines: 1,
-                        softWrap: false,
-                        style: PebbleFonts.serif(
-                          fontSize: 22,
-                          fontStyle: FontStyle.italic,
-                          height: 1,
-                          letterSpacing: -0.3,
-                          color: foundation.textPrimary,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Small steps, big ripples',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontStyle: FontStyle.italic,
-                        fontWeight: FontWeight.w400,
-                        height: 1.15,
-                        letterSpacing: 0.2,
-                        color: context.readableSecondaryText,
-                      ),
+                    const TextSpan(text: 'pebble'),
+                    TextSpan(
+                      text: '.',
+                      style: TextStyle(color: colorScheme.primary),
                     ),
                   ],
                 ),
+                maxLines: 1,
+                softWrap: false,
+                style: PebbleFonts.serif(
+                  fontSize: 24,
+                  fontStyle: FontStyle.italic,
+                  height: 1,
+                  letterSpacing: -0.3,
+                  color: foundation.textPrimary,
+                ),
               ),
-              _buildHeaderIconButton(
+              const SizedBox(width: PebbleSpacing.sm),
+              Expanded(
+                child: width < 375
+                    ? const SizedBox.shrink()
+                    : Padding(
+                        padding: const EdgeInsets.only(top: 3),
+                        child: Text(
+                          'Small steps, big ripples',
+                          maxLines: 1,
+                          softWrap: false,
+                          overflow: TextOverflow.fade,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontStyle: FontStyle.italic,
+                            fontWeight: FontWeight.w400,
+                            height: 1.2,
+                            color: context.readableSecondaryText,
+                          ),
+                        ),
+                      ),
+              ),
+              PebbleGlassIconButton(
                 tooltip: 'App settings',
                 icon: LucideIcons.slidersHorizontal,
                 onPressed: () => context.push('/settings'),
-                themeData: themeData,
               ),
-              const SizedBox(width: 2),
-              const AccountBackupHeaderAction(),
+              const SizedBox(width: PebbleSpacing.xs),
+              const HomeAccountButton(),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildHeaderIconButton({
-    required String tooltip,
-    required IconData icon,
-    required VoidCallback onPressed,
-    required ThemeData themeData,
-  }) {
-    final foundation = context.darkFoundation;
-    return IconButton(
-      tooltip: tooltip,
-      onPressed: onPressed,
-      icon: Icon(icon, size: 15, color: context.readableSecondaryText),
-      style: IconButton.styleFrom(
-        fixedSize: const Size(36, 36),
-        minimumSize: const Size(36, 36),
-        backgroundColor: foundation.textPrimary.withValues(alpha: 0.10),
-        side: BorderSide(color: foundation.borderSubtle),
       ),
     );
   }
@@ -1276,121 +1229,110 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
     RoutineSessionResumeSummary session, {
     bool compact = false,
   }) {
-    final colorScheme = themeData.colorScheme;
     final foundation = context.darkFoundation;
-    return Material(
-      key: const ValueKey('home_resume_card'),
-      color: foundation.surfaceLow,
-      borderRadius: BorderRadius.circular(22),
-      elevation: 0,
-      child: Padding(
-        padding: EdgeInsets.all(compact ? 2 : 10),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(
-              color: Color.lerp(
-                foundation.borderSubtle,
-                colorScheme.primary,
-                0.35,
-              )!,
-              width: 1.4,
+    final isDark = themeData.brightness == Brightness.dark;
+    final type = PebbleType.of(context);
+    final action = context.actionAccent;
+    // Card style (DESIGN_DIRECTION.md §3.4): one surface, no double outline
+    // or shadow. The whole card resumes; Discard lives behind "…".
+    return Semantics(
+      container: true,
+      child: Material(
+        key: const ValueKey('home_resume_card'),
+        color: isDark ? foundation.surfaceLow : foundation.bgBase,
+        shape: RoundedRectangleBorder(
+          borderRadius: PebbleRadius.lgAll,
+          side: isDark
+              ? BorderSide.none
+              : BorderSide(
+                  color: foundation.textPrimary.withValues(alpha: 0.10),
+                ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => context.push('/play/${session.routineId}'),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              PebbleSpacing.md,
+              compact ? PebbleSpacing.xs : PebbleSpacing.sm,
+              PebbleSpacing.xxs,
+              compact ? PebbleSpacing.xs : PebbleSpacing.sm,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: foundation.shadowSoft,
-                blurRadius: 26,
-                offset: const Offset(0, 12),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(18),
-                  onTap: () => context.push('/play/${session.routineId}'),
-                  child: Padding(
-                    padding: EdgeInsets.all(compact ? 10 : 14),
-                    child: Row(
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: action.withValues(alpha: 0.10),
+                    borderRadius: PebbleRadius.smAll,
+                  ),
+                  child: Icon(LucideIcons.play, color: action, size: 20),
+                ),
+                const SizedBox(width: PebbleSpacing.sm),
+                Expanded(
+                  child: Semantics(
+                    button: true,
+                    label:
+                        'Resume ${session.routineTitleSnapshot}, step '
+                        '${session.displayStepNumber} of '
+                        '${session.totalStepCount}',
+                    excludeSemantics: true,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          width: compact ? 40 : 48,
-                          height: compact ? 40 : 48,
-                          decoration: BoxDecoration(
-                            color: colorScheme.primary.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Icon(
-                            LucideIcons.play,
-                            color: colorScheme.primary,
-                            size: 22,
+                        Text(
+                          'Resume ${session.routineTitleSnapshot}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: type.headline.copyWith(
+                            fontSize: 16,
+                            color: foundation.textPrimary,
                           ),
                         ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 9,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: colorScheme.primary.withValues(
-                                    alpha: 0.1,
-                                  ),
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                child: Text(
-                                  'IN PROGRESS',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 0.6,
-                                    color: colorScheme.primary,
-                                  ),
-                                ),
-                              ),
-                              SizedBox(height: compact ? 4 : 8),
-                              Text(
-                                'Resume ${session.routineTitleSnapshot}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                  color: foundation.textPrimary,
-                                ),
-                              ),
-                              SizedBox(height: compact ? 2 : 4),
-                              Text(
-                                'Step ${session.displayStepNumber} of ${session.totalStepCount}',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                  color: foundation.textSecondary,
-                                ),
-                              ),
-                            ],
+                        const SizedBox(height: 2),
+                        Text(
+                          'In progress · step ${session.displayStepNumber} '
+                          'of ${session.totalStepCount}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: type.caption.copyWith(
+                            color: context.readableSecondaryText,
                           ),
                         ),
                       ],
                     ),
                   ),
                 ),
-              ),
-              IconButton(
-                tooltip: 'Discard progress',
-                onPressed: () => _confirmDiscardResumeSession(session),
-                icon: Icon(
-                  LucideIcons.trash2,
-                  size: 18,
-                  color: foundation.textMuted,
+                PopupMenuButton<String>(
+                  tooltip: 'More for this run',
+                  icon: Icon(
+                    LucideIcons.ellipsis,
+                    size: 20,
+                    color: context.readableSecondaryText,
+                  ),
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: PebbleRadius.mdAll,
+                  ),
+                  onSelected: (value) {
+                    if (value == 'discard') {
+                      _confirmDiscardResumeSession(session);
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    PopupMenuItem<String>(
+                      value: 'discard',
+                      child: Text(
+                        'Discard progress',
+                        style: type.body.copyWith(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -1593,6 +1535,28 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                             onTap: () {
                               Navigator.pop(sheetContext);
                               _onEditRoutine(routine);
+                            },
+                          ),
+                          _buildMenuRow(
+                            sheetContext,
+                            icon: LucideIcons.bell,
+                            label: 'Reminders',
+                            subtitle: 'When this routine reminds you',
+                            accent: accent,
+                            onTap: () {
+                              Navigator.pop(sheetContext);
+                              _openRoutineReminders(routine);
+                            },
+                          ),
+                          _buildMenuRow(
+                            sheetContext,
+                            icon: LucideIcons.mail,
+                            label: 'Completion emails',
+                            subtitle: 'Email someone when you finish',
+                            accent: accent,
+                            onTap: () {
+                              Navigator.pop(sheetContext);
+                              _openRoutineEmail(routine);
                             },
                           ),
                           _buildMenuRow(
@@ -2057,8 +2021,6 @@ class _HomeHeroStage extends ConsumerStatefulWidget {
     required this.accentColor,
     required this.availableHeight,
     required this.onSettings,
-    required this.onReminders,
-    required this.onEmail,
     required this.onBegin,
     required this.onPreviewStepTap,
   });
@@ -2068,9 +2030,9 @@ class _HomeHeroStage extends ConsumerStatefulWidget {
   final List<RoutineStep> steps;
   final Color accentColor;
   final double availableHeight;
+
+  /// Opens the routine's actions sheet (edit, reminders, emails...).
   final VoidCallback onSettings;
-  final VoidCallback onReminders;
-  final VoidCallback onEmail;
   final VoidCallback onBegin;
   final ValueChanged<int> onPreviewStepTap;
 
@@ -2080,6 +2042,10 @@ class _HomeHeroStage extends ConsumerStatefulWidget {
 
 class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
   late bool _isPreviewExpanded;
+
+  /// The first known state appears at once; only later changes (coming
+  /// back from a run) cross-fade, so Home never flashes Start first.
+  bool _heroLoaded = false;
 
   @override
   void initState() {
@@ -2105,9 +2071,24 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
 
   @override
   Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
-    final latestRun = ref.watch(latestRoutineRunProvider(widget.routine.id));
+    final heroState = ref.watch(homeHeroStateProvider(widget.routine.id));
+    final animateHero = _heroLoaded;
+    _heroLoaded =
+        _heroLoaded ||
+        ref.watch(latestRoutineRunProvider(widget.routine.id)).hasValue;
+    final nextReminder = ref
+        .watch(routineNextReminderProvider(widget.routine.id))
+        .valueOrNull;
     final textScale = MediaQuery.textScalerOf(context).scale(1);
+    final metaLine = HomeRoutineMetaLine(
+      key: const ValueKey('home_hero_meta_line'),
+      stepCount: widget.steps.length,
+      photoStepCount: widget.steps
+          .where((step) => step.hasPhotoRequirement)
+          .length,
+      nextReminder: nextReminder,
+      onTap: widget.onSettings,
+    );
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -2121,88 +2102,15 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
           height: stageHeight,
           textScale: textScale,
         );
-        final hero = Align(
-          alignment: Alignment.topLeft,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Column(
-              key: const ValueKey('home_hero_stage'),
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(height: metrics.topInset),
-                Text(
-                  'YOUR NEXT RIPPLE',
-                  key: const ValueKey('home_hero_overline'),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1.5,
-                    color: context.readableAccentText(
-                      widget.themeData.colorScheme.primary,
-                    ),
-                  ),
-                ),
-                SizedBox(height: metrics.overlineTitleGap),
-                Text.rich(
-                  key: const ValueKey('home_hero_title'),
-                  _titleSpan(
-                    widget.routine.title,
-                    widget.themeData.colorScheme.primary,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: PebbleFonts.serif(
-                    fontSize: metrics.titleFontSize,
-                    fontWeight: FontWeight.w400,
-                    height: 1.02,
-                    letterSpacing: -1,
-                    color: foundation.textPrimary,
-                  ),
-                ),
-                SizedBox(height: metrics.titlePreviewGap),
-                _HomeHeroPreviewCard(
-                  steps: widget.steps,
-                  height: metrics.previewHeight,
-                  isExpanded: _isPreviewExpanded,
-                  accentColor: widget.accentColor,
-                  themeData: widget.themeData,
-                  onSettings: widget.onSettings,
-                  onReminders: widget.onReminders,
-                  onEmail: widget.onEmail,
-                  onToggleExpanded: () =>
-                      _setPreviewExpanded(!_isPreviewExpanded),
-                  onStepTap: widget.onPreviewStepTap,
-                ),
-                SizedBox(height: metrics.previewCtaGap),
-                SizedBox(
-                  key: const ValueKey('home_hero_cta_box'),
-                  width: double.infinity,
-                  height: 58,
-                  child: PebbleButton.primary(
-                    key: const ValueKey('home_hero_cta'),
-                    onPressed: widget.onBegin,
-                    icon: LucideIcons.play,
-                    label: 'Start',
-                  ),
-                ),
-                SizedBox(height: metrics.ctaMetaGap),
-                _HomeHeroMetaRow(
-                  latestRun: latestRun,
-                  lastRunTextFor: _lastRunText,
-                  steps: widget.steps.length,
-                ),
-                SizedBox(height: metrics.bottomInset),
-              ],
-            ),
-          ),
-        );
+        final checked = heroState.kind == HomeHeroKind.checked;
+        final run = heroState.latestRun;
+        final Widget hero = checked && run != null
+            ? _buildChecked(metrics, heroState, run, metaLine)
+            : _buildReady(metrics, heroState, metaLine);
 
         // The metrics above size the hero to fit; scrolling is only the
         // fallback for very short screens (or a resume card above it), so
-        // the Start button is never clipped or hidden behind the shelf.
+        // the main button is never clipped or hidden behind the shelf.
         return MediaQuery(
           data: MediaQuery.of(
             context,
@@ -2210,10 +2118,155 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
           child: SingleChildScrollView(
             key: const ValueKey('home_hero_scroll'),
             physics: const ClampingScrollPhysics(),
-            child: hero,
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                // Returning from a run, the Checked card cross-fades in.
+                child: AnimatedSwitcher(
+                  duration: !animateHero
+                      ? Duration.zero
+                      : MediaQuery.disableAnimationsOf(context)
+                      ? PebbleMotion.reduced
+                      : PebbleMotion.standard,
+                  switchInCurve: PebbleMotion.enter,
+                  layoutBuilder: (current, previous) => Stack(
+                    alignment: Alignment.topLeft,
+                    children: [...previous, ?current],
+                  ),
+                  child: KeyedSubtree(
+                    key: ValueKey(checked ? 'checked' : 'ready'),
+                    child: hero,
+                  ),
+                ),
+              ),
+            ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildChecked(
+    _HomeHeroMetrics metrics,
+    HomeHeroState heroState,
+    RoutineRun run,
+    Widget metaLine,
+  ) {
+    final tally = heroState.tally ?? RunStepTally.fromRun(run);
+    return Column(
+      key: const ValueKey('home_hero_stage'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(height: metrics.topInset),
+        HomeCheckedCard(
+          routineId: widget.routine.id,
+          routineTitle: widget.routine.title.trim().isEmpty
+              ? 'Untitled routine'
+              : widget.routine.title.trim(),
+          finishedAt: run.finishedAt,
+          tally: tally,
+          photoPaths: heroState.photoPaths,
+          compact: metrics.compact,
+        ),
+        SizedBox(height: metrics.previewCtaGap),
+        SizedBox(
+          key: const ValueKey('home_hero_cta_box'),
+          width: double.infinity,
+          child: PebbleButton.secondary(
+            key: const ValueKey('home_hero_cta'),
+            onPressed: widget.onBegin,
+            icon: LucideIcons.rotateCcw,
+            label: 'Run again',
+          ),
+        ),
+        SizedBox(height: metrics.ctaMetaGap),
+        Align(alignment: Alignment.centerLeft, child: metaLine),
+        SizedBox(height: metrics.bottomInset),
+      ],
+    );
+  }
+
+  Widget _buildReady(
+    _HomeHeroMetrics metrics,
+    HomeHeroState heroState,
+    Widget metaLine,
+  ) {
+    final foundation = context.darkFoundation;
+    final inProgress = heroState.kind == HomeHeroKind.inProgress;
+    return Column(
+      key: const ValueKey('home_hero_stage'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(height: metrics.topInset),
+        Text(
+          inProgress ? 'IN PROGRESS' : 'YOUR NEXT RIPPLE',
+          key: const ValueKey('home_hero_overline'),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1.5,
+            color: context.readableAccentText(
+              widget.themeData.colorScheme.primary,
+            ),
+          ),
+        ),
+        SizedBox(height: metrics.overlineTitleGap),
+        Text.rich(
+          key: const ValueKey('home_hero_title'),
+          _titleSpan(
+            widget.routine.title,
+            widget.themeData.colorScheme.primary,
+          ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: PebbleFonts.serif(
+            fontSize: metrics.titleFontSize,
+            fontWeight: FontWeight.w400,
+            height: 1.02,
+            letterSpacing: -1,
+            color: foundation.textPrimary,
+          ),
+        ),
+        SizedBox(height: metrics.titleMetaGap),
+        Align(alignment: Alignment.centerLeft, child: metaLine),
+        SizedBox(
+          height: metrics.titlePreviewGap - metrics.titleMetaGap - 40,
+        ),
+        _HomeHeroPreviewCard(
+          steps: widget.steps,
+          height: metrics.previewHeight,
+          isExpanded: _isPreviewExpanded,
+          accentColor: widget.accentColor,
+          themeData: widget.themeData,
+          onToggleExpanded: () => _setPreviewExpanded(!_isPreviewExpanded),
+          onStepTap: widget.onPreviewStepTap,
+        ),
+        SizedBox(height: metrics.previewCtaGap),
+        SizedBox(
+          key: const ValueKey('home_hero_cta_box'),
+          width: double.infinity,
+          height: 58,
+          child: PebbleButton.primary(
+            key: const ValueKey('home_hero_cta'),
+            onPressed: widget.onBegin,
+            icon: LucideIcons.play,
+            label: inProgress ? 'Resume' : 'Start',
+          ),
+        ),
+        SizedBox(height: metrics.ctaMetaGap),
+        _HomeHeroMetaRow(
+          latestRun: heroState.latestRun,
+          session: heroState.session,
+          lastRunTextFor: _lastRunText,
+          steps: widget.steps.length,
+        ),
+        SizedBox(height: metrics.bottomInset),
+      ],
     );
   }
 
@@ -2255,9 +2308,6 @@ class _HomeHeroPreviewCard extends StatelessWidget {
     required this.isExpanded,
     required this.accentColor,
     required this.themeData,
-    required this.onSettings,
-    required this.onReminders,
-    required this.onEmail,
     required this.onToggleExpanded,
     required this.onStepTap,
   });
@@ -2267,9 +2317,6 @@ class _HomeHeroPreviewCard extends StatelessWidget {
   final bool isExpanded;
   final Color accentColor;
   final ThemeData themeData;
-  final VoidCallback onSettings;
-  final VoidCallback onReminders;
-  final VoidCallback onEmail;
   final VoidCallback onToggleExpanded;
   final ValueChanged<int> onStepTap;
 
@@ -2283,23 +2330,18 @@ class _HomeHeroPreviewCard extends StatelessWidget {
     return Container(
       key: const ValueKey('home_hero_preview_card'),
       height: effectiveHeight,
-      padding: EdgeInsets.fromLTRB(12, topPadding, 12, bottomPadding),
+      padding: EdgeInsets.fromLTRB(14, topPadding, 8, bottomPadding),
       decoration: BoxDecoration(
-        color: foundation.textPrimary.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: foundation.borderSubtle),
+        color: foundation.textPrimary.withValues(alpha: 0.05),
+        borderRadius: PebbleRadius.mdAll,
       ),
       child: Column(
         children: [
           _HomeHeroPreviewHeader(
             compact: compact,
             isExpanded: isExpanded,
-            stepCount: steps.length,
             accentColor: accentColor,
             onToggleExpanded: onToggleExpanded,
-            onSettings: onSettings,
-            onReminders: onReminders,
-            onEmail: onEmail,
           ),
           if (isExpanded) ...[
             SizedBox(height: compact ? 4 : 6),
@@ -2322,22 +2364,14 @@ class _HomeHeroPreviewHeader extends StatelessWidget {
   const _HomeHeroPreviewHeader({
     required this.compact,
     required this.isExpanded,
-    required this.stepCount,
     required this.accentColor,
     required this.onToggleExpanded,
-    required this.onSettings,
-    required this.onReminders,
-    required this.onEmail,
   });
 
   final bool compact;
   final bool isExpanded;
-  final int stepCount;
   final Color accentColor;
   final VoidCallback onToggleExpanded;
-  final VoidCallback onSettings;
-  final VoidCallback onReminders;
-  final VoidCallback onEmail;
 
   @override
   Widget build(BuildContext context) {
@@ -2348,151 +2382,45 @@ class _HomeHeroPreviewHeader extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: accentColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: accentColor.withValues(alpha: 0.20),
-                    ),
-                  ),
-                  child: Text(
-                    '$stepCount',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.3,
-                      color: accentColor,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: Text(
-                    'Steps',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 0.8,
-                      color: context.readableSecondaryText,
-                    ),
-                  ),
-                ),
-              ],
+            child: Text(
+              'Steps',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: PebbleType.of(
+                context,
+              ).caption.copyWith(color: context.readableSecondaryText),
             ),
           ),
           Semantics(
-            label: 'Routine actions',
-            container: true,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _HomeHeroPreviewIconButton(
-                  key: const ValueKey('home_hero_preview_reminders'),
-                  tooltip: 'Reminders',
-                  icon: LucideIcons.bell,
-                  compact: compact,
-                  onPressed: onReminders,
-                ),
-                _HomeHeroPreviewIconButton(
-                  key: const ValueKey('home_hero_preview_email'),
-                  tooltip: 'Email',
-                  icon: LucideIcons.mail,
-                  compact: compact,
-                  onPressed: onEmail,
-                ),
-                Container(
-                  width: 1,
-                  height: 14,
-                  margin: EdgeInsets.symmetric(horizontal: compact ? 2 : 4),
-                  color: foundation.borderSubtle.withValues(alpha: 0.78),
-                ),
-                _HomeHeroPreviewIconButton(
-                  key: const ValueKey('home_hero_preview_settings'),
-                  tooltip: 'Routine settings',
-                  icon: LucideIcons.settings,
-                  compact: compact,
-                  onPressed: onSettings,
-                ),
-                Semantics(
-                  label: isExpanded ? 'Hide steps' : 'Show steps',
-                  button: true,
-                  child: SizedBox(
-                    key: const ValueKey('home_hero_preview_toggle'),
-                    width: compact ? 28 : 32,
-                    height: compact ? 28 : 32,
-                    child: IconButton(
-                      onPressed: onToggleExpanded,
-                      tooltip: isExpanded ? 'Hide steps' : 'Show steps',
-                      icon: AnimatedRotation(
-                        turns: isExpanded ? 0.5 : 0,
-                        duration: const Duration(milliseconds: 220),
-                        child: Icon(
-                          LucideIcons.chevronDown,
-                          size: 16,
-                          color: isExpanded
-                              ? accentColor
-                              : foundation.textSecondary,
-                        ),
-                      ),
-                      style: IconButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        minimumSize: Size(compact ? 28 : 32, compact ? 28 : 32),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                    ),
+            label: isExpanded ? 'Hide steps' : 'Show steps',
+            button: true,
+            child: SizedBox(
+              key: const ValueKey('home_hero_preview_toggle'),
+              width: compact ? 32 : 36,
+              height: compact ? 32 : 36,
+              child: IconButton(
+                onPressed: onToggleExpanded,
+                tooltip: isExpanded ? 'Hide steps' : 'Show steps',
+                icon: AnimatedRotation(
+                  turns: isExpanded ? 0.5 : 0,
+                  duration: PebbleMotion.standard,
+                  child: Icon(
+                    LucideIcons.chevronDown,
+                    size: 16,
+                    color: isExpanded
+                        ? accentColor
+                        : foundation.textSecondary,
                   ),
                 ),
-              ],
+                style: IconButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: Size(compact ? 32 : 36, compact ? 32 : 36),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _HomeHeroPreviewIconButton extends StatelessWidget {
-  const _HomeHeroPreviewIconButton({
-    super.key,
-    required this.tooltip,
-    required this.icon,
-    required this.compact,
-    required this.onPressed,
-  });
-
-  final String tooltip;
-  final IconData icon;
-  final bool compact;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final size = compact ? 28.0 : 32.0;
-    return Semantics(
-      label: tooltip,
-      button: true,
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: IconButton(
-          onPressed: onPressed,
-          tooltip: tooltip,
-          icon: Icon(icon, size: 14, color: context.readableSecondaryText),
-          style: IconButton.styleFrom(
-            padding: EdgeInsets.zero,
-            minimumSize: Size(size, size),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-        ),
       ),
     );
   }
@@ -2503,9 +2431,11 @@ class _HomeHeroMetaRow extends StatelessWidget {
     required this.latestRun,
     required this.lastRunTextFor,
     required this.steps,
+    this.session,
   });
 
-  final AsyncValue<RoutineRun?> latestRun;
+  final RoutineRun? latestRun;
+  final RoutineSessionResumeSummary? session;
   final String Function(DateTime finishedAt) lastRunTextFor;
   final int steps;
 
@@ -2524,8 +2454,21 @@ class _HomeHeroMetaRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          latestRun.maybeWhen(
-            data: (run) {
+          Builder(
+            builder: (context) {
+              final run = latestRun;
+              final saved = session;
+              if (saved != null) {
+                return Flexible(
+                  child: Text(
+                    'Saved at step ${saved.displayStepNumber} of '
+                    '${saved.totalStepCount}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: style,
+                  ),
+                );
+              }
               if (run == null) {
                 return Flexible(
                   child: Text(
@@ -2575,7 +2518,6 @@ class _HomeHeroMetaRow extends StatelessWidget {
                 ),
               );
             },
-            orElse: () => const SizedBox.shrink(),
           ),
         ],
       ),
@@ -2772,6 +2714,8 @@ class _HomeHeroStepRow extends StatelessWidget {
 
 class _HomeHeroMetrics {
   const _HomeHeroMetrics({
+    required this.compact,
+    required this.titleMetaGap,
     required this.topInset,
     required this.overlineTitleGap,
     required this.titlePreviewGap,
@@ -2783,6 +2727,10 @@ class _HomeHeroMetrics {
     required this.effectiveTextScale,
   });
 
+  final bool compact;
+
+  /// Title to the "5 steps · …" meta line.
+  final double titleMetaGap;
   final double topInset;
   final double overlineTitleGap;
   final double titlePreviewGap;
@@ -2809,11 +2757,16 @@ class _HomeHeroMetrics {
     const heroLift = 0.0;
     final overlineTitleGap = tightForText ? 8.0 : 10.0;
     final previewExtension = tightForText ? 0.0 : 15.0;
-    final titlePreviewGap = tight
-        ? 12.0
-        : compact
-        ? 18.0
-        : 20.0;
+    final titleMetaGap = tight ? 2.0 : 4.0;
+    // Title → meta line (40 high, with its own air) → preview card.
+    final titlePreviewGap =
+        titleMetaGap +
+        40 +
+        (tight
+            ? 2.0
+            : compact
+            ? 4.0
+            : 6.0);
     final previewCtaGap = tight
         ? 10.0
         : compact
@@ -2876,6 +2829,8 @@ class _HomeHeroMetrics {
               .toDouble();
 
     return _HomeHeroMetrics(
+      compact: compact,
+      titleMetaGap: titleMetaGap,
       topInset: topInset,
       overlineTitleGap: overlineTitleGap,
       titlePreviewGap: titlePreviewGap,

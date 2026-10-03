@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Re-rendered every 30 minutes (no app wake-up: onUpdate only reads the
+     saved data) so a "Checked" subtitle drops once its cut-off passes. -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:initialLayout="@layout/pebble_routine_widget"
     android:minWidth="180dp"
@@ -7,4 +9,4 @@
     android:targetCellHeight="1"
     android:resizeMode="horizontal"
     android:widgetCategory="home_screen"
-    android:updatePeriodMillis="0" />
+    android:updatePeriodMillis="1800000" />

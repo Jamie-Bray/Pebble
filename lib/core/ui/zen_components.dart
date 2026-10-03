@@ -108,56 +108,6 @@ class ZenScreenHeader extends StatelessWidget {
   }
 }
 
-// Beautiful ambient particles painter
-class AmbientParticlesPainter extends CustomPainter {
-  final double animationValue;
-  final bool isDarkTheme;
-
-  AmbientParticlesPainter(this.animationValue, this.isDarkTheme);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..style = PaintingStyle.fill;
-    final random = Random(42); // Fixed seed for consistent positions
-
-    // Create subtle ambient particles
-    for (int i = 0; i < 15; i++) {
-      final x = random.nextDouble() * size.width;
-      final y = random.nextDouble() * size.height;
-
-      // Floating animation
-      final floatOffset = sin((animationValue * 2 * pi) + (i * 0.5)) * 15;
-      final currentY = y + floatOffset;
-
-      // Different particle sizes and opacities
-      double particleSize;
-      double opacity;
-
-      if (i < 3) {
-        // Hero particles - larger and brighter
-        particleSize = 2.0 + (sin(animationValue * pi + i) * 0.3);
-        opacity = 0.08 + (sin(animationValue * pi + i) * 0.02);
-      } else if (i < 10) {
-        // Medium particles
-        particleSize = 1.0 + (sin(animationValue * pi + i) * 0.2);
-        opacity = 0.04 + (sin(animationValue * pi + i) * 0.01);
-      } else {
-        // Small particles
-        particleSize = 0.5 + (sin(animationValue * pi + i) * 0.1);
-        opacity = 0.02 + (sin(animationValue * pi + i) * 0.005);
-      }
-
-      paint.color = isDarkTheme
-          ? Colors.white.withValues(alpha: opacity)
-          : Colors.black.withValues(alpha: opacity * 0.3);
-      canvas.drawCircle(Offset(x, currentY), particleSize, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
-}
-
 class ZenBounceButton extends StatefulWidget {
   final Widget child;
   final VoidCallback onTap;

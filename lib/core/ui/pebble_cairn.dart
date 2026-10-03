@@ -50,17 +50,20 @@ class PebbleCairn extends StatelessWidget {
     final x = Theme.of(context).extension<PebbleThemeX>();
     final bg = foundation.bgBase;
     // "done, done at 70%, the category accents" (DESIGN_DIRECTION.md
-    // Moment 2). Single-accent themes alternate two done tones instead, so a
-    // dark structural accent never lands in the middle of the stack.
+    // Moment 2). Single-accent themes step the done colour gently lighter up
+    // the stack instead, one calm family like the icon's three tones.
     final accents = x != null && x.categoryAccents.length > 1
-        ? [for (final c in x.categoryAccents) Color.lerp(c, bg, 0.12)!]
+        ? [
+            for (final c in x.categoryAccents)
+              if (c != done) Color.lerp(c, bg, 0.12)!,
+          ]
         : <Color>[];
-    final palette = <Color>[
-      done,
-      Color.lerp(done, bg, 0.30)!,
-      ...accents.where((c) => c != done),
-      if (accents.isEmpty) Color.lerp(done, bg, 0.12)!,
-    ];
+    final palette = accents.isEmpty
+        ? [
+            for (var i = 0; i < maxPebbles; i++)
+              Color.lerp(done, bg, 0.14 * i)!,
+          ]
+        : <Color>[done, Color.lerp(done, bg, 0.30)!, ...accents];
     final count = pebbleCount(total);
     final label = skipped > 0
         ? '${total - skipped} of $total steps checked, $skipped skipped'
