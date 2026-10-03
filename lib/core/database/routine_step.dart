@@ -30,12 +30,29 @@ class StepGuidanceAudio {
     required this.durationMs,
     this.mimeType,
     this.byteSize,
+    this.remoteObjectKey,
   });
 
   final String localPath;
   final int durationMs;
   final String? mimeType;
   final int? byteSize;
+
+  /// Cloud backup copy in the `routine-proofs` bucket, set once the clip has
+  /// been uploaded. Omitted from JSON while null so routines saved before
+  /// voice prompt backup round-trip unchanged.
+  @JsonKey(includeIfNull: false)
+  final String? remoteObjectKey;
+
+  StepGuidanceAudio copyWith({String? remoteObjectKey}) {
+    return StepGuidanceAudio(
+      localPath: localPath,
+      durationMs: durationMs,
+      mimeType: mimeType,
+      byteSize: byteSize,
+      remoteObjectKey: remoteObjectKey ?? this.remoteObjectKey,
+    );
+  }
 
   factory StepGuidanceAudio.fromJson(Map<String, dynamic> json) =>
       _$StepGuidanceAudioFromJson(json);
@@ -49,11 +66,13 @@ class StepGuidanceAudio {
         other.localPath == localPath &&
         other.durationMs == durationMs &&
         other.mimeType == mimeType &&
-        other.byteSize == byteSize;
+        other.byteSize == byteSize &&
+        other.remoteObjectKey == remoteObjectKey;
   }
 
   @override
-  int get hashCode => Object.hash(localPath, durationMs, mimeType, byteSize);
+  int get hashCode =>
+      Object.hash(localPath, durationMs, mimeType, byteSize, remoteObjectKey);
 }
 
 // Extension to easily check photo requirements

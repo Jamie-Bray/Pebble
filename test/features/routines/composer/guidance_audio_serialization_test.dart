@@ -54,5 +54,47 @@ void main() {
       expect(decoded.requiredPhotoCount, 1);
       expect(decoded.canSkip, isTrue);
     });
+
+    test('guidance audio saved before cloud backup still parses', () {
+      final decoded = RoutineStep.fromJson({
+        'runtimeType': 'check',
+        'label': 'Feed the cat',
+        'guidanceAudio': {
+          'localPath': 'clip.wav',
+          'durationMs': 4000,
+          'mimeType': 'audio/wav',
+          'byteSize': 1024,
+        },
+      });
+
+      expect(decoded.guidanceAudio?.localPath, 'clip.wav');
+      expect(decoded.guidanceAudio?.remoteObjectKey, isNull);
+      expect(
+        decoded.guidanceAudio!.toJson().containsKey('remoteObjectKey'),
+        isFalse,
+      );
+    });
+
+    test('round-trips the remote object key once backed up', () {
+      const audio = StepGuidanceAudio(
+        localPath: 'clip.wav',
+        durationMs: 4000,
+        remoteObjectKey: 'users/u1/guidance_audio/clip.wav',
+      );
+      const step = RoutineStep.check(
+        label: 'Feed the cat',
+        guidanceAudio: audio,
+      );
+
+      final decoded = RoutineStep.fromJson(
+        Map<String, dynamic>.from(jsonDecode(jsonEncode(step.toJson())) as Map),
+      );
+
+      expect(decoded.guidanceAudio, audio);
+      expect(
+        decoded.guidanceAudio?.remoteObjectKey,
+        'users/u1/guidance_audio/clip.wav',
+      );
+    });
   });
 }

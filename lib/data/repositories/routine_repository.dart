@@ -2,9 +2,11 @@ import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/data/local/routine_dao.dart';
 import 'package:drift/drift.dart' show Variable, Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 import 'package:pebble_routines/features/routines/data/models/routine_icon_catalog.dart';
 import 'package:pebble_routines/features/subscription/providers/cloud_access_provider.dart';
 import 'package:pebble_routines/features/sync/cloud_sync_coordinator.dart';
+import 'package:pebble_routines/features/sync/guidance_audio_cloud_backup.dart';
 import 'package:pebble_routines/features/sync/sync_outbox_repository.dart';
 
 final localDbProvider = Provider<LocalDb>((ref) => LocalDb());
@@ -94,7 +96,14 @@ class RoutineRepositoryImpl implements RoutineRepository {
       syncStatus: shouldQueue ? 'pendingUpload' : routine.syncStatus,
       lastSyncedAt: routine.lastSyncedAt,
     );
+    final previous = await _dao.getRoutineById(routine.id);
     await _dao.insertOrUpdateRoutine(prepared);
+    if (previous != null) {
+      await _queueRemovedGuidanceAudio(
+        previousStepsJson: previous.stepsJson,
+        nextStepsJson: prepared.stepsJson,
+      );
+    }
     if (shouldQueue) {
       await _ref
           .read(syncOutboxRepositoryProvider)
@@ -136,6 +145,9 @@ class RoutineRepositoryImpl implements RoutineRepository {
       await _dao.attachedDatabase.routineReminderDao.deleteRemindersForRoutine(
         id,
       );
+    }
+    if (existing != null) {
+      await _queueRemovedGuidanceAudio(previousStepsJson: existing.stepsJson);
     }
     await _dao.attachedDatabase.routineComposerDraftDao
         .deleteEditDraftsForRoutine(id);
@@ -199,6 +211,36 @@ class RoutineRepositoryImpl implements RoutineRepository {
     });
     if (shouldKick) {
       await _ref.read(cloudSyncCoordinatorProvider).kick();
+    }
+  }
+
+  /// Queues removal of backed-up voice prompts that [nextStepsJson] no longer
+  /// uses (all of them when the routine is deleted). Matching by clip file
+  /// name keeps a clip whose key was dropped by a stale draft. The sync pass
+  /// re-checks other routines and drafts before deleting anything.
+  Future<void> _queueRemovedGuidanceAudio({
+    required String previousStepsJson,
+    String? nextStepsJson,
+  }) async {
+    final previousKeys = GuidanceAudioCloudBackup.remoteKeysByFileName(
+      previousStepsJson,
+    );
+    if (previousKeys.isEmpty) return;
+    final kept = nextStepsJson == null
+        ? const <String>{}
+        : GuidanceAudioCloudBackup.localPathsIn(
+            nextStepsJson,
+          ).map(p.basename).toSet();
+    for (final entry in previousKeys.entries) {
+      if (kept.contains(entry.key)) continue;
+      await _ref
+          .read(syncOutboxRepositoryProvider)
+          .enqueue(
+            entityType: SyncEntityType.guidanceAudio,
+            entityId: entry.value,
+            operation: SyncOperation.delete,
+            payload: {'objectKey': entry.value},
+          );
     }
   }
 

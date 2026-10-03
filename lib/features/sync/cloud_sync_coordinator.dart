@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
 import 'package:pebble_routines/core/database/local_db.dart';
@@ -18,6 +19,7 @@ import 'package:pebble_routines/features/routines/execution/data/services/routin
 import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
 import 'package:pebble_routines/features/subscription/providers/cloud_access_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
+import 'package:pebble_routines/features/sync/guidance_audio_cloud_backup.dart';
 import 'package:pebble_routines/features/sync/local_data_ownership_guard.dart';
 import 'package:pebble_routines/features/sync/sync_outbox_repository.dart';
 
@@ -67,6 +69,7 @@ class CloudSyncCoordinator {
     required RemoteRoutineRunDataSource remoteRunDataSource,
     required RemoteRoutineSessionDataSource remoteSessionDataSource,
     required RoutineSessionProofStorage proofStorage,
+    required GuidanceAudioCloudBackup guidanceAudioBackup,
   }) : _ref = ref,
        _database = database,
        _outbox = outbox,
@@ -74,7 +77,8 @@ class CloudSyncCoordinator {
        _remoteReminderDataSource = remoteReminderDataSource,
        _remoteRunDataSource = remoteRunDataSource,
        _remoteSessionDataSource = remoteSessionDataSource,
-       _proofStorage = proofStorage;
+       _proofStorage = proofStorage,
+       _guidanceAudioBackup = guidanceAudioBackup;
 
   final Ref _ref;
   final LocalDb _database;
@@ -84,6 +88,7 @@ class CloudSyncCoordinator {
   final RemoteRoutineRunDataSource _remoteRunDataSource;
   final RemoteRoutineSessionDataSource _remoteSessionDataSource;
   final RoutineSessionProofStorage _proofStorage;
+  final GuidanceAudioCloudBackup _guidanceAudioBackup;
 
   bool _isRunning = false;
   Timer? _retryTimer;
@@ -108,6 +113,11 @@ class CloudSyncCoordinator {
     final sessionCutoff = DateTime.now().subtract(const Duration(hours: 24));
     await _database.routineSessionDao.deleteSessionsOlderThan(sessionCutoff);
 
+    // Bring back voice prompts that a restore left without a local file.
+    // This runs right after every bootstrap merge, so the restore itself
+    // never waits on audio.
+    await _restoreMissingGuidanceAudio();
+
     // Run garbage collection for orphaned voice clips
     await _runGuidanceAudioGarbageCollection();
 
@@ -118,59 +128,52 @@ class CloudSyncCoordinator {
   }
 
   Future<void> _runGuidanceAudioGarbageCollection() async {
+    final activePaths = await _activeGuidanceAudioPaths();
+    await _ref
+        .read(guidanceAudioStorageProvider)
+        .cleanupOrphanedAudio(activePaths);
+  }
+
+  /// Voice clip paths referenced by published routines or open drafts.
+  Future<Set<String>> _activeGuidanceAudioPaths() async {
     final activePaths = <String>{};
 
     // Extract from published routines
     final routines = await _database.routineDao.getAllRoutines();
     for (final routine in routines) {
-      if (routine.stepsJson.isEmpty) continue;
-      try {
-        final decoded = jsonDecode(routine.stepsJson);
-        if (decoded is List) {
-          for (final item in decoded) {
-            if (item is Map) {
-              final audio = item['guidanceAudio'];
-              if (audio is Map) {
-                final localPath = audio['localPath']?.toString();
-                if (localPath != null && localPath.isNotEmpty) {
-                  activePaths.add(localPath);
-                }
-              }
-            }
-          }
-        }
-      } catch (_) {}
+      activePaths.addAll(
+        GuidanceAudioCloudBackup.localPathsIn(routine.stepsJson),
+      );
     }
 
-    // Extract from active drafts
-    // Need to get edit drafts too. Let's just query all drafts.
-    // wait, I can just use getAllDrafts() if it exists, or just query the table.
+    // Extract from active drafts, including edit drafts
     final allDraftRows = await _database
         .select(_database.routineComposerDrafts)
         .get();
     for (final draft in allDraftRows) {
-      if (draft.stepsJson.isEmpty) continue;
-      try {
-        final decoded = jsonDecode(draft.stepsJson);
-        if (decoded is List) {
-          for (final item in decoded) {
-            if (item is Map) {
-              final audio = item['guidanceAudio'];
-              if (audio is Map) {
-                final localPath = audio['localPath']?.toString();
-                if (localPath != null && localPath.isNotEmpty) {
-                  activePaths.add(localPath);
-                }
-              }
-            }
-          }
-        }
-      } catch (_) {}
+      activePaths.addAll(
+        GuidanceAudioCloudBackup.localPathsIn(draft.stepsJson),
+      );
     }
+    return activePaths;
+  }
 
-    await _ref
-        .read(guidanceAudioStorageProvider)
-        .cleanupOrphanedAudio(activePaths);
+  Future<void> _restoreMissingGuidanceAudio() async {
+    final auth = _ref.read(authSessionProvider);
+    final userId = auth.userId;
+    if (!auth.isSignedIn || userId == null || userId.isEmpty) return;
+    try {
+      final routines = await _database.routineDao.getAllRoutines();
+      await _guidanceAudioBackup.restoreMissing(
+        stepsJsons: routines.map((routine) => routine.stepsJson),
+        ownerUserId: userId,
+      );
+    } catch (error) {
+      developer.log(
+        'Voice prompt restore pass failed: $error',
+        name: 'CloudSyncCoordinator',
+      );
+    }
   }
 
   Future<ManualSyncResult> runManualSync() {
@@ -378,6 +381,7 @@ class CloudSyncCoordinator {
       SyncEntityType.run: 2,
       SyncEntityType.session: 3,
       SyncEntityType.proofAsset: 4,
+      SyncEntityType.guidanceAudio: 5,
     };
     final operationOrder = <SyncOperation, int>{
       SyncOperation.upsert: 0,
@@ -413,6 +417,17 @@ class CloudSyncCoordinator {
           entityType: SyncEntityType.routine,
           entityId: routine.id.toString(),
           operation: SyncOperation.upsert,
+        );
+      } else if (await _guidanceAudioBackup.needsUpload(
+        stepsJson: routine.stepsJson,
+        ownerUserId: routine.ownerUserId!,
+      )) {
+        // Routines backed up before voice prompts were: only the audio
+        // needs to go up.
+        await _outbox.enqueue(
+          entityType: SyncEntityType.guidanceAudio,
+          entityId: routine.id.toString(),
+          operation: SyncOperation.upload,
         );
       }
     }
@@ -525,6 +540,9 @@ class CloudSyncCoordinator {
         return;
       case SyncEntityType.proofAsset:
         return;
+      case SyncEntityType.guidanceAudio:
+        await _syncGuidanceAudioItem(item, ownerUserId);
+        return;
     }
   }
 
@@ -541,6 +559,21 @@ class CloudSyncCoordinator {
     if (routineId == null) return;
     final routine = await _database.routineDao.getRoutineById(routineId);
     if (routine == null) return;
+    // Voice prompts go up first so the routine row carries their remote keys.
+    // A clip that fails must not hold back the routine itself: it moves to
+    // its own outbox item, which retries with the usual backoff.
+    final audio = await _uploadRoutineGuidanceAudio(routine, ownerUserId);
+    await _upsertRoutine(audio.routine, ownerUserId);
+    if (audio.failure != null) {
+      await _outbox.enqueue(
+        entityType: SyncEntityType.guidanceAudio,
+        entityId: routine.id.toString(),
+        operation: SyncOperation.upload,
+      );
+    }
+  }
+
+  Future<void> _upsertRoutine(Routine routine, String ownerUserId) async {
     final cloudId = _stableRemoteId(
       entityKind: 'routine',
       localEntityId: routine.id.toString(),
@@ -567,6 +600,64 @@ class CloudSyncCoordinator {
       ownerUserId: ownerUserId,
       syncedAt: DateTime.now(),
     );
+  }
+
+  Future<void> _syncGuidanceAudioItem(
+    SyncOutboxItem item,
+    String ownerUserId,
+  ) async {
+    if (item.operation == SyncOperation.delete) {
+      final objectKey = item.payload?['objectKey']?.toString() ?? item.entityId;
+      if (!GuidanceAudioCloudBackup.isOwnedBy(objectKey, ownerUserId)) return;
+      // A duplicated routine or an open draft can still use the same clip.
+      final fileName = p.basename(objectKey);
+      final activePaths = await _activeGuidanceAudioPaths();
+      if (activePaths.any((path) => p.basename(path) == fileName)) return;
+      await _guidanceAudioBackup.deleteRemote(objectKey);
+      return;
+    }
+
+    final routineId = int.tryParse(item.entityId);
+    if (routineId == null) return;
+    final routine = await _database.routineDao.getRoutineById(routineId);
+    if (routine == null) return;
+    final audio = await _uploadRoutineGuidanceAudio(routine, ownerUserId);
+    if (!identical(audio.routine, routine)) {
+      await _upsertRoutine(audio.routine, ownerUserId);
+    }
+    final failure = audio.failure;
+    if (failure != null) {
+      throw failure;
+    }
+  }
+
+  /// Uploads the routine's voice prompts that have no backup yet and records
+  /// their remote keys in the local routine.
+  Future<({Routine routine, Object? failure})> _uploadRoutineGuidanceAudio(
+    Routine routine,
+    String ownerUserId,
+  ) async {
+    final result = await _guidanceAudioBackup.uploadPending(
+      stepsJson: routine.stepsJson,
+      ownerUserId: ownerUserId,
+      entityId: routine.cloudId ?? routine.id.toString(),
+    );
+    if (result.uploadedKeys.isEmpty) {
+      return (routine: routine, failure: result.failure);
+    }
+    // Re-read so an edit saved while the clips were uploading is kept.
+    final latest =
+        await _database.routineDao.getRoutineById(routine.id) ?? routine;
+    final updated = latest.copyWith(
+      stepsJson: GuidanceAudioCloudBackup.applyRemoteKeys(
+        latest.stepsJson,
+        result.uploadedKeys,
+      ),
+      // Newer, so other devices take the keyed copy when they merge.
+      updatedAt: DateTime.now(),
+    );
+    await _database.routineDao.insertOrUpdateRoutine(updated);
+    return (routine: updated, failure: result.failure);
   }
 
   Future<void> _syncReminderItem(
@@ -971,6 +1062,7 @@ final cloudSyncCoordinatorProvider = Provider<CloudSyncCoordinator>((ref) {
     remoteRunDataSource: ref.read(remoteRoutineRunDataSourceProvider),
     remoteSessionDataSource: ref.read(remoteRoutineSessionDataSourceProvider),
     proofStorage: ref.read(routineSessionProofStorageProvider),
+    guidanceAudioBackup: ref.read(guidanceAudioCloudBackupProvider),
   );
   ref.onDispose(coordinator.dispose);
   return coordinator;

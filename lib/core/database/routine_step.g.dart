@@ -12,6 +12,7 @@ StepGuidanceAudio _$StepGuidanceAudioFromJson(Map<String, dynamic> json) =>
       durationMs: (json['durationMs'] as num).toInt(),
       mimeType: json['mimeType'] as String?,
       byteSize: (json['byteSize'] as num?)?.toInt(),
+      remoteObjectKey: json['remoteObjectKey'] as String?,
     );
 
 Map<String, dynamic> _$StepGuidanceAudioToJson(StepGuidanceAudio instance) =>
@@ -20,6 +21,7 @@ Map<String, dynamic> _$StepGuidanceAudioToJson(StepGuidanceAudio instance) =>
       'durationMs': instance.durationMs,
       'mimeType': instance.mimeType,
       'byteSize': instance.byteSize,
+      if (instance.remoteObjectKey case final value?) 'remoteObjectKey': value,
     };
 
 _$CheckStepImpl _$$CheckStepImplFromJson(Map<String, dynamic> json) =>

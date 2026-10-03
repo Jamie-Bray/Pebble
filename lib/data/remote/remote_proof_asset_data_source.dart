@@ -22,6 +22,7 @@ class RemoteProofAssetDataSource {
     required String entityType,
     required String entityId,
     required DateTime capturedAt,
+    Duration retention = const Duration(days: _retentionDays),
   }) async {
     if (_client == null) return;
     await _reserveUsage(
@@ -32,6 +33,7 @@ class RemoteProofAssetDataSource {
       entityType: entityType,
       entityId: entityId,
       capturedAt: capturedAt,
+      retention: retention,
     );
     try {
       await _client.storage
@@ -69,6 +71,7 @@ class RemoteProofAssetDataSource {
     required String entityType,
     required String entityId,
     required DateTime capturedAt,
+    required Duration retention,
   }) async {
     final now = DateTime.now().toUtc();
     await _client!.from('proof_asset_usage').upsert({
@@ -79,9 +82,7 @@ class RemoteProofAssetDataSource {
       'byte_size': byteSize,
       'content_type': contentType,
       'captured_at': capturedAt.toUtc().toIso8601String(),
-      'expires_at': now
-          .add(const Duration(days: _retentionDays))
-          .toIso8601String(),
+      'expires_at': now.add(retention).toIso8601String(),
       'deleted_at': null,
       'created_at': now.toIso8601String(),
       'updated_at': now.toIso8601String(),
@@ -94,6 +95,20 @@ class RemoteProofAssetDataSource {
         .from('proof_asset_usage')
         .update({'deleted_at': now, 'updated_at': now})
         .eq('object_key', objectKey);
+  }
+
+  /// Storage answers a missing object with HTTP 400 and a `not_found` body
+  /// (sometimes 404), so callers can treat it as permanent instead of
+  /// retrying a download that can never succeed.
+  static bool isObjectNotFound(Object error) {
+    if (error is StorageException) {
+      if (error.statusCode == '404' || error.error == 'not_found') {
+        return true;
+      }
+    }
+    final message = error.toString().toLowerCase();
+    return message.contains('object not found') ||
+        message.contains('not_found');
   }
 
   bool _looksLikeExistingObjectConflict(Object error) {
