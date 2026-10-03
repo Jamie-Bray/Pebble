@@ -11,6 +11,7 @@ import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/navigation/app_shell.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
+import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/features/routines/data/models/routine_icon_catalog.dart';
 import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
@@ -41,10 +42,10 @@ class _StarterRoutine {
 
 const _starterRoutines = [
   _StarterRoutine(
-    cardTitle: 'Everyday Departure Check',
+    cardTitle: 'Quick Departure Check',
     subtitle:
-        'Check heat tools, stove, windows, lights, keys, and the final lock before you leave.',
-    previewTitle: 'Everyday Departure Check',
+        'Check heat tools, the stove, windows and the front door before you leave.',
+    previewTitle: 'Quick Departure Check',
     icon: LucideIcons.house,
     steps: [
       _StarterStep('Hair tools unplugged', requiresPhoto: true),
@@ -602,24 +603,33 @@ class _StruckWelcomeWord extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
+    // One line, scaled down if it has to be: the strike is drawn across the
+    // word's own width, so it never lands between two wrapped lines.
+    return FittedBox(
+      fit: BoxFit.scaleDown,
       alignment: Alignment.centerLeft,
-      children: [
-        Text(text, style: textStyle),
-        Positioned.fill(
-          child: Align(
-            alignment: const Alignment(0, 0.08),
-            child: Container(
-              width: 238,
-              height: 2,
-              decoration: BoxDecoration(
-                color: strikeColor.withValues(alpha: 0.78),
-                borderRadius: BorderRadius.circular(2),
+      child: Stack(
+        alignment: Alignment.centerLeft,
+        children: [
+          Text(text, maxLines: 1, softWrap: false, style: textStyle),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 0,
+            child: Align(
+              alignment: const Alignment(0, 0.08),
+              child: Container(
+                height: 2,
+                decoration: BoxDecoration(
+                  color: strikeColor.withValues(alpha: 0.78),
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -714,7 +724,7 @@ class _WelcomeActions extends StatelessWidget {
         TextButton(
           onPressed: onSkip,
           style: TextButton.styleFrom(
-            foregroundColor: foundation.textMuted,
+            foregroundColor: context.readableSecondaryText,
             padding: const EdgeInsets.symmetric(vertical: 16),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
@@ -925,7 +935,7 @@ class _PebblePossibilitiesScreenState extends State<_PebblePossibilitiesScreen>
                                       'One step at a time, so nothing gets skipped.',
                                       textAlign: TextAlign.center,
                                       style: GoogleFonts.outfit(
-                                        color: foundation.textMuted,
+                                        color: context.readableSecondaryText,
                                         fontSize: 13,
                                         fontWeight: FontWeight.w300,
                                       ),
@@ -999,7 +1009,7 @@ class _PebblePossibilitiesScreenState extends State<_PebblePossibilitiesScreen>
                                   child: const Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Text('Continue onboarding'),
+                                      Text('Continue'),
                                       SizedBox(width: 8),
                                       Icon(LucideIcons.arrowRight, size: 17),
                                     ],
@@ -1653,7 +1663,7 @@ class _ThemePickerPage extends StatelessWidget {
                   Text(
                     'You can change this any time in settings.',
                     style: GoogleFonts.outfit(
-                      color: foundation.textMuted,
+                      color: context.readableSecondaryText,
                       fontSize: 13,
                       fontWeight: FontWeight.w300,
                       height: 1,
@@ -1724,7 +1734,7 @@ class _ThemePickerPage extends StatelessWidget {
               TextButton(
                 onPressed: onDecideLater,
                 style: TextButton.styleFrom(
-                  foregroundColor: foundation.textMuted,
+                  foregroundColor: context.readableSecondaryText,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -1896,7 +1906,16 @@ class _ThemePreviewCard extends StatelessWidget {
                                   10,
                                   12,
                                 ),
-                                child: _ThemeMiniRoutine(spec: spec),
+                                // A decorative mock: at large text sizes
+                                // the label below takes more room, so clip
+                                // the mock rather than overflow the card.
+                                child: ClipRect(
+                                  child: SingleChildScrollView(
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    child: _ThemeMiniRoutine(spec: spec),
+                                  ),
+                                ),
                               ),
                             ),
                             Positioned(
@@ -2100,7 +2119,7 @@ class _StartingPointPage extends StatelessWidget {
                   Text(
                     'Tap one to see the steps inside. You can change everything later.',
                     style: GoogleFonts.outfit(
-                      color: foundation.textMuted,
+                      color: context.readableSecondaryText,
                       fontSize: 12.5,
                       fontWeight: FontWeight.w300,
                       height: 1.35,
@@ -2127,7 +2146,7 @@ class _StartingPointPage extends StatelessWidget {
           TextButton(
             onPressed: onSkip,
             style: TextButton.styleFrom(
-              foregroundColor: foundation.textMuted,
+              foregroundColor: context.readableSecondaryText,
               padding: const EdgeInsets.symmetric(vertical: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
@@ -2199,7 +2218,7 @@ class _StarterChoiceCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.outfit(
-                      color: foundation.textMuted,
+                      color: context.readableSecondaryText,
                       fontSize: 11.5,
                       fontWeight: FontWeight.w300,
                       height: 1.2,
@@ -2212,7 +2231,7 @@ class _StarterChoiceCard extends StatelessWidget {
             Icon(
               LucideIcons.chevronRight,
               size: 18,
-              color: foundation.textMuted,
+              color: context.readableSecondaryText,
             ),
           ],
         ),
@@ -2274,7 +2293,7 @@ class _BrowseTemplatesTile extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.outfit(
-                      color: foundation.textMuted,
+                      color: context.readableSecondaryText,
                       fontSize: 11.5,
                       fontWeight: FontWeight.w300,
                       height: 1.2,
@@ -2345,7 +2364,7 @@ class _BuildOwnTile extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.outfit(
-                      color: foundation.textMuted,
+                      color: context.readableSecondaryText,
                       fontSize: 11.5,
                       fontWeight: FontWeight.w300,
                       height: 1.2,
@@ -2358,7 +2377,7 @@ class _BuildOwnTile extends StatelessWidget {
             Icon(
               LucideIcons.chevronRight,
               size: 18,
-              color: foundation.textMuted,
+              color: context.readableSecondaryText,
             ),
           ],
         ),
@@ -2405,7 +2424,7 @@ class _StarterPreviewPage extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            "You can customize every step or add your own later. You're never locked in.",
+            "You can change any step or add your own later. You're never locked in.",
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: foundation.textSecondary,
@@ -2429,11 +2448,13 @@ class _StarterPreviewPage extends StatelessWidget {
           const _OverTitle('YOUR FIRST ROUTINE'),
           const SizedBox(height: 12),
           Text(
-            "Here's how this could work",
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            "Here's how this could work.",
+            style: GoogleFonts.dmSerifDisplay(
               color: foundation.textPrimary,
-              fontWeight: FontWeight.w500,
-              height: 1.15,
+              fontSize: 29,
+              fontWeight: FontWeight.w400,
+              height: 1.08,
+              letterSpacing: -0.2,
             ),
           ),
           const SizedBox(height: 12),

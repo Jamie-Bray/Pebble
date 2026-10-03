@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/navigation/app_shell.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
+import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
 import 'package:pebble_routines/features/subscription/ui/subscription_guard.dart';
@@ -130,7 +131,7 @@ class _TemplateDetailContent extends ConsumerWidget {
                         Text(
                           'STEPS',
                           style: theme.textTheme.labelSmall?.copyWith(
-                            color: foundation.textMuted,
+                            color: context.readableSecondaryText,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 0.9,
                           ),
@@ -218,7 +219,7 @@ class _TemplateDetailContent extends ConsumerWidget {
                   'Add it to your routines first, then personalise the steps any way you want.',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: foundation.textMuted,
+                    color: context.readableSecondaryText,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
