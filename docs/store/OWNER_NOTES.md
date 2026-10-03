@@ -117,7 +117,7 @@ where the code, the public copy, or both should change before launch.
    delete-subscriber API from `delete-account`, or handle it by hand when you
    process deletions. The privacy policy says RevenueCat and the stores keep
    their own records.
-9. **No `ios/Runner/PrivacyInfo.xcprivacy`** (see `APP_PRIVACY_LABELS.md`).
+9. ~~No `ios/Runner/PrivacyInfo.xcprivacy`~~ Added; it matches `APP_PRIVACY_LABELS.md`.
 10. **The in-app privacy summary** (`legal_about_screen.dart`) does not name
     providers. It links to the full policy, which is fine. Keep it consistent
     when you next change it.

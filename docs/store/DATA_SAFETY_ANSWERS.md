@@ -24,15 +24,11 @@ Ground rules used:
   If you ship a build without it, you may remove the "App info and
   performance" entries, but leaving them in is harmless.
 
-> **Fix before you rely on "crash logs are not linked to the user".**
-> Sentry's print breadcrumbs are on by default in `sentry_flutter`, and
-> release builds `debugPrint` lines that contain the Supabase account ID and
-> RevenueCat app user ID (`revenuecat_purchase_repository.dart`,
-> `subscription_provider.dart`). These lines can end up in crash reports.
-> Set `options.enablePrintBreadcrumbs = false` (or scrub breadcrumbs in
-> `beforeSend`) in `lib/core/monitoring/crash_reporting.dart`. The Play form
-> does not ask about linking, but Apple's does (see `APP_PRIVACY_LABELS.md`),
-> and the privacy policy wording depends on it.
+> Crash logs are not linked to the user: `debugPrint` lines can contain the
+> account ID, so `lib/core/monitoring/crash_reporting.dart` sets
+> `options.enablePrintBreadcrumbs = false` and `beforeSend` removes the user.
+> The Play form does not ask about linking, but Apple's does (see
+> `APP_PRIVACY_LABELS.md`).
 
 ---
 

@@ -42,19 +42,16 @@ Ground rules used:
 | Identifiers | **User ID** | Yes | No | App Functionality | Supabase account UUID. After sign-in, RevenueCat uses the same ID as its app user ID (`Purchases.logIn`). |
 | Identifiers | **Device ID** | Yes | No | App Functionality | RevenueCat is set up at launch for every user and creates a random anonymous app user ID for the install. That ID is merged with the account ID when the user signs in, so it counts as linked. Sentry's native iOS SDK also attaches a random installation ID to native crash reports. The advertising identifier (IDFA) is **not** used: `collectDeviceIdentifiers()` is never called and there is no ad SDK. |
 | Purchases | **Purchase History** | Yes | No | App Functionality | RevenueCat customer info (product, purchase and expiry dates, status, store transaction IDs). Supabase `personal_entitlements` (product, store, status, period, and a one-way hash of the purchase identifier). |
-| Diagnostics | **Crash Data** | **No** (see the fix below) | No | App Functionality | Sentry, only in builds with `SENTRY_DSN` (`codemagic.yaml` passes it when set). Stack traces and error messages. `crash_reporting.dart`: `sendDefaultPii = false`, no screenshots, no view hierarchy, no tracing, no replay, `beforeSend` removes the user. |
-| Diagnostics | **Other Diagnostic Data** | **No** (see the fix below) | No | App Functionality | Device model, iOS version, app version and build, and up to 32 breadcrumbs attached to each crash report. |
+| Diagnostics | **Crash Data** | **No** (see the note below) | No | App Functionality | Sentry, only in builds with `SENTRY_DSN` (`codemagic.yaml` passes it when set). Stack traces and error messages. `crash_reporting.dart`: `sendDefaultPii = false`, no screenshots, no view hierarchy, no tracing, no replay, `beforeSend` removes the user. |
+| Diagnostics | **Other Diagnostic Data** | **No** (see the note below) | No | App Functionality | Device model, iOS version, app version and build, and up to 32 breadcrumbs attached to each crash report. |
 
-> **Fix needed before answering "Not linked" for Diagnostics.**
-> `sentry_flutter` records `print`/`debugPrint` output as breadcrumbs by
-> default. Release builds `debugPrint` lines that contain the Supabase
-> account ID and RevenueCat app user ID (`revenuecat_purchase_repository.dart`,
-> `subscription_provider.dart`). So crash reports can currently contain the
-> account ID. Either set `options.enablePrintBreadcrumbs = false` (or remove
-> those breadcrumbs in `beforeSend`), or answer **Linked to you: Yes** for Crash
-> Data and Other Diagnostic Data. Sentry's native installation ID is a random
-> per-install value, not tied to the account, so it does not make crash data
-> linked by itself.
+> **Why Diagnostics is "Not linked".** `debugPrint` lines can contain the
+> Supabase account ID and RevenueCat app user ID, so `crash_reporting.dart`
+> sets `options.enablePrintBreadcrumbs = false` to keep them out of crash
+> breadcrumbs, and `beforeSend` removes the user. Sentry's native
+> installation ID is a random per-install value, not tied to the account, so
+> it does not make crash data linked by itself. If print breadcrumbs are ever
+> turned back on, change both Diagnostics rows to **Linked to you: Yes**.
 
 ## Data types to answer "Not collected"
 
@@ -88,11 +85,11 @@ once the breadcrumb fix is in.
 
 ## Related iOS privacy items
 
-- **Privacy manifest:** add `ios/Runner/PrivacyInfo.xcprivacy` for the app
-  target. Declare `NSPrivacyTracking = false`, no tracking domains, the
-  collected data types above, and the required-reason APIs the app and its
-  plugins use (at least `NSPrivacyAccessedAPICategoryUserDefaults`, reason
-  `CA92.1`, for `shared_preferences`). Check Xcode's privacy report
+- **Privacy manifest:** `ios/Runner/PrivacyInfo.xcprivacy` is in the app
+  target. It declares `NSPrivacyTracking = false`, no tracking domains, the
+  collected data types above, and the UserDefaults (`CA92.1`) and file
+  timestamp (`C617.1`) required-reason APIs. Keep it in step with this table.
+  Check Xcode's privacy report
   (Product > Archive > Generate Privacy Report) after archiving.
 - **Usage descriptions** are present in `Info.plist` for the camera,
   microphone, photo library and saving to Photos. They match the

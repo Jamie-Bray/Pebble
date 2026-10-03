@@ -27,6 +27,9 @@ void configureSentryOptions(
   // attachViewHierarchy, tracing, and session replay are all off by default
   // and must stay off; see the privacy note above before changing any of them.
   options.maxBreadcrumbs = 32;
+  // debugPrint output includes account and RevenueCat IDs; it must never
+  // become crash breadcrumbs, or crash reports would be linked to the user.
+  options.enablePrintBreadcrumbs = false;
   options.beforeSend = (event, hint) {
     event.user = null;
     event.serverName = null;

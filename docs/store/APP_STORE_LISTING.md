@@ -23,10 +23,9 @@ The same copy rules as `GOOGLE_PLAY_LISTING.md` apply: no medical claims, no
 > - **iOS builds** come from `codemagic.yaml`, which requires
 >   `REVENUECAT_IOS_API_KEY` (`appl_...`) and passes `SENTRY_DSN` when it is
 >   set.
-> - **Still open:** there is no app-level `ios/Runner/PrivacyInfo.xcprivacy`.
->   Apple needs one that declares required-reason APIs (for example
->   `UserDefaults` through `shared_preferences`). The Sentry and RevenueCat
->   pods ship their own manifests, but the app target needs one too.
+> - **Privacy manifest:** `ios/Runner/PrivacyInfo.xcprivacy` declares no tracking,
+>   the collected data types in `APP_PRIVACY_LABELS.md`, and the UserDefaults
+>   (`CA92.1`) and file timestamp (`C617.1`) required-reason APIs.
 > - **Review risk:** `VISUAL_WALKTHROUGH.md` item 4. The paywall stays on
 >   "Loading" when sandbox products don't load, which is a common 2.1
 >   rejection. Fix it before you submit.
