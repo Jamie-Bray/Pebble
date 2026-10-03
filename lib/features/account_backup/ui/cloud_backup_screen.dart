@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/ui/zen_notifications.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
@@ -660,7 +660,7 @@ class _BackupHero extends StatelessWidget {
             Expanded(
               child: Text(
                 state.statusLabel,
-                style: GoogleFonts.dmSerifDisplay(
+                style: PebbleFonts.serif(
                   color: colorScheme.onSurface,
                   fontSize: 36,
                   fontWeight: FontWeight.w400,
@@ -677,6 +677,11 @@ class _BackupHero extends StatelessWidget {
                 value: state.backupSwitchValue,
                 onChanged: onSwitchChanged,
                 activeTrackColor: colorScheme.primary,
+                thumbColor: WidgetStateProperty.resolveWith(
+                  (states) => states.contains(WidgetState.selected)
+                      ? colorScheme.onPrimary
+                      : null,
+                ),
               ),
             ],
           ],
@@ -684,7 +689,7 @@ class _BackupHero extends StatelessWidget {
         const SizedBox(height: 10),
         Text(
           state.detail,
-          style: GoogleFonts.outfit(
+          style: PebbleFonts.sans(
             color: colorScheme.onSurface.withValues(alpha: 0.66),
             fontSize: 14.5,
             fontWeight: FontWeight.w300,
@@ -715,7 +720,7 @@ class _BackupHero extends StatelessWidget {
               child: Text(
                 state.lastBackupText,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.outfit(
+                style: PebbleFonts.sans(
                   color: colorScheme.onSurface.withValues(alpha: 0.5),
                   fontSize: 12.5,
                   fontWeight: FontWeight.w500,
@@ -785,7 +790,7 @@ class _BackupSetupStepper extends StatelessWidget {
               Expanded(
                 child: Text(
                   'How to set it up',
-                  style: GoogleFonts.outfit(
+                  style: PebbleFonts.sans(
                     color: colorScheme.onSurface.withValues(alpha: 0.56),
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -796,7 +801,7 @@ class _BackupSetupStepper extends StatelessWidget {
               if (currentNumber > 0)
                 Text(
                   'Step $currentNumber of ${steps.length}',
-                  style: GoogleFonts.outfit(
+                  style: PebbleFonts.sans(
                     color: colorScheme.primary,
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
@@ -858,7 +863,7 @@ class _BackupStepperRow extends StatelessWidget {
         alignment: Alignment.center,
         child: Text(
           '$number',
-          style: GoogleFonts.outfit(
+          style: PebbleFonts.sans(
             color: colorScheme.onPrimary,
             fontSize: 14,
             fontWeight: FontWeight.w700,
@@ -878,7 +883,7 @@ class _BackupStepperRow extends StatelessWidget {
         alignment: Alignment.center,
         child: Text(
           '$number',
-          style: GoogleFonts.outfit(
+          style: PebbleFonts.sans(
             color: colorScheme.onSurface.withValues(alpha: 0.38),
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -919,7 +924,7 @@ class _BackupStepperRow extends StatelessWidget {
                 children: [
                   Text(
                     step.label,
-                    style: GoogleFonts.outfit(
+                    style: PebbleFonts.sans(
                       color: colorScheme.onSurface.withValues(
                         alpha: isLocked ? 0.45 : 1,
                       ),
@@ -931,7 +936,7 @@ class _BackupStepperRow extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     step.detail,
-                    style: GoogleFonts.outfit(
+                    style: PebbleFonts.sans(
                       color: colorScheme.onSurface.withValues(
                         alpha: isLocked ? 0.38 : 0.62,
                       ),
@@ -974,7 +979,7 @@ class _PendingChangesBanner extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: GoogleFonts.outfit(
+              style: PebbleFonts.sans(
                 color: colorScheme.onSurface.withValues(alpha: 0.78),
                 fontSize: 13,
                 fontWeight: FontWeight.w400,
@@ -1010,7 +1015,7 @@ class _BackupDataSection extends StatelessWidget {
           padding: const EdgeInsets.only(left: 4, bottom: 10),
           child: Text(
             live ? "What's backed up" : 'What backup keeps safe for 21 days',
-            style: GoogleFonts.outfit(
+            style: PebbleFonts.sans(
               color: colorScheme.onSurface.withValues(alpha: 0.56),
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -1067,7 +1072,7 @@ class _BackupDataSection extends StatelessWidget {
               Expanded(
                 child: Text(
                   footer,
-                  style: GoogleFonts.outfit(
+                  style: PebbleFonts.sans(
                     color: colorScheme.onSurface.withValues(alpha: 0.5),
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
@@ -1111,7 +1116,7 @@ class _BackupDataToken extends StatelessWidget {
             item.label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.outfit(
+            style: PebbleFonts.sans(
               color: colorScheme.onSurface.withValues(alpha: 0.82),
               fontSize: 12.5,
               fontWeight: FontWeight.w600,
@@ -1164,7 +1169,7 @@ class _BackupDataRow extends StatelessWidget {
               children: [
                 Text(
                   item.label,
-                  style: GoogleFonts.outfit(
+                  style: PebbleFonts.sans(
                     color: colorScheme.onSurface,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -1176,7 +1181,7 @@ class _BackupDataRow extends StatelessWidget {
                   item.detail,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.outfit(
+                  style: PebbleFonts.sans(
                     color: colorScheme.onSurface.withValues(alpha: 0.58),
                     fontSize: 12.5,
                     fontWeight: FontWeight.w300,
@@ -1230,7 +1235,7 @@ class _OwnershipMismatchCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     state.ownershipTitle ?? 'Review this device',
-                    style: GoogleFonts.outfit(
+                    style: PebbleFonts.sans(
                       color: colorScheme.onSurface,
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
@@ -1244,7 +1249,7 @@ class _OwnershipMismatchCard extends StatelessWidget {
             Text(
               state.ownershipDetail ??
                   'Pebble will keep this device local until you choose.',
-              style: GoogleFonts.outfit(
+              style: PebbleFonts.sans(
                 color: colorScheme.onSurface.withValues(alpha: 0.68),
                 fontSize: 13,
                 fontWeight: FontWeight.w300,
@@ -1443,7 +1448,7 @@ class _BackupActionSheet extends StatelessWidget {
                     Text(
                       eyebrow.toUpperCase(),
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.outfit(
+                      style: PebbleFonts.sans(
                         color: accentColor,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
@@ -1454,7 +1459,7 @@ class _BackupActionSheet extends StatelessWidget {
                     Text(
                       title,
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.dmSerifDisplay(
+                      style: PebbleFonts.serif(
                         color: foreground,
                         fontSize: 30,
                         fontWeight: FontWeight.w400,
@@ -1466,7 +1471,7 @@ class _BackupActionSheet extends StatelessWidget {
                     Text(
                       body,
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.outfit(
+                      style: PebbleFonts.sans(
                         color: secondaryText,
                         fontSize: 14,
                         fontWeight: FontWeight.w300,
@@ -1505,7 +1510,7 @@ class _BackupActionSheet extends StatelessWidget {
                       Text(
                         footer!,
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.outfit(
+                        style: PebbleFonts.sans(
                           color: mutedText,
                           fontSize: 12,
                           fontWeight: FontWeight.w300,
@@ -1642,7 +1647,7 @@ class _BackupSheetPill extends StatelessWidget {
               child: Text(
                 value,
                 maxLines: 1,
-                style: GoogleFonts.dmSerifDisplay(
+                style: PebbleFonts.serif(
                   color: colorScheme.onSurface,
                   fontSize: 18,
                   fontWeight: FontWeight.w400,
@@ -1656,7 +1661,7 @@ class _BackupSheetPill extends StatelessWidget {
               label.toUpperCase(),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.outfit(
+              style: PebbleFonts.sans(
                 color: colorScheme.onSurface.withValues(alpha: 0.58),
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
@@ -1718,7 +1723,7 @@ class _BackupConsentCheck extends StatelessWidget {
         onChanged: enabled ? onChanged : null,
         title: Text(
           cloudBackupConsentText,
-          style: GoogleFonts.outfit(
+          style: PebbleFonts.sans(
             color: colorScheme.onSurface.withValues(alpha: 0.74),
             fontSize: 13,
             fontWeight: FontWeight.w400,

@@ -8,10 +8,12 @@
 //   WALKTHROUGH=1 WALKTHROUGH_OUT=/abs/out WALKTHROUGH_FONTS=/abs/fonts \
 //     flutter test test/walkthrough/walkthrough_screens_test.dart
 //
-// WALKTHROUGH_FONTS must contain the Google Fonts TTFs the app uses (Outfit,
-// DM Sans, DM Serif Display) named `<Family>_<variant>.ttf`, plus a
-// manifest.txt of `<family name> <file> <hash>` lines. Without it, text renders
-// in the test font.
+// The app's fonts (DM Sans, DM Serif Display) are bundled under
+// assets/fonts/: they are registered from FontManifest.json below, and
+// google_fonts loads its own copies from the asset bundle, so no download or
+// WALKTHROUGH_FONTS directory is needed. WALKTHROUGH_FONTS is still honoured
+// (a directory of `<Family>_<variant>.ttf` files plus a manifest.txt of
+// `<family name> <file> <hash>` lines) for any extra font a capture needs.
 //
 // Note: `flutter test` always starts flutter_tester with --use-test-fonts, so
 // any text whose style has no fontFamily (common in button styles) renders as
@@ -239,7 +241,6 @@ bool _hasBackupConsent(_Account a) =>
     a == _Account.premiumBillingIssue;
 
 class _FakePurchases extends ChangeNotifier implements PurchaseRepository {
-
   @override
   bool get isLoadingProducts => false;
 
@@ -314,6 +315,7 @@ class _FakePurchases extends ChangeNotifier implements PurchaseRepository {
         throw const PurchaseCancelledException();
     }
   }
+
   @override
   Future<PurchaseResult> restorePurchases() async =>
       throw const PurchaseFlowException('No purchases to restore.');
@@ -587,7 +589,8 @@ Future<void> _loadFonts() async {
   _fontsLoaded = true;
   GoogleFonts.config.allowRuntimeFetching = false;
 
-  // App + package fonts declared in pubspecs (MaterialIcons, Lucide).
+  // App + package fonts declared in pubspecs (DMSans, DMSerifDisplay,
+  // MaterialIcons, Lucide).
   final manifest =
       jsonDecode(await rootBundle.loadString('FontManifest.json')) as List;
   for (final entry in manifest.cast<Map<String, dynamic>>()) {
@@ -630,7 +633,7 @@ Future<void> _loadFonts() async {
   }
 
   // Google Fonts used by the app, registered under google_fonts' own family
-  // names so GoogleFonts.outfit(...) etc. resolve to real glyphs.
+  // names so GoogleFonts.dmSans(...) etc. resolve to real glyphs.
   // They are also copied into a fake "application support" directory under
   // google_fonts' cache naming, so its own loader finds them instead of
   // throwing (fetching is disabled in tests).
@@ -1150,6 +1153,21 @@ void main() {
     await env.settle(30);
     await env.shot('player_complete');
   });
+  _capture(
+    'player complete nordicNight',
+    theme: ThemeId.nordicNight,
+    account: _Account.signedInPremium,
+    (env) async {
+      await _openPlayer(env, 3);
+      for (var i = 0; i < 4; i++) {
+        await _tapPrimary(env);
+        await env.realWait(3);
+      }
+      await env.realWait(10);
+      await env.settle(30);
+      await env.shot('theme_nordicNight_complete');
+    },
+  );
   _capture('player voice', account: _Account.signedInPremium, (env) async {
     await _openPlayer(env, 2);
     await env.shot('player_voice_step');
@@ -1340,7 +1358,7 @@ void main() {
   _capture('home actions', (env) async {
     await env.tapFinder(find.byTooltip('Routine settings').first);
     await env.shot('home_routine_actions_menu');
-    await env.tapText('Reorder Steps');
+    await env.tapText('Reorder steps');
     await env.realWait();
     await env.shot('reorder_steps');
   });

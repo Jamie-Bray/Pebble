@@ -34,7 +34,7 @@ class _ReorderStepsScreenState extends ConsumerState<ReorderStepsScreen> {
 
     return Scaffold(
       backgroundColor: cs.surface,
-      appBar: const PebbleSubscreenAppBar(title: 'Reorder Steps'),
+      appBar: const PebbleSubscreenAppBar(title: 'Reorder steps'),
 
       body: Column(
         children: [
@@ -98,7 +98,7 @@ class _ReorderStepsScreenState extends ConsumerState<ReorderStepsScreen> {
                     ),
                     onPressed: _saveReorder,
                     child: const Text(
-                      'Save Changes',
+                      'Save changes',
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 16,

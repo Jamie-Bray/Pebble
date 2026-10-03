@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
+import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:pebble_routines/core/ui/adaptive_layout.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
@@ -64,12 +65,9 @@ class AppearanceScreen extends ConsumerWidget {
                         const SizedBox(height: 18),
                         Text(
                           'Themes',
-                          style: Theme.of(context).textTheme.headlineMedium
-                              ?.copyWith(
-                                color: foundation.textPrimary,
-                                fontWeight: FontWeight.w900,
-                                height: 1.02,
-                              ),
+                          style: PebbleType.of(
+                            context,
+                          ).title1.copyWith(color: foundation.textPrimary),
                         ),
                         const SizedBox(height: 8),
                         Text(
@@ -150,27 +148,10 @@ class _InfoButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
-    return Material(
-      color: foundation.surfaceLow,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: foundation.borderSubtle),
-          ),
-          child: Icon(
-            LucideIcons.info,
-            size: 16,
-            color: foundation.textSecondary,
-          ),
-        ),
-      ),
+    return PebbleGlassIconButton(
+      icon: LucideIcons.info,
+      tooltip: 'About themes',
+      onPressed: onTap,
     );
   }
 }
@@ -540,7 +521,7 @@ class _ThemeGridCard extends StatelessWidget {
           color: accent,
           borderRadius: BorderRadius.circular(999),
         ),
-        child: const Icon(Icons.check, size: 12, color: Colors.white),
+        child: const Icon(LucideIcons.check, size: 12, color: Colors.white),
       );
     }
     // Accessibility themes need no "Free" badge: their section header
@@ -693,7 +674,7 @@ class _PremiumThemeCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: const Icon(
-                        Icons.check,
+                        LucideIcons.check,
                         size: 12,
                         color: Colors.white,
                       ),

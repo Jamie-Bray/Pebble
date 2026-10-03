@@ -4,13 +4,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:pebble_routines/core/config/legal_links.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
+import 'package:pebble_routines/core/theme/pebble_fonts.dart';
+import 'package:pebble_routines/core/ui/pebble_buttons.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
+import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/core/ui/zen_notifications.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
 import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
@@ -475,7 +477,7 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
         surface: foundation.bgBase,
         onSurface: foundation.textPrimary,
       ),
-      textTheme: GoogleFonts.outfitTextTheme(parentTheme.textTheme).apply(
+      textTheme: PebbleFonts.sansTextTheme(parentTheme.textTheme).apply(
         bodyColor: foundation.textPrimary,
         displayColor: foundation.textPrimary,
       ),
@@ -551,10 +553,7 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _PaywallHeader(entrySource: widget.entrySource),
-                    if (inlinePricing) ...[
-                      const SizedBox(height: 28),
-                      pricing,
-                    ],
+                    if (inlinePricing) ...[const SizedBox(height: 28), pricing],
                     const SizedBox(height: 28),
                     const _SectionLabel('What Premium gives you'),
                     const SizedBox(height: 2),
@@ -571,15 +570,8 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
             floatingActionButton: SafeArea(
               child: Padding(
                 padding: const EdgeInsets.only(top: 8, left: 4),
-                child: PebbleBackButton(
-                  onPressed: _dismissPaywall,
-                  // Opaque, so scrolled content never shows through it.
-                  backgroundColor: Color.alphaBlend(
-                    foundation.textPrimary.withValues(alpha: 0.12),
-                    foundation.bgBase,
-                  ),
-                  iconColor: foundation.textSecondary,
-                ),
+                // Floating glass: scrolled content blurs out behind it.
+                child: PebbleBackButton(onPressed: _dismissPaywall),
               ),
             ),
           );
@@ -667,7 +659,7 @@ class _PostPurchaseBackupSheetState
                   'Premium activated',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: accent,
+                    color: _premiumAccentText(context),
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.25,
@@ -682,7 +674,7 @@ class _PostPurchaseBackupSheetState
                       TextSpan(
                         text: 'this account?',
                         style: TextStyle(
-                          color: accent,
+                          color: _premiumAccentText(context),
                           fontStyle: FontStyle.italic,
                         ),
                       ),
@@ -814,7 +806,7 @@ class _PremiumActivatedSheet extends StatelessWidget {
                     'Premium activated',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: accent,
+                      color: _premiumAccentText(context),
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 1.25,
@@ -829,7 +821,7 @@ class _PremiumActivatedSheet extends StatelessWidget {
                         TextSpan(
                           text: 'back it all up.',
                           style: TextStyle(
-                            color: accent,
+                            color: _premiumAccentText(context),
                             fontStyle: FontStyle.italic,
                           ),
                         ),
@@ -1022,7 +1014,6 @@ class _PaywallHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
-    final accent = _premiumGlow(context);
     // The paywall knows what wall the user just hit, so the headline names
     // that moment instead of a generic slogan.
     final (headlineLead, headlineAccent) = switch (entrySource) {
@@ -1062,7 +1053,10 @@ class _PaywallHeader extends StatelessWidget {
               TextSpan(text: headlineLead),
               TextSpan(
                 text: headlineAccent,
-                style: TextStyle(color: accent, fontStyle: FontStyle.italic),
+                style: TextStyle(
+                  color: _premiumAccentText(context),
+                  fontStyle: FontStyle.italic,
+                ),
               ),
             ],
           ),
@@ -1105,7 +1099,7 @@ class _PremiumBadge extends StatelessWidget {
               child: Text(
                 'Personal Premium',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: accent,
+                  color: _premiumAccentText(context),
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0.3,
@@ -1420,7 +1414,9 @@ class _TierPill extends StatelessWidget {
           Text(
             tier.toUpperCase(),
             style: TextStyle(
-              color: accented ? accent : foundation.textMuted,
+              color: accented
+                  ? _premiumAccentText(context)
+                  : foundation.textMuted,
               fontSize: 9,
               fontWeight: FontWeight.w700,
               letterSpacing: 1,
@@ -1431,7 +1427,9 @@ class _TierPill extends StatelessWidget {
           Text(
             value,
             style: TextStyle(
-              color: accented ? accent : foundation.textSecondary,
+              color: accented
+                  ? _premiumAccentText(context)
+                  : foundation.textSecondary,
               fontSize: 12.5,
               fontWeight: accented ? FontWeight.w600 : FontWeight.w400,
               height: 1.2,
@@ -1730,7 +1728,9 @@ class _PlanOption extends StatelessWidget {
                   Text(
                     isAnnual ? 'Annual' : 'Monthly',
                     style: TextStyle(
-                      color: selected ? accent : foundation.textSecondary,
+                      color: selected
+                          ? _premiumAccentText(context)
+                          : foundation.textSecondary,
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.5,
@@ -1796,7 +1796,7 @@ class _PlanBadge extends StatelessWidget {
   }
 }
 
-class _PremiumActionButton extends StatefulWidget {
+class _PremiumActionButton extends StatelessWidget {
   const _PremiumActionButton({
     super.key,
     required this.busy,
@@ -1815,103 +1815,19 @@ class _PremiumActionButton extends StatefulWidget {
   final IconData? icon;
   final String? semanticsLabel;
 
-  /// Shows a small spinner beside [label] (store still loading) instead of
-  /// replacing the label with one.
+  /// Shows a small spinner beside [label] (store still loading).
   final bool showSpinnerLabel;
 
   @override
-  State<_PremiumActionButton> createState() => _PremiumActionButtonState();
-}
-
-class _PremiumActionButtonState extends State<_PremiumActionButton>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 90),
-    lowerBound: 0.99,
-    upperBound: 1,
-    value: 1,
-  );
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final accent = _premiumGlow(context);
-    final onAccent = Theme.of(context).colorScheme.onPrimary;
-    final enabled = widget.enabled && !widget.busy;
-    final spinner = SizedBox(
-      width: 18,
-      height: 18,
-      child: CircularProgressIndicator.adaptive(
-        strokeWidth: 2.2,
-        valueColor: AlwaysStoppedAnimation<Color>(onAccent),
-      ),
-    );
-    final label = Text(
-      widget.label,
-      textAlign: TextAlign.center,
-      style: TextStyle(
-        color: onAccent,
-        fontSize: 16,
-        fontWeight: FontWeight.w600,
-        height: 1.25,
-      ),
-    );
-    final Widget child;
-    if (widget.busy) {
-      child = SizedBox(width: 22, height: 22, child: spinner);
-    } else if (widget.showSpinnerLabel || widget.icon != null) {
-      child = Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (widget.showSpinnerLabel)
-            spinner
-          else
-            Icon(widget.icon, size: 18, color: onAccent),
-          const SizedBox(width: 10),
-          Flexible(child: label),
-        ],
-      );
-    } else {
-      child = label;
-    }
-    return Semantics(
-      button: true,
-      enabled: enabled,
-      label: widget.semanticsLabel,
-      child: GestureDetector(
-        onTapDown: enabled ? (_) => _controller.reverse() : null,
-        onTapCancel: enabled ? () => _controller.forward() : null,
-        onTapUp: enabled
-            ? (_) {
-                _controller.forward();
-                widget.onPressed();
-              }
-            : null,
-        child: ScaleTransition(
-          scale: _controller,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            width: double.infinity,
-            // Grows with large text instead of clipping a wrapped label.
-            constraints: const BoxConstraints(minHeight: 58),
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: enabled || widget.busy
-                  ? accent
-                  : accent.withValues(alpha: 0.38),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: child,
-          ),
-        ),
-      ),
+    // The app's one primary button: same colour, shape and type as every
+    // other screen's main action.
+    return PebbleButton.primary(
+      label: label,
+      icon: icon,
+      busy: busy || showSpinnerLabel,
+      semanticsLabel: semanticsLabel,
+      onPressed: enabled ? onPressed : null,
     );
   }
 }
@@ -1965,7 +1881,7 @@ class _FooterLinks extends StatelessWidget {
       foregroundColor: foundation.textPrimary.withValues(alpha: 0.82),
       visualDensity: VisualDensity.compact,
       padding: const EdgeInsets.symmetric(horizontal: 4),
-      textStyle: const TextStyle(
+      textStyle: PebbleFonts.sans(
         fontSize: 12.5,
         fontWeight: FontWeight.w500,
         decoration: TextDecoration.underline,
@@ -2076,7 +1992,7 @@ TextStyle _serifStyle(
   double height = 1,
 }) {
   final foundation = context.darkFoundation;
-  return GoogleFonts.dmSerifDisplay(
+  return PebbleFonts.serif(
     color: foundation.textPrimary,
     fontSize: fontSize,
     fontWeight: FontWeight.w400,
@@ -2085,19 +2001,15 @@ TextStyle _serifStyle(
   );
 }
 
-Color _premiumGlow(BuildContext context) {
-  final theme = Theme.of(context);
-  return _legibleThemeAccent(theme, theme.colorScheme.primary);
-}
+/// The paywall's accent is the app's own action colour (the theme primary),
+/// not a re-saturated variant, so the CTA matches every other screen.
+Color _premiumGlow(BuildContext context) =>
+    Theme.of(context).colorScheme.primary;
 
-Color _legibleThemeAccent(ThemeData theme, Color color) {
-  final hsl = HSLColor.fromColor(color);
-  final saturation = (hsl.saturation * 1.08).clamp(0.36, 0.88).toDouble();
-  final lightness = theme.brightness == Brightness.dark
-      ? hsl.lightness.clamp(0.58, 0.76).toDouble()
-      : hsl.lightness.clamp(0.34, 0.50).toDouble();
-  return hsl.withSaturation(saturation).withLightness(lightness).toColor();
-}
+/// [_premiumGlow] for small accent text: firmed up toward the text colour
+/// only where the theme's primary is too faint to read (never saturated).
+Color _premiumAccentText(BuildContext context) =>
+    context.readableAccentText(_premiumGlow(context));
 
 List<PremiumProduct> _sortedProducts(List<PremiumProduct> products) {
   return [

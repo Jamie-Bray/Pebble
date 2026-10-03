@@ -87,3 +87,28 @@ flutter:
     - assets/seed/templates_en.json
     - assets/images/logo.png
     - assets/audio/step_complete.wav
+    # Bundled so text never falls back to system fonts (first launch offline).
+    # google_fonts finds these by file name (`DMSans-SemiBold.ttf` etc.) with
+    # runtime fetching disabled; the OFL licences are registered in main().
+    - assets/fonts/
+
+  # The same files as plain font families. google_fonts styles list
+  # `DMSans` / `DMSerifDisplay` as their fallback family, so these render on
+  # the very first frame (before google_fonts finishes loading its copy) and
+  # cover any weight that is not bundled (it resolves to the nearest one).
+  # Only 400, 500, 600 and italic 400 are shipped (DESIGN_DIRECTION.md §3.1).
+  fonts:
+    - family: DMSans
+      fonts:
+        - asset: assets/fonts/DMSans-Regular.ttf
+        - asset: assets/fonts/DMSans-Italic.ttf
+          style: italic
+        - asset: assets/fonts/DMSans-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/DMSans-SemiBold.ttf
+          weight: 600
+    - family: DMSerifDisplay
+      fonts:
+        - asset: assets/fonts/DMSerifDisplay-Regular.ttf
+        - asset: assets/fonts/DMSerifDisplay-Italic.ttf
+          style: italic

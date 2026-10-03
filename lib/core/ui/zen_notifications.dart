@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 
 class ZenNotifications {
@@ -160,10 +161,14 @@ class _ZenNotificationOverlayState extends State<_ZenNotificationOverlay>
       vsync: this,
     );
 
-    _slideAnimation = Tween<double>(
-      begin: -1.0,
-      end: 0.0,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
+    _slideAnimation =
+        Tween<double>(
+          begin: -1.0,
+          end: 0.0,
+          // Settle, don't bounce (DESIGN_DIRECTION.md §2).
+        ).animate(
+          CurvedAnimation(parent: _controller, curve: PebbleMotion.settleCurve),
+        );
 
     _fadeAnimation = Tween<double>(
       begin: 0.0,
@@ -173,7 +178,7 @@ class _ZenNotificationOverlayState extends State<_ZenNotificationOverlay>
     _scaleAnimation = Tween<double>(
       begin: 0.8,
       end: 1.0,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
+    ).animate(CurvedAnimation(parent: _controller, curve: PebbleMotion.enter));
 
     // Start animation
     _controller.forward();

@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:pebble_routines/core/database/local_db.dart';
+import 'package:pebble_routines/core/theme/tokens.dart';
+import 'package:pebble_routines/core/ui/pebble_buttons.dart';
 import 'package:pebble_routines/core/ui/zen_notifications.dart';
 import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
 import 'package:pebble_routines/features/subscription/domain/routine_limit_policy.dart';
@@ -26,10 +28,8 @@ Future<void> showLockedRoutineSheet(BuildContext context, Routine routine) {
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
     ),
-    builder: (sheetContext) => _LockedRoutineSheet(
-      routine: routine,
-      hostContext: context,
-    ),
+    builder: (sheetContext) =>
+        _LockedRoutineSheet(routine: routine, hostContext: context),
   );
 }
 
@@ -50,27 +50,28 @@ class _LockedRoutineSheet extends ConsumerWidget {
           'so it unlocks again when you renew Personal Premium. '
           'You can also choose which $limit routines to keep using.',
       children: [
-        FilledButton(
+        PebbleButton.primary(
           onPressed: () {
             Navigator.of(context).pop();
             GoRouter.of(
               hostContext,
             ).push(premiumRoute(source: PremiumEntrySource.routineLimit));
           },
-          child: const Text('Renew Premium'),
+          label: 'Renew Premium',
         ),
-        const SizedBox(height: 10),
-        OutlinedButton(
+        const SizedBox(height: PebbleSpacing.sm),
+        PebbleButton.secondary(
           onPressed: () {
             Navigator.of(context).pop();
             showKeepRoutinesSheet(hostContext, preselect: routine.id);
           },
-          child: Text('Choose $limit routines to keep'),
+          label: 'Choose $limit routines to keep',
         ),
-        const SizedBox(height: 6),
-        TextButton(
+        const SizedBox(height: PebbleSpacing.xxs),
+        PebbleButton.tertiary(
+          expand: true,
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Not now'),
+          label: 'Not now',
         ),
       ],
     );
@@ -173,7 +174,8 @@ class _KeepRoutinesSheetState extends ConsumerState<KeepRoutinesSheet> {
             ),
           ),
           const SizedBox(height: 12),
-          FilledButton(
+          PebbleButton.primary(
+            label: 'Save choice',
             onPressed: selected.isEmpty
                 ? null
                 : () async {
@@ -188,12 +190,12 @@ class _KeepRoutinesSheetState extends ConsumerState<KeepRoutinesSheet> {
                       message: 'Your choice is saved on this phone.',
                     );
                   },
-            child: const Text('Save choice'),
           ),
-          const SizedBox(height: 6),
-          TextButton(
+          const SizedBox(height: PebbleSpacing.xxs),
+          PebbleButton.tertiary(
+            expand: true,
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            label: 'Cancel',
           ),
         ],
       ),

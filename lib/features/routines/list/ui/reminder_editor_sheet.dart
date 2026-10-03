@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -65,7 +66,7 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
     );
     _checkAnimation = CurvedAnimation(
       parent: _checkController,
-      curve: Curves.elasticOut,
+      curve: PebbleMotion.settleCurve,
     );
     _controller.forward();
     _loadExistingReminder();

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/features/routines/composer/data/guidance_audio_storage.dart';
 
@@ -72,7 +73,7 @@ class _GuidanceAudioPlayButtonState extends State<GuidanceAudioPlayButton> {
         ),
         minimumSize: Size(0, widget.compact ? 36 : 42),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        textStyle: TextStyle(
+        textStyle: PebbleFonts.sans(
           fontSize: widget.compact ? 12.5 : 14,
           fontWeight: FontWeight.w600,
         ),

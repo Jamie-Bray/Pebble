@@ -151,7 +151,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                         ),
                         const _Hairline(),
                         _FlowTile(
-                          icon: Icons.palette_rounded,
+                          icon: LucideIcons.palette,
                           title: 'Theme & colours',
                           subtitle: 'Choose a colour theme',
                           onTap: () {
@@ -209,7 +209,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                       title: 'About',
                       children: [
                         _FlowTile(
-                          icon: Icons.info_rounded,
+                          icon: LucideIcons.info,
                           title: 'About Pebble',
                           subtitle: 'Version 1.0.0 · Privacy, terms, deletion',
                           onTap: () {
@@ -238,7 +238,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
             top: 0,
             left: 0,
             right: 0,
-            child: PebbleBackChrome(),
+            child: PebbleBackChrome(fadeContentBehind: true),
           ),
         ],
       ),
@@ -358,7 +358,8 @@ class _FlowTile extends StatelessWidget {
             if (onTap != null) ...[
               const SizedBox(width: 12),
               Icon(
-                Icons.chevron_right_rounded,
+                LucideIcons.chevronRight,
+                size: 20,
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
               ),
             ],
@@ -436,6 +437,11 @@ class _FlowSwitchTile extends StatelessWidget {
             onChanged: onChanged,
             // Theme accent instead of the bright iOS system green.
             activeTrackColor: theme.colorScheme.primary,
+            thumbColor: WidgetStateProperty.resolveWith(
+              (states) => states.contains(WidgetState.selected)
+                  ? theme.colorScheme.onPrimary
+                  : null,
+            ),
           ),
         ],
       ),
