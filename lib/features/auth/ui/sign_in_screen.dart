@@ -56,7 +56,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
               ? 'Premium is on. Backup needs another try in Your Account.'
               : isPremium
               ? 'Premium is on. Backup will finish when Pebble can verify this account.'
-              : 'Your routines stay on this device unless you unlock Personal Premium.',
+              : 'Your routines are saved on this phone. Backup comes with Premium.',
         );
         context.go('/account-hub');
         return;
@@ -89,6 +89,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     final isBusy =
         authState.status == AuthStatus.authenticating ||
         _isBlockingBackupSetup(accountState);
+    // Backup is Premium-only, so the promise on this screen depends on it.
+    final hasPremium = ref.watch(entitlementStateProvider).isPersonalPaid;
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -136,10 +138,14 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                         }
                       },
                     ),
-                    const SizedBox(height: 44),
-                    const _SignInHero(),
+                    // Less air on short phones so the sign-in buttons sit
+                    // nearer the fold.
+                    SizedBox(
+                      height: MediaQuery.sizeOf(context).height < 700 ? 24 : 44,
+                    ),
+                    _SignInHero(hasPremium: hasPremium),
                     const SizedBox(height: 28),
-                    const _SignInPerks(),
+                    _SignInPerks(hasPremium: hasPremium),
                     const SizedBox(height: 32),
                     Divider(
                       height: 1,
@@ -283,22 +289,31 @@ class _SignInBackRow extends StatelessWidget {
 }
 
 class _SignInHero extends StatelessWidget {
-  const _SignInHero();
+  const _SignInHero({required this.hasPremium});
+
+  final bool hasPremium;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final (lead, accent) = hasPremium
+        ? ('Your routines,\n', 'backed up.')
+        : ('Your Pebble\n', 'account.');
+    final intro = hasPremium
+        ? 'Sign in to back up your routines and restore them on a new phone. '
+        : 'Sign in to link Pebble to your account. Backup and restore come '
+              'with Premium, so you can add them whenever you like. ';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text.rich(
           TextSpan(
             children: [
-              const TextSpan(text: 'Your routines,\n'),
+              TextSpan(text: lead),
               TextSpan(
-                text: 'secured.',
+                text: accent,
                 style: TextStyle(
-                  color: colorScheme.onSurface.withValues(alpha: 0.45),
+                  color: colorScheme.onSurface.withValues(alpha: 0.55),
                   fontStyle: FontStyle.italic,
                 ),
               ),
@@ -315,25 +330,22 @@ class _SignInHero extends StatelessWidget {
         Text.rich(
           TextSpan(
             children: [
-              const TextSpan(text: 'Sign in to back up your data. '),
+              TextSpan(text: intro),
               TextSpan(
-                text: 'Pebble works completely offline',
+                text: 'Pebble works fully offline',
                 style: TextStyle(
-                  color: colorScheme.onSurface.withValues(alpha: 0.75),
+                  color: colorScheme.onSurface.withValues(alpha: 0.8),
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              const TextSpan(
-                text:
-                    ' - creating an account just connects backup and restore when you choose to use them.',
-              ),
+              const TextSpan(text: ' without an account.'),
             ],
           ),
           style: GoogleFonts.outfit(
             fontSize: 14,
             fontWeight: FontWeight.w300,
             height: 1.65,
-            color: colorScheme.onSurface.withValues(alpha: 0.45),
+            color: colorScheme.onSurface.withValues(alpha: 0.62),
           ),
         ),
       ],
@@ -342,29 +354,48 @@ class _SignInHero extends StatelessWidget {
 }
 
 class _SignInPerks extends StatelessWidget {
-  const _SignInPerks();
+  const _SignInPerks({required this.hasPremium});
+
+  final bool hasPremium;
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    final perks = hasPremium
+        ? const [
+            (
+              'Keep your recent history',
+              'Back up up to 21 days of completed routines.',
+            ),
+            (
+              'Photos included',
+              'Proof photos back up with the routines they belong to.',
+            ),
+            (
+              'Switch phones',
+              'Sign in on a new phone and restore your backup there.',
+            ),
+          ]
+        : const [
+            (
+              'Already have Premium?',
+              'Sign in with the account you used before to get Premium and '
+                  'your backup back.',
+            ),
+            (
+              'Ready for backup',
+              'If you get Premium later, backup can start straight away.',
+            ),
+            (
+              'Optional',
+              'Everything else in Pebble works without an account.',
+            ),
+          ];
+    return Column(
       children: [
-        _SignInPerk(
-          title: 'Keep Your Recent History',
-          body:
-              'Back up supported routine runs so restore has something ready if you change phone.',
-        ),
-        SizedBox(height: 14),
-        _SignInPerk(
-          title: 'Save Space on Your Phone',
-          body:
-              'Proof photos can be backed up with Premium so local storage stays easier to manage.',
-        ),
-        SizedBox(height: 14),
-        _SignInPerk(
-          title: 'Switch Devices Easily',
-          body:
-              'Sign in on another device and restore your backed-up routines without manual exports.',
-        ),
+        for (var i = 0; i < perks.length; i++) ...[
+          if (i > 0) const SizedBox(height: 14),
+          _SignInPerk(title: perks[i].$1, body: perks[i].$2),
+        ],
       ],
     );
   }
@@ -399,18 +430,18 @@ class _SignInPerk extends StatelessWidget {
                 TextSpan(
                   text: title,
                   style: TextStyle(
-                    color: colorScheme.onSurface.withValues(alpha: 0.72),
+                    color: colorScheme.onSurface.withValues(alpha: 0.82),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                TextSpan(text: ' - $body'),
+                TextSpan(text: ' – $body'),
               ],
             ),
             style: GoogleFonts.outfit(
               fontSize: 13,
               fontWeight: FontWeight.w300,
               height: 1.45,
-              color: colorScheme.onSurface.withValues(alpha: 0.45),
+              color: colorScheme.onSurface.withValues(alpha: 0.62),
             ),
           ),
         ),
@@ -496,9 +527,9 @@ class _NoAccountNote extends StatelessWidget {
           textAlign: TextAlign.center,
           style: GoogleFonts.outfit(
             fontSize: 12,
-            fontWeight: FontWeight.w300,
+            fontWeight: FontWeight.w400,
             height: 1.6,
-            color: colorScheme.onSurface.withValues(alpha: 0.28),
+            color: colorScheme.onSurface.withValues(alpha: 0.55),
           ),
         ),
         TextButton(

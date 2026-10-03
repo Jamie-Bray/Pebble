@@ -176,7 +176,7 @@ final accountBackupStatusSummaryProvider = Provider<AccountBackupStatusSummary>(
           kind: AccountBackupStatusKind.premiumSetupPending,
           label: 'Premium setup pending',
           detail:
-              'Pebble works locally. Personal Premium cannot be started until Google Play products are configured for this build.',
+              'Pebble works on this phone without it. Premium can be started once the store is available in this build.',
           historyLabel: 'Saved on this phone',
           showRunSyncState: false,
         );
@@ -516,7 +516,7 @@ String _planLabel(UserTier tier) {
     case UserTier.personalFree:
       return 'Pebble Personal';
     case UserTier.personalPremium:
-      return 'Personal Premium';
+      return 'Pebble Premium';
     case UserTier.pebbleHousehold:
       return 'Household';
     case UserTier.workspace:

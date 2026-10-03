@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
 import 'package:pebble_routines/features/subscription/data/purchase_repository.dart';
@@ -28,6 +29,8 @@ class AccountProfilePresentation {
     required this.canStartPremium,
     required this.canRestorePurchase,
     required this.canManagePlan,
+    this.hasPremium = false,
+    this.planPeriodLine,
   });
 
   final bool isSignedIn;
@@ -41,6 +44,16 @@ class AccountProfilePresentation {
   final bool canStartPremium;
   final bool canRestorePurchase;
   final bool canManagePlan;
+
+  /// Premium is active (or in its history grace) on this phone.
+  final bool hasPremium;
+
+  /// When the current paid period ends, if the store told us.
+  final String? planPeriodLine;
+
+  /// Signing in is always available while signed out: it is how a returning
+  /// Premium user gets their plan and backup back on a new phone.
+  bool get canSignIn => !isSignedIn;
 }
 
 final accountProfilePresentationProvider = Provider<AccountProfilePresentation>(
@@ -77,8 +90,15 @@ final accountProfilePresentationProvider = Provider<AccountProfilePresentation>(
           !hasLocalPremium &&
           purchase.isPurchaseAvailable &&
           entitlement.personalTier == UserTier.personalFree,
-      canRestorePurchase: purchase.isPurchaseAvailable,
+      // Restore stays visible even while the store is unreachable: it is
+      // how returning buyers get Premium back, and the tap explains any
+      // store problem.
+      canRestorePurchase: true,
       canManagePlan: hasLocalPremium && purchase.manageSubscriptionsUrl != null,
+      hasPremium: hasLocalPremium,
+      planPeriodLine: policy.hasActiveLocalPremium
+          ? _periodLine(account.entitlementPeriodEndsAt)
+          : null,
     );
   },
 );
@@ -114,7 +134,7 @@ String _planName(UserTier tier, SubscriptionLifecycle lifecycle) {
   }
   switch (tier) {
     case UserTier.personalPremium:
-      return 'Personal Premium';
+      return 'Pebble Premium';
     case UserTier.pebbleHousehold:
       return 'Household';
     case UserTier.workspace:
@@ -168,10 +188,17 @@ String _planStatusLabel(PremiumFeaturePolicy policy) {
   }
 }
 
+String? _periodLine(DateTime? endsAt) {
+  if (endsAt == null) return null;
+  final date = DateFormat('d MMMM y').format(endsAt.toLocal());
+  return 'Current period ends $date. Renews automatically unless cancelled.';
+}
+
 String? _providerLabel(String? provider) {
   switch (provider) {
     case 'google':
       return 'Google';
+    case 'email':
     case 'emailOtp':
       return 'Email';
     case 'apple':

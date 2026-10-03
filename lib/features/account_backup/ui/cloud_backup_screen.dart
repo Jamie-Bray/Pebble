@@ -583,6 +583,10 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
               onPrimary: _showHeroAction(presentation)
                   ? () => _handleAction(presentation.primaryAction)
                   : null,
+              onSignIn:
+                  presentation.secondaryAction == BackupDashboardAction.signIn
+                  ? () => _handleAction(BackupDashboardAction.signIn)
+                  : null,
             ),
             if (presentation.pendingBannerText != null) ...[
               const SizedBox(height: 16),
@@ -629,12 +633,16 @@ class _BackupHero extends StatelessWidget {
     required this.onSwitchChanged,
     required this.primaryBusy,
     required this.onPrimary,
+    this.onSignIn,
   });
 
   final BackupDashboardPresentation state;
   final ValueChanged<bool>? onSwitchChanged;
   final bool primaryBusy;
   final VoidCallback? onPrimary;
+
+  /// Secondary sign-in link for returning Premium users.
+  final VoidCallback? onSignIn;
 
   @override
   Widget build(BuildContext context) {
@@ -668,6 +676,7 @@ class _BackupHero extends StatelessWidget {
               Switch.adaptive(
                 value: state.backupSwitchValue,
                 onChanged: onSwitchChanged,
+                activeTrackColor: colorScheme.primary,
               ),
             ],
           ],
@@ -730,6 +739,23 @@ class _BackupHero extends StatelessWidget {
             label: Text(
               primaryBusy ? 'Working...' : state.primaryActionLabel ?? '',
               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+        if (onSignIn != null) ...[
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: onSignIn,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(50),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+            ),
+            icon: const Icon(LucideIcons.logIn, size: 17),
+            label: Text(
+              state.secondaryActionLabel ?? 'Sign in',
+              textAlign: TextAlign.center,
             ),
           ),
         ],
@@ -1110,6 +1136,10 @@ class _BackupDataRow extends StatelessWidget {
     // something is wrong, when really there is just nothing to report yet.
     final (IconData?, Color?) trailing = switch (item.state) {
       BackupDataItemState.saved => (LucideIcons.check, colorScheme.primary),
+      BackupDataItemState.pending => (
+        LucideIcons.clock3,
+        colorScheme.onSurface.withValues(alpha: 0.5),
+      ),
       BackupDataItemState.attention => (
         LucideIcons.circleAlert,
         colorScheme.error,

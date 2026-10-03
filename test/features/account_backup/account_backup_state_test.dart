@@ -705,7 +705,7 @@ void main() {
 
       expect(profile.identityLabel, 'jamie@example.com');
       expect(profile.providerLabel, 'Google');
-      expect(profile.planName, 'Personal Premium');
+      expect(profile.planName, 'Pebble Premium');
       expect(profile.canManagePlan, isTrue);
     });
 
@@ -1376,14 +1376,169 @@ void main() {
       await _pumpAccountWidget(tester, harness, const AccountHubScreen());
 
       expect(find.text('jamie@example.com'), findsOneWidget);
-      expect(find.textContaining('Personal Premium'), findsOneWidget);
-      // Backup lives on its own screen now; the account page stays focused
-      // on identity, plan, and billing.
-      expect(find.text('Backup'), findsNothing);
+      expect(find.textContaining('Pebble Premium'), findsOneWidget);
+      // Backup lives on its own screen; the account page links to it with
+      // its current status.
+      expect(find.text('Backup'), findsOneWidget);
+      expect(find.text('Sign in'), findsNothing);
       expect(find.text('Restore purchase'), findsOneWidget);
-      expect(find.text('Manage plan'), findsOneWidget);
+      expect(find.text('Manage subscription'), findsOneWidget);
       expect(find.text('Use this account'), findsNothing);
       expect(find.text(cloudBackupConsentText), findsNothing);
+    });
+
+    testWidgets('/account-hub signed out always offers Sign in', (
+      tester,
+    ) async {
+      final harness = _buildUiContainer(
+        auth: const AuthSessionSummary(
+          isSignedIn: false,
+          userId: null,
+          email: null,
+          provider: null,
+        ),
+        entitlement: const EntitlementState(
+          personalTier: UserTier.personalFree,
+          source: EntitlementSource.localCache,
+          lastCheckedAt: null,
+          isRefreshing: false,
+          lastError: null,
+        ),
+        cloudAccess: const PersonalCloudAccessState(
+          status: PersonalCloudAccessStatus.offFree,
+          label: 'Backup is off',
+          detail: 'Saved on this phone.',
+        ),
+        account: const SubscriptionAccountState.initial(),
+        pendingCount: 0,
+      );
+      addTearDown(() async {
+        harness.container.dispose();
+        await harness.database.close();
+      });
+      await _primeUiState(harness.container);
+      final router = await _pumpAccountRouter(
+        tester,
+        harness,
+        initialLocation: '/account-hub',
+      );
+      addTearDown(router.dispose);
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Free plan'), findsOneWidget);
+      expect(find.text('Already have Premium?'), findsOneWidget);
+      expect(find.text('Restore purchase'), findsOneWidget);
+      expect(find.text('Backup'), findsOneWidget);
+
+      final signIn = find.widgetWithText(OutlinedButton, 'Sign in');
+      await tester.ensureVisible(signIn);
+      await tester.tap(signIn);
+      await tester.pumpAndSettle();
+      expect(find.text('Sign in'), findsOneWidget);
+      expect(find.text('Your account'), findsNothing);
+    });
+
+    testWidgets('/account-hub shows the Premium period end date', (
+      tester,
+    ) async {
+      final harness = _buildUiContainer(
+        auth: const AuthSessionSummary(
+          isSignedIn: true,
+          userId: 'user-1',
+          email: 'jamie@example.com',
+          provider: 'apple',
+        ),
+        entitlement: const EntitlementState(
+          personalTier: UserTier.personalPremium,
+          source: EntitlementSource.serverVerified,
+          lastCheckedAt: null,
+          isRefreshing: false,
+          lastError: null,
+          status: EntitlementStatus.personalPremium,
+        ),
+        cloudAccess: const PersonalCloudAccessState(
+          status: PersonalCloudAccessStatus.available,
+          label: 'Backup is up to date',
+          detail: 'Ready.',
+        ),
+        account: SubscriptionAccountState(
+          entitlementTier: UserTier.personalPremium,
+          entitlementStatus: EntitlementStatus.personalPremium,
+          entitlementSource: EntitlementSource.serverVerified,
+          pendingTier: null,
+          bootstrapStatus: BootstrapStatus.ready,
+          userId: 'user-1',
+          email: 'jamie@example.com',
+          authProvider: 'apple',
+          lastBootstrapAt: null,
+          lastSyncAt: null,
+          lastSyncError: null,
+          entitlementPeriodEndsAt: DateTime(2026, 10, 26, 12),
+        ),
+        pendingCount: 0,
+      );
+      addTearDown(() async {
+        harness.container.dispose();
+        await harness.database.close();
+      });
+      await _primeUiState(harness.container);
+
+      await _pumpAccountWidget(tester, harness, const AccountHubScreen());
+
+      expect(find.text('Pebble Premium'), findsOneWidget);
+      expect(find.text('Signed in with Apple'), findsOneWidget);
+      expect(
+        find.textContaining('Current period ends 26 October 2026'),
+        findsOneWidget,
+      );
+      expect(find.text('Manage subscription'), findsOneWidget);
+      expect(find.text('Already have Premium?'), findsNothing);
+    });
+
+    testWidgets('/cloud-backup lets a signed-out free user sign in', (
+      tester,
+    ) async {
+      final harness = _buildUiContainer(
+        auth: const AuthSessionSummary(
+          isSignedIn: false,
+          userId: null,
+          email: null,
+          provider: null,
+        ),
+        entitlement: const EntitlementState(
+          personalTier: UserTier.personalFree,
+          source: EntitlementSource.localCache,
+          lastCheckedAt: null,
+          isRefreshing: false,
+          lastError: null,
+        ),
+        cloudAccess: const PersonalCloudAccessState(
+          status: PersonalCloudAccessStatus.offFree,
+          label: 'Backup is off',
+          detail: 'Saved on this phone.',
+        ),
+        account: const SubscriptionAccountState.initial(),
+        pendingCount: 0,
+      );
+      addTearDown(() async {
+        harness.container.dispose();
+        await harness.database.close();
+      });
+      await _primeUiState(harness.container);
+      final router = await _pumpAccountRouter(
+        tester,
+        harness,
+        initialLocation: '/cloud-backup',
+      );
+      addTearDown(router.dispose);
+
+      expect(find.text('Get Premium first.'), findsNothing);
+      expect(find.text('Get Premium'), findsWidgets);
+      final signIn = find.text('Already have Premium? Sign in');
+      expect(signIn, findsOneWidget);
+      await tester.tap(signIn);
+      await tester.pumpAndSettle();
+      expect(find.text('Sign in'), findsOneWidget);
     });
 
     testWidgets(
@@ -1432,7 +1587,8 @@ void main() {
 
         await _pumpAccountWidget(tester, harness, const AccountHubScreen());
 
-        expect(find.text('Backup'), findsNothing);
+        // Only a link row to the Backup screen, no ownership choices here.
+        expect(find.text('Backup'), findsOneWidget);
         expect(find.text('Choose'), findsNothing);
         expect(find.text('Use this account'), findsNothing);
         expect(find.text('Keep backup off'), findsNothing);
@@ -1736,7 +1892,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Your account'), findsOneWidget);
-      expect(find.textContaining('Personal Premium'), findsOneWidget);
+      expect(find.textContaining('Pebble Premium'), findsOneWidget);
     });
 
     testWidgets('cloud backup back button pops after normal navigation', (
@@ -1799,7 +1955,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Your account'), findsOneWidget);
-      expect(find.textContaining('Personal Premium'), findsOneWidget);
+      expect(find.textContaining('Pebble Premium'), findsOneWidget);
     });
   });
 
