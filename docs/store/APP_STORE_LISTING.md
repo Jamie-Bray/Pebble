@@ -8,29 +8,28 @@ The same copy rules as `GOOGLE_PLAY_LISTING.md` apply: no medical claims, no
 "OCD" or "anxiety", no "peace of mind" promise, and backup always comes with
 "Premium, sign in, and turn it on".
 
-> **iOS blockers found while writing this (fix before you submit):**
+> **iOS status at this commit (after merging `claude/sharp-keller-f6iiu2`):**
 >
-> 1. **Sign in with Apple is not offered in the UI.** `sign_in_screen.dart`
->    shows "Continue with Google" (when a Google client ID is configured) and
->    "Continue with Email". `signInWithApple()` exists in
->    `auth_repository.dart` but no button calls it, and there is no
->    `.entitlements` file with the Sign in with Apple capability. Guideline 4.8
->    requires an equivalent privacy-focused option whenever a third-party
->    login like Google is offered. An email one-time code does not count,
->    because it does not let people keep their email address private. Either
->    add a "Continue with Apple" button on iOS and enable the capability, or
->    hide Google sign-in on iOS.
-> 2. **No `ios/Runner/PrivacyInfo.xcprivacy`.** Apple needs a privacy
->    manifest that declares required-reason APIs (for example `UserDefaults`
->    through `shared_preferences`, and file timestamp APIs). The Sentry and
->    RevenueCat pods ship their own manifests, but the app target needs one
->    too.
-> 3. **No iOS RevenueCat key in a build script.** `build_production_aab.ps1`
->    only passes `REVENUECAT_ANDROID_API_KEY`. The iOS build needs
->    `REVENUECAT_IOS_API_KEY` (and `SENTRY_DSN` if you want crash reports).
->
-> The review notes below assume blocker 1 is fixed by adding Sign in with
-> Apple.
+> - **Bundle ID:** `com.vix.pebbleroutines` (Android keeps
+>   `com.vix.pebble_routines`). Use it for the App Store Connect record, the
+>   RevenueCat iOS app, the Supabase Apple client ID and the Google iOS OAuth
+>   client (`IOS_SETUP_CHECKLIST.md`).
+> - **Sign in with Apple is offered on iOS** (`sign_in_screen.dart`,
+>   `Runner.entitlements`), above Google and Email. It requests the email scope
+>   only. The Supabase Apple provider still has to be enabled
+>   (`SUPABASE_LIVE_AUDIT.md`, owner task 1).
+> - **iPhone only** (`TARGETED_DEVICE_FAMILY = 1`), so no iPad screenshots are
+>   needed.
+> - **iOS builds** come from `codemagic.yaml`, which requires
+>   `REVENUECAT_IOS_API_KEY` (`appl_...`) and passes `SENTRY_DSN` when it is
+>   set.
+> - **Still open:** there is no app-level `ios/Runner/PrivacyInfo.xcprivacy`.
+>   Apple needs one that declares required-reason APIs (for example
+>   `UserDefaults` through `shared_preferences`). The Sentry and RevenueCat
+>   pods ship their own manifests, but the app target needs one too.
+> - **Review risk:** `VISUAL_WALKTHROUGH.md` item 4. The paywall stays on
+>   "Loading" when sandbox products don't load, which is a common 2.1
+>   rejection. Fix it before you submit.
 
 ---
 
@@ -202,7 +201,7 @@ WHAT THE APP DOES
 Pebble is a local-first checklist app for everyday routines such as "Leaving the house" (straighteners unplugged, stove off, front door locked). Users run a routine step by step, can add a photo to a step, and see recent history with completion times. It is not a medical, safety, or emergency app.
 
 NO ACCOUNT NEEDED
-Every core feature works without signing in. Sign-in is optional and is only used for Premium cloud backup, account recovery, and completion emails. Options: Sign in with Apple, Google, or an email one-time code (any email address works; the code arrives within a minute).
+Every core feature works without signing in. Sign-in is optional and is only used for Premium cloud backup, account recovery, and completion emails. Options: Sign in with Apple, Google, or an email one-time code (any email address works).
 
 FREE VS PREMIUM
 Free: 2 routines, 10 steps per routine, 1 photo per step, 48 hours of history.
@@ -307,5 +306,5 @@ Record a voice prompt for any step
 
 Screen: step editor with the voice prompt recorder open.
 
-Required sizes: 6.9" (1320 x 2868) or 6.7" iPhone. Add iPad screenshots
-only if you ship the iPad layout.
+Required size: 6.9" (1320 x 2868) or 6.7" iPhone. The app is iPhone only
+(`TARGETED_DEVICE_FAMILY = 1`), so iPad screenshots are not needed.

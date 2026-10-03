@@ -300,15 +300,13 @@ in screenshot photos.
 
 ## Character count results
 
-Output of `python3 docs/store/check_limits.py` for this file (3 October 2026):
+Output of `python3 docs/store/check_limits.py` on 3 October 2026:
 
 | Field | Chars | Max |
 | --- | --- | --- |
-| play-name | 26 | 30 |
-| play-name-alt-1 | 30 | 30 |
-| play-name-alt-2 | 28 | 30 |
-| play-short | 79 | 80 |
-| play-short-alt-1 | 76 | 80 |
-| play-short-alt-2 | 78 | 80 |
-| play-full | see script output | 4000 |
-| play-shot-1 to 8 | all under 40 | 40 (house style, not a Play limit) |
+| App name (recommended) | 26 | 30 |
+| App name alt 1 / alt 2 | 30 / 28 | 30 |
+| Short description (recommended) | 79 | 80 |
+| Short description alt 1 / alt 2 | 76 / 73 | 80 |
+| Full description | 2978 | 4000 |
+| Screenshot captions 1 to 8 | 26 to 38 | 40 (house style, not a Play limit) |

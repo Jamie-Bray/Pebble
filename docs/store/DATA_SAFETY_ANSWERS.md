@@ -1,7 +1,8 @@
 # Google Play Data Safety Answers
 
 Last updated: 3 October 2026. Based on the code at this commit, build
-1.0.0+31.
+1.0.0+31, including the iOS sign-in changes merged from
+`claude/sharp-keller-f6iiu2`.
 
 Play Console > Policy > App content > Data safety. Answers are listed in the
 order the form asks them. Each answer says where in the code it comes from, so
@@ -79,7 +80,7 @@ compliance, Personalisation, Account management.
 
 | Type | Collected | Shared | Ephemeral | Required? | Purposes | Source and notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| Purchase history | **Yes** | No | No | Optional | App functionality, Fraud prevention / security / compliance | RevenueCat customer info (product, store, purchase and expiry dates, status). Supabase `personal_entitlements` (product ID, store, status, period, SHA-256 hash of the purchase token) written by `revenuecat-webhook` / `verify-purchase`. Only users who buy Premium create this. |
+| Purchase history | **Yes** | No | No | Optional | App functionality, Fraud prevention / security / compliance | RevenueCat customer info (product, store, purchase and expiry dates, status). Supabase `personal_entitlements` (product ID, store, status, period, SHA-256 hash of the purchase token) written by `revenuecat-webhook` and `revenuecat-sync-entitlement`. (`verify-purchase` is still deployed but the app no longer calls it.) Only users who buy Premium create this. |
 | User payment info | No | | | | | Google Play handles payment. Pebble never sees card details. |
 | Credit score | No | | | | | |
 | Other financial info | No | | | | | |
