@@ -30,18 +30,13 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
   String? _unavailableReason = 'Loading store products...';
   DateTime? _lastPurchaseCheckAt;
   final Map<BillingPlan, rc.Package> _packagesByPlan = {};
+  String? _storeManagementUrl;
 
   @override
-  String? get manageSubscriptionsUrl {
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.android:
-        return 'https://play.google.com/store/account/subscriptions';
-      case TargetPlatform.iOS:
-        return 'https://apps.apple.com/account/subscriptions';
-      default:
-        return null;
-    }
-  }
+  String? get manageSubscriptionsUrl => revenueCatManageSubscriptionsUrl(
+    managementUrl: _storeManagementUrl,
+    platform: defaultTargetPlatform,
+  );
 
   @override
   bool get billingAvailable => _billingAvailable;
@@ -315,6 +310,9 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
       purchasesConfig.appUserID = normalizedUserId;
     }
     await rc.Purchases.configure(purchasesConfig);
+    rc.Purchases.addCustomerInfoUpdateListener((customerInfo) {
+      _storeManagementUrl = customerInfo.managementURL;
+    });
     _configured = true;
     _configuredUserId = normalizedUserId;
     final configuredAppUserId = await _safeRevenueCatAppUserId();
@@ -532,6 +530,26 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
         ?.id;
     final userId = authUserId ?? supabaseUserId;
     return userId == null || userId.isEmpty ? null : userId;
+  }
+}
+
+/// RevenueCat's managementURL points at the store the subscription was bought
+/// from, so a Google Play purchase opened on an iPhone (or the reverse) still
+/// lands on the right store. Without one, use this platform's store.
+String? revenueCatManageSubscriptionsUrl({
+  required String? managementUrl,
+  required TargetPlatform platform,
+}) {
+  if (managementUrl != null && managementUrl.isNotEmpty) {
+    return managementUrl;
+  }
+  switch (platform) {
+    case TargetPlatform.android:
+      return 'https://play.google.com/store/account/subscriptions';
+    case TargetPlatform.iOS:
+      return 'https://apps.apple.com/account/subscriptions';
+    default:
+      return null;
   }
 }
 

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pebble_routines/features/subscription/data/purchase_repository.dart';
 import 'package:pebble_routines/features/subscription/data/revenuecat_purchase_repository.dart';
@@ -42,6 +43,42 @@ void main() {
       );
 
       expect(revenueCatBillingPlanForPackage(package), BillingPlan.yearly);
+    });
+
+    test('manage-subscription link prefers the purchase store', () {
+      const playUrl = 'https://play.google.com/store/account/subscriptions';
+      const appStoreUrl = 'https://apps.apple.com/account/subscriptions';
+
+      // Bought on Google Play, opened on an iPhone.
+      expect(
+        revenueCatManageSubscriptionsUrl(
+          managementUrl: playUrl,
+          platform: TargetPlatform.iOS,
+        ),
+        playUrl,
+      );
+      // No managementURL: fall back to the current platform's store.
+      expect(
+        revenueCatManageSubscriptionsUrl(
+          managementUrl: null,
+          platform: TargetPlatform.iOS,
+        ),
+        appStoreUrl,
+      );
+      expect(
+        revenueCatManageSubscriptionsUrl(
+          managementUrl: '',
+          platform: TargetPlatform.android,
+        ),
+        playUrl,
+      );
+      expect(
+        revenueCatManageSubscriptionsUrl(
+          managementUrl: null,
+          platform: TargetPlatform.linux,
+        ),
+        isNull,
+      );
     });
 
     test('reads active personal premium entitlement from CustomerInfo', () {
