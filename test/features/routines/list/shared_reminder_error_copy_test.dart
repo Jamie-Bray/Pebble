@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pebble_routines/features/routines/data/shared_reminder_preferences_repository.dart';
 import 'package:pebble_routines/features/routines/list/ui/routine_reminders_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
   group('friendlySharedReminderErrorMessage', () {
@@ -10,7 +12,7 @@ void main() {
 
       expect(
         message,
-        'Email alerts are not ready yet. Please try again later.',
+        "Completion emails aren't available right now. Try again later.",
       );
       expect(message, isNot(contains('FunctionException')));
       expect(message, isNot(contains('status: 500')));
@@ -21,7 +23,7 @@ void main() {
         'FunctionException(status: 500, details: {error: Internal Server Error})',
       );
 
-      expect(message, 'Could not update shared notification.');
+      expect(message, "Couldn't update completion emails. Try again.");
       expect(message, isNot(contains('FunctionException')));
       expect(message, isNot(contains('status: 500')));
     });
@@ -38,6 +40,112 @@ void main() {
           'SharedReminderRepositoryException: Personal Premium is required',
         ),
         'Premium is required to notify someone.',
+      );
+    });
+
+    test('shows the server message for limits instead of a generic error', () {
+      final error = sharedReminderExceptionFromFunctionError(
+        const FunctionException(
+          status: 429,
+          details: {
+            'error': 'Too many invites today. Please try again tomorrow.',
+            'code': 'senderDailyLimit',
+          },
+        ),
+      );
+      expect(error.code, 'senderDailyLimit');
+      expect(error.status, 429);
+      expect(
+        friendlySharedReminderErrorMessage(error),
+        'Too many invites today. Please try again tomorrow.',
+      );
+    });
+
+    test('blocked recipients get calm wording', () {
+      final error = sharedReminderExceptionFromFunctionError(
+        const FunctionException(
+          status: 403,
+          details: {
+            'error': 'This recipient has blocked invites from this account',
+          },
+        ),
+      );
+      expect(
+        friendlySharedReminderErrorMessage(error),
+        "This address isn't accepting invitations from you.",
+      );
+    });
+
+    test('never shows provider JSON', () {
+      expect(
+        friendlySharedReminderErrorMessage(
+          SharedReminderRepositoryException('{"statusCode":422,"name":"x"}'),
+        ),
+        "Couldn't update completion emails. Try again.",
+      );
+      final noDetails = sharedReminderExceptionFromFunctionError(
+        const FunctionException(status: 502, details: 'Bad gateway'),
+      );
+      expect(
+        noDetails.message,
+        "Completion emails aren't available right now. Try again later.",
+      );
+    });
+  });
+
+  group('completion email request and result', () {
+    test('sends UTC time plus the device offset', () {
+      final local = DateTime(2026, 10, 3, 22, 41);
+      final body = completionRequestBody(
+        routineKey: 'local:1',
+        routineTitle: 'Lock up',
+        runId: 'run-1',
+        sessionId: 's-1',
+        completedAt: local,
+        completedSteps: 4,
+        totalSteps: 4,
+      );
+      final sentAt = DateTime.parse(body['completedAt'] as String);
+      expect((body['completedAt'] as String).endsWith('Z'), isTrue);
+      expect(sentAt.isAtSameMomentAs(local), isTrue);
+      expect(body['utcOffsetMinutes'], local.timeZoneOffset.inMinutes);
+    });
+
+    test('completion screen note says what happened, and nothing otherwise', () {
+      expect(
+        SharedReminderCompletionResult.fromJson(const {
+          'sent': true,
+          'recipientEmail': 'sam@example.com',
+        }).completionScreenNote,
+        'Completion email sent to sam@example.com.',
+      );
+      expect(
+        SharedReminderCompletionResult.fromJson(const {
+          'sent': true,
+          'alreadySent': true,
+        }).completionScreenNote,
+        isNull,
+      );
+      expect(
+        SharedReminderCompletionResult.fromJson(const {
+          'sent': false,
+          'reason': 'noAcceptedContact',
+        }).completionScreenNote,
+        isNull,
+      );
+      expect(
+        SharedReminderCompletionResult.fromJson(const {
+          'sent': false,
+          'reason': 'rateLimited',
+        }).completionScreenNote,
+        contains('not sent'),
+      );
+      expect(
+        const SharedReminderCompletionResult(
+          sent: false,
+          reason: 'offline',
+        ).completionScreenNote,
+        'Completion email not sent. No connection.',
       );
     });
   });

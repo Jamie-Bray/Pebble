@@ -51,6 +51,10 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
   static const _pendingCameraCapturePrefsKey =
       'routine_player_pending_camera_capture';
   String? _lastReminderSentRunId;
+
+  /// What happened to this run's completion email, shown on the completion
+  /// screen. Null when no email was due.
+  String? _completionEmailNote;
   bool _isPrimaryPreludeRunning = false;
   AudioPlayer? _chimePlayer;
 
@@ -269,6 +273,7 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
                           (step) => step.hasPhotoRequirement,
                         ) ??
                         true),
+                completionEmailNote: _completionEmailNote,
                 onBackToHome: _goHome,
                 onReviewRoutine: _openVault,
               ),
@@ -733,7 +738,7 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
           .read(localDbProvider)
           .routineDao
           .getRoutineById(session.routineId);
-      await sharedReminders.sendCompletionReminder(
+      final result = await sharedReminders.sendCompletionReminder(
         routineId: session.routineId,
         routineCloudId: routine?.cloudId,
         routineTitle: session.routineTitleSnapshot,
@@ -743,6 +748,9 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
         completedSteps: session.completedStepsCount,
         totalSteps: session.totalStepCount,
       );
+      if (mounted) {
+        setState(() => _completionEmailNote = result.completionScreenNote);
+      }
     } catch (_) {
       // Shared emails should never make a completed routine feel unfinished.
     } finally {
@@ -1968,6 +1976,7 @@ class RoutineCompleteScreen extends StatefulWidget {
     this.totalSteps,
     this.skippedSteps = 0,
     this.showPhotoSummary = true,
+    this.completionEmailNote,
     required this.onBackToHome,
     required this.onReviewRoutine,
   });
@@ -1983,6 +1992,10 @@ class RoutineCompleteScreen extends StatefulWidget {
   /// False for a routine with no photo steps, so the summary doesn't report
   /// "0 photos" for something that was never asked for.
   final bool showPhotoSummary;
+
+  /// For example "Completion email sent to sam@example.com." Shown under the
+  /// summary once the send finishes; null shows nothing.
+  final String? completionEmailNote;
   final VoidCallback onBackToHome;
   final VoidCallback onReviewRoutine;
 
@@ -2102,6 +2115,45 @@ class _RoutineCompleteScreenState extends State<RoutineCompleteScreen>
                         skippedSteps: widget.skippedSteps,
                         showPhotoSummary: widget.showPhotoSummary,
                       ),
+                    ),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 250),
+                      child: widget.completionEmailNote == null
+                          ? const SizedBox.shrink()
+                          : Padding(
+                              key: ValueKey(widget.completionEmailNote),
+                              padding: const EdgeInsets.only(top: 18),
+                              child: Semantics(
+                                liveRegion: true,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 1),
+                                      child: Icon(
+                                        LucideIcons.mail,
+                                        size: 16,
+                                        color: theme.colorScheme.onSurface
+                                            .withValues(alpha: 0.6),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      child: Text(
+                                        widget.completionEmailNote!,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          height: 1.4,
+                                          color: theme.colorScheme.onSurface
+                                              .withValues(alpha: 0.68),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                     ),
                   ],
                 ),

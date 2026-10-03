@@ -45,6 +45,7 @@ import 'package:pebble_routines/data/remote/supabase_client_provider.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/features/auth/data/auth_repository.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
+import 'package:pebble_routines/features/routines/data/shared_reminder_preferences_repository.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
 import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
 import 'package:pebble_routines/features/subscription/data/models/subscription_account_state.dart';
@@ -652,6 +653,68 @@ Future<void> _loadFonts() async {
 }
 
 // ---------------------------------------------------------------------------
+// Completion emails (no network): a fixed contact state per capture.
+// ---------------------------------------------------------------------------
+
+SharedReminderContact _contact(
+  SharedReminderContactStatus status, {
+  bool notify = true,
+  bool includeName = true,
+}) => SharedReminderContact(
+  id: 'contact-1',
+  routineKey: 'local:1',
+  recipientEmail: 'sam.taylor@example.com',
+  status: status,
+  notifyWhenFinished: notify,
+  includeRoutineName: includeName,
+  includeStepCount: true,
+  updatedAt: DateTime(2026, 10, 3, 9),
+);
+
+class _FakeSharedReminders extends SharedReminderPreferencesRepository {
+  _FakeSharedReminders(this.contact) : super(null);
+
+  SharedReminderContact? contact;
+
+  @override
+  bool get isAvailable => true;
+
+  @override
+  Future<SharedReminderContact?> getForRoutine({
+    required int routineId,
+    String? routineCloudId,
+  }) async => contact;
+
+  @override
+  Future<SharedReminderContact> requestContact({
+    required int routineId,
+    required String recipientEmail,
+    String? routineCloudId,
+    bool resend = false,
+    bool includeRoutineName = true,
+    bool includeStepCount = true,
+  }) async => contact = _contact(SharedReminderContactStatus.pending);
+
+  @override
+  Future<SharedReminderCompletionResult> sendCompletionReminder({
+    required int routineId,
+    required String routineTitle,
+    required String runId,
+    required String sessionId,
+    required DateTime completedAt,
+    required int completedSteps,
+    required int totalSteps,
+    String? routineCloudId,
+    Duration retryDelay = const Duration(seconds: 4),
+  }) async => contact?.canSendCompletionEmail == true
+      ? SharedReminderCompletionResult(
+          sent: true,
+          recipientEmail: contact!.recipientEmail,
+        )
+      : const SharedReminderCompletionResult(sent: false);
+}
+
+// ---------------------------------------------------------------------------
 // Harness
 // ---------------------------------------------------------------------------
 
@@ -774,6 +837,8 @@ void _capture(
   _Account account = _Account.signedOutFree,
   _Store store = _Store.loaded,
   Map<String, Object> extraPrefs = const {},
+  SharedReminderContact? sharedContact,
+  bool fakeSharedReminders = false,
 }) {
   final skip =
       !_enabled ||
@@ -859,6 +924,10 @@ void _capture(
                 ),
               ),
               authRepositoryProvider.overrideWithValue(_FakeAuth()),
+              if (fakeSharedReminders || sharedContact != null)
+                sharedReminderPreferencesRepositoryProvider.overrideWithValue(
+                  _FakeSharedReminders(sharedContact),
+                ),
               purchaseRepositoryProvider.overrideWith(
                 (ref) => _FakePurchases(store),
               ),
@@ -1304,6 +1373,60 @@ void main() {
     await env.realWait(6);
     await env.shot('routine_email_alerts_premium');
   });
+  // Completion emails: every contact state the sender can see.
+  for (final entry in <String, SharedReminderContact?>{
+    'none': null,
+    'pending': _contact(SharedReminderContactStatus.pending),
+    'accepted': _contact(SharedReminderContactStatus.accepted),
+    'accepted_off_hidden_name': _contact(
+      SharedReminderContactStatus.accepted,
+      notify: false,
+      includeName: false,
+    ),
+    'declined': _contact(SharedReminderContactStatus.declined),
+    'blocked': _contact(SharedReminderContactStatus.blocked),
+  }.entries) {
+    _capture(
+      'email contact ${entry.key}',
+      account: _Account.signedInPremium,
+      sharedContact: entry.value,
+      fakeSharedReminders: true,
+      (env) async {
+        await env.tapFinder(find.byTooltip('Email').first);
+        await env.realWait(6);
+        await env.shot('email_contact_${entry.key}');
+        await env.scrollDown(700);
+        await env.shot('email_contact_${entry.key}_scrolled');
+      },
+    );
+  }
+  _capture(
+    'email invite sheet',
+    account: _Account.signedInPremium,
+    fakeSharedReminders: true,
+    (env) async {
+      await env.tapFinder(find.byTooltip('Email').first);
+      await env.realWait(6);
+      await env.tapText('Add someone to notify', last: true);
+      await env.realWait(4);
+      await env.shot('email_invite_sheet');
+    },
+  );
+  _capture(
+    'player complete email sent',
+    account: _Account.signedInPremium,
+    sharedContact: _contact(SharedReminderContactStatus.accepted),
+    (env) async {
+      await _openPlayer(env, 3);
+      for (var i = 0; i < 4; i++) {
+        await _tapPrimary(env);
+        await env.realWait(3);
+      }
+      await env.realWait(10);
+      await env.settle(30);
+      await env.shot('player_complete_email_sent');
+    },
+  );
   _capture('reminder editor', (env) async {
     await env.push('/reminders');
     await env.realWait(8);
