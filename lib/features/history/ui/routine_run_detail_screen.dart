@@ -10,6 +10,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
+import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/ui/adaptive_layout.dart';
 import 'package:pebble_routines/core/ui/pebble_photo_gallery_viewer.dart';
 import 'package:pebble_routines/core/ui/readable_colors.dart';
@@ -97,8 +98,8 @@ class RoutineRunDetailScreen extends ConsumerWidget {
         children: [
           Row(
             children: [
-              _RunBackButton(
-                onTap: () {
+              PebbleBackButton(
+                onPressed: () {
                   Navigator.of(context).maybePop();
                 },
               ),
@@ -826,42 +827,6 @@ class RoutineRunDetailScreen extends ConsumerWidget {
 }
 
 enum _RunSyncState { synced, pending, failed }
-
-class _RunBackButton extends StatelessWidget {
-  const _RunBackButton({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
-    return Tooltip(
-      message: 'Back',
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Ink(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: foundation.surfaceLow,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: foundation.borderSubtle),
-            ),
-            child: Icon(
-              LucideIcons.chevronLeft,
-              size: 20,
-              color: foundation.textSecondary,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _RunStatCard extends StatelessWidget {
   const _RunStatCard({

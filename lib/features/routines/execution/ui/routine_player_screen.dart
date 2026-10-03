@@ -2015,10 +2015,9 @@ class _RoutineCompleteScreenState extends State<RoutineCompleteScreen>
                               ],
                             ),
                             child: Icon(
-                              Icons.check,
-                              size: 58,
+                              LucideIcons.check,
+                              size: 52,
                               color: theme.colorScheme.onPrimary,
-                              weight: 800,
                             ),
                           ),
                           const SizedBox(height: 32),

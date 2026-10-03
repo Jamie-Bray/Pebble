@@ -1,7 +1,10 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
+import 'package:pebble_routines/core/theme/tokens.dart';
+import 'package:pebble_routines/core/ui/readable_colors.dart';
 
 class ZenHeader extends StatelessWidget {
   const ZenHeader({super.key, this.extraActions = const []});
@@ -22,10 +25,7 @@ class ZenHeader extends StatelessWidget {
             onPressed: () {
               context.pushNamed('settings');
             },
-            icon: Icon(
-              Icons.settings_outlined,
-              color: foundation.textSecondary,
-            ),
+            icon: Icon(LucideIcons.settings, color: foundation.textSecondary),
           ),
         ],
       ),
@@ -58,6 +58,7 @@ class ZenScreenHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
+    final type = PebbleType.of(context);
     // Inside a SafeArea this inset is already 0, so it never double counts.
     final topInset = MediaQuery.paddingOf(context).top;
     final topPadding = reserveBackButtonSpace
@@ -65,7 +66,7 @@ class ZenScreenHeader extends StatelessWidget {
         : max(84.0, topInset + 24);
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(24, topPadding, 24, 28),
+      padding: EdgeInsets.fromLTRB(24, topPadding, 24, PebbleSpacing.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -85,9 +86,7 @@ class ZenScreenHeader extends StatelessWidget {
                     child: Text(
                       title,
                       maxLines: 1,
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w700,
+                      style: type.title1.copyWith(
                         color: foundation.textPrimary,
                       ),
                     ),
@@ -97,18 +96,12 @@ class ZenScreenHeader extends StatelessWidget {
               if (actions != null) ...actions!,
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: PebbleSpacing.xs),
+          // Regular body, no italic and no divider (DESIGN_DIRECTION.md §3.2).
           Text(
             subtitle,
-            style: TextStyle(
-              fontSize: 14,
-              fontStyle: FontStyle.italic,
-              fontWeight: FontWeight.w400,
-              color: foundation.textSecondary,
-            ),
+            style: type.body.copyWith(color: context.readableSecondaryText),
           ),
-          const SizedBox(height: 12),
-          Container(height: 1, color: foundation.borderSubtle),
         ],
       ),
     );

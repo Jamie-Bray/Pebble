@@ -1,11 +1,12 @@
 import 'package:flutter/foundation.dart';
-import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
+import 'package:pebble_routines/core/theme/pebble_fonts.dart';
+import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/ui/zen_notifications.dart';
 import 'package:pebble_routines/data/remote/supabase_client_provider.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
@@ -160,9 +161,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                     else ...[
                       if (canUseAppleSignIn) ...[
                         _AppleSignInButton(
-                          onTap: isBusy
-                              ? null
-                              : authController.signInWithApple,
+                          onTap: isBusy ? null : authController.signInWithApple,
                         ),
                         const SizedBox(height: 10),
                       ],
@@ -253,26 +252,7 @@ class _SignInBackRow extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return Row(
       children: [
-        SizedBox(
-          width: 36,
-          height: 36,
-          child: IconButton(
-            tooltip: 'Back',
-            onPressed: onBack,
-            padding: EdgeInsets.zero,
-            style: IconButton.styleFrom(
-              backgroundColor: colorScheme.onSurface.withValues(alpha: 0.08),
-              side: BorderSide(
-                color: colorScheme.onSurface.withValues(alpha: 0.12),
-              ),
-            ),
-            icon: Icon(
-              LucideIcons.chevronLeft,
-              size: 16,
-              color: colorScheme.onSurface,
-            ),
-          ),
-        ),
+        PebbleBackButton(onPressed: onBack),
         const SizedBox(width: 12),
         Text(
           'YOUR ACCOUNT',
@@ -385,10 +365,7 @@ class _SignInPerks extends StatelessWidget {
               'Ready for backup',
               'If you get Premium later, backup can start straight away.',
             ),
-            (
-              'Optional',
-              'Everything else in Pebble works without an account.',
-            ),
+            ('Optional', 'Everything else in Pebble works without an account.'),
           ];
     return Column(
       children: [

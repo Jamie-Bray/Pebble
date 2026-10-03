@@ -570,15 +570,8 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
             floatingActionButton: SafeArea(
               child: Padding(
                 padding: const EdgeInsets.only(top: 8, left: 4),
-                child: PebbleBackButton(
-                  onPressed: _dismissPaywall,
-                  // Opaque, so scrolled content never shows through it.
-                  backgroundColor: Color.alphaBlend(
-                    foundation.textPrimary.withValues(alpha: 0.12),
-                    foundation.bgBase,
-                  ),
-                  iconColor: foundation.textSecondary,
-                ),
+                // Floating glass: scrolled content blurs out behind it.
+                child: PebbleBackButton(onPressed: _dismissPaywall),
               ),
             ),
           );

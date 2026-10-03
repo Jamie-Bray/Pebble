@@ -1749,7 +1749,7 @@ class _HeroPhotoView extends StatelessWidget {
             top: 0,
             left: 0,
             right: 0,
-            child: PebbleBackChrome(),
+            child: PebbleBackChrome(fadeContentBehind: true),
           ),
         ],
       ),

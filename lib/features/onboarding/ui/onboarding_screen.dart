@@ -8,6 +8,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:pebble_routines/core/ui/pebble_buttons.dart';
+import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/navigation/app_shell.dart';
@@ -294,29 +295,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         ? Padding(
                             padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
                             child: SizedBox(
-                              height: 40,
+                              height: PebbleBackButton.size,
                               child: Row(
                                 children: [
-                                  TextButton.icon(
+                                  PebbleBackButton(
                                     onPressed: () =>
                                         _goToPage(_currentPage - 1),
-                                    icon: Icon(
-                                      LucideIcons.arrowLeft,
-                                      size: 16,
-                                      color: foundation.textSecondary,
-                                    ),
-                                    label: Text(
-                                      'Back',
-                                      style: TextStyle(
-                                        color: foundation.textSecondary,
-                                      ),
-                                    ),
-                                    style: TextButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                      ),
-                                      minimumSize: Size.zero,
-                                    ),
                                   ),
                                 ],
                               ),
@@ -324,7 +308,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           )
                         : const Padding(
                             padding: EdgeInsets.fromLTRB(16, 8, 16, 2),
-                            child: SizedBox(height: 40),
+                            child: SizedBox(height: PebbleBackButton.size),
                           ),
                   ),
                   Padding(

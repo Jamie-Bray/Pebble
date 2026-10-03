@@ -114,6 +114,8 @@ class PebbleButton extends StatefulWidget {
 }
 
 class _PebbleButtonState extends State<PebbleButton> {
+  static const double maxLabelScale = 1.6;
+
   bool _pressed = false;
 
   bool get _interactive => widget.onPressed != null && !widget.busy;
@@ -262,9 +264,16 @@ class _PebbleButtonState extends State<PebbleButton> {
           );
 
     final onPressed = _interactive ? widget.onPressed : null;
+    // Labels scale with the system text size up to 1.6x (17 → 27pt, about
+    // what the old 15pt labels reached at 2x) and wrap beyond the width, so
+    // a pinned footer of buttons never takes over the screen at 2x.
+    final scaledContent = MediaQuery.withClampedTextScaling(
+      maxScaleFactor: maxLabelScale,
+      child: content,
+    );
     Widget button = hasFill
-        ? FilledButton(onPressed: onPressed, style: style, child: content)
-        : TextButton(onPressed: onPressed, style: style, child: content);
+        ? FilledButton(onPressed: onPressed, style: style, child: scaledContent)
+        : TextButton(onPressed: onPressed, style: style, child: scaledContent);
 
     if (widget.expand) {
       button = SizedBox(width: double.infinity, child: button);
