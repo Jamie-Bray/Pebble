@@ -1,6 +1,7 @@
 // lib/main.dart
 import 'dart:async';
 
+import 'package:pebble_routines/core/ui/pebble_time.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -10,7 +11,6 @@ import 'package:go_router/go_router.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/home_widget/home_widget_publisher.dart';
-import 'package:intl/intl.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
@@ -101,14 +101,7 @@ class RoutineSoftLockedException implements Exception {
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
-TimeOfDay? _parseReminderTime(String value) {
-  try {
-    final parsed = DateFormat('h:mm a').parse(value);
-    return TimeOfDay(hour: parsed.hour, minute: parsed.minute);
-  } catch (_) {
-    return null;
-  }
-}
+TimeOfDay? _parseReminderTime(String value) => parseStoredClockTime(value);
 
 bool _isOnboardingTemplateRequest(GoRouterState state) {
   final path = state.uri.path;

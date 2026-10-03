@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 /// The time of a check as the device shows times: "8:02 AM", or "08:02" with
 /// the 24-hour setting on (DESIGN_DIRECTION.md §3.1 "AM/PM").
@@ -51,10 +52,7 @@ class PebbleBigTime extends StatelessWidget {
             if (meridiem != null)
               TextSpan(
                 text: ' $meridiem',
-                style: style.copyWith(
-                  fontSize: size * 0.45,
-                  letterSpacing: 0,
-                ),
+                style: style.copyWith(fontSize: size * 0.45, letterSpacing: 0),
               ),
           ],
         ),
@@ -67,4 +65,37 @@ class PebbleBigTime extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Reminder times are stored as text ("8:15 PM"). The storage format is fixed
+/// to US English so it never changes with the reader's region: UK English
+/// writes "8:15 pm" and cannot read "8:15 PM" back.
+final DateFormat _storedClockFormat = DateFormat('h:mm a', 'en_US');
+
+String encodeStoredClockTime(TimeOfDay time) {
+  final now = DateTime.now();
+  return _storedClockFormat.format(
+    DateTime(now.year, now.month, now.day, time.hour, time.minute),
+  );
+}
+
+TimeOfDay? parseStoredClockTime(String? value) {
+  if (value == null || value.trim().isEmpty) return null;
+  try {
+    final parsed = _storedClockFormat.parse(value.trim());
+    return TimeOfDay(hour: parsed.hour, minute: parsed.minute);
+  } catch (_) {
+    return null;
+  }
+}
+
+/// A stored reminder time as the device shows times; unreadable values are
+/// shown unchanged.
+String formatStoredClockTime(BuildContext context, String stored) {
+  final time = parseStoredClockTime(stored);
+  if (time == null) return stored;
+  return MaterialLocalizations.of(context).formatTimeOfDay(
+    time,
+    alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(context),
+  );
 }

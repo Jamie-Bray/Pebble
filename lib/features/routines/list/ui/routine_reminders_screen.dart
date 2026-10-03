@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:pebble_routines/core/ui/pebble_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -526,7 +527,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        reminder.time,
+                        formatStoredClockTime(context, reminder.time),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -2119,7 +2120,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
         ),
         onTap: () => _editReminder(reminder),
         title: Text(
-          '${reminder.time} - ${_weekdayLabel(reminder.dayOfWeek)}',
+          '${formatStoredClockTime(context, reminder.time)} - ${_weekdayLabel(reminder.dayOfWeek)}',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
@@ -2442,14 +2443,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
     return labels[day] ?? 'Day $day';
   }
 
-  TimeOfDay? _parseTime(String timeString) {
-    try {
-      final time = DateFormat('h:mm a').parse(timeString);
-      return TimeOfDay(hour: time.hour, minute: time.minute);
-    } catch (_) {
-      return null;
-    }
-  }
+  TimeOfDay? _parseTime(String timeString) => parseStoredClockTime(timeString);
 }
 
 class _LockedSharedAlertMessage {
