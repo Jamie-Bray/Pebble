@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="description" content="Confirm your choice about Pebble completion emails." />
+    <title>Completion emails | Pebble Routines</title>
+    <link rel="icon" href="../../favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="96x96" href="../../favicon-96x96.png" />
+    <link rel="stylesheet" href="../../legal.css" />
+  </head>
+  <!--
+    Links in completion emails open this page with the token in the URL
+    fragment (#action=…&token=…). Fragments are never sent to a server, so the
+    token stays out of web and proxy logs, and opening the link (as mail
+    scanners do) changes nothing. Pressing the button POSTs the token to the
+    matching Edge Function, which redirects to ../accepted/, ../declined/,
+    ../blocked/ or ../problem/.
+  -->
+  <body class="shared-alert-page">
+    <main
+      class="shared-alert-shell"
+      aria-labelledby="page-title"
+      data-endpoint-base="https://yncgjqbjjzbinqkpukug.functions.supabase.co"
+    >
+      <section class="shared-alert-card" id="card">
+        <div class="shared-alert-inner">
+          <div class="shared-alert-brand">
+            <div class="brand" aria-label="Pebble Routines">
+              <span class="brand-mark" aria-hidden="true">P</span>
+              <span>Pebble Routines</span>
+            </div>
+            <div class="shared-alert-badge" id="badge">Completion emails</div>
+          </div>
+
+          <div class="shared-alert-copy">
+            <h1 id="page-title">Checking this link…</h1>
+            <p class="body-copy" id="body-copy">One moment.</p>
+          </div>
+
+          <noscript>
+            <div class="shared-alert-note">
+              <span aria-hidden="true"></span>
+              <p>
+                This page needs JavaScript to confirm your choice. Turn it on
+                and open the link again, or email
+                <a href="mailto:privacy@pebbleroutines.app">privacy@pebbleroutines.app</a>
+                and we will stop the emails for you.
+              </p>
+            </div>
+          </noscript>
+
+          <form class="shared-alert-form" id="form" method="post" hidden>
+            <input type="hidden" name="token" id="token" />
+            <label class="shared-alert-check" id="scope-row" hidden>
+              <input type="checkbox" name="scope" value="all" />
+              <span>Also block invitations from anyone else using Pebble</span>
+            </label>
+            <button class="button primary shared-alert-submit" type="submit" id="submit">Continue</button>
+            <p class="shared-alert-alt" id="alt" hidden></p>
+          </form>
+
+          <div class="shared-alert-note" id="note" hidden>
+            <span aria-hidden="true"></span>
+            <p id="note-text"></p>
+          </div>
+        </div>
+      </section>
+      <p class="shared-alert-footer">
+        Pebble Routines · <a href="../../privacy.html#completion-emails">Privacy</a>
+      </p>
+    </main>
+    <script>
+      (function () {
+        var copy = {
+          accept: {
+            badge: 'Invitation',
+            title: 'Allow completion emails?',
+            body: 'You will get an email when this person completes the routine they chose. Every email has a link to stop them.',
+            button: 'Allow completion emails',
+            note: 'Nothing is sent until you press the button.',
+            alt: { label: 'Decline instead', action: 'decline' },
+          },
+          decline: {
+            badge: 'Completion emails',
+            title: 'Stop completion emails?',
+            body: 'You will not get completion emails from this person. They will see that the emails are off, and they cannot invite you again for 30 days.',
+            button: 'Stop completion emails',
+            note: 'You can still block this sender instead.',
+            alt: { label: 'Block this sender', action: 'block' },
+          },
+          block: {
+            badge: 'Block sender',
+            title: 'Block this sender?',
+            body: 'You will not get invitations or completion emails from this person again. They will see that this address is not accepting their invitations, but not why.',
+            button: 'Block sender',
+            note: null,
+            alt: null,
+          },
+        };
+
+        var params = new URLSearchParams(location.hash.replace(/^#/, ''));
+        var action = params.get('action');
+        var token = params.get('token') || '';
+        var base = document.querySelector('main').getAttribute('data-endpoint-base');
+        var $ = function (id) { return document.getElementById(id); };
+
+        if (!copy[action] || !/^[A-Za-z0-9._-]{20,128}$/.test(token)) {
+          $('card').classList.add('problem');
+          $('badge').textContent = 'Link not valid';
+          $('page-title').textContent = 'This link does not work';
+          $('body-copy').textContent = 'Open the link straight from the email. If you copied it, make sure the whole link was copied.';
+          return;
+        }
+
+        function show(name) {
+          var c = copy[name];
+          action = name;
+          document.title = c.title + ' | Pebble Routines';
+          $('card').className = 'shared-alert-card ' + (name === 'accept' ? 'accepted' : name === 'block' ? 'blocked' : 'declined');
+          $('badge').textContent = c.badge;
+          $('page-title').textContent = c.title;
+          $('body-copy').textContent = c.body;
+          $('submit').textContent = c.button;
+          $('scope-row').hidden = name !== 'block';
+          $('form').action = base.replace(/\/$/, '') + '/shared-alert-' + name;
+          $('note').hidden = !c.note;
+          $('note-text').textContent = c.note || '';
+          var alt = $('alt');
+          alt.hidden = !c.alt;
+          alt.textContent = '';
+          if (c.alt) {
+            var link = document.createElement('a');
+            link.href = '#';
+            link.textContent = c.alt.label;
+            link.addEventListener('click', function (event) {
+              event.preventDefault();
+              show(c.alt.action);
+            });
+            alt.appendChild(link);
+          }
+        }
+
+        $('token').value = token;
+        $('form').hidden = false;
+        show(action);
+        $('form').addEventListener('submit', function () {
+          $('submit').disabled = true;
+          $('submit').textContent = 'Saving…';
+        });
+        // Coming back with the browser's Back button: make the button usable again.
+        window.addEventListener('pageshow', function () {
+          $('submit').disabled = false;
+          $('submit').textContent = copy[action].button;
+        });
+      })();
+    </script>
+  </body>
+</html>

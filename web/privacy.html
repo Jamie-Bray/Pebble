@@ -182,17 +182,25 @@
               includes links to stop the emails or block the sender.
             </p>
             <p>
-              A completion email can include the routine name, completion time,
-              and step count. You can turn off the routine name and step count.
-              Photos and checklist details are not included.
+              The invitation and every completion email show the sender's
+              account email address, so the person knows who they are from. A
+              completion email can include the routine name, completion time,
+              and step count. The sender can hide the routine name. Photos and
+              checklist details are not included.
             </p>
             <p>
               To do this, Pebble stores the contact's email address, invitation
-              status, and email preferences, plus a log of emails sent (routine
-              name, completion time, step counts, and delivery status). Emails
-              are delivered by Resend. If a contact blocks you, Pebble keeps
-              their email address and a hashed copy linked to your account so
-              you cannot invite them again.
+              status, and email preferences, plus a log of emails sent
+              (completion time, step counts, delivery status, and the routine
+              name only if it was shown). Emails are delivered by Resend.
+            </p>
+            <p>
+              If a contact declines or stops the emails, the sender cannot invite
+              them again for 30 days. If a contact blocks the sender, Pebble
+              keeps their email address and a hashed copy linked to the sender's
+              account so the sender cannot invite them again. A contact can also
+              block invitations from everyone using Pebble; for this Pebble keeps
+              only a hashed copy of their address, not linked to any account.
             </p>
             <p>
               Only add someone who knows you and expects these emails. If you
@@ -337,8 +345,12 @@
                   <td>Until you delete them or delete your account</td>
                 </tr>
                 <tr>
-                  <td>Completion email contacts, blocks, and sent-email log</td>
-                  <td>While your account exists; deleted with your account. Invitation links expire after 90 days</td>
+                  <td>Completion email contacts and blocks</td>
+                  <td>While your account exists; deleted with your account. Removed or declined contacts are deleted after 90 days. Opt-outs from all Pebble invitations are kept as a hashed address so they keep working</td>
+                </tr>
+                <tr>
+                  <td>Sent completion email log</td>
+                  <td>90 days. Invitation links expire after 14 days; links in completion emails after 90 days</td>
                 </tr>
                 <tr>
                   <td>Subscription and purchase-check records</td>

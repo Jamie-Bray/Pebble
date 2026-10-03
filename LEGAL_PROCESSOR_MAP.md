@@ -34,7 +34,9 @@ Policy.
 - Resend: delivers completion-email invitations and completion emails from the
   `request-shared-alert-contact` and `send-routine-completion-alert` Edge
   Functions (`api.resend.com`, `RESEND_API_KEY`). Receives the contact's email
-  address, the routine name, completion time and step counts.
+  address, the sender's account email (shown in the email so the contact knows
+  who it is from), the routine name unless the sender hides it, completion
+  time and step counts.
 - Sentry: crash reporting only, and only in builds where a `SENTRY_DSN`
   dart-define is supplied. Configured with PII sending off, no screenshots, no
   view hierarchy, no user identity, no tracing, and no session replay. Crash
