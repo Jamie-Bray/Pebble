@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import 'package:pebble_routines/core/ui/zen_notifications.dart';
 import 'package:pebble_routines/data/remote/supabase_client_provider.dart';
@@ -79,8 +81,11 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     final cloudAccess = ref.watch(personalCloudAccessProvider);
     final supabaseConfig = ref.watch(supabaseRuntimeConfigProvider);
     final authController = ref.read(authControllerProvider.notifier);
-    final canUseGoogleSignIn =
-        supabaseConfig.googleWebClientId?.isNotEmpty == true;
+    final canUseGoogleSignIn = supabaseConfig.supportsGoogleSignIn;
+    // App Store guideline 4.8: an app offering Google sign-in on iOS must
+    // offer Sign in with Apple too, at least as prominently.
+    final canUseAppleSignIn =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
     final isBusy =
         authState.status == AuthStatus.authenticating ||
         _isBlockingBackupSetup(accountState);
@@ -147,6 +152,14 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                             'Sign-in is not available in this build yet. Please check app configuration and try again.',
                       )
                     else ...[
+                      if (canUseAppleSignIn) ...[
+                        _AppleSignInButton(
+                          onTap: isBusy
+                              ? null
+                              : authController.signInWithApple,
+                        ),
+                        const SizedBox(height: 10),
+                      ],
                       if (canUseGoogleSignIn) ...[
                         _SignInButton(
                           leading: const _GoogleGMark(),
@@ -161,7 +174,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       _SignInButton(
                         icon: LucideIcons.mail,
                         label: 'Continue with Email',
-                        filled: !canUseGoogleSignIn,
+                        filled: !canUseGoogleSignIn && !canUseAppleSignIn,
                         onTap: isBusy
                             ? null
                             : () => showEmailOtpSheet(context, ref),
@@ -591,6 +604,34 @@ class _SignInButton extends StatelessWidget {
             fontSize: 14,
             fontWeight: FontWeight.w400,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Apple's own button, so it meets the Sign in with Apple design rules. Kept
+/// at the same 52dp height and pill shape as the other sign-in buttons.
+class _AppleSignInButton extends StatelessWidget {
+  const _AppleSignInButton({required this.onTap});
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Opacity(
+      opacity: onTap == null ? 0.38 : 1,
+      child: IgnorePointer(
+        ignoring: onTap == null,
+        child: SignInWithAppleButton(
+          onPressed: onTap ?? () {},
+          text: 'Continue with Apple',
+          height: 52,
+          style: isDark
+              ? SignInWithAppleButtonStyle.white
+              : SignInWithAppleButtonStyle.black,
+          borderRadius: const BorderRadius.all(Radius.circular(100)),
         ),
       ),
     );
