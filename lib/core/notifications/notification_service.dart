@@ -59,9 +59,7 @@ class NotificationService {
     await _plugin.initialize(
       initSettings,
       onDidReceiveNotificationResponse: (response) {
-        final payload = response.payload;
-        if (payload == null) return;
-        final id = int.tryParse(payload);
+        final id = routineIdFromNotificationPayload(response.payload);
         if (id != null) _selectedRoutineController.add(id);
       },
     );
@@ -78,6 +76,16 @@ class NotificationService {
           AndroidFlutterLocalNotificationsPlugin
         >()
         ?.createNotificationChannel(channel);
+  }
+
+  /// Routine ID of the reminder whose tap cold-started the app, if any.
+  ///
+  /// Taps while the app is alive arrive on [selectedRoutineIdStream]; a tap
+  /// that launches a killed app is only reported through the launch details.
+  /// Call after [init].
+  Future<int?> launchRoutineId() async {
+    final details = await _plugin.getNotificationAppLaunchDetails();
+    return routineIdFromNotificationLaunch(details);
   }
 
   /// Requests notification permission from the user
@@ -282,4 +290,19 @@ class NotificationService {
     }
     return scheduled;
   }
+}
+
+/// Reminder notifications carry the routine ID as their payload.
+int? routineIdFromNotificationPayload(String? payload) {
+  if (payload == null) return null;
+  return int.tryParse(payload);
+}
+
+/// The routine to open when a reminder tap launched the app, or null when the
+/// app was started some other way.
+int? routineIdFromNotificationLaunch(NotificationAppLaunchDetails? details) {
+  if (details == null || !details.didNotificationLaunchApp) return null;
+  return routineIdFromNotificationPayload(
+    details.notificationResponse?.payload,
+  );
 }
