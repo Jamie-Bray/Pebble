@@ -1,0 +1,291 @@
+# Codemagic release builds for Pebble Routines.
+#
+# Plain-English setup guide: docs/BUILD_AND_RELEASE.md
+#
+# Two workflows, both started by hand from the Codemagic website (there are
+# no automatic triggers, so free build minutes are only spent when you ask):
+#   - ios-testflight   signed iPhone build, uploaded to TestFlight
+#   - android-release  signed Android App Bundle (.aab) for Google Play
+#
+# Names that must match what you create in the Codemagic website:
+#   - App Store Connect API key (Team integrations > Developer Portal): pebble_asc_key
+#   - Android keystore (Code signing identities > Android keystores):    pebble_upload_keystore
+#   - Environment variable group (app > Environment variables):          pebble_production
+#
+# Variables expected in the pebble_production group (see the guide):
+#   SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_GOOGLE_WEB_CLIENT_ID,
+#   SUPABASE_GOOGLE_IOS_CLIENT_ID, GOOGLE_IOS_REVERSED_CLIENT_ID (optional),
+#   REVENUECAT_IOS_API_KEY (appl_...), REVENUECAT_ANDROID_API_KEY (goog_...),
+#   REVENUECAT_ENTITLEMENT_ID (optional, default personal_premium),
+#   SENTRY_DSN (optional), PEBBLE_ACCOUNT_DELETION_URL (optional),
+#   APP_STORE_APPLE_ID (iOS build numbers),
+#   GOOGLE_PLAY_SERVICE_ACCOUNT_CREDENTIALS (optional, Android build numbers
+#   and automatic upload).
+#
+# APP_ENV is always "production" here. lib/main.dart refuses to start a
+# production build without the right keys, so each workflow checks them up
+# front and stops early (saving build minutes) if something is missing.
+
+workflows:
+  ios-testflight:
+    name: iOS - TestFlight
+    instance_type: mac_mini_m2 # the only machine with free minutes
+    max_build_duration: 60
+    integrations:
+      app_store_connect: pebble_asc_key
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.vix.pebbleroutines
+      groups:
+        - pebble_production
+      vars:
+        APP_ENV: production
+        # Lowest build number this workflow will ever use. Play Console
+        # already has 28 and pubspec.yaml is at 31.
+        BUILD_NUMBER_FLOOR: "32"
+      flutter: 3.47.6 # keep in step with .github/workflows/ci.yml
+      xcode: latest
+      cocoapods: default
+    # To build automatically on every version tag instead of by hand, uncomment:
+    # triggering:
+    #   events:
+    #     - tag
+    #   tag_patterns:
+    #     - pattern: "v*"
+    scripts:
+      - name: Check production settings
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          fail() { echo "ERROR: $*" >&2; exit 1; }
+          [ "${APP_ENV:-}" = "production" ] || fail "APP_ENV must be production."
+          [ -n "${SUPABASE_URL:-}" ] || fail "SUPABASE_URL is missing from the pebble_production group."
+          [ -n "${SUPABASE_ANON_KEY:-}" ] || fail "SUPABASE_ANON_KEY is missing from the pebble_production group."
+          case "$SUPABASE_URL" in
+            *lxvrvrrxdjbrjwsxzppl.supabase.co*) fail "SUPABASE_URL is the staging project. Use the production URL." ;;
+          esac
+          case "${REVENUECAT_IOS_API_KEY:-}" in
+            appl_*) ;;
+            *) fail "REVENUECAT_IOS_API_KEY must be the RevenueCat Apple public SDK key starting with appl_." ;;
+          esac
+          [ -n "${SUPABASE_GOOGLE_WEB_CLIENT_ID:-}" ] || echo "WARNING: SUPABASE_GOOGLE_WEB_CLIENT_ID not set; Google sign-in will be hidden."
+          [ -n "${SUPABASE_GOOGLE_IOS_CLIENT_ID:-}" ] || echo "WARNING: SUPABASE_GOOGLE_IOS_CLIENT_ID not set; Google sign-in will be hidden on iPhone."
+          [ -n "${SENTRY_DSN:-}" ] || echo "NOTE: SENTRY_DSN not set; crash reporting is off in this build."
+          [ -n "${APP_STORE_APPLE_ID:-}" ] || echo "NOTE: APP_STORE_APPLE_ID not set; build number will use the fallback counter."
+          echo "Production settings look OK."
+
+      - name: Write Google Sign-In config
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          REVERSED="${GOOGLE_IOS_REVERSED_CLIENT_ID:-}"
+          # If only the normal iOS client ID was given, work out the reversed form:
+          # 123-abc.apps.googleusercontent.com -> com.googleusercontent.apps.123-abc
+          if [ -z "$REVERSED" ] && [ -n "${SUPABASE_GOOGLE_IOS_CLIENT_ID:-}" ]; then
+            REVERSED="com.googleusercontent.apps.${SUPABASE_GOOGLE_IOS_CLIENT_ID%.apps.googleusercontent.com}"
+          fi
+          if [ -n "$REVERSED" ]; then
+            printf 'GOOGLE_IOS_REVERSED_CLIENT_ID = %s\n' "$REVERSED" > "$CM_BUILD_DIR/ios/Flutter/GoogleSignIn.xcconfig"
+            echo "Wrote ios/Flutter/GoogleSignIn.xcconfig"
+          else
+            echo "No iOS Google client ID set; skipping GoogleSignIn.xcconfig."
+          fi
+
+      - name: Set up code signing
+        script: |
+          xcode-project use-profiles
+
+      - name: Get Flutter packages
+        script: |
+          flutter pub get
+
+      - name: Install CocoaPods
+        script: |
+          cd "$CM_BUILD_DIR/ios"
+          pod install --repo-update
+
+      - name: Work out build number
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          FLOOR="${BUILD_NUMBER_FLOOR:-32}"
+          LATEST=""
+          if [ -n "${APP_STORE_APPLE_ID:-}" ]; then
+            LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" 2>/dev/null | grep -Eo '^[0-9]+$' | tail -n 1 || true)
+          fi
+          if [ -n "$LATEST" ]; then
+            NEXT=$((LATEST + 1))
+            echo "Latest TestFlight build is $LATEST."
+          else
+            # Fallback: Codemagic's own per-workflow build counter (1, 2, 3...)
+            # on top of the floor, so it still always goes up.
+            NEXT=$((FLOOR - 1 + BUILD_NUMBER))
+            echo "Could not read the latest TestFlight build; using fallback."
+          fi
+          if [ "$NEXT" -lt "$FLOOR" ]; then NEXT="$FLOOR"; fi
+          echo "Using build number $NEXT"
+          echo "PEBBLE_BUILD_NUMBER=$NEXT" >> "$CM_ENV"
+
+      - name: Build iOS app (IPA)
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          DEFINES=(
+            "--dart-define=APP_ENV=production"
+            "--dart-define=SUPABASE_URL=$SUPABASE_URL"
+            "--dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY"
+            "--dart-define=REVENUECAT_IOS_API_KEY=$REVENUECAT_IOS_API_KEY"
+            "--dart-define=REVENUECAT_ENTITLEMENT_ID=${REVENUECAT_ENTITLEMENT_ID:-personal_premium}"
+          )
+          if [ -n "${SUPABASE_GOOGLE_WEB_CLIENT_ID:-}" ]; then DEFINES+=("--dart-define=SUPABASE_GOOGLE_WEB_CLIENT_ID=$SUPABASE_GOOGLE_WEB_CLIENT_ID"); fi
+          if [ -n "${SUPABASE_GOOGLE_IOS_CLIENT_ID:-}" ]; then DEFINES+=("--dart-define=SUPABASE_GOOGLE_IOS_CLIENT_ID=$SUPABASE_GOOGLE_IOS_CLIENT_ID"); fi
+          if [ -n "${SENTRY_DSN:-}" ]; then DEFINES+=("--dart-define=SENTRY_DSN=$SENTRY_DSN"); fi
+          if [ -n "${PEBBLE_ACCOUNT_DELETION_URL:-}" ]; then DEFINES+=("--dart-define=PEBBLE_ACCOUNT_DELETION_URL=$PEBBLE_ACCOUNT_DELETION_URL"); fi
+          flutter build ipa --release \
+            --build-number="$PEBBLE_BUILD_NUMBER" \
+            --export-options-plist=/Users/builder/export_options.plist \
+            "${DEFINES[@]}"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - flutter_drive.log
+    publishing:
+      email:
+        recipients:
+          - you@example.com # <-- replace with your email address
+        notify:
+          success: true
+          failure: true
+      app_store_connect:
+        auth: integration
+        # Sends the build to TestFlight. Internal testers can install it as
+        # soon as Apple finishes processing; external testers after a short
+        # Apple beta review.
+        submit_to_testflight: true
+        # Optional: give the build straight to a TestFlight tester group by
+        # its exact name in App Store Connect.
+        # beta_groups:
+        #   - Friends
+        submit_to_app_store: false
+
+  android-release:
+    name: Android - signed App Bundle
+    # Linux machines have no free minutes on Codemagic, so Android builds on
+    # the same free Mac.
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      android_signing:
+        - pebble_upload_keystore
+      groups:
+        - pebble_production
+      vars:
+        APP_ENV: production
+        PACKAGE_NAME: com.vix.pebble_routines
+        # Play Console already has build 28 and pubspec.yaml is at 31, so the
+        # first Codemagic build is at least 32.
+        BUILD_NUMBER_FLOOR: "32"
+      flutter: 3.47.6 # keep in step with .github/workflows/ci.yml
+      java: 17
+    scripts:
+      - name: Check production settings
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          fail() { echo "ERROR: $*" >&2; exit 1; }
+          [ "${APP_ENV:-}" = "production" ] || fail "APP_ENV must be production."
+          [ -n "${SUPABASE_URL:-}" ] || fail "SUPABASE_URL is missing from the pebble_production group."
+          [ -n "${SUPABASE_ANON_KEY:-}" ] || fail "SUPABASE_ANON_KEY is missing from the pebble_production group."
+          case "$SUPABASE_URL" in
+            *lxvrvrrxdjbrjwsxzppl.supabase.co*) fail "SUPABASE_URL is the staging project. Use the production URL." ;;
+          esac
+          case "${REVENUECAT_ANDROID_API_KEY:-}" in
+            goog_*) ;;
+            *) fail "REVENUECAT_ANDROID_API_KEY must be the RevenueCat Android SDK key starting with goog_." ;;
+          esac
+          [ -n "${SUPABASE_GOOGLE_WEB_CLIENT_ID:-}" ] || fail "SUPABASE_GOOGLE_WEB_CLIENT_ID is missing (needed for Google sign-in on Android)."
+          [ -n "${CM_KEYSTORE_PATH:-}" ] || fail "Android keystore not found. Upload it as pebble_upload_keystore (see the guide)."
+          [ -n "${SENTRY_DSN:-}" ] || echo "NOTE: SENTRY_DSN not set; crash reporting is off in this build."
+          echo "Production settings look OK."
+
+      - name: Set up Android signing
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          # android/app/build.gradle.kts reads android/key.properties.
+          cat > "$CM_BUILD_DIR/android/key.properties" <<EOF
+          storePassword=$CM_KEYSTORE_PASSWORD
+          keyPassword=$CM_KEY_PASSWORD
+          keyAlias=$CM_KEY_ALIAS
+          storeFile=$CM_KEYSTORE_PATH
+          EOF
+
+      - name: Get Flutter packages
+        script: |
+          flutter pub get
+
+      - name: Work out build number
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          FLOOR="${BUILD_NUMBER_FLOOR:-32}"
+          LATEST=""
+          if [ -n "${GOOGLE_PLAY_SERVICE_ACCOUNT_CREDENTIALS:-}" ]; then
+            # Highest versionCode across all Play tracks.
+            LATEST=$(google-play get-latest-build-number --package-name "$PACKAGE_NAME" 2>/dev/null | grep -Eo '^[0-9]+$' | tail -n 1 || true)
+          fi
+          if [ -n "$LATEST" ]; then
+            NEXT=$((LATEST + 1))
+            echo "Latest Google Play build is $LATEST."
+          else
+            # Fallback: Codemagic's own per-workflow build counter (1, 2, 3...)
+            # on top of the floor, so it still always goes up.
+            NEXT=$((FLOOR - 1 + BUILD_NUMBER))
+            echo "Could not read the latest Google Play build; using fallback."
+          fi
+          if [ "$NEXT" -lt "$FLOOR" ]; then NEXT="$FLOOR"; fi
+          echo "Using build number $NEXT"
+          echo "PEBBLE_BUILD_NUMBER=$NEXT" >> "$CM_ENV"
+
+      - name: Build Android App Bundle (AAB)
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          DEFINES=(
+            "--dart-define=APP_ENV=production"
+            "--dart-define=SUPABASE_URL=$SUPABASE_URL"
+            "--dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY"
+            "--dart-define=REVENUECAT_ANDROID_API_KEY=$REVENUECAT_ANDROID_API_KEY"
+            "--dart-define=REVENUECAT_ENTITLEMENT_ID=${REVENUECAT_ENTITLEMENT_ID:-personal_premium}"
+            "--dart-define=SUPABASE_GOOGLE_WEB_CLIENT_ID=$SUPABASE_GOOGLE_WEB_CLIENT_ID"
+          )
+          if [ -n "${SENTRY_DSN:-}" ]; then DEFINES+=("--dart-define=SENTRY_DSN=$SENTRY_DSN"); fi
+          if [ -n "${PEBBLE_ACCOUNT_DELETION_URL:-}" ]; then DEFINES+=("--dart-define=PEBBLE_ACCOUNT_DELETION_URL=$PEBBLE_ACCOUNT_DELETION_URL"); fi
+          flutter build appbundle --release \
+            --build-number="$PEBBLE_BUILD_NUMBER" \
+            "${DEFINES[@]}"
+    artifacts:
+      - build/**/outputs/**/*.aab
+      - build/**/outputs/**/mapping.txt
+      - flutter_drive.log
+    publishing:
+      email:
+        recipients:
+          - you@example.com # <-- replace with your email address
+        notify:
+          success: true
+          failure: true
+      # Automatic upload to the Play Console internal testing track.
+      # Off by default: download the .aab from the build page (or the email)
+      # and upload it in Play Console by hand. To turn it on:
+      #   1. Create a Google Play service account (docs/BUILD_AND_RELEASE.md,
+      #      "Optional: automatic upload to Google Play").
+      #   2. Add GOOGLE_PLAY_SERVICE_ACCOUNT_CREDENTIALS (Secret) to the
+      #      pebble_production group.
+      #   3. Remove the "# " in front of the five lines below and commit.
+      # google_play:
+      #   credentials: $GOOGLE_PLAY_SERVICE_ACCOUNT_CREDENTIALS
+      #   track: internal
+      #   # Needed while the app has never been released to production.
+      #   submit_as_draft: true
