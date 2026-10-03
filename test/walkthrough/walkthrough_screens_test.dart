@@ -49,7 +49,9 @@ import 'package:pebble_routines/features/settings/data/player_settings_provider.
 import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
 import 'package:pebble_routines/features/subscription/data/models/subscription_account_state.dart';
 import 'package:pebble_routines/features/subscription/data/purchase_repository.dart';
+import 'package:pebble_routines/features/subscription/data/revenuecat_purchase_repository.dart';
 import 'package:pebble_routines/features/subscription/data/revenuecat_runtime_config.dart';
+import 'package:purchases_flutter/purchases_flutter.dart' as rc;
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
 import 'package:pebble_routines/features/subscription/providers/cloud_backup_consent_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
@@ -116,9 +118,18 @@ const _small = _Device(
 // Account / store scenarios
 // ---------------------------------------------------------------------------
 
-enum _Account { signedOutFree, signedInFree, signedInPremium, premiumEnded }
+enum _Account {
+  signedOutFree,
+  signedInFree,
+  signedInPremium,
+  premiumEnded,
+  // Subscription lifecycle states.
+  premiumGrace,
+  premiumCancelled,
+  premiumBillingIssue,
+}
 
-enum _Store { loaded, unavailable }
+enum _Store { loaded, unavailable, pending, purchaseSucceeds }
 
 const _userId = '6f1c2a9e-1b7d-4c3e-9a51-2f0d8e7b4c11';
 const _email = 'jamie.rivera@example.com';
@@ -179,12 +190,52 @@ SubscriptionAccountState _accountState(_Account account) {
         entitlementSource: EntitlementSource.revenueCat,
         lastEntitlementCheckAt: now.subtract(const Duration(days: 30)),
         entitlementExpiredAt: now.subtract(const Duration(days: 30)),
+        entitlementLapseNoticedAt: now.subtract(const Duration(days: 30)),
+      );
+    case _Account.premiumGrace:
+      final now = DateTime.now();
+      return SubscriptionAccountState(
+        entitlementTier: UserTier.personalFree,
+        pendingTier: null,
+        bootstrapStatus: BootstrapStatus.idle,
+        userId: _userId,
+        email: _email,
+        authProvider: 'google',
+        lastBootstrapAt: null,
+        lastSyncAt: null,
+        lastSyncError: null,
+        entitlementStatus: EntitlementStatus.expired,
+        entitlementSource: EntitlementSource.revenueCat,
+        lastEntitlementCheckAt: now.subtract(const Duration(hours: 1)),
+        entitlementExpiredAt: now.subtract(const Duration(days: 2)),
+        entitlementLapseNoticedAt: now.subtract(const Duration(days: 2)),
+      );
+    case _Account.premiumCancelled:
+    case _Account.premiumBillingIssue:
+      final now = DateTime.now();
+      return _accountState(_Account.signedInPremium).copyWith(
+        entitlementPeriodEndsAt: now.add(const Duration(days: 9)),
+        entitlementWillRenew: account == _Account.premiumCancelled
+            ? false
+            : true,
+        entitlementBillingIssueAt: account == _Account.premiumBillingIssue
+            ? now.subtract(const Duration(days: 1))
+            : null,
       );
   }
 }
 
 bool _isSignedIn(_Account a) =>
-    a == _Account.signedInFree || a == _Account.signedInPremium;
+    a == _Account.signedInFree ||
+    a == _Account.signedInPremium ||
+    a == _Account.premiumGrace ||
+    a == _Account.premiumCancelled ||
+    a == _Account.premiumBillingIssue;
+
+bool _hasBackupConsent(_Account a) =>
+    a == _Account.signedInPremium ||
+    a == _Account.premiumCancelled ||
+    a == _Account.premiumBillingIssue;
 
 class _FakePurchases extends ChangeNotifier implements PurchaseRepository {
 
@@ -196,7 +247,7 @@ class _FakePurchases extends ChangeNotifier implements PurchaseRepository {
   _FakePurchases(this.store);
   final _Store store;
 
-  bool get _ok => store == _Store.loaded;
+  bool get _ok => store != _Store.unavailable;
 
   @override
   bool get isPurchaseAvailable => _ok;
@@ -241,8 +292,27 @@ class _FakePurchases extends ChangeNotifier implements PurchaseRepository {
         ]
       : getPlaceholderPremiumCatalog(isPurchasable: false);
   @override
-  Future<PurchaseResult> purchasePersonalPremium(BillingPlan plan) async =>
-      throw const PurchaseCancelledException();
+  Future<PurchaseResult> purchasePersonalPremium(BillingPlan plan) async {
+    switch (store) {
+      case _Store.pending:
+        throw PurchaseFlowException(
+          revenueCatMessageForPurchasesError(
+            rc.PurchasesErrorCode.paymentPendingError,
+          ),
+          isPending: true,
+        );
+      case _Store.purchaseSucceeds:
+        return PurchaseResult(
+          tier: UserTier.personalPremium,
+          plan: plan,
+          requiresSignIn: false,
+          message: 'Welcome to Personal Premium.',
+        );
+      case _Store.loaded:
+      case _Store.unavailable:
+        throw const PurchaseCancelledException();
+    }
+  }
   @override
   Future<PurchaseResult> restorePurchases() async =>
       throw const PurchaseFlowException('No purchases to restore.');
@@ -285,7 +355,7 @@ class _FakeAuth implements AuthRepository {
 // Seed data
 // ---------------------------------------------------------------------------
 
-enum _Seed { empty, populated }
+enum _Seed { empty, populated, fiveRoutines }
 
 String _steps(List<RoutineStep> steps) =>
     jsonEncode(steps.map((s) => s.toJson()).toList());
@@ -387,6 +457,24 @@ Future<void> _seed(LocalDb db, _Seed seed) async {
       created: now.subtract(const Duration(days: 20)),
     ),
   ];
+  if (seed == _Seed.fiveRoutines) {
+    routines.addAll([
+      _routine(
+        id: 4,
+        title: 'Gym bag',
+        steps: _windDownSteps.take(3).toList(),
+        icon: 'dumbbell',
+        created: now.subtract(const Duration(days: 12)),
+      ),
+      _routine(
+        id: 5,
+        title: 'Plant watering',
+        steps: _windDownSteps.take(2).toList(),
+        icon: 'leaf',
+        created: now.subtract(const Duration(days: 6)),
+      ),
+    ]);
+  }
   for (final r in routines) {
     await db.routineDao.insertOrUpdateRoutine(r);
   }
@@ -724,7 +812,7 @@ void _capture(
       'color_theme': theme.index,
       ...extraPrefs,
     };
-    if (account == _Account.signedInPremium) {
+    if (_hasBackupConsent(account)) {
       prefsValues['pebble.cloud_backup_consent.$_userId'] = jsonEncode(
         CloudBackupConsentRecord(
           userId: _userId,
@@ -1363,4 +1451,108 @@ void main() {
       },
     );
   }
+
+  // ---- Subscription lifecycle (SUBSCRIPTION_REVIEW.md) --------------------
+  _capture('sub pending purchase', store: _Store.pending, (env) async {
+    await env.push('/premium?source=routine_limit');
+    await env.tapFinder(find.textContaining('Continue with').first);
+    await env.settle(10);
+    await env.shot('sub_pending_purchase');
+  });
+  _capture('sub purchase signed out', store: _Store.purchaseSucceeds, (
+    env,
+  ) async {
+    await env.push('/premium?source=routine_limit');
+    await env.tapFinder(find.textContaining('Continue with').first);
+    await env.settle(20);
+    await env.shot('sub_purchase_success_signed_out');
+  });
+  _capture('sub cancelled', account: _Account.premiumCancelled, (env) async {
+    await env.push('/account-hub');
+    await env.shot('sub_account_cancelled_still_active');
+  });
+  _capture('sub billing issue', account: _Account.premiumBillingIssue, (
+    env,
+  ) async {
+    await env.push('/account-hub');
+    await env.shot('sub_account_billing_issue');
+  });
+  _capture(
+    'sub grace home',
+    account: _Account.premiumGrace,
+    seed: _Seed.fiveRoutines,
+    (env) async {
+      await env.realWait(5);
+      await env.shot('sub_grace_home');
+      await env.push('/account-hub');
+      await env.realWait(3);
+      await env.shot('sub_grace_account');
+      await env.scrollDown(600);
+      await env.shot('sub_grace_account_scrolled');
+      await env.scrollDown(900);
+      await env.shot('sub_grace_account_end');
+    },
+  );
+  _capture(
+    'sub lapsed five',
+    account: _Account.premiumEnded,
+    seed: _Seed.fiveRoutines,
+    (env) async {
+      await env.realWait(5);
+      await env.shot('sub_lapsed_home');
+      await env.tapText('Your Routines');
+      await env.settle(10);
+      await env.shot('sub_lapsed_routines_sheet');
+      await env.tapText('Morning reset', last: true);
+      await env.settle(10);
+      await env.shot('sub_locked_routine_sheet');
+      await env.tapText('Choose 2 routines to keep');
+      await env.settle(10);
+      await env.shot('sub_keep_routines_sheet');
+    },
+  );
+  _capture(
+    'sub lapsed account',
+    account: _Account.premiumEnded,
+    seed: _Seed.fiveRoutines,
+    (env) async {
+      await env.push('/account-hub');
+      await env.realWait(3);
+      await env.shot('sub_lapsed_account');
+      await env.scrollDown(600);
+      await env.shot('sub_lapsed_account_scrolled');
+      await env.scrollDown(900);
+      await env.shot('sub_lapsed_account_end');
+    },
+  );
+  _capture(
+    'sub locked player',
+    account: _Account.premiumEnded,
+    seed: _Seed.fiveRoutines,
+    (env) async {
+      await _openPlayer(env, 2);
+      await env.realWait();
+      await env.shot('sub_premium_ended_locked_routine');
+    },
+  );
+  _capture(
+    'sub resubscribe',
+    account: _Account.premiumEnded,
+    seed: _Seed.fiveRoutines,
+    (env) async {
+      await env.push('/account-hub');
+      await env.realWait(3);
+      await env.tapText('Renew Premium');
+      await env.settle(10);
+      await env.shot('sub_resubscribe_paywall');
+    },
+  );
+  _capture('sub delete with premium', account: _Account.signedInPremium, (
+    env,
+  ) async {
+    await env.push('/account-hub');
+    await env.tapText('Delete account');
+    await env.realWait(3);
+    await env.shot('sub_delete_account_sheet');
+  });
 }
