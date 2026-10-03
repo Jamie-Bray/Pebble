@@ -187,6 +187,12 @@ bool _isSignedIn(_Account a) =>
     a == _Account.signedInFree || a == _Account.signedInPremium;
 
 class _FakePurchases extends ChangeNotifier implements PurchaseRepository {
+
+  @override
+  bool get isLoadingProducts => false;
+
+  @override
+  Future<void> retryLoadProducts() async {}
   _FakePurchases(this.store);
   final _Store store;
 
@@ -1129,6 +1135,7 @@ void main() {
   });
   _capture('about', (env) async {
     await env.push('/settings');
+    await env.scrollDown(900);
     await env.tapText('About Pebble');
     await env.shot('legal_about');
     await env.scrollDown(600);
@@ -1282,6 +1289,7 @@ void main() {
   });
   _capture('about tabs', (env) async {
     await env.push('/settings');
+    await env.scrollDown(900);
     await env.tapText('About Pebble');
     await env.tapText('Terms');
     await env.shot('legal_about_terms');
@@ -1298,7 +1306,7 @@ void main() {
   });
   _capture('delete account', account: _Account.signedInPremium, (env) async {
     await env.push('/account-hub');
-    await env.tapText('Delete Account');
+    await env.tapText('Delete account');
     await env.realWait(3);
     await env.shot('account_delete_confirm');
   });

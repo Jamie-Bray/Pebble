@@ -26,7 +26,15 @@ enum BackupDashboardAction {
   keepBackupOff,
 }
 
-enum BackupDataItemState { saved, attention, off }
+enum BackupDataItemState {
+  /// Everything in this group is backed up.
+  saved,
+
+  /// Backup is on, but some of this group has not gone up yet.
+  pending,
+  attention,
+  off,
+}
 
 enum BackupSetupStepState { done, current, locked, attention }
 
@@ -158,6 +166,7 @@ final backupDashboardPresentationProvider = Provider<BackupDashboardPresentation
       : null;
 
   final base = _baseForStatus(
+    isSignedIn: auth.isSignedIn,
     status: status,
     summary: summary,
     lastSyncError: account.lastSyncError,
@@ -239,13 +248,13 @@ List<BackupSetupStep> _setupStepsFor({
     detail: signedIn
         ? 'Signed in as ${auth.email ?? 'your account'}.'
         : hasPremium
-        ? 'Use your email so Pebble can restore later.'
-        : 'Get Premium first.',
+        ? 'Sign in so Pebble can restore your backup later.'
+        : 'Already have Premium? Sign in with the account you used before.',
+    // Never locked: signing in is also how a returning Premium user gets
+    // Premium back, so it must not wait behind "Get Premium".
     state: signedIn
         ? BackupSetupStepState.done
-        : hasPremium
-        ? BackupSetupStepState.current
-        : BackupSetupStepState.locked,
+        : BackupSetupStepState.current,
   );
 
   final backupStepState = switch (status) {
@@ -313,6 +322,7 @@ class _BackupDashboardBase {
 }
 
 _BackupDashboardBase _baseForStatus({
+  required bool isSignedIn,
   required PersonalCloudAccessStatus status,
   required AccountBackupStatusSummary summary,
   required String? lastSyncError,
@@ -336,8 +346,9 @@ _BackupDashboardBase _baseForStatus({
   switch (status) {
     case PersonalCloudAccessStatus.offFree:
     case PersonalCloudAccessStatus.offSignedInNoEntitlement:
-      // Premium needs no account, so it is always the first door in.
-      return const _BackupDashboardBase(
+      // Premium needs no account, so it is always the first door in. A
+      // returning Premium user on a new phone signs in instead.
+      return _BackupDashboardBase(
         statusLabel: 'Backup is off',
         detail:
             'Your routines are saved on this phone only. Backup comes with '
@@ -347,8 +358,12 @@ _BackupDashboardBase _baseForStatus({
         needsAttention: false,
         primaryAction: BackupDashboardAction.getPremium,
         primaryActionLabel: 'Get Premium',
-        secondaryAction: BackupDashboardAction.none,
-        secondaryActionLabel: null,
+        secondaryAction: isSignedIn
+            ? BackupDashboardAction.none
+            : BackupDashboardAction.signIn,
+        secondaryActionLabel: isSignedIn
+            ? null
+            : 'Already have Premium? Sign in',
       );
     case PersonalCloudAccessStatus.pausedSignedOut:
       return const _BackupDashboardBase(
@@ -513,6 +528,12 @@ List<BackupDataItem> _dataItemsFor({
   required ProofMediaFairUseState? fairUse,
 }) {
   final offState = live ? BackupDataItemState.saved : BackupDataItemState.off;
+  BackupDataItemState countState(int? synced, int? total) {
+    if (!live) return BackupDataItemState.off;
+    if (synced == null || total == null) return BackupDataItemState.pending;
+    if (total == 0 || synced >= total) return BackupDataItemState.saved;
+    return BackupDataItemState.pending;
+  }
 
   // While backup is off the counts only raise questions ("why is it counting
   // my routines?"), so keep it to a plain description of what backup covers.
@@ -572,13 +593,13 @@ List<BackupDataItem> _dataItemsFor({
       icon: LucideIcons.listChecks,
       label: 'Routines',
       detail: routineDetail,
-      state: offState,
+      state: countState(routineSynced, routineTotal),
     ),
     BackupDataItem(
       icon: LucideIcons.history,
       label: 'History',
       detail: runDetail,
-      state: offState,
+      state: countState(runSynced, runTotal),
     ),
     BackupDataItem(
       icon: LucideIcons.image,

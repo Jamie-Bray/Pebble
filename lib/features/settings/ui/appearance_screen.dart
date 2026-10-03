@@ -460,15 +460,24 @@ class _ThemeGridCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        Text(
-                          meta.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(
-                                color: foundation.textPrimary,
-                                fontWeight: FontWeight.w800,
+                        // The selected check sits beside the name, not on
+                        // the preview, where it covered the accent pill.
+                        Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: Text(
+                                meta.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.titleSmall
+                                    ?.copyWith(
+                                      color: foundation.textPrimary,
+                                      fontWeight: FontWeight.w800,
+                                    ),
                               ),
+                            ),
+                            _buildBadge(context, accent),
+                          ],
                         ),
                         const SizedBox(height: 2),
                         Text(
@@ -486,7 +495,6 @@ class _ThemeGridCard extends StatelessWidget {
                   ),
                 ],
               ),
-              Positioned(top: 8, right: 8, child: _buildBadge(context, accent)),
               if (isLocked)
                 Positioned.fill(
                   child: DecoratedBox(
@@ -535,9 +543,8 @@ class _ThemeGridCard extends StatelessWidget {
         child: const Icon(Icons.check, size: 12, color: Colors.white),
       );
     }
-    if (meta.isAccessibilityTheme) {
-      return const _CornerBadge(label: 'Free');
-    }
+    // Accessibility themes need no "Free" badge: their section header
+    // already says "Always free".
     return const SizedBox.shrink();
   }
 }
@@ -726,33 +733,6 @@ class _PremiumThemeCard extends StatelessWidget {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CornerBadge extends StatelessWidget {
-  const _CornerBadge({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: foundation.textMuted,
-          fontWeight: FontWeight.w900,
-          fontSize: 9,
         ),
       ),
     );
@@ -1101,7 +1081,7 @@ class _ThemePreviewSheet extends ConsumerWidget {
                       const SizedBox(height: 14),
                       const _SheetNote(
                         text:
-                            'Preview available. Applying this theme requires Personal Premium.',
+                            'Preview available. Applying this theme requires Pebble Premium.',
                       ),
                     ],
                     if (meta.accessibilityNote != null) ...<Widget>[

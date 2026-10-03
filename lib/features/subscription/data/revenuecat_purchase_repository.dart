@@ -29,8 +29,13 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
   String? _configuredUserId;
   String? _unavailableReason = 'Loading store products...';
   DateTime? _lastPurchaseCheckAt;
+  bool _loadingProducts = true;
+  Future<void>? _retryInFlight;
   final Map<BillingPlan, rc.Package> _packagesByPlan = {};
   String? _storeManagementUrl;
+
+  static const _storeLoadFailedMessage =
+      'Could not load store products. Check your connection and try again.';
 
   @override
   String? get manageSubscriptionsUrl => revenueCatManageSubscriptionsUrl(
@@ -58,6 +63,46 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
       isPurchaseAvailable ? null : _unavailableReason;
 
   @override
+  bool get isLoadingProducts => _loadingProducts;
+
+  @override
+  Future<void> retryLoadProducts() {
+    return _retryInFlight ??= _retryLoadProducts().whenComplete(() {
+      _retryInFlight = null;
+    });
+  }
+
+  Future<void> _retryLoadProducts() async {
+    final config = _ref.read(revenueCatRuntimeConfigProvider);
+    if (!config.supportsCurrentPlatform) {
+      _loadingProducts = false;
+      notifyListeners();
+      return;
+    }
+    _loadingProducts = true;
+    notifyListeners();
+    try {
+      // Configures RevenueCat if start-up failed before it got that far; a
+      // no-op when it is already configured for this user.
+      // Bounded so a hung store call can always be retried again; a late
+      // answer still lands through _loadOfferings and notifies listeners.
+      await () async {
+        await _configureForUser(_currentUserId);
+        await _loadOfferings();
+      }().timeout(const Duration(seconds: 20));
+    } catch (error) {
+      if (_packagesByPlan.isEmpty) {
+        _billingAvailable = false;
+        _unavailableReason = _storeLoadFailedMessage;
+      }
+      debugPrint('Retrying RevenueCat offerings failed: $error');
+    } finally {
+      _loadingProducts = false;
+      notifyListeners();
+    }
+  }
+
+  @override
   List<PremiumProduct> get personalPremiumProducts {
     if (_packagesByPlan.isEmpty) {
       return getPlaceholderPremiumCatalog(isPurchasable: false);
@@ -74,6 +119,7 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     final config = _ref.read(revenueCatRuntimeConfigProvider);
     if (!config.supportsCurrentPlatform) {
       _billingAvailable = false;
+      _loadingProducts = false;
       _unavailableReason =
           'Purchases are not configured for this platform yet.';
       notifyListeners();
@@ -82,16 +128,27 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     final userId = _currentUserId;
     try {
       await _configureForUser(userId);
-      await _loadOfferings();
+      await _loadOfferingsMarkingLoaded();
       await syncPurchasesSilently();
     } catch (error) {
       _billingAvailable = false;
-      _unavailableReason =
-          'Could not load store products. Check your connection and try again.';
+      _loadingProducts = false;
+      _unavailableReason = _storeLoadFailedMessage;
       await _ref
           .read(entitlementStoreProvider)
           .recordEntitlementError(_unavailableReason!);
       debugPrint('Failed to initialise RevenueCat purchases: $error');
+      notifyListeners();
+    }
+  }
+
+  /// Start-up offerings load: products count as loaded (or unavailable) as
+  /// soon as the offerings call returns, before the silent sync finishes.
+  Future<void> _loadOfferingsMarkingLoaded() async {
+    try {
+      await _loadOfferings();
+    } finally {
+      _loadingProducts = false;
       notifyListeners();
     }
   }
@@ -107,8 +164,8 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     if (package == null) {
       throw StateError(
         plan == BillingPlan.yearly
-            ? 'Yearly Personal Premium is not available yet.'
-            : 'Monthly Personal Premium is not available yet.',
+            ? 'Yearly Pebble Premium is not available yet.'
+            : 'Monthly Pebble Premium is not available yet.',
       );
     }
     late final rc.PurchaseResult result;
@@ -263,8 +320,7 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
       await _loadOfferings();
     } catch (error) {
       _billingAvailable = false;
-      _unavailableReason =
-          'Could not load store products. Check your connection and try again.';
+      _unavailableReason = _storeLoadFailedMessage;
       debugPrint('Failed to refresh RevenueCat after sign-out: $error');
       notifyListeners();
     }
@@ -341,7 +397,7 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     _billingAvailable = _packagesByPlan.isNotEmpty;
     _unavailableReason = _billingAvailable
         ? null
-        : 'Personal Premium is not available from the store yet.';
+        : 'Pebble Premium is not available from the store yet.';
     notifyListeners();
   }
 
@@ -360,7 +416,7 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
         await _ref.read(entitlementStoreProvider).applyExpiredEntitlement();
       }
       throw StateError(
-        'No active Personal Premium purchase was found on this store account.',
+        'No active Pebble Premium purchase was found on this store account.',
       );
     }
     await _applyVerifiedEntitlement(
@@ -372,8 +428,8 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
       plan: plan,
       requiresSignIn: false,
       message: purchased
-          ? 'Welcome to Personal Premium.'
-          : 'Personal Premium restored.',
+          ? 'Welcome to Pebble Premium.'
+          : 'Pebble Premium restored.',
     );
   }
 

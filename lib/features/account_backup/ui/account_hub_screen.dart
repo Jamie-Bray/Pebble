@@ -9,6 +9,7 @@ import 'package:pebble_routines/core/config/app_runtime_config.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/ui/zen_notifications.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
+import 'package:pebble_routines/features/account_backup/providers/account_backup_ui_provider.dart';
 import 'package:pebble_routines/features/account_backup/providers/account_profile_presentation_provider.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
 import 'package:pebble_routines/features/history/providers/routine_history_vm.dart';
@@ -108,9 +109,9 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
     final rawUrl = ref.read(purchaseRepositoryProvider).manageSubscriptionsUrl;
     if (rawUrl == null || rawUrl.isEmpty) {
       _showVaultNotice(
-        'Subscription management is not ready yet.',
-        title: 'Not ready',
-        type: NotificationType.warning,
+        'Manage your subscription in your app store account settings.',
+        title: 'Manage subscription',
+        type: NotificationType.info,
       );
       return;
     }
@@ -235,6 +236,7 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final auth = ref.watch(authSessionProvider);
     final profile = ref.watch(accountProfilePresentationProvider);
+    final backupSummary = ref.watch(accountBackupStatusSummaryProvider);
     final lifecycle = ref.watch(subscriptionLifecycleProvider);
     final isLapsedPremium =
         lifecycle.phase == SubscriptionLifecyclePhase.expiredGrace ||
@@ -261,37 +263,46 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
         backgroundColor: colorScheme.surface,
         appBar: PebbleSubscreenAppBar(
           title: 'Your account',
-          subtitle: 'Manage your plan',
+          subtitle: 'Plan, sign-in and backup',
           onBack: _exitVault,
         ),
         body: ListView(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 60),
           children: [
-            // Free users have no account to show and we don't want to nudge
-            // them into one — sign-in belongs to the backup flow. The plan
-            // card leads instead.
             if (profile.isSignedIn) ...[
               _AccountIdentityHeader(profile: profile),
               const SizedBox(height: 24),
             ],
+            // The plan always leads: what you have, and (for Premium) when
+            // the current period ends.
+            _AccountPlanCard(profile: profile),
+            const SizedBox(height: 14),
             if (profile.canStartPremium) ...[
-              _AccountPlanCard(profile: profile),
-              const SizedBox(height: 14),
               _AccountUpgradeCard(
                 onGetPremium: () => context.push(
                   premiumRoute(source: PremiumEntrySource.backup),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
             ],
-            if (profile.canManagePlan || profile.canRestorePurchase)
-              _AccountSettingsRows(
-                canRestorePurchase: profile.canRestorePurchase,
-                canManagePlan: profile.canManagePlan,
-                restoreInFlight: _restoreInFlight,
-                onRestorePurchase: _restoreInFlight ? null : _restorePurchase,
-                onManagePlan: _openManagePlan,
+            // Signed out, sign-in is always offered: it is how a returning
+            // Premium user gets their plan and backup back on a new phone.
+            if (profile.canSignIn) ...[
+              _AccountSignInCard(
+                hasPremium: profile.hasPremium,
+                onSignIn: () => context.push('/sign-in'),
               ),
+              const SizedBox(height: 14),
+            ],
+            _AccountSettingsRows(
+              canRestorePurchase: profile.canRestorePurchase,
+              canManagePlan: profile.canManagePlan,
+              restoreInFlight: _restoreInFlight,
+              backupStatus: backupSummary.label,
+              onRestorePurchase: _restoreInFlight ? null : _restorePurchase,
+              onManagePlan: _openManagePlan,
+              onOpenBackup: () => context.push('/cloud-backup'),
+            ),
             const SizedBox(height: 32),
             _buildDestructiveActions(
               context,
@@ -350,7 +361,7 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
             ),
             onPressed: _deleteInFlight ? null : _showDeleteAccountDialog,
             child: Text(
-              _deleteInFlight ? 'Deleting account...' : 'Delete Account',
+              _deleteInFlight ? 'Deleting account...' : 'Delete account',
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
           ),
@@ -381,12 +392,13 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
       historyGraceDays: historyGraceDays,
       routineGraceDays: routineGraceDays,
       showRoutineRiskCard: showRoutineRiskCard,
+      // Only real store prices; never a made-up fallback.
       monthlyPrice: monthly?.priceLabel.trim().isNotEmpty == true
           ? monthly!.priceLabel
-          : '99p',
+          : null,
       yearlyPrice: yearly?.priceLabel.trim().isNotEmpty == true
           ? yearly!.priceLabel
-          : 'GBP 7.99',
+          : null,
       canRenew: purchase.isPurchaseAvailable,
     );
   }
@@ -402,7 +414,7 @@ class _AccountIdentityHeader extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final caption = profile.providerLabel == null
         ? profile.identityDetail
-        : '${profile.providerLabel} · ${profile.planName}';
+        : 'Signed in with ${profile.providerLabel}';
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2),
       child: Row(
@@ -469,24 +481,112 @@ class _AccountPlanCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    // Just the facts: plan name and what it includes. The selling happens
-    // in the upgrade card below, not here.
+    final periodLine = profile.planPeriodLine;
+    // Just the facts: plan name, status and what it includes. The selling
+    // happens in the upgrade card below, not here.
+    return _AccountSurface(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 10,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                profile.planName,
+                style: GoogleFonts.dmSerifDisplay(
+                  color: colorScheme.onSurface,
+                  fontSize: 30,
+                  fontWeight: FontWeight.w400,
+                  letterSpacing: 0,
+                  height: 1.05,
+                ),
+              ),
+              if (profile.hasPremium)
+                _AccountPill(label: profile.planStatusLabel),
+            ],
+          ),
+          if (periodLine != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              periodLine,
+              style: GoogleFonts.outfit(
+                color: colorScheme.onSurface.withValues(alpha: 0.68),
+                fontSize: 13.5,
+                fontWeight: FontWeight.w400,
+                letterSpacing: 0,
+                height: 1.45,
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          _AccountLimitGrid(limits: profile.limits),
+        ],
+      ),
+    );
+  }
+}
+
+/// Offered whenever nobody is signed in. Free users see it as the way back
+/// to Premium they already bought; Premium users as the way to turn on
+/// backup.
+class _AccountSignInCard extends StatelessWidget {
+  const _AccountSignInCard({required this.hasPremium, required this.onSignIn});
+
+  final bool hasPremium;
+  final VoidCallback onSignIn;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final title = hasPremium ? 'Sign in to back up' : 'Already have Premium?';
+    final body = hasPremium
+        ? 'Premium is active on this phone. Sign in so Pebble can back up '
+              'your routines and restore them on a new phone.'
+        : 'Sign in with the account you used before. Pebble brings back '
+              'your Premium and your backup. If Premium does not appear, use '
+              'Restore purchase below.';
     return _AccountSurface(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            profile.planName,
+            title,
             style: GoogleFonts.dmSerifDisplay(
               color: colorScheme.onSurface,
-              fontSize: 30,
+              fontSize: 24,
               fontWeight: FontWeight.w400,
               letterSpacing: 0,
-              height: 1.05,
+              height: 1.1,
+            ),
+          ),
+          const SizedBox(height: 7),
+          Text(
+            body,
+            style: GoogleFonts.outfit(
+              color: colorScheme.onSurface.withValues(alpha: 0.68),
+              fontSize: 13.5,
+              fontWeight: FontWeight.w400,
+              letterSpacing: 0,
+              height: 1.5,
             ),
           ),
           const SizedBox(height: 16),
-          _AccountLimitGrid(limits: profile.limits),
+          OutlinedButton.icon(
+            onPressed: onSignIn,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(52),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+            ),
+            icon: const Icon(LucideIcons.logIn, size: 18),
+            label: const Text(
+              'Sign in',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            ),
+          ),
         ],
       ),
     );
@@ -513,7 +613,7 @@ class _AccountUpgradeCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Premium',
+            'Pebble Premium',
             style: GoogleFonts.dmSerifDisplay(
               color: colorScheme.onSurface,
               fontSize: 24,
@@ -524,8 +624,8 @@ class _AccountUpgradeCard extends StatelessWidget {
           ),
           const SizedBox(height: 7),
           Text(
-            'Upgrade when you want 21 days of history, unlimited routines, '
-            'unlimited steps, and backup.',
+            'Get 21 days of history, unlimited routines and steps, and '
+            'cloud backup when you choose to turn it on.',
             style: GoogleFonts.outfit(
               color: colorScheme.onSurface.withValues(alpha: 0.66),
               fontSize: 13.5,
@@ -560,15 +660,19 @@ class _AccountSettingsRows extends StatelessWidget {
     required this.canRestorePurchase,
     required this.canManagePlan,
     required this.restoreInFlight,
+    required this.backupStatus,
     required this.onRestorePurchase,
     required this.onManagePlan,
+    required this.onOpenBackup,
   });
 
   final bool canRestorePurchase;
   final bool canManagePlan;
   final bool restoreInFlight;
+  final String backupStatus;
   final VoidCallback? onRestorePurchase;
   final VoidCallback onManagePlan;
+  final VoidCallback onOpenBackup;
 
   @override
   Widget build(BuildContext context) {
@@ -577,7 +681,7 @@ class _AccountSettingsRows extends StatelessWidget {
       if (canManagePlan)
         _AccountSettingsRow(
           icon: LucideIcons.creditCard,
-          label: 'Manage plan',
+          label: 'Manage subscription',
           onTap: onManagePlan,
         ),
       if (canRestorePurchase)
@@ -586,10 +690,13 @@ class _AccountSettingsRows extends StatelessWidget {
           label: restoreInFlight ? 'Restoring...' : 'Restore purchase',
           onTap: onRestorePurchase,
         ),
+      _AccountSettingsRow(
+        icon: LucideIcons.cloud,
+        label: 'Backup',
+        value: backupStatus,
+        onTap: onOpenBackup,
+      ),
     ];
-    if (rows.isEmpty) {
-      return const SizedBox.shrink();
-    }
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
@@ -619,10 +726,12 @@ class _AccountSettingsRow extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
+    this.value,
   });
 
   final IconData icon;
   final String label;
+  final String? value;
   final VoidCallback? onTap;
 
   @override
@@ -654,6 +763,24 @@ class _AccountSettingsRow extends StatelessWidget {
                 ),
               ),
             ),
+            if (value != null) ...[
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  value!,
+                  textAlign: TextAlign.end,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.outfit(
+                    color: colorScheme.onSurface.withValues(alpha: 0.62),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+            ],
             Icon(
               LucideIcons.chevronRight,
               size: 18,
@@ -830,8 +957,8 @@ class _LapsedPremiumState {
   final int historyGraceDays;
   final int routineGraceDays;
   final bool showRoutineRiskCard;
-  final String monthlyPrice;
-  final String yearlyPrice;
+  final String? monthlyPrice;
+  final String? yearlyPrice;
   final bool canRenew;
 }
 
@@ -890,7 +1017,7 @@ class _LapsedPremiumAccountScreen extends StatelessWidget {
               ),
               const SizedBox(height: 18),
               Text(
-                'Works without an account - Cancel anytime',
+                'Works without an account · Cancel anytime',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.outfit(
                   fontSize: 11,
@@ -919,9 +1046,9 @@ class _LapsedHero extends StatelessWidget {
         Text.rich(
           TextSpan(
             children: [
-              const TextSpan(text: 'A few things\nare '),
+              const TextSpan(text: 'Premium has\n'),
               TextSpan(
-                text: 'at risk.',
+                text: 'ended.',
                 style: TextStyle(
                   color: colorScheme.onSurface.withValues(alpha: 0.55),
                   fontStyle: FontStyle.italic,
@@ -938,7 +1065,7 @@ class _LapsedHero extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Text(
-          'Your Premium period has ended. Here\'s what happens next - no surprises.',
+          'Pebble now uses Free limits. Here is what that means for what you saved.',
           style: GoogleFonts.outfit(
             fontSize: 14,
             fontWeight: FontWeight.w300,
@@ -970,9 +1097,8 @@ class _RiskCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final accent = kind == _RiskCardKind.history
-        ? colorScheme.tertiary
-        : colorScheme.error;
+    // Information, not an alarm: one calm accent for both cards.
+    final accent = colorScheme.primary;
     final emphasis = TextStyle(
       color: colorScheme.onSurface.withValues(alpha: 0.82),
       fontWeight: FontWeight.w500,
@@ -981,8 +1107,8 @@ class _RiskCard extends StatelessWidget {
         ? LucideIcons.clock3
         : LucideIcons.listChecks;
     final title = kind == _RiskCardKind.history
-        ? 'Your history is fading'
-        : 'Extra routines & steps are at risk';
+        ? 'Longer history'
+        : 'Extra routines and steps';
     final body = kind == _RiskCardKind.history
         ? TextSpan(
             children: [
@@ -992,11 +1118,14 @@ class _RiskCard extends StatelessWidget {
               ),
               TextSpan(
                 text: graceDays <= 0
-                    ? 'Locked now'
-                    : 'Locked in $graceDays days',
+                    ? 'History older than 48 hours is locked'
+                    : 'History older than 48 hours locks in $graceDays '
+                          '${graceDays == 1 ? 'day' : 'days'}',
                 style: emphasis,
               ),
-              const TextSpan(text: ' unless you renew.'),
+              TextSpan(
+                text: graceDays <= 0 ? ' until you renew.' : ' unless you renew.',
+              ),
             ],
           )
         : TextSpan(
@@ -1007,12 +1136,14 @@ class _RiskCard extends StatelessWidget {
               TextSpan(text: '10 steps each', style: emphasis),
               TextSpan(
                 text: graceDays <= 0
-                    ? '. Extra routines and steps are soft-locked until you renew.'
-                    : '. Extra routines and steps above this limit will be deactivated in $graceDays days.',
+                    ? '. The rest are locked until you renew. Nothing is deleted.'
+                    : '. The rest lock in $graceDays days unless you renew. Nothing is deleted.',
               ),
             ],
           );
-    final countdown = graceDays <= 0 ? 'LOCKED' : '$graceDays DAYS REMAINING';
+    final countdown = graceDays <= 0
+        ? 'FREE LIMITS APPLY'
+        : '$graceDays ${graceDays == 1 ? 'DAY' : 'DAYS'} LEFT';
     final clampedProgress = (graceDays / 7).clamp(0.0, 1.0);
 
     return Container(
@@ -1042,9 +1173,9 @@ class _RiskCard extends StatelessWidget {
                 Text(
                   title,
                   style: GoogleFonts.outfit(
-                    fontSize: 13,
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: accent,
+                    color: colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -1097,8 +1228,8 @@ class _LapsedCtaSection extends StatelessWidget {
     required this.onManagePlan,
   });
 
-  final String monthlyPrice;
-  final String yearlyPrice;
+  final String? monthlyPrice;
+  final String? yearlyPrice;
   final bool canRenew;
   final VoidCallback onRenew;
   final VoidCallback onManagePlan;
@@ -1106,12 +1237,15 @@ class _LapsedCtaSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final monthlyPrice = this.monthlyPrice;
+    final yearlyPrice = this.yearlyPrice;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.baseline,
-          textBaseline: TextBaseline.alphabetic,
+        if (monthlyPrice != null) Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 6,
+          runSpacing: 6,
           children: [
             Text(
               monthlyPrice,
@@ -1120,20 +1254,19 @@ class _LapsedCtaSection extends StatelessWidget {
                 color: colorScheme.onSurface,
               ),
             ),
-            const SizedBox(width: 6),
             Text(
               '/ month',
               style: GoogleFonts.outfit(
                 fontSize: 13,
                 fontWeight: FontWeight.w300,
-                color: colorScheme.onSurface.withValues(alpha: 0.52),
+                color: colorScheme.onSurface.withValues(alpha: 0.62),
               ),
             ),
-            const Spacer(),
-            _AccountPill(label: 'or $yearlyPrice/year'),
+            if (yearlyPrice != null)
+              _AccountPill(label: 'or $yearlyPrice/year'),
           ],
         ),
-        const SizedBox(height: 14),
+        if (monthlyPrice != null) const SizedBox(height: 14),
         FilledButton.icon(
           onPressed: canRenew ? onRenew : null,
           style: FilledButton.styleFrom(
@@ -1154,7 +1287,7 @@ class _LapsedCtaSection extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
             ),
           ),
-          child: const Text('Manage plan'),
+          child: const Text('Manage subscription'),
         ),
       ],
     );
