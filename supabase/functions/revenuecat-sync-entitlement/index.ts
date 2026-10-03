@@ -1,7 +1,19 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  canonicalProductId,
+  DEFAULT_PERSONAL_PREMIUM_ENTITLEMENT_ID,
+  normalizeStore,
+  purchaseTokenHash,
+} from "../_shared/revenuecat.ts";
+import {
+  expireClaim,
+  findActiveClaims,
+  recomputeProfileTier,
+  type ServiceClient,
+} from "../_shared/entitlements_db.ts";
 
-type RevenueCatSubscriberResponse = {
+export type RevenueCatSubscriberResponse = {
   subscriber?: {
     entitlements?: Record<string, RevenueCatSubscriberEntitlement>;
     subscriptions?: Record<string, RevenueCatSubscriberSubscription>;
@@ -10,6 +22,7 @@ type RevenueCatSubscriberResponse = {
 
 type RevenueCatSubscriberEntitlement = {
   product_identifier?: string;
+  product_plan_identifier?: string | null;
   purchase_date?: string | null;
   expires_date?: string | null;
 };
@@ -19,11 +32,13 @@ type RevenueCatSubscriberSubscription = {
   purchase_date?: string | null;
   expires_date?: string | null;
   original_transaction_id?: string | null;
+  store_transaction_id?: string | null;
+  product_plan_identifier?: string | null;
 };
 
 const personalPremiumEntitlementId =
   Deno.env.get("REVENUECAT_PERSONAL_PREMIUM_ENTITLEMENT_ID") ??
-    "personal_premium";
+    DEFAULT_PERSONAL_PREMIUM_ENTITLEMENT_ID;
 
 const corsHeaders = {
   "access-control-allow-origin": "*",
@@ -102,17 +117,28 @@ export async function handler(req: Request): Promise<Response> {
     }, subscriber.status);
   }
 
-  const active = activePersonalEntitlement(subscriber.data);
+  const serviceClient = createClient(supabaseUrl, serviceRoleKey);
+  const now = new Date().toISOString();
+
+  const active = activePersonalEntitlement(
+    subscriber.data,
+    personalPremiumEntitlementId,
+  );
   if (!active) {
     const debug = subscriberDebugSummary(
       subscriber.data,
       personalPremiumEntitlementId,
     );
+    // Keep the profiles.tier mirror honest even when nothing is written: a
+    // lapsed purchase whose EXPIRATION webhook never landed downgrades here.
+    const recompute = await recomputeProfileTier(serviceClient, userId, now);
     logStructured({
       message: "reconciliation_no_active_entitlement",
       owner_user_id: userId,
       entitlement_id: personalPremiumEntitlementId,
       revenuecat_debug: debug,
+      profile_tier: recompute.tier,
+      profile_tier_error: recompute.error?.message,
     });
     return json({
       error:
@@ -122,12 +148,58 @@ export async function handler(req: Request): Promise<Response> {
     }, 403);
   }
 
-  const now = new Date().toISOString();
-  const serviceClient = createClient(supabaseUrl, serviceRoleKey);
-  const purchaseTokenHash = await sha256Hex(
-    active.originalTransactionId ??
-      `revenuecat:${userId}:${active.productId}:${personalPremiumEntitlementId}`,
+  const purchaseKey = await purchaseTokenHash({
+    userId,
+    store: active.store,
+    productId: active.productId,
+    originalTransactionId: active.originalTransactionId,
+    transactionId: active.storeTransactionId,
+  });
+  let tokenHash = purchaseKey.hash;
+  if (!purchaseKey.stable) {
+    // No store transaction id in the REST response: reuse the row the webhook
+    // already wrote for this user and product instead of adding a duplicate.
+    const reused = await latestOwnClaimHash(
+      serviceClient,
+      userId,
+      active.store,
+      active.productId,
+    );
+    if (reused) tokenHash = reused;
+  }
+
+  // RevenueCat has just confirmed, server to server, that this user owns the
+  // entitlement right now, so any other account still holding the same
+  // purchase as active is stale (a transfer whose webhook never landed).
+  const claims = await findActiveClaims(
+    serviceClient,
+    active.store,
+    active.productId,
+    tokenHash,
   );
+  if (claims.error) {
+    return json({
+      error: claims.error.message,
+      status: "supabase_write_failed",
+    }, 500);
+  }
+  const releasedOwners: string[] = [];
+  for (const row of claims.rows) {
+    if (row.owner_user_id === userId) continue;
+    const { error } = await expireClaim(serviceClient, row.id, now);
+    if (error) {
+      return json({ error: error.message, status: "supabase_write_failed" }, 500);
+    }
+    releasedOwners.push(row.owner_user_id);
+    logStructured({
+      message: "purchase_claim_released",
+      released_owner_user_id: row.owner_user_id,
+      new_owner_user_id: userId,
+      product_id: active.productId,
+      store: active.store,
+    });
+  }
+
   const { data: entitlement, error: entitlementError } = await serviceClient
     .from("personal_entitlements")
     .upsert(
@@ -135,7 +207,7 @@ export async function handler(req: Request): Promise<Response> {
         owner_user_id: userId,
         product_id: active.productId,
         store: active.store,
-        purchase_token_hash: purchaseTokenHash,
+        purchase_token_hash: tokenHash,
         entitlement_tier: "personalPremium",
         status: "active",
         period_started_at: active.purchaseDate,
@@ -157,28 +229,29 @@ export async function handler(req: Request): Promise<Response> {
       message: "reconciliation_entitlement_write_failed",
       owner_user_id: userId,
       error: entitlementError.message,
+      code: entitlementError.code,
     });
     return json({
       error: entitlementError.message,
-      status: "supabase_write_failed",
-    }, 500);
+      status: entitlementError.code === "23505"
+        ? "purchase_claim_conflict"
+        : "supabase_write_failed",
+    }, entitlementError.code === "23505" ? 409 : 500);
   }
 
-  const { error: profileError } = await serviceClient.from("profiles").upsert({
-    id: userId,
-    tier: "personalPremium",
-    updated_at: now,
-  });
-  if (profileError) {
-    logStructured({
-      message: "reconciliation_profile_write_failed",
-      owner_user_id: userId,
-      error: profileError.message,
-    });
-    return json({
-      error: profileError.message,
-      status: "supabase_write_failed",
-    }, 500);
+  for (const ownerId of [userId, ...releasedOwners]) {
+    const recompute = await recomputeProfileTier(serviceClient, ownerId, now);
+    if (recompute.error) {
+      logStructured({
+        message: "reconciliation_profile_write_failed",
+        owner_user_id: ownerId,
+        error: recompute.error.message,
+      });
+      return json({
+        error: recompute.error.message,
+        status: "supabase_write_failed",
+      }, 500);
+    }
   }
 
   logStructured({
@@ -187,6 +260,7 @@ export async function handler(req: Request): Promise<Response> {
     product_id: active.productId,
     store: active.store,
     period_ends_at: active.expiresDate,
+    purchase_key_stable: purchaseKey.stable,
   });
 
   return json({
@@ -200,6 +274,24 @@ export async function handler(req: Request): Promise<Response> {
       lastVerifiedAt: entitlement.last_verified_at,
     },
   });
+}
+
+async function latestOwnClaimHash(
+  client: ServiceClient,
+  userId: string,
+  store: string,
+  productId: string,
+): Promise<string | null> {
+  const { data, error } = await client
+    .from("personal_entitlements")
+    .select("purchase_token_hash")
+    .eq("owner_user_id", userId)
+    .eq("store", store)
+    .eq("product_id", productId)
+    .order("updated_at", { ascending: false })
+    .limit(1);
+  if (error || !data || data.length === 0) return null;
+  return data[0].purchase_token_hash ?? null;
 }
 
 async function fetchRevenueCatSubscriber(
@@ -233,37 +325,58 @@ async function fetchRevenueCatSubscriber(
   return { ok: true, data: body as RevenueCatSubscriberResponse };
 }
 
-function activePersonalEntitlement(
-  response: RevenueCatSubscriberResponse,
-): {
+export type ActivePersonalEntitlement = {
   productId: string;
   store: string;
   purchaseDate: string | null;
   expiresDate: string | null;
   originalTransactionId: string | null;
-} | null {
-  const entitlement = response.subscriber?.entitlements
-    ?.[personalPremiumEntitlementId];
+  storeTransactionId: string | null;
+};
+
+/**
+ * Pure mapping from a REST v1 subscriber response to the canonical
+ * (store, product_id) used by the webhook as well.
+ */
+export function activePersonalEntitlement(
+  response: RevenueCatSubscriberResponse,
+  entitlementId: string,
+  nowMs = Date.now(),
+): ActivePersonalEntitlement | null {
+  const entitlement = response.subscriber?.entitlements?.[entitlementId];
   if (!entitlement?.product_identifier) {
     return null;
   }
   if (
     entitlement.expires_date !== null &&
     entitlement.expires_date !== undefined &&
-    new Date(entitlement.expires_date).getTime() <= Date.now()
+    new Date(entitlement.expires_date).getTime() <= nowMs
   ) {
     return null;
   }
 
-  const subscription = response.subscriber?.subscriptions
-    ?.[entitlement.product_identifier];
+  const subscriptions = response.subscriber?.subscriptions ?? {};
+  const basePlan = entitlement.product_plan_identifier ?? null;
+  const fullProductId = canonicalProductId(
+    entitlement.product_identifier,
+    basePlan,
+    entitlement.product_identifier,
+  );
+  const subscription = subscriptions[fullProductId] ??
+    subscriptions[entitlement.product_identifier];
+  const productId = canonicalProductId(
+    entitlement.product_identifier,
+    basePlan ?? subscription?.product_plan_identifier ?? null,
+    entitlement.product_identifier,
+  );
   return {
-    productId: entitlement.product_identifier,
+    productId,
     store: normalizeStore(subscription?.store),
     purchaseDate: entitlement.purchase_date ?? subscription?.purchase_date ??
       null,
     expiresDate: entitlement.expires_date ?? subscription?.expires_date ?? null,
     originalTransactionId: subscription?.original_transaction_id ?? null,
+    storeTransactionId: subscription?.store_transaction_id ?? null,
   };
 }
 
@@ -305,35 +418,11 @@ function subscriberDebugSummary(
   };
 }
 
-function normalizeStore(value: string | undefined): string {
-  switch (value) {
-    case "app_store":
-    case "APP_STORE":
-      return "appStore";
-    case "play_store":
-    case "PLAY_STORE":
-      return "googlePlay";
-    case "stripe":
-    case "STRIPE":
-      return "stripe";
-    default:
-      return value?.toLowerCase() ?? "revenueCat";
-  }
-}
-
 function isAnonymousUser(
   user: { is_anonymous?: boolean; app_metadata?: Record<string, unknown> },
 ): boolean {
   return user.is_anonymous === true ||
     user.app_metadata?.provider === "anonymous";
-}
-
-async function sha256Hex(value: string): Promise<string> {
-  const data = new TextEncoder().encode(value);
-  const digest = await crypto.subtle.digest("SHA-256", data);
-  return [...new Uint8Array(digest)]
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
 }
 
 function json(body: unknown, status = 200): Response {
