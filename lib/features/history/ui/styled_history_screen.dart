@@ -26,6 +26,7 @@ import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/ui/zen_error_view.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
+import 'package:pebble_routines/core/ui/pebble_time.dart';
 
 // History View Modes
 enum HistoryViewMode { timeline, vault }
@@ -1084,6 +1085,8 @@ class _HistoryRunTimeBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
+    // Follows the device: "8:04" + "am", or "08:04" alone on 24-hour.
+    final (clock, meridiem) = splitMeridiem(formatCheckTime(context, time));
     return SizedBox(
       width: 68,
       child: Column(
@@ -1096,7 +1099,7 @@ class _HistoryRunTimeBlock extends StatelessWidget {
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerRight,
               child: Text(
-                DateFormat('h:mm').format(time),
+                clock,
                 maxLines: 1,
                 textAlign: TextAlign.right,
                 style: PebbleFonts.serif(
@@ -1108,17 +1111,19 @@ class _HistoryRunTimeBlock extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 2),
-          Text(
-            DateFormat('a').format(time).toLowerCase(),
-            textAlign: TextAlign.right,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 0.8,
-              color: context.readableSecondaryText,
+          if (meridiem != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              meridiem.toLowerCase(),
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 0.8,
+                color: context.readableSecondaryText,
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );

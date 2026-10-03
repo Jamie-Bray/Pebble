@@ -180,9 +180,7 @@ class _RoutineCardState extends ConsumerState<RoutineCard> {
                           } else if (diff.inDays < 1) {
                             timeText = '${diff.inHours}h ago';
                           } else {
-                            timeText = DateFormat(
-                              'MMM d',
-                            ).format(run.finishedAt);
+                            timeText = DateFormat.MMMd().format(run.finishedAt);
                           }
                           return Text(
                             'Last ran: $timeText',

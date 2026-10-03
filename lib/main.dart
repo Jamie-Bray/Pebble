@@ -3,6 +3,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:go_router/go_router.dart';
@@ -18,6 +19,7 @@ import 'core/theme/tokens.dart';
 import 'core/ui/pebble_buttons.dart';
 import 'core/theme/theme_provider.dart';
 import 'core/config/app_runtime_config.dart';
+import 'core/config/pebble_locale.dart';
 import 'core/monitoring/crash_reporting.dart';
 import 'core/navigation/app_shell.dart';
 import 'data/remote/supabase_client_provider.dart';
@@ -480,6 +482,9 @@ Future<void> _startPebble(AppRuntimeConfig appRuntimeConfig) async {
   WidgetsFlutterBinding.ensureInitialized();
   // Fonts are bundled; never fetch them (and never show system fonts offline).
   PebbleFonts.configure();
+  await configurePebbleDateLocale(
+    resolvePebbleLocale(WidgetsBinding.instance.platformDispatcher.locales),
+  );
   final prefs = await SharedPreferences.getInstance();
   final db = LocalDb();
   const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
@@ -731,6 +736,13 @@ class _PebbleAppState extends ConsumerState<PebbleApp>
     return MaterialApp.router(
       title: 'Pebble Routines',
       theme: themeData,
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      supportedLocales: pebbleSupportedLocales,
+      localeListResolutionCallback: (locales, supported) {
+        final locale = resolvePebbleLocale(locales);
+        applyPebbleDateLocale(locale);
+        return locale;
+      },
       builder: (context, child) {
         final mq = MediaQuery.of(context);
         final scale = mq.textScaler.scale(1);

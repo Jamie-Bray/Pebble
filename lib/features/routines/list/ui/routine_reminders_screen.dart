@@ -925,7 +925,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
                 ),
                 const SizedBox(width: 10),
                 Text(
-                  DateFormat('HH:mm').format(previewSentAt),
+                  DateFormat.jm().format(previewSentAt),
                   style: TextStyle(
                     fontSize: 11,
                     color: cs.onSurface.withValues(alpha: 0.42),
@@ -947,7 +947,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
                 _buildPreviewLogRow(
                   cs,
                   label: 'Completed',
-                  value: DateFormat('d MMM yyyy, HH:mm').format(previewSentAt),
+                  value: DateFormat.yMMMd().add_jm().format(previewSentAt),
                 ),
                 _buildPreviewLogRow(
                   cs,

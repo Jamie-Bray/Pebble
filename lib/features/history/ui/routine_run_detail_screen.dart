@@ -389,7 +389,7 @@ class RoutineRunDetailScreen extends ConsumerWidget {
   }) {
     final foundation = context.darkFoundation;
     final timeString = completedAt != null
-        ? DateFormat('h:mm a').format(completedAt)
+        ? DateFormat.jm().format(completedAt)
         : null;
 
     Color indicatorColor;
@@ -678,14 +678,14 @@ class RoutineRunDetailScreen extends ConsumerWidget {
     final start = DateTime.tryParse(data?['startTime']?.toString() ?? '');
     final end =
         DateTime.tryParse(data?['endTime']?.toString() ?? '') ?? run.finishedAt;
-    final date = DateFormat('MMM d, y').format(end);
-    final endTime = DateFormat('h:mm a').format(end);
+    final date = DateFormat.yMMMd().format(end);
+    final endTime = DateFormat.jm().format(end);
 
     if (start == null || end.isBefore(start)) {
       return '$date - $endTime';
     }
 
-    final startTime = DateFormat('h:mm a').format(start);
+    final startTime = DateFormat.jm().format(start);
     return '$date - $startTime - $endTime';
   }
 

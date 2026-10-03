@@ -2276,7 +2276,7 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
     if (diff.inHours < 1) return 'Last completed ${diff.inMinutes}m ago';
     if (diff.inDays < 1) return 'Last completed ${diff.inHours}h ago';
     if (diff.inDays == 1) return 'Last completed yesterday';
-    return 'Last completed ${DateFormat('MMM d').format(finishedAt)}';
+    return 'Last completed ${DateFormat.MMMd().format(finishedAt)}';
   }
 
   TextSpan _titleSpan(String title, Color accent) {
