@@ -21,6 +21,7 @@ import 'package:pebble_routines/features/routines/execution/ui/routine_player_sc
 import 'package:pebble_routines/features/history/domain/checked_window.dart';
 import 'package:pebble_routines/features/routines/list/providers/home_hero_state_provider.dart';
 import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
+import 'package:pebble_routines/features/routines/list/ui/home_hero_widgets.dart';
 import 'package:pebble_routines/features/routines/list/ui/routine_list_screen.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -1105,6 +1106,40 @@ void _checkedTests() {
     );
 
     expect(find.text('2 steps · 1 photo · Reminder 8:15 AM'), findsOneWidget);
+  });
+
+  test('backup shows as a dot on the avatar, none when off', () {
+    AccountBackupChipState chip(String label, AccountBackupChipTone tone) =>
+        AccountBackupChipState(
+          show: true,
+          label: label,
+          tone: tone,
+          semanticsHint: '',
+        );
+    expect(
+      homeBackupDotFor(const AccountBackupChipState.hidden()),
+      HomeBackupDot.none,
+    );
+    expect(
+      homeBackupDotFor(chip('Backup off', AccountBackupChipTone.neutral)),
+      HomeBackupDot.none,
+    );
+    expect(
+      homeBackupDotFor(chip('Checking backup', AccountBackupChipTone.neutral)),
+      HomeBackupDot.none,
+    );
+    expect(
+      homeBackupDotFor(chip('Backed up · 4m', AccountBackupChipTone.positive)),
+      HomeBackupDot.backedUp,
+    );
+    expect(
+      homeBackupDotFor(chip('Offline', AccountBackupChipTone.neutral)),
+      HomeBackupDot.paused,
+    );
+    expect(
+      homeBackupDotFor(chip('Needs attention', AccountBackupChipTone.attention)),
+      HomeBackupDot.paused,
+    );
   });
 
   test('next reminder picks the soonest enabled time', () {

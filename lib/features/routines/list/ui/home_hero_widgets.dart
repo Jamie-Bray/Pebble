@@ -20,6 +20,11 @@ enum HomeBackupDot { none, backedUp, paused }
 
 HomeBackupDot homeBackupDotFor(AccountBackupChipState chip) {
   if (!chip.show || chip.label == 'Backup off') return HomeBackupDot.none;
+  // A moment-long check while the app starts is not "paused": no dot rather
+  // than a false amber one.
+  if (chip.label == 'Checking backup' || chip.label == 'Turning on backup') {
+    return HomeBackupDot.none;
+  }
   if (chip.tone == AccountBackupChipTone.positive) {
     return HomeBackupDot.backedUp;
   }
