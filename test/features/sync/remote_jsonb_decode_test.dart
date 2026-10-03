@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pebble_routines/data/remote/remote_routine_data_source.dart';
 import 'package:pebble_routines/data/remote/remote_routine_run_data_source.dart';
 import 'package:pebble_routines/data/remote/remote_routine_session_data_source.dart';
+import 'package:pebble_routines/data/remote/remote_row_parsing.dart';
 
 void main() {
   test('remote routine JSONB steps are restored as valid JSON', () {
@@ -64,4 +65,30 @@ void main() {
       expect(stringRecord.payload['sessionId'], 'session-2');
     },
   );
+
+  test('one malformed remote row is skipped instead of failing the fetch', () {
+    final records = parseRemoteRows(
+      [
+        {
+          'id': 'session-1',
+          'owner_user_id': 'user-1',
+          'payload_json': '{"sessionId": "session-1"}',
+        },
+        {
+          'id': 'session-2',
+          'owner_user_id': 'user-1',
+          'payload_json': '{not json',
+        },
+        {
+          'id': 'session-3',
+          'owner_user_id': 'user-1',
+          'payload_json': {'sessionId': 'session-3'},
+        },
+      ],
+      RemoteRoutineSessionRecord.fromJson,
+      table: 'routine_sessions',
+    );
+
+    expect(records.map((record) => record.id), ['session-1', 'session-3']);
+  });
 }

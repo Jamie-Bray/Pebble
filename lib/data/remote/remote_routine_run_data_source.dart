@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:pebble_routines/data/remote/remote_row_parsing.dart';
 import 'package:pebble_routines/data/remote/supabase_client_provider.dart';
 
 class RemoteRoutineRunRecord {
@@ -63,11 +64,11 @@ class RemoteRoutineRunDataSource {
         .select()
         .eq('owner_user_id', ownerUserId)
         .order('finished_at', ascending: false);
-    return (response as List<dynamic>)
-        .whereType<Map>()
-        .map((item) => Map<String, dynamic>.from(item))
-        .map(RemoteRoutineRunRecord.fromJson)
-        .toList();
+    return parseRemoteRows(
+      response as List<dynamic>,
+      RemoteRoutineRunRecord.fromJson,
+      table: 'routine_runs',
+    );
   }
 
   Future<void> upsert(Map<String, dynamic> payload) async {

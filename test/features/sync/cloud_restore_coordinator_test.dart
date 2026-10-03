@@ -80,11 +80,37 @@ class _FakeRunDataSource extends RemoteRoutineRunDataSource {
 }
 
 class _FakeSessionDataSource extends RemoteRoutineSessionDataSource {
-  _FakeSessionDataSource() : super(null);
+  _FakeSessionDataSource([this.records = const []]) : super(null);
+
+  final List<RemoteRoutineSessionRecord> records;
 
   @override
   Future<List<RemoteRoutineSessionRecord>> fetchAll(String ownerUserId) async =>
-      const [];
+      records;
+}
+
+RemoteRoutineSessionRecord _remoteSession(
+  String id,
+  Map<String, dynamic> payload,
+) {
+  return RemoteRoutineSessionRecord(
+    id: id,
+    ownerUserId: '11111111-1111-1111-1111-111111111111',
+    payload: payload,
+    updatedAt: DateTime(2026, 2, 3),
+  );
+}
+
+Map<String, dynamic> _sessionPayload(String sessionId) {
+  return {
+    'sessionId': sessionId,
+    'routineId': 7,
+    'routineTitleSnapshot': 'Morning startup',
+    'status': 'completed',
+    'startedAt': DateTime(2026, 2, 3, 8).toIso8601String(),
+    'updatedAt': DateTime(2026, 2, 3, 8, 10).toIso8601String(),
+    'completedAt': DateTime(2026, 2, 3, 8, 10).toIso8601String(),
+  };
 }
 
 void main() {
@@ -499,6 +525,71 @@ void main() {
         expect(runs, hasLength(1));
         expect(runs.single.routineId, '7');
         expect(runs.single.syncStatus, 'synced');
+      },
+    );
+
+    test(
+      'skips one malformed remote session and still restores the rest',
+      () async {
+        const ownerUserId = '11111111-1111-1111-1111-111111111111';
+        const routineCloudId = '33333333-3333-4333-8333-333333333333';
+
+        final coordinator = CloudRestoreCoordinator(
+          database: database,
+          remoteRoutineDataSource: _FakeRoutineDataSource([
+            RemoteRoutineRecord(
+              id: routineCloudId,
+              ownerUserId: ownerUserId,
+              title: 'Morning startup',
+              stepsJson: '[]',
+              iconKey: null,
+              colorHex: null,
+              isPinned: false,
+              pinnedAt: null,
+              version: 1,
+              createdAt: DateTime(2026, 1, 1),
+              updatedAt: DateTime(2026, 1, 1),
+            ),
+          ]),
+          remoteReminderDataSource: _FakeReminderDataSource(const []),
+          remoteRunDataSource: _FakeRunDataSource([
+            RemoteRoutineRunRecord(
+              id: '44444444-4444-4444-8444-444444444444',
+              ownerUserId: ownerUserId,
+              routineId: routineCloudId,
+              routineTitle: 'Morning startup',
+              finishedAt: DateTime(2026, 2, 2),
+              stepCompletionData: jsonEncode({'steps': const []}),
+              updatedAt: DateTime(2026, 2, 2),
+            ),
+          ]),
+          remoteSessionDataSource: _FakeSessionDataSource([
+            _remoteSession('session-before', _sessionPayload('session-before')),
+            // routineId must be numeric, so RoutineSession.fromJson throws.
+            _remoteSession('session-corrupt', {
+              ..._sessionPayload('session-corrupt'),
+              'routineId': 'not-a-number',
+            }),
+            _remoteSession('session-after', {
+              'payload': _sessionPayload('session-after'),
+            }),
+          ]),
+          outbox: outbox,
+        );
+
+        await coordinator.bootstrapAndMerge(ownerUserId);
+
+        final sessions = await database.routineSessionDao.getAllSessions();
+        expect(
+          sessions.map((session) => session.sessionId),
+          unorderedEquals(['session-before', 'session-after']),
+        );
+        expect(
+          sessions.every((session) => session.ownerUserId == ownerUserId),
+          isTrue,
+        );
+        expect(await database.routineDao.getAllRoutines(), hasLength(1));
+        expect(await database.routineRunDao.getAllRuns(), hasLength(1));
       },
     );
   });
