@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:pebble_routines/core/theme/tokens.dart';
+import 'package:pebble_routines/core/ui/readable_colors.dart';
 
 enum ThemeId {
   highNoon,
@@ -55,6 +57,10 @@ abstract class _BaseThemeFactory {
     Color? actionAccent,
     Color? onActionAccent,
     List<Color>? categoryAccents,
+    // The colour of a completed check (stroke, pebble, time chip). Defaults
+    // to the accent, firmed up only where needed to read as text (4.5:1) on
+    // the page, so themes that do not opt in keep their hue.
+    Color? done,
   }) {
     final foundation =
         darkFoundation ??
@@ -106,6 +112,21 @@ abstract class _BaseThemeFactory {
           ? foundation.surfaceHigh
           : Color.lerp(bg, fg, 0.1) ?? bg,
     );
+
+    final resolvedDone =
+        done ??
+        ensureContrast(
+          accent,
+          // The page, and the done-tinted chip the time sits on.
+          backgrounds: [
+            foundation.bgBase,
+            Color.alphaBlend(accent.withValues(alpha: 0.10), foundation.bgBase),
+          ],
+          strongest: foundation.textPrimary,
+          // A little headroom: the real chip is tinted with the firmed-up
+          // colour, which is slightly darker than the accent tint used here.
+          minContrast: kMinBodyTextContrast + 0.1,
+        );
 
     final textTheme = PebbleFonts.sansTextTheme().apply(
       bodyColor: fg,
@@ -210,8 +231,11 @@ abstract class _BaseThemeFactory {
           onActionAccent:
               onActionAccent ?? (isDark ? foundation.bgBase : Colors.white),
           categoryAccents: categoryAccents ?? <Color>[accent],
+          done: resolvedDone,
+          doneContainer: resolvedDone.withValues(alpha: 0.10),
         ),
         foundation,
+        PebbleType.forColor(foundation.textPrimary),
         templatesTokens,
       ],
     );
@@ -225,6 +249,8 @@ class HighNoonThemeFactory {
     bg: const Color(0xFFFDFCF5),
     fg: const Color(0xFF2D3A30),
     accent: const Color(0xFF4A5D4E),
+    // A livelier sage than the structure green, so "done" reads as a result.
+    done: const Color(0xFF4E7A58),
   );
 }
 
@@ -238,6 +264,7 @@ class NordicNightThemeFactory {
     isDark: true,
     secondary: const Color(0xFF7FA87E),
     error: const Color(0xFFC07B68),
+    done: const Color(0xFF8DB592),
     darkFoundation: const PebbleDarkFoundation(
       bgBase: Color(0xFF1B1813),
       surfaceLow: Color(0xFF232018),
@@ -296,6 +323,7 @@ class SageMistThemeFactory {
     accent: const Color(0xFF6B8A72), // sage accent
     secondary: const Color(0xFF8B9E8E),
     isDark: true,
+    done: const Color(0xFF7FB08A),
   );
 }
 
@@ -318,6 +346,7 @@ class SandstoneThemeFactory {
     actionAccent: _terracotta,
     onActionAccent: const Color(0xFFFBF6EC),
     categoryAccents: const [_sage, _terracotta, _tan],
+    done: const Color(0xFF3F6B4A),
   );
 }
 
@@ -472,6 +501,8 @@ class HighContrastDarkThemeFactory {
     fg: const Color(0xFFFFFFFF),
     accent: const Color(0xFFFFDD00),
     isDark: true,
+    // Keep: never tint high contrast.
+    done: const Color(0xFFFFDD00),
     darkFoundation: const PebbleDarkFoundation(
       bgBase: Color(0xFF000000),
       surfaceLow: Color(0xFF1A1A1A),
@@ -503,6 +534,8 @@ class ReducedContrastThemeFactory {
     fg: const Color(0xFFA09888),
     accent: const Color(0xFF8A7A64),
     isDark: true,
+    // Don't add saturation (or contrast) here: done is just the accent.
+    done: const Color(0xFF8A7A64),
   );
 }
 
@@ -599,6 +632,14 @@ class PebbleThemeX extends ThemeExtension<PebbleThemeX> {
   /// for most themes; a small set (sage / terracotta / tan) for Sandstone.
   final List<Color> categoryAccents;
 
+  /// The colour of a completed check (stroke, pebble, time chip). Reaches
+  /// 3:1 on the page for glyphs and, outside Reduced Contrast, 4.5:1 for
+  /// text.
+  final Color done;
+
+  /// [done] at 10%: the fill of the "checked" card and the time chip.
+  final Color doneContainer;
+
   const PebbleThemeX({
     required this.gradient,
     required this.themeId,
@@ -606,6 +647,8 @@ class PebbleThemeX extends ThemeExtension<PebbleThemeX> {
     required this.actionAccent,
     required this.onActionAccent,
     required this.categoryAccents,
+    required this.done,
+    required this.doneContainer,
   });
 
   /// The category accent for a given zero-based index, wrapping around the
@@ -621,6 +664,8 @@ class PebbleThemeX extends ThemeExtension<PebbleThemeX> {
     Color? actionAccent,
     Color? onActionAccent,
     List<Color>? categoryAccents,
+    Color? done,
+    Color? doneContainer,
   }) {
     return PebbleThemeX(
       gradient: gradient ?? this.gradient,
@@ -629,6 +674,8 @@ class PebbleThemeX extends ThemeExtension<PebbleThemeX> {
       actionAccent: actionAccent ?? this.actionAccent,
       onActionAccent: onActionAccent ?? this.onActionAccent,
       categoryAccents: categoryAccents ?? this.categoryAccents,
+      done: done ?? this.done,
+      doneContainer: doneContainer ?? this.doneContainer,
     );
   }
 
@@ -646,6 +693,9 @@ class PebbleThemeX extends ThemeExtension<PebbleThemeX> {
       // Colour lists can differ in length between themes, so snap at the
       // midpoint of the cross-fade rather than risk an index mismatch.
       categoryAccents: t < 0.5 ? categoryAccents : other.categoryAccents,
+      done: Color.lerp(done, other.done, t) ?? done,
+      doneContainer:
+          Color.lerp(doneContainer, other.doneContainer, t) ?? doneContainer,
     );
   }
 }
@@ -1182,6 +1232,16 @@ extension ThemeHelpers on BuildContext {
   Color get onActionAccent =>
       Theme.of(this).extension<PebbleThemeX>()?.onActionAccent ??
       Theme.of(this).colorScheme.onPrimary;
+
+  /// Completed-check colour (DESIGN_DIRECTION.md §3.5). Falls back to primary.
+  Color get done =>
+      Theme.of(this).extension<PebbleThemeX>()?.done ??
+      Theme.of(this).colorScheme.primary;
+
+  /// [done] at 10%, for the "checked" card and time chip fills.
+  Color get doneContainer =>
+      Theme.of(this).extension<PebbleThemeX>()?.doneContainer ??
+      Theme.of(this).colorScheme.primary.withValues(alpha: 0.10);
 
   /// Step-badge category colour for [index], wrapping around the palette.
   Color categoryAccentAt(int index) {
