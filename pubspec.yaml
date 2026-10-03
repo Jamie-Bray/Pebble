@@ -87,6 +87,7 @@ flutter:
     - assets/seed/templates_en.json
     - assets/images/logo.png
     - assets/audio/step_complete.wav
+    - assets/audio/routine_complete.wav
     # Bundled so text never falls back to system fonts (first launch offline).
     # google_fonts finds these by file name (`DMSans-SemiBold.ttf` etc.) with
     # runtime fetching disabled; the OFL licences are registered in main().

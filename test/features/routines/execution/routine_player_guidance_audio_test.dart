@@ -21,6 +21,7 @@ import 'package:pebble_routines/features/routines/execution/data/services/routin
 import 'package:pebble_routines/features/routines/execution/providers/player_state_provider.dart';
 import 'package:pebble_routines/features/routines/execution/ui/routine_player_screen.dart';
 import 'package:pebble_routines/features/routines/execution/ui/step_check_off.dart';
+import 'package:pebble_routines/core/ui/pebble_cairn.dart';
 import 'package:pebble_routines/core/ui/pebble_time.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_controller.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
@@ -167,64 +168,123 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.completedSession, isNotNull);
-    expect(find.text('Routine complete'), findsOneWidget);
+    expect(_completionHeader, findsOneWidget);
+    expect(find.text('Done'), findsOneWidget);
   });
 
-  testWidgets('completion screen summarizes routine and wires actions', (
+  testWidgets('completion shows the cairn, the time and a receipt', (
     tester,
   ) async {
     var wentHome = false;
     var reviewedRoutine = false;
+    final finishedAt = DateTime(2026, 10, 3, 8, 4);
 
     await tester.pumpWidget(
       MaterialApp(
-        home: RoutineCompleteScreen(
-          routineName: 'Evening close down',
-          totalStepsCompleted: 4,
-          totalPhotosSaved: 2,
-          onBackToHome: () => wentHome = true,
-          onReviewRoutine: () => reviewedRoutine = true,
+        home: Scaffold(
+          body: RoutineCompleteScreen(
+            routineName: 'Evening close down',
+            totalStepsCompleted: 4,
+            totalPhotosSaved: 2,
+            finishedAt: finishedAt,
+            photos: [
+              for (final id in ['a', 'b'])
+                CompletionPhoto(id: id, load: () async => null),
+            ],
+            onBackToHome: () => wentHome = true,
+            onReviewRoutine: () => reviewedRoutine = true,
+          ),
         ),
       ),
     );
-    await tester.pump(const Duration(milliseconds: 900));
+    await tester.pumpAndSettle();
 
-    expect(find.text('Routine complete'), findsOneWidget);
-    expect(find.text('Evening close down'), findsOneWidget);
-    expect(find.text('SUMMARY'), findsOneWidget);
-    expect(find.text('Steps completed'), findsOneWidget);
+    expect(_completionHeader, findsOneWidget);
+    expect(find.text('ALL CHECKED'), findsOneWidget);
+    expect(find.byType(PebbleCairn), findsOneWidget);
+    expect(find.textContaining('Evening close down · '), findsOneWidget);
+    final context = tester.element(find.byType(RoutineCompleteScreen));
+    expect(
+      find.bySemanticsLabel(formatCheckTime(context, finishedAt)),
+      findsOneWidget,
+    );
+    expect(find.text('Steps'), findsOneWidget);
     expect(find.text('4 of 4'), findsOneWidget);
-    expect(find.text('Photos saved'), findsOneWidget);
-    expect(find.text('2 photos'), findsOneWidget);
+    expect(find.text('Photos'), findsOneWidget);
+    expect(find.byType(PhotoThumb), findsNWidgets(2));
+    expect(find.text('Saved on this device'), findsOneWidget);
+    // One primary action.
+    expect(find.byType(FilledButton), findsOneWidget);
 
-    await tester.tap(find.text('Back to Home'));
+    await tester.tap(find.text('Done'));
     expect(wentHome, isTrue);
 
-    await tester.tap(find.text('Review routine'));
+    await tester.tap(find.text('See details'));
     expect(reviewedRoutine, isTrue);
   });
 
-  testWidgets('completion summary reports skipped steps and hides an '
-      'empty photo row', (tester) async {
+  testWidgets('completion with skipped steps stays honest', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
-        home: RoutineCompleteScreen(
-          routineName: 'Morning reset',
-          totalStepsCompleted: 3,
-          totalPhotosSaved: 0,
-          totalSteps: 4,
-          skippedSteps: 1,
-          showPhotoSummary: false,
-          onBackToHome: () {},
-          onReviewRoutine: () {},
+        home: Scaffold(
+          body: RoutineCompleteScreen(
+            routineName: 'Morning reset',
+            totalStepsCompleted: 3,
+            totalPhotosSaved: 0,
+            totalSteps: 4,
+            skippedSteps: 1,
+            showPhotoSummary: false,
+            storage: CompletionStorage.backedUp,
+            onBackToHome: () {},
+            onReviewRoutine: () {},
+          ),
         ),
       ),
     );
-    await tester.pump(const Duration(milliseconds: 900));
+    await tester.pumpAndSettle();
 
+    expect(find.text('3 OF 4 CHECKED'), findsOneWidget);
+    expect(find.text('ALL CHECKED'), findsNothing);
     expect(find.text('3 of 4 · 1 skipped'), findsOneWidget);
     expect(find.text('3 / 3'), findsNothing);
-    expect(find.text('Photos saved'), findsNothing);
+    expect(find.text('Photos'), findsNothing);
+    expect(find.text('Backed up'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel('3 of 4 steps checked, 1 skipped'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('completion under Reduce Motion renders its final state', (
+    tester,
+  ) async {
+    var landed = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(disableAnimations: true),
+          child: Scaffold(
+            body: RoutineCompleteScreen(
+              routineName: 'Wind down',
+              totalStepsCompleted: 4,
+              totalPhotosSaved: 0,
+              showPhotoSummary: false,
+              onLanded: () => landed++,
+              onBackToHome: () {},
+              onReviewRoutine: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // No staggered entrance: the Done button is fully there at once.
+    final opacity = tester.widget<Opacity>(
+      find.ancestor(of: find.text('Done'), matching: find.byType(Opacity)).first,
+    );
+    expect(opacity.opacity, 1);
+    expect(landed, 1);
   });
 
   testWidgets('photo step at 2.0x text keeps the instruction readable', (
@@ -1359,3 +1419,9 @@ class _CountingProofStorage extends _FakeProofStorage {
     );
   }
 }
+
+final Finder _completionHeader = find.byWidgetPredicate(
+  (widget) =>
+      widget is Semantics &&
+      widget.properties.label == RoutineCompleteScreen.headerSemanticsLabel,
+);

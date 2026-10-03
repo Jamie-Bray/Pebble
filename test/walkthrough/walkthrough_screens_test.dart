@@ -47,7 +47,11 @@ import 'package:pebble_routines/data/remote/supabase_client_provider.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/features/auth/data/auth_repository.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:pebble_routines/features/routines/data/shared_reminder_preferences_repository.dart';
+import 'package:pebble_routines/features/routines/execution/data/services/routine_player_photo_picker.dart';
+import 'package:pebble_routines/features/routines/execution/ui/routine_complete_screen.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
 import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
 import 'package:pebble_routines/features/subscription/data/models/subscription_account_state.dart';
@@ -74,6 +78,12 @@ void _mockPathProvider(WidgetTester tester) {
   tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
     const MethodChannel('plugins.flutter.io/path_provider'),
     (call) async => _supportDir,
+  );
+  // just_audio has no host side in tests; answering its main channel lets a
+  // voice-tip player be disposed when the player moves past that step.
+  tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+    const MethodChannel('com.ryanheise.just_audio.methods'),
+    (call) async => <String, dynamic>{},
   );
 }
 
@@ -558,8 +568,9 @@ Future<void> _seed(LocalDb db, _Seed seed) async {
     );
   }
 
-  await run(routines[0], _leaveHomeSteps, const Duration(hours: 3));
-  await run(routines[1], _morningSteps, const Duration(hours: 5), skipped: {3});
+  // Older than the 6 h "Checked" window, so Home shows its ready state.
+  await run(routines[0], _leaveHomeSteps, const Duration(hours: 7));
+  await run(routines[1], _morningSteps, const Duration(hours: 9), skipped: {3});
   await run(routines[2], _windDownSteps, const Duration(hours: 15), minutes: 4);
   await run(routines[0], _leaveHomeSteps, const Duration(hours: 27));
   await run(
@@ -718,6 +729,46 @@ class _FakeSharedReminders extends SharedReminderPreferencesRepository {
 }
 
 // ---------------------------------------------------------------------------
+// Photos: the "camera" hands back sample images from the support directory
+// (sample_photo_1.jpg, sample_photo_2.jpg), copied fresh each time because
+// the player deletes the picker's temp file once the photo is saved.
+// ---------------------------------------------------------------------------
+
+/// flutter_image_compress has no host side in tests: "re-encode" a capture
+/// by copying it to the requested target, which is all a capture needs.
+class _CopyImageCompress implements FlutterImageCompressPlatform {
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    if (invocation.memberName == #compressAndGetFile) {
+      final source = invocation.positionalArguments[0] as String;
+      final target = invocation.positionalArguments[1] as String;
+      File(source).copySync(target);
+      return Future<XFile?>.value(XFile(target));
+    }
+    return super.noSuchMethod(invocation);
+  }
+}
+
+class _FakePhotoPicker implements RoutinePlayerPhotoPicker {
+  int _count = 0;
+
+  @override
+  Future<XFile?> pickImage({
+    required ImageSource source,
+    int? imageQuality,
+    double? maxWidth,
+  }) async {
+    final sample = File('$_supportDir/sample_photo_${_count % 2 + 1}.jpg');
+    if (!sample.existsSync()) return null;
+    final copy = sample.copySync('$_supportDir/picked_${_count++}.jpg');
+    return XFile(copy.path);
+  }
+
+  @override
+  Future<XFile?> retrieveLostPhoto() async => null;
+}
+
+// ---------------------------------------------------------------------------
 // Harness
 // ---------------------------------------------------------------------------
 
@@ -856,6 +907,7 @@ void _capture(
     // flutter_test draws BoxShadow/elevation as hard shapes by default.
     debugDisableShadows = false;
     _mockPathProvider(tester);
+    FlutterImageCompressPlatform.instance = _CopyImageCompress();
     await _loadFonts();
     final originalOnError = FlutterError.onError;
     final env0 = <String>[];
@@ -932,6 +984,9 @@ void _capture(
                 ),
               ),
               authRepositoryProvider.overrideWithValue(_FakeAuth()),
+              routinePlayerPhotoPickerProvider.overrideWithValue(
+                _FakePhotoPicker(),
+              ),
               if (fakeSharedReminders || sharedContact != null)
                 sharedReminderPreferencesRepositoryProvider.overrideWithValue(
                   _FakeSharedReminders(sharedContact),
@@ -1214,6 +1269,86 @@ void main() {
         elapsed += 10;
       }
       await env.shotNow('motion_check_${ms.toString().padLeft(3, '0')}ms');
+    }
+  });
+  // Moment 2: completion with photos and a skip, light and dark.
+  for (final theme in [ThemeId.highNoon, ThemeId.nordicNight]) {
+    final prefix = theme == ThemeId.highNoon ? '' : 'theme_${theme.name}_';
+    _capture(
+      'player complete photos ${theme.name}',
+      theme: theme,
+      account: _Account.signedInPremium,
+      extraPrefs: const {'has_seen_camera_rationale': true},
+      (env) async {
+        // Same routine without its voice tip: just_audio has no host side
+        // here, and disposing its player mid-run fails in the harness.
+        await env.tester.runAsync(() async {
+          final morning = await env.db.routineDao.getRoutineById(2);
+          await env.db.routineDao.insertOrUpdateRoutine(
+            morning!.copyWith(
+              stepsJson: _steps([
+                const RoutineStep.check(label: 'Open the curtains'),
+                ..._morningSteps.skip(1),
+              ]),
+            ),
+          );
+        });
+        await env.realWait(2);
+        await _openPlayer(env, 2);
+        await _tapPrimary(env);
+        await env.realWait(2);
+        await _tapPrimary(env);
+        await env.realWait(2);
+        for (var i = 0; i < 2; i++) {
+          await env.tapText('Add');
+          await env.realWait(12);
+        }
+        await _tapPrimary(env);
+        await env.realWait(3);
+        await env.tapText('Skip step');
+        await env.realWait(10);
+        await env.settle(20);
+        await env.realWait(6);
+        await env.shot('${prefix}player_complete_photos_skip');
+      },
+    );
+  }
+  _capture('player complete motion', account: _Account.signedInPremium, (
+    env,
+  ) async {
+    final navigator = Navigator.of(
+      env.tester.element(find.byType(Scaffold).first),
+    );
+    unawaited(
+      navigator.push(
+        PageRouteBuilder<void>(
+          transitionDuration: Duration.zero,
+          pageBuilder: (context, _, _) => Scaffold(
+            backgroundColor: Theme.of(context).colorScheme.surface,
+            body: SafeArea(
+              child: RoutineCompleteScreen(
+                routineName: 'Leaving the house',
+                routineId: 1,
+                totalStepsCompleted: 5,
+                totalPhotosSaved: 0,
+                finishedAt: DateTime(2026, 10, 3, 8, 4),
+                showPhotoSummary: false,
+                onBackToHome: () {},
+                onReviewRoutine: () {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    var elapsed = 0;
+    await env.tester.pump();
+    for (final ms in [260, 420, 560, 700, 820, 980, 1400]) {
+      while (elapsed < ms) {
+        await env.tester.pump(const Duration(milliseconds: 10));
+        elapsed += 10;
+      }
+      await env.shotNow('motion_complete_${ms.toString().padLeft(4, '0')}ms');
     }
   });
   _capture('player voice', account: _Account.signedInPremium, (env) async {

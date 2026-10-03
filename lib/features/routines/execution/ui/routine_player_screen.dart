@@ -32,7 +32,10 @@ import 'package:pebble_routines/features/routines/execution/data/models/routine_
 import 'package:pebble_routines/features/routines/execution/data/services/routine_player_photo_picker.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
 import 'package:pebble_routines/features/routines/execution/providers/player_state_provider.dart';
+import 'package:pebble_routines/features/routines/execution/ui/routine_complete_screen.dart';
 import 'package:pebble_routines/features/routines/execution/ui/step_check_off.dart';
+
+export 'package:pebble_routines/features/routines/execution/ui/routine_complete_screen.dart';
 import 'package:pebble_routines/features/routines/composer/data/guidance_audio_storage.dart';
 import 'package:pebble_routines/features/routines/shared/ui/guidance_audio_play_button.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
@@ -165,6 +168,7 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
     _cancelCheckOffTimers();
     _checkOff.dispose();
     unawaited(_chimePlayer?.dispose());
+    unawaited(_completionPlayer?.dispose());
     super.dispose();
   }
 
@@ -233,6 +237,27 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
         Directionality.of(context),
       ),
     );
+  }
+
+  AudioPlayer? _completionPlayer;
+
+  /// Three quick stone taps, rising: the cairn being stacked. Opt-in, with
+  /// the step sound.
+  void _playCompletionSound() {
+    unawaited(() async {
+      try {
+        var player = _completionPlayer;
+        if (player == null) {
+          player = AudioPlayer();
+          _completionPlayer = player;
+          await player.setAsset('assets/audio/routine_complete.wav');
+        }
+        await player.seek(Duration.zero);
+        await player.play();
+      } catch (_) {
+        // Feedback is best-effort; never let it interfere with the routine.
+      }
+    }());
   }
 
   Future<void> _playChime() async {
@@ -363,36 +388,83 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
                 onPrimary: _goHome,
                 topAction: _TopBackButton(onBack: _attemptExit),
               ),
-              RoutinePlayerScreenPhase.completion => RoutineCompleteScreen(
-                routineName:
-                    playerState.completionSummary?.routineTitle ??
-                    'Routine complete',
-                totalStepsCompleted:
-                    playerState.completionSummary?.completedSteps ??
-                    playerState.completedSteps,
-                totalPhotosSaved:
-                    playerState.completionSummary?.photoCount ??
-                    playerState.proofAssets.length,
-                totalSteps: playerState.session?.routineSnapshotSteps.length,
-                skippedSteps: playerState.completionSummary?.skippedSteps ?? 0,
-                showPhotoSummary:
-                    (playerState.completionSummary?.photoCount ??
-                            playerState.proofAssets.length) >
-                        0 ||
-                    (playerState.session?.routineSnapshotSteps.any(
-                          (step) => step.hasPhotoRequirement,
-                        ) ??
-                        true),
-                completionEmailNote: _completionEmailNote,
-                onBackToHome: _goHome,
-                onReviewRoutine: _openVault,
-              ),
+              RoutinePlayerScreenPhase.completion => _buildCompletion(playerState),
               RoutinePlayerScreenPhase.ready ||
               RoutinePlayerScreenPhase.completing => _buildPlayer(
                 context,
                 themeData,
                 playerState,
               ),
+      },
+    );
+  }
+
+  Widget _buildCompletion(RoutinePlayerUiState playerState) {
+    final summary = playerState.completionSummary;
+    final session = playerState.session;
+    final proofStorage = ref.read(routineSessionProofStorageProvider);
+    final settings = ref.read(playerSettingsControllerProvider);
+    final proofs = <RoutineSessionProofAsset>[
+      for (final stepState
+          in session?.stepStates ?? const <RoutineSessionStepState>[])
+        ...stepState.proofAssets,
+    ];
+    final hasPhotoSteps =
+        session?.routineSnapshotSteps.any((step) => step.hasPhotoRequirement) ??
+        true;
+    final photoCount = summary?.photoCount ?? proofs.length;
+    return RoutineCompleteScreen(
+      routineName:
+          summary?.routineTitle ?? session?.routineTitleSnapshot ?? 'Routine',
+      routineId: session?.routineId,
+      totalStepsCompleted:
+          summary?.completedSteps ?? playerState.completedSteps,
+      totalPhotosSaved: photoCount,
+      totalSteps: session?.routineSnapshotSteps.length,
+      skippedSteps: summary?.skippedSteps ?? 0,
+      showPhotoSummary: photoCount > 0 || hasPhotoSteps,
+      finishedAt: summary?.run.finishedAt ?? session?.completedAt,
+      photos: [
+        for (final proof in proofs)
+          CompletionPhoto(
+            id: proof.proofId,
+            load: () => proofStorage.resolveProofAssetFile(proof),
+          ),
+      ],
+      storage: CompletionStorage.fromSyncStatus(summary?.run.syncStatus),
+      completionEmailNote: _completionEmailNote,
+      haptics: settings.stepCompleteHaptic,
+      onLanded: settings.stepCompleteSound ? _playCompletionSound : null,
+      onOpenPhoto: (index) => _openRunPhotos(proofs, index),
+      onBackToHome: _goHome,
+      onReviewRoutine: _openVault,
+    );
+  }
+
+  Future<void> _openRunPhotos(
+    List<RoutineSessionProofAsset> proofs,
+    int initialIndex,
+  ) async {
+    if (proofs.isEmpty || !mounted) return;
+    final proofStorage = ref.read(routineSessionProofStorageProvider);
+    await PebblePhotoGalleryViewer.open(
+      context,
+      photos: [
+        for (var i = 0; i < proofs.length; i++)
+          PebbleGalleryPhoto(
+            id: proofs[i].proofId,
+            storedPath: proofs[i].localRelativePath,
+            title: 'Photo ${i + 1} of ${proofs.length}',
+          ),
+      ],
+      initialIndex: initialIndex.clamp(0, proofs.length - 1),
+      resolvePhotoFile: (storedPath) async {
+        for (final asset in proofs) {
+          if (asset.localRelativePath == storedPath) {
+            return proofStorage.resolveProofAssetFile(asset);
+          }
+        }
+        return proofStorage.resolveStoredFile(storedPath);
       },
     );
   }
@@ -2015,375 +2087,6 @@ class _PlayerSecondaryActionRow extends StatelessWidget {
         else
           const Spacer(),
       ],
-    );
-  }
-}
-
-class RoutineCompleteScreen extends StatefulWidget {
-  const RoutineCompleteScreen({
-    super.key,
-    required this.routineName,
-    required this.totalStepsCompleted,
-    required this.totalPhotosSaved,
-    this.totalSteps,
-    this.skippedSteps = 0,
-    this.showPhotoSummary = true,
-    this.completionEmailNote,
-    required this.onBackToHome,
-    required this.onReviewRoutine,
-  });
-
-  final String routineName;
-  final int totalStepsCompleted;
-  final int totalPhotosSaved;
-
-  /// Steps in the run. Defaults to completed + skipped.
-  final int? totalSteps;
-  final int skippedSteps;
-
-  /// False for a routine with no photo steps, so the summary doesn't report
-  /// "0 photos" for something that was never asked for.
-  final bool showPhotoSummary;
-
-  /// For example "Completion email sent to sam@example.com." Shown under the
-  /// summary once the send finishes; null shows nothing.
-  final String? completionEmailNote;
-  final VoidCallback onBackToHome;
-  final VoidCallback onReviewRoutine;
-
-  @override
-  State<RoutineCompleteScreen> createState() => _RoutineCompleteScreenState();
-}
-
-class _RoutineCompleteScreenState extends State<RoutineCompleteScreen>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 900),
-      vsync: this,
-    )..forward();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final primary = theme.colorScheme.primary;
-    final routineName = widget.routineName.trim().isEmpty
-        ? 'Routine complete'
-        : widget.routineName.trim();
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: Center(
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _StaggeredEntrance(
-                      controller: _controller,
-                      interval: const Interval(
-                        0,
-                        0.58,
-                        curve: Curves.easeOutCubic,
-                      ),
-                      child: Column(
-                        children: [
-                          Container(
-                            width: 100,
-                            height: 100,
-                            decoration: BoxDecoration(
-                              color: primary,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: primary.withValues(alpha: 0.25),
-                                  blurRadius: 32,
-                                  offset: const Offset(0, 16),
-                                ),
-                              ],
-                            ),
-                            child: Icon(
-                              LucideIcons.check,
-                              size: 52,
-                              color: theme.colorScheme.onPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 32),
-                          Text(
-                            'Routine complete',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.w800,
-                              height: 1.08,
-                              color: theme.colorScheme.onSurface,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            routineName,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              height: 1.35,
-                              color: theme.colorScheme.onSurface.withValues(
-                                alpha: 0.6,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 46),
-                    _StaggeredEntrance(
-                      controller: _controller,
-                      interval: const Interval(
-                        0.18,
-                        0.78,
-                        curve: Curves.easeOutCubic,
-                      ),
-                      child: _RoutineSummaryCard(
-                        totalStepsCompleted: widget.totalStepsCompleted,
-                        totalPhotosSaved: widget.totalPhotosSaved,
-                        totalSteps:
-                            widget.totalSteps ??
-                            widget.totalStepsCompleted + widget.skippedSteps,
-                        skippedSteps: widget.skippedSteps,
-                        showPhotoSummary: widget.showPhotoSummary,
-                      ),
-                    ),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 250),
-                      child: widget.completionEmailNote == null
-                          ? const SizedBox.shrink()
-                          : Padding(
-                              key: ValueKey(widget.completionEmailNote),
-                              padding: const EdgeInsets.only(top: 18),
-                              child: Semantics(
-                                liveRegion: true,
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 1),
-                                      child: Icon(
-                                        LucideIcons.mail,
-                                        size: 16,
-                                        color: theme.colorScheme.onSurface
-                                            .withValues(alpha: 0.6),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Flexible(
-                                      child: Text(
-                                        widget.completionEmailNote!,
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          height: 1.4,
-                                          color: theme.colorScheme.onSurface
-                                              .withValues(alpha: 0.68),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          SafeArea(
-            top: false,
-            child: _StaggeredEntrance(
-              controller: _controller,
-              interval: const Interval(0.36, 1, curve: Curves.easeOutCubic),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  PebbleButton.primary(
-                    onPressed: widget.onBackToHome,
-                    label: 'Back to Home',
-                  ),
-                  const SizedBox(height: PebbleSpacing.sm),
-                  PebbleButton.secondary(
-                    onPressed: widget.onReviewRoutine,
-                    label: 'Review routine',
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RoutineSummaryCard extends StatelessWidget {
-  const _RoutineSummaryCard({
-    required this.totalStepsCompleted,
-    required this.totalPhotosSaved,
-    required this.totalSteps,
-    required this.skippedSteps,
-    required this.showPhotoSummary,
-  });
-
-  final int totalStepsCompleted;
-  final int totalPhotosSaved;
-  final int totalSteps;
-  final int skippedSteps;
-  final bool showPhotoSummary;
-
-  @override
-  Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    // Card style (DESIGN_DIRECTION.md §3.4): themed fill, a hairline in light
-    // themes, no shadow. It used to be a hard-coded white slab in every theme.
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(PebbleSpacing.xl),
-      decoration: BoxDecoration(
-        color: foundation.surfaceLow,
-        borderRadius: PebbleRadius.lgAll,
-        border: isDark
-            ? null
-            : Border.all(color: foundation.textPrimary.withValues(alpha: 0.10)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'SUMMARY',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.2,
-              color: context.readableSecondaryText,
-            ),
-          ),
-          const SizedBox(height: 16),
-          // Same counting as History: a skipped step is never shown as done.
-          _RoutineSummaryRow(
-            icon: LucideIcons.circleCheck,
-            iconColor: context.done,
-            label: 'Steps completed',
-            value: skippedSteps > 0
-                ? '$totalStepsCompleted of $totalSteps · $skippedSteps skipped'
-                : '$totalStepsCompleted of $totalSteps',
-          ),
-          if (showPhotoSummary) ...[
-            Divider(
-              height: 25,
-              color: foundation.textPrimary.withValues(alpha: 0.08),
-            ),
-            _RoutineSummaryRow(
-              icon: LucideIcons.image,
-              label: 'Photos saved',
-              value:
-                  '$totalPhotosSaved photo${totalPhotosSaved == 1 ? '' : 's'}',
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _RoutineSummaryRow extends StatelessWidget {
-  const _RoutineSummaryRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-    this.iconColor,
-  });
-
-  final IconData icon;
-  final Color? iconColor;
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final completionText = context.darkFoundation.textPrimary;
-    final mutedText = context.readableSecondaryText;
-
-    return Row(
-      children: [
-        Icon(icon, size: 20, color: iconColor ?? theme.colorScheme.primary),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: completionText,
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            color: mutedText,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _StaggeredEntrance extends StatelessWidget {
-  const _StaggeredEntrance({
-    required this.controller,
-    required this.interval,
-    required this.child,
-  });
-
-  final AnimationController controller;
-  final Interval interval;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final animation = CurvedAnimation(parent: controller, curve: interval);
-
-    return AnimatedBuilder(
-      animation: animation,
-      child: child,
-      builder: (context, child) {
-        return Opacity(
-          opacity: animation.value,
-          child: Transform.translate(
-            offset: Offset(0, 20 * (1 - animation.value)),
-            child: child,
-          ),
-        );
-      },
     );
   }
 }
