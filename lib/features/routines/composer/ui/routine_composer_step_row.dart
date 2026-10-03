@@ -210,9 +210,8 @@ class RoutineComposerStepRow extends StatelessWidget {
                     icon: step.guidanceAudio == null
                         ? LucideIcons.plus
                         : LucideIcons.check,
-                    label: step.guidanceAudio == null
-                        ? 'Voice tip'
-                        : 'Voice tip ✓',
+                    // The check icon and active tone show it is recorded.
+                    label: 'Voice tip',
                     tone: _StepOptionTone.clay,
                     active: step.guidanceAudio != null,
                     onPressed: onVoiceTip,
