@@ -12,7 +12,9 @@ import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/ui/adaptive_layout.dart';
 import 'package:pebble_routines/core/ui/pebble_photo_gallery_viewer.dart';
+import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/features/account_backup/providers/account_status_mapper.dart';
+import 'package:pebble_routines/features/history/domain/run_step_tally.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
 
@@ -81,7 +83,10 @@ class RoutineRunDetailScreen extends ConsumerWidget {
     final completedWindow = _formatCompletedWindow(completionData);
     final photoRefs = _collectRunPhotoRefs();
     final duration = _runDuration(completionData);
-    final completedCount = _completedStepCount(completionData);
+    final tally = RunStepTally.fromCompletionData(completionData);
+    final completedAccent = context.readableAccentText(
+      Theme.of(context).colorScheme.primary,
+    );
     final syncState = showSyncState ? _syncStateForRun() : null;
     final photoLabel = photoRefs.length == 1 ? 'Photo taken' : 'Photos taken';
 
@@ -103,13 +108,13 @@ class RoutineRunDetailScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 18),
-          const Text(
+          Text(
             'COMPLETED',
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.7,
-              color: Color(0xFF8FAF89),
+              color: completedAccent,
             ),
           ),
           const SizedBox(height: 6),
@@ -138,10 +143,16 @@ class RoutineRunDetailScreen extends ConsumerWidget {
             children: [
               Expanded(
                 child: _RunStatCard(
-                  value:
-                      '${completedCount.clamp(0, steps.length)} / ${steps.length}',
-                  label: 'Steps done',
-                  valueColor: const Color(0xFF8FAF89),
+                  key: const ValueKey('run_detail_steps_done'),
+                  value: '${tally.done} of ${tally.total}',
+                  label: tally.skipped > 0
+                      ? 'Done · ${tally.skipped} skipped'
+                      : 'Steps done',
+                  semanticsLabel: tally.summary.replaceFirst(
+                    ' steps',
+                    ' steps done',
+                  ),
+                  valueColor: completedAccent,
                 ),
               ),
               const SizedBox(width: 8),
@@ -173,7 +184,7 @@ class RoutineRunDetailScreen extends ConsumerWidget {
               fontSize: 11,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.7,
-              color: foundation.textMuted,
+              color: context.readableSecondaryText,
             ),
           ),
         ],
@@ -335,8 +346,13 @@ class RoutineRunDetailScreen extends ConsumerWidget {
           final stepCompletion = stepData.length > index
               ? stepData[index] as Map<String, dynamic>?
               : null;
-          final isCompleted = (stepCompletion?['completed'] as bool?) ?? false;
-          final isSkipped = (stepCompletion?['skipped'] as bool?) ?? false;
+          // Runs saved before per-step records existed were only stored on
+          // finish, so they read as done (matching the History list).
+          final hasStepRecords = stepData.isNotEmpty;
+          final isSkipped = isStepSkipped(stepCompletion);
+          final isCompleted = hasStepRecords
+              ? isStepDone(stepCompletion)
+              : true;
           final completedAt = DateTime.tryParse(
             stepCompletion?['completedAt']?.toString() ?? '',
           );
@@ -347,6 +363,7 @@ class RoutineRunDetailScreen extends ConsumerWidget {
             stepIndex: index,
             isCompleted: isCompleted,
             isSkipped: isSkipped,
+            hasStepRecord: hasStepRecords,
             completedAt: completedAt,
             isLast: index == steps.length - 1,
             stepPhotos: stepCompletion?['photos'] as List<dynamic>? ?? [],
@@ -363,6 +380,7 @@ class RoutineRunDetailScreen extends ConsumerWidget {
     required int stepIndex,
     required bool isCompleted,
     required bool isSkipped,
+    required bool hasStepRecord,
     DateTime? completedAt,
     required bool isLast,
     List<dynamic> stepPhotos = const [],
@@ -474,11 +492,15 @@ class RoutineRunDetailScreen extends ConsumerWidget {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'Step ${stepIndex + 1}',
+                                  isSkipped
+                                      ? 'Step ${stepIndex + 1} · Skipped'
+                                      : (!isCompleted && hasStepRecord)
+                                      ? 'Step ${stepIndex + 1} · Not done'
+                                      : 'Step ${stepIndex + 1}',
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,
-                                    color: foundation.textMuted,
+                                    color: context.readableSecondaryText,
                                   ),
                                 ),
                               ],
@@ -491,7 +513,7 @@ class RoutineRunDetailScreen extends ConsumerWidget {
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
-                                color: foundation.textMuted,
+                                color: context.readableSecondaryText,
                               ),
                             ),
                           ],
@@ -618,14 +640,6 @@ class RoutineRunDetailScreen extends ConsumerWidget {
     }
 
     return refs;
-  }
-
-  int _completedStepCount(Map<String, dynamic>? data) {
-    final stepData = data?['steps'] as List<dynamic>? ?? const [];
-    return stepData.where((step) {
-      return step is Map &&
-          (step['completed'] == true || step['skipped'] == true);
-    }).length;
   }
 
   Duration? _runDuration(Map<String, dynamic>? data) {
@@ -851,19 +865,22 @@ class _RunBackButton extends StatelessWidget {
 
 class _RunStatCard extends StatelessWidget {
   const _RunStatCard({
+    super.key,
     required this.value,
     required this.label,
     this.valueColor,
+    this.semanticsLabel,
   });
 
   final String value;
   final String label;
   final Color? valueColor;
+  final String? semanticsLabel;
 
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
-    return Container(
+    final card = Container(
       height: 62,
       padding: const EdgeInsets.fromLTRB(11, 9, 10, 8),
       decoration: BoxDecoration(
@@ -900,13 +917,19 @@ class _RunStatCard extends StatelessWidget {
                   fontSize: 11,
                   height: 1.05,
                   fontWeight: FontWeight.w600,
-                  color: foundation.textMuted,
+                  color: context.readableSecondaryText,
                 ),
               ),
             ],
           ),
         ),
       ),
+    );
+    if (semanticsLabel == null) return card;
+    return Semantics(
+      label: semanticsLabel,
+      excludeSemantics: true,
+      child: card,
     );
   }
 }
