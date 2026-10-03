@@ -26,6 +26,7 @@ import 'package:pebble_routines/features/account_backup/ui/cloud_backup_screen.d
 import 'package:pebble_routines/features/settings/ui/settings_screen.dart';
 import 'package:pebble_routines/features/onboarding/ui/onboarding_screen.dart';
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
+import 'package:pebble_routines/features/subscription/ui/premium_lapse_ui.dart';
 import 'features/settings/data/player_settings_provider.dart';
 import 'core/notifications/notification_service.dart';
 import 'core/database/local_db.dart';
@@ -39,6 +40,8 @@ import 'features/sync/cloud_sync_coordinator.dart';
 import 'features/auth/providers/auth_state_provider.dart';
 import 'features/subscription/data/purchase_repository.dart';
 import 'features/subscription/data/revenuecat_runtime_config.dart';
+import 'features/subscription/domain/routine_limit_policy.dart';
+import 'features/subscription/providers/kept_routines_provider.dart';
 import 'features/subscription/providers/premium_feature_policy_provider.dart';
 // duplicate import removed
 
@@ -67,8 +70,12 @@ final routineSessionEntryProvider = FutureProvider.autoDispose
       if (routine == null) {
         return null;
       }
-      final orderedIndex = routines.indexWhere((item) => item.id == routine.id);
-      if (orderedIndex >= 0 && policy.isRoutineRestricted(orderedIndex)) {
+      final restricted = restrictedRoutineIds(
+        routines: routines,
+        policy: policy,
+        keptRoutineIds: ref.read(keptRoutinesProvider),
+      );
+      if (restricted.contains(routine.id)) {
         throw const RoutineSoftLockedException();
       }
       final session = await sessionRepo.startOrResumeSession(
@@ -316,7 +323,7 @@ final _routerProvider = Provider<GoRouter>((ref) {
                   body: Center(child: CircularProgressIndicator.adaptive()),
                 ),
                 error: (e, st) => e is RoutineSoftLockedException
-                    ? const _RoutineLockedScreen()
+                    ? _RoutineLockedScreen(routineId: id)
                     : const Scaffold(
                         body: Center(child: Text('Could not load routine')),
                       ),
@@ -389,7 +396,9 @@ class _RoutineUnavailableScreen extends StatelessWidget {
 }
 
 class _RoutineLockedScreen extends StatelessWidget {
-  const _RoutineLockedScreen();
+  const _RoutineLockedScreen({required this.routineId});
+
+  final int routineId;
 
   @override
   Widget build(BuildContext context) {
@@ -419,7 +428,9 @@ class _RoutineLockedScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'This routine is still saved, but it needs Premium to unlock.',
+                  'This routine is still saved. Free includes 2 routines, so '
+                  'it unlocks again when you renew, or when you choose it as '
+                  'one of the 2 to keep.',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurface.withValues(alpha: 0.64),
@@ -431,6 +442,14 @@ class _RoutineLockedScreen extends StatelessWidget {
                     context,
                   ).push(premiumRoute(source: PremiumEntrySource.routineLimit)),
                   child: const Text('Renew Premium'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton(
+                  onPressed: () => showKeepRoutinesSheet(
+                    context,
+                    preselect: routineId,
+                  ),
+                  child: const Text('Choose routines to keep'),
                 ),
                 const SizedBox(height: 8),
                 TextButton(

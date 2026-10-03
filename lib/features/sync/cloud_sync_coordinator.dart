@@ -102,6 +102,9 @@ class CloudSyncCoordinator {
   );
 
   Future<void> kick() async {
+    // Read the plan only after it has loaded: the Free default would delete a
+    // Premium user's older photos and history at start-up.
+    await _ref.read(subscriptionAccountControllerProvider.notifier).whenLoaded;
     final hasPremiumHistory = _ref.read(
       accountHasPremiumHistoryRetentionProvider,
     );

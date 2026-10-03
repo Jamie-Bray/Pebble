@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -73,8 +75,21 @@ class SubscriptionAccountController
     bool loadOnInit = true,
   }) : super(const SubscriptionAccountState.initial()) {
     if (loadOnInit) {
-      _load();
+      unawaited(_load().whenComplete(_markLoaded));
+    } else {
+      _markLoaded();
     }
+  }
+
+  final Completer<void> _loaded = Completer<void>();
+
+  /// Completes once the stored entitlement has been read. Until then the
+  /// state is the Free default, so anything destructive that depends on the
+  /// plan (history retention) must wait for this first.
+  Future<void> get whenLoaded => _loaded.future;
+
+  void _markLoaded() {
+    if (!_loaded.isCompleted) _loaded.complete();
   }
 
   final LocalDb _db;
@@ -87,6 +102,9 @@ class SubscriptionAccountController
   static const _lastCheckedAtKey = 'pebble.entitlement.last_checked_at';
   static const _periodEndsAtKey = 'pebble.entitlement.period_ends_at';
   static const _expiredAtKey = 'pebble.entitlement.expired_at';
+  static const _lapseNoticedAtKey = 'pebble.entitlement.lapse_noticed_at';
+  static const _willRenewKey = 'pebble.entitlement.will_renew';
+  static const _billingIssueAtKey = 'pebble.entitlement.billing_issue_at';
   static const _lastErrorKey = 'pebble.entitlement.last_error';
 
   Future<void> _load() async {
@@ -133,6 +151,8 @@ class SubscriptionAccountController
   Future<void> applyRevenueCatEntitlement(
     UserTier newTier, {
     DateTime? periodEndsAt,
+    bool? willRenew,
+    DateTime? billingIssueAt,
   }) async {
     debugPrint(
       '[PremiumEntitlement] Storing RevenueCat entitlement: '
@@ -147,6 +167,11 @@ class SubscriptionAccountController
       entitlementPeriodEndsAt: periodEndsAt,
       clearEntitlementPeriodEndsAt: periodEndsAt == null,
       clearEntitlementExpiredAt: true,
+      clearEntitlementLapseNoticedAt: true,
+      entitlementWillRenew: willRenew,
+      clearEntitlementWillRenew: willRenew == null,
+      entitlementBillingIssueAt: billingIssueAt,
+      clearEntitlementBillingIssueAt: billingIssueAt == null,
       clearEntitlementError: true,
       bootstrapStatus: newTier == UserTier.personalFree
           ? BootstrapStatus.idle
@@ -175,6 +200,7 @@ class SubscriptionAccountController
       entitlementPeriodEndsAt: periodEndsAt,
       clearEntitlementPeriodEndsAt: periodEndsAt == null,
       clearEntitlementExpiredAt: true,
+      clearEntitlementLapseNoticedAt: true,
       clearEntitlementError: true,
       bootstrapStatus: newTier == UserTier.personalFree
           ? BootstrapStatus.idle
@@ -200,6 +226,11 @@ class SubscriptionAccountController
           state.entitlementExpiredAt ??
           state.entitlementPeriodEndsAt ??
           DateTime.now(),
+      // The store has just said Premium is not active: the lapse is real.
+      entitlementLapseNoticedAt:
+          state.entitlementLapseNoticedAt ?? DateTime.now(),
+      clearEntitlementWillRenew: true,
+      clearEntitlementBillingIssueAt: true,
       clearEntitlementPeriodEndsAt: true,
       clearEntitlementError: true,
       bootstrapStatus: BootstrapStatus.idle,
@@ -207,6 +238,20 @@ class SubscriptionAccountController
     );
     state = next;
     await _persist(next);
+    await _persistEntitlementMetadata(next);
+  }
+
+  /// Records that the store confirmed a lapse that was so far only inferred
+  /// from a cached period end. Starts the grace countdown; a no-op when the
+  /// plan is not expired or the lapse was already confirmed.
+  Future<void> confirmLapseIfExpired() async {
+    if (state.entitlementStatus != EntitlementStatus.expired ||
+        state.entitlementLapseNoticedAt != null) {
+      return;
+    }
+    debugPrint('[PremiumEntitlement] Store confirmed the Premium lapse.');
+    final next = state.copyWith(entitlementLapseNoticedAt: DateTime.now());
+    state = next;
     await _persistEntitlementMetadata(next);
   }
 
@@ -288,6 +333,9 @@ class SubscriptionAccountController
             state.entitlementExpiredAt ??
             state.entitlementPeriodEndsAt ??
             checkedAt,
+        entitlementLapseNoticedAt: state.entitlementLapseNoticedAt ?? now,
+        clearEntitlementWillRenew: true,
+        clearEntitlementBillingIssueAt: true,
         clearEntitlementPeriodEndsAt: true,
         clearEntitlementError: true,
         bootstrapStatus: BootstrapStatus.idle,
@@ -557,6 +605,8 @@ class SubscriptionAccountController
     final checkedAtRaw = prefs?.getString(_lastCheckedAtKey);
     final periodEndsAtRaw = prefs?.getString(_periodEndsAtKey);
     final expiredAtRaw = prefs?.getString(_expiredAtKey);
+    final lapseNoticedAtRaw = prefs?.getString(_lapseNoticedAtKey);
+    final billingIssueAtRaw = prefs?.getString(_billingIssueAtKey);
     return state.copyWith(
       entitlementStatus: status,
       entitlementSource: source,
@@ -569,6 +619,13 @@ class SubscriptionAccountController
       entitlementExpiredAt: expiredAtRaw == null
           ? null
           : DateTime.tryParse(expiredAtRaw),
+      entitlementLapseNoticedAt: lapseNoticedAtRaw == null
+          ? null
+          : DateTime.tryParse(lapseNoticedAtRaw),
+      entitlementWillRenew: prefs?.getBool(_willRenewKey),
+      entitlementBillingIssueAt: billingIssueAtRaw == null
+          ? null
+          : DateTime.tryParse(billingIssueAtRaw),
       entitlementError: prefs?.getString(_lastErrorKey),
     );
   }
@@ -590,6 +647,10 @@ class SubscriptionAccountController
       entitlementStatus: EntitlementStatus.expired,
       lastEntitlementCheckAt: DateTime.now(),
       entitlementExpiredAt: state.entitlementExpiredAt ?? periodEndsAt,
+      // Inferred from the cached period end only: the lapse is not
+      // confirmed until the store or server says so.
+      clearEntitlementWillRenew: true,
+      clearEntitlementBillingIssueAt: true,
       clearEntitlementPeriodEndsAt: true,
       clearLastSyncError: true,
     );
@@ -620,12 +681,40 @@ class SubscriptionAccountController
     } else {
       await prefs.setString(_expiredAtKey, expiredAt.toIso8601String());
     }
+    await _setOrRemoveDate(
+      prefs,
+      _lapseNoticedAtKey,
+      next.entitlementLapseNoticedAt,
+    );
+    await _setOrRemoveDate(
+      prefs,
+      _billingIssueAtKey,
+      next.entitlementBillingIssueAt,
+    );
+    final willRenew = next.entitlementWillRenew;
+    if (willRenew == null) {
+      await prefs.remove(_willRenewKey);
+    } else {
+      await prefs.setBool(_willRenewKey, willRenew);
+    }
     final error = next.entitlementError;
     if (error == null || error.isEmpty) {
       await prefs.remove(_lastErrorKey);
     } else {
       await prefs.setString(_lastErrorKey, error);
     }
+  }
+}
+
+Future<void> _setOrRemoveDate(
+  SharedPreferences prefs,
+  String key,
+  DateTime? value,
+) async {
+  if (value == null) {
+    await prefs.remove(key);
+  } else {
+    await prefs.setString(key, value.toIso8601String());
   }
 }
 

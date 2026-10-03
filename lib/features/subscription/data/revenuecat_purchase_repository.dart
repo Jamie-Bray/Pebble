@@ -191,6 +191,7 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
       }
       throw PurchaseFlowException(
         revenueCatMessageForPurchasesError(errorCode),
+        isPending: errorCode == rc.PurchasesErrorCode.paymentPendingError,
       );
     }
     return _applyCustomerInfo(
@@ -238,6 +239,7 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
         ),
       );
     }
+    _noteManagementUrl(customerInfo);
     var entitlement = _activeEntitlement(customerInfo);
     var restoredAfterLogin = false;
     if (entitlement == null &&
@@ -282,6 +284,10 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
       }
       if (userId != null && _hasVerifiedPaidRevenueCatEntitlement()) {
         await _ref.read(entitlementStoreProvider).applyExpiredEntitlement();
+      } else {
+        // Bookkeeping only: no store call. A lapse inferred from the cached
+        // period end is now confirmed, which starts the grace countdown.
+        await _ref.read(entitlementStoreProvider).confirmLapseIfExpired();
       }
       return;
     }
@@ -401,12 +407,22 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     notifyListeners();
   }
 
+  /// The listener only fires on changes, so the store that sold the plan
+  /// (for "Manage subscription") is also read from every fetched result.
+  void _noteManagementUrl(rc.CustomerInfo customerInfo) {
+    final url = customerInfo.managementURL;
+    if (url != null && url.isNotEmpty) {
+      _storeManagementUrl = url;
+    }
+  }
+
   Future<PurchaseResult> _applyCustomerInfo(
     rc.CustomerInfo customerInfo, {
     required BillingPlan plan,
     bool purchased = false,
     bool waitForServerMirror = false,
   }) async {
+    _noteManagementUrl(customerInfo);
     final entitlement = _activeEntitlement(customerInfo);
     if (entitlement == null) {
       final preserved = await _preserveActiveStoreEntitlementWhenMissing(
@@ -444,6 +460,10 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     await entitlementStore.applyRevenueCatEntitlement(
       UserTier.personalPremium,
       periodEndsAt: _expirationDate(entitlement),
+      willRenew: entitlement.willRenew,
+      billingIssueAt: DateTime.tryParse(
+        entitlement.billingIssueDetectedAt ?? '',
+      ),
     );
     final mirrored = await _refreshServerMirror(
       waitForServerMirror: waitForServerMirror,
@@ -626,7 +646,7 @@ bool revenueCatAllowsSilentRestore(TargetPlatform platform) =>
 String revenueCatMessageForPurchasesError(rc.PurchasesErrorCode code) {
   switch (code) {
     case rc.PurchasesErrorCode.paymentPendingError:
-      return 'Your purchase is pending. Premium will unlock after the store confirms it.';
+      return 'Your payment is pending. Premium unlocks when the store confirms it, so there is no need to buy again.';
     case rc.PurchasesErrorCode.productAlreadyPurchasedError:
       return 'Premium is already active on this store account.';
     case rc.PurchasesErrorCode.networkError:

@@ -323,7 +323,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('Premium activated'), findsOneWidget);
-    expect(find.textContaining('One last thing'), findsOneWidget);
+    expect(find.textContaining('Optional: sign in'), findsOneWidget);
     expect(
       find.text(
         'Sign in to back up your history, routines, and photos, and keep them ready across devices. Totally optional; Premium works right now without it.',

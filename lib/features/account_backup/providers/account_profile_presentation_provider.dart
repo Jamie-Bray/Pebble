@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
+import 'package:pebble_routines/features/subscription/data/models/subscription_account_state.dart';
 import 'package:pebble_routines/features/subscription/data/purchase_repository.dart';
 import 'package:pebble_routines/features/subscription/domain/subscription_lifecycle.dart';
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
@@ -97,7 +98,7 @@ final accountProfilePresentationProvider = Provider<AccountProfilePresentation>(
       canManagePlan: hasLocalPremium && purchase.manageSubscriptionsUrl != null,
       hasPremium: hasLocalPremium,
       planPeriodLine: policy.hasActiveLocalPremium
-          ? _periodLine(account.entitlementPeriodEndsAt)
+          ? accountPlanPeriodLine(account)
           : null,
     );
   },
@@ -188,10 +189,24 @@ String _planStatusLabel(PremiumFeaturePolicy policy) {
   }
 }
 
-String? _periodLine(DateTime? endsAt) {
+/// One honest line about what happens at the end of the current period:
+/// renews, ends (after a cancellation), or needs a payment fix.
+String? accountPlanPeriodLine(SubscriptionAccountState account) {
+  if (account.entitlementBillingIssueAt != null) {
+    return 'The store could not take the last payment. Update your payment '
+        'method in your store account to keep Premium.';
+  }
+  final endsAt = account.entitlementPeriodEndsAt;
   if (endsAt == null) return null;
   final date = DateFormat('d MMMM y').format(endsAt.toLocal());
-  return 'Current period ends $date. Renews automatically unless cancelled.';
+  switch (account.entitlementWillRenew) {
+    case false:
+      return 'Cancelled. Premium stays on until $date, then Free limits apply.';
+    case true:
+      return 'Renews on $date. Cancel anytime in your store account.';
+    case null:
+      return 'Current period ends $date. Renews automatically unless cancelled.';
+  }
 }
 
 String? _providerLabel(String? provider) {

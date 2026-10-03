@@ -24,6 +24,20 @@ class SubscriptionAccountState {
   /// When the entitlement first became expired. Sticky across repeated
   /// entitlement checks so the grace countdown does not slide forward.
   final DateTime? entitlementExpiredAt;
+
+  /// When this device first confirmed the lapse with the store or the server.
+  /// Null while the lapse is only inferred from a cached period end (for
+  /// example offline, when a renewal may simply not have been seen yet).
+  /// Sticky, so the grace countdown cannot be restarted by later checks.
+  final DateTime? entitlementLapseNoticedAt;
+
+  /// Whether the store says the subscription renews at the end of the
+  /// current period. False after the user cancels. Null when unknown.
+  final bool? entitlementWillRenew;
+
+  /// When the store reported a billing problem (Google Play grace period or
+  /// account hold, App Store billing retry). Null when there is none.
+  final DateTime? entitlementBillingIssueAt;
   final String? entitlementError;
 
   const SubscriptionAccountState({
@@ -41,6 +55,9 @@ class SubscriptionAccountState {
     this.lastEntitlementCheckAt,
     this.entitlementPeriodEndsAt,
     this.entitlementExpiredAt,
+    this.entitlementLapseNoticedAt,
+    this.entitlementWillRenew,
+    this.entitlementBillingIssueAt,
     this.entitlementError,
   });
 
@@ -59,6 +76,9 @@ class SubscriptionAccountState {
       lastEntitlementCheckAt = null,
       entitlementPeriodEndsAt = null,
       entitlementExpiredAt = null,
+      entitlementLapseNoticedAt = null,
+      entitlementWillRenew = null,
+      entitlementBillingIssueAt = null,
       entitlementError = null;
 
   SubscriptionAccountState copyWith({
@@ -85,6 +105,12 @@ class SubscriptionAccountState {
     bool clearEntitlementPeriodEndsAt = false,
     DateTime? entitlementExpiredAt,
     bool clearEntitlementExpiredAt = false,
+    DateTime? entitlementLapseNoticedAt,
+    bool clearEntitlementLapseNoticedAt = false,
+    bool? entitlementWillRenew,
+    bool clearEntitlementWillRenew = false,
+    DateTime? entitlementBillingIssueAt,
+    bool clearEntitlementBillingIssueAt = false,
     String? entitlementError,
     bool clearEntitlementError = false,
   }) {
@@ -114,6 +140,15 @@ class SubscriptionAccountState {
       entitlementExpiredAt: clearEntitlementExpiredAt
           ? null
           : entitlementExpiredAt ?? this.entitlementExpiredAt,
+      entitlementLapseNoticedAt: clearEntitlementLapseNoticedAt
+          ? null
+          : entitlementLapseNoticedAt ?? this.entitlementLapseNoticedAt,
+      entitlementWillRenew: clearEntitlementWillRenew
+          ? null
+          : entitlementWillRenew ?? this.entitlementWillRenew,
+      entitlementBillingIssueAt: clearEntitlementBillingIssueAt
+          ? null
+          : entitlementBillingIssueAt ?? this.entitlementBillingIssueAt,
       entitlementError: clearEntitlementError
           ? null
           : entitlementError ?? this.entitlementError,

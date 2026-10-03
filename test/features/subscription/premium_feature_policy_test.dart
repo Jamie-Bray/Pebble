@@ -154,6 +154,9 @@ void main() {
           lastEntitlementCheckAt: DateTime.now().subtract(
             const Duration(days: 8),
           ),
+          entitlementLapseNoticedAt: DateTime.now().subtract(
+            const Duration(days: 8),
+          ),
         ),
       );
       addTearDown(harness.dispose);

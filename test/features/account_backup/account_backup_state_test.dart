@@ -1495,6 +1495,86 @@ void main() {
       expect(find.text('Already have Premium?'), findsNothing);
     });
 
+    testWidgets(
+      '/account-hub after a lapse keeps sign-out, restore and delete, and '
+      'says honestly what happens to history',
+      (tester) async {
+        final noticedAt = DateTime.now().subtract(const Duration(days: 2));
+        final harness = _buildUiContainer(
+          auth: const AuthSessionSummary(
+            isSignedIn: true,
+            userId: 'user-1',
+            email: 'jamie@example.com',
+            provider: 'google',
+          ),
+          entitlement: const EntitlementState(
+            personalTier: UserTier.personalFree,
+            source: EntitlementSource.revenueCat,
+            lastCheckedAt: null,
+            isRefreshing: false,
+            lastError: null,
+            status: EntitlementStatus.expired,
+          ),
+          cloudAccess: const PersonalCloudAccessState(
+            status: PersonalCloudAccessStatus.expiredGrace,
+            label: 'Backup is off',
+            detail: 'Premium ended.',
+          ),
+          account: SubscriptionAccountState(
+            entitlementTier: UserTier.personalFree,
+            entitlementStatus: EntitlementStatus.expired,
+            entitlementSource: EntitlementSource.revenueCat,
+            pendingTier: null,
+            bootstrapStatus: BootstrapStatus.idle,
+            userId: 'user-1',
+            email: 'jamie@example.com',
+            authProvider: 'google',
+            lastBootstrapAt: null,
+            lastSyncAt: null,
+            lastSyncError: null,
+            entitlementExpiredAt: noticedAt,
+            entitlementLapseNoticedAt: noticedAt,
+          ),
+          pendingCount: 0,
+        );
+        addTearDown(() async {
+          harness.container.dispose();
+          await harness.database.close();
+        });
+        await _primeUiState(harness.container);
+
+        await _pumpAccountWidget(tester, harness, const AccountHubScreen());
+
+        expect(find.text('Renew Premium'), findsOneWidget);
+        expect(find.textContaining('From '), findsWidgets);
+        expect(find.textContaining('is locked'), findsNothing);
+        expect(
+          find.textContaining('If backup was on, your account keeps a copy'),
+          findsOneWidget,
+        );
+        await tester.scrollUntilVisible(
+          find.text('Delete account'),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(find.text('Restore purchase'), findsOneWidget);
+        expect(find.text('Sign out'), findsOneWidget);
+
+        await tester.drag(find.byType(Scrollable).first, const Offset(0, -300));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Delete account'));
+        await tester.pumpAndSettle();
+        expect(
+          find.text('Local routines on this device stay here.'),
+          findsOneWidget,
+        );
+        expect(
+          find.textContaining('this does not cancel it'),
+          findsOneWidget,
+        );
+      },
+    );
+
     testWidgets('/cloud-backup lets a signed-out free user sign in', (
       tester,
     ) async {

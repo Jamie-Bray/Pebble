@@ -10,13 +10,24 @@ class SubscriptionLifecycle {
     required this.phase,
     required this.expiredAt,
     required this.graceEndsAt,
+    this.lapseConfirmed = false,
   });
 
+  /// How long a lapsed subscriber keeps Premium history (and their extra
+  /// routines) on this phone. It is counted from the later of the period end
+  /// and the moment this device confirmed the lapse, so a user who opens the
+  /// app weeks after Premium ended still gets the full warning window before
+  /// anything is removed.
   static const graceDuration = Duration(days: 7);
 
   final SubscriptionLifecyclePhase phase;
   final DateTime? expiredAt;
   final DateTime? graceEndsAt;
+
+  /// True once the store or server confirmed the lapse. While false the end
+  /// is only inferred from a cached period end, so nothing destructive may
+  /// happen yet (the renewal may simply not have been seen).
+  final bool lapseConfirmed;
 
   bool get hasPremiumRetention =>
       phase == SubscriptionLifecyclePhase.activePremium ||
@@ -55,13 +66,20 @@ SubscriptionLifecycle subscriptionLifecycleForAccount(
   if (account.entitlementStatus == EntitlementStatus.expired) {
     final expiredAt =
         account.entitlementExpiredAt ?? account.lastEntitlementCheckAt ?? clock;
-    final graceEndsAt = expiredAt.add(SubscriptionLifecycle.graceDuration);
+    final noticedAt = account.entitlementLapseNoticedAt;
+    // Unconfirmed lapses stay in grace: the countdown only starts once the
+    // store or server has said Premium really ended.
+    final graceStart = noticedAt == null
+        ? (clock.isAfter(expiredAt) ? clock : expiredAt)
+        : (noticedAt.isAfter(expiredAt) ? noticedAt : expiredAt);
+    final graceEndsAt = graceStart.add(SubscriptionLifecycle.graceDuration);
     return SubscriptionLifecycle(
       phase: clock.isBefore(graceEndsAt)
           ? SubscriptionLifecyclePhase.expiredGrace
           : SubscriptionLifecyclePhase.expired,
       expiredAt: expiredAt,
       graceEndsAt: graceEndsAt,
+      lapseConfirmed: noticedAt != null,
     );
   }
 
