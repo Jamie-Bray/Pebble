@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -16,6 +17,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/ui/pebble_buttons.dart';
+import 'package:pebble_routines/core/ui/pebble_time.dart';
 import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/core/navigation/app_shell.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
@@ -30,6 +32,7 @@ import 'package:pebble_routines/features/routines/execution/data/models/routine_
 import 'package:pebble_routines/features/routines/execution/data/services/routine_player_photo_picker.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
 import 'package:pebble_routines/features/routines/execution/providers/player_state_provider.dart';
+import 'package:pebble_routines/features/routines/execution/ui/step_check_off.dart';
 import 'package:pebble_routines/features/routines/composer/data/guidance_audio_storage.dart';
 import 'package:pebble_routines/features/routines/shared/ui/guidance_audio_play_button.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
@@ -48,9 +51,7 @@ class RoutinePlayerScreen extends ConsumerStatefulWidget {
 }
 
 class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
-    with WidgetsBindingObserver {
-  final GlobalKey<AnimatedVisualAnchorState> _visualAnchorKey =
-      GlobalKey<AnimatedVisualAnchorState>();
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   static const _pendingCameraCapturePrefsKey =
       'routine_player_pending_camera_capture';
   String? _lastReminderSentRunId;
@@ -58,8 +59,27 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
   /// What happened to this run's completion email, shown on the completion
   /// screen. Null when no email was due.
   String? _completionEmailNote;
-  bool _isPrimaryPreludeRunning = false;
   AudioPlayer? _chimePlayer;
+
+  /// Moment 1. The check is saved the instant it is tapped; this controller
+  /// only plays the motion over the already-saved state.
+  late final AnimationController _checkOff = AnimationController(
+    vsync: this,
+    duration: CheckOffTimeline.duration,
+  )..addStatusListener(_onCheckOffStatus);
+
+  /// The step that was just checked, shown while it settles into the trail.
+  CheckedStepSnapshot? _outgoing;
+  bool _checkOffReduced = false;
+
+  /// True for [CheckOffTimeline.inputGuard] after a check: a double tap must
+  /// never check two steps.
+  bool _inputGuarded = false;
+
+  /// Keeps the final step on screen while its check draws, before the
+  /// completion screen fades in.
+  bool _holdCompletion = false;
+  final List<Timer> _checkOffTimers = <Timer>[];
 
   @override
   void initState() {
@@ -142,19 +162,77 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _cancelCheckOffTimers();
+    _checkOff.dispose();
     unawaited(_chimePlayer?.dispose());
     super.dispose();
   }
 
-  /// Opt-in reassurance feedback when a step is checked off.
-  void _playStepCompleteFeedback() {
+  void _onCheckOffStatus(AnimationStatus status) {
+    if (status == AnimationStatus.completed && mounted && _outgoing != null) {
+      setState(() => _outgoing = null);
+    }
+  }
+
+  void _cancelCheckOffTimers() {
+    for (final timer in _checkOffTimers) {
+      timer.cancel();
+    }
+    _checkOffTimers.clear();
+  }
+
+  /// Under Reduce Motion (or with transitions off) the check-off is a plain
+  /// cross-fade. Haptics are not motion, so they stay.
+  bool _reduceMotion() =>
+      MediaQuery.disableAnimationsOf(context) ||
+      !ref.read(playerSettingsControllerProvider).enableTransitions;
+
+  /// Jumps any running check-off to its end, so a fast second tap starts the
+  /// next one cleanly instead of queueing behind it.
+  void _finishRunningCheckOff() {
+    _cancelCheckOffTimers();
+    if (_checkOff.isAnimating) {
+      _checkOff.value = 1;
+    }
+    _outgoing = null;
+    _holdCompletion = false;
+    _inputGuarded = false;
+  }
+
+  void _scheduleCheckOff(Duration delay, VoidCallback action) {
+    _checkOffTimers.add(
+      Timer(delay, () {
+        if (mounted) action();
+      }),
+    );
+  }
+
+  /// "Tap, stroke, stamp, settle": a light tap now and, as the stroke
+  /// lands, a second click plus the optional stone-tap sound.
+  void _playCheckFeedback() {
     final playerSettings = ref.read(playerSettingsControllerProvider);
     if (playerSettings.stepCompleteHaptic) {
-      unawaited(HapticFeedback.mediumImpact());
+      unawaited(HapticFeedback.lightImpact());
     }
-    if (playerSettings.stepCompleteSound) {
-      unawaited(_playChime());
-    }
+    _scheduleCheckOff(CheckOffTimeline.secondCue, () {
+      final settings = ref.read(playerSettingsControllerProvider);
+      if (settings.stepCompleteHaptic) {
+        unawaited(HapticFeedback.selectionClick());
+      }
+      if (settings.stepCompleteSound) {
+        unawaited(_playChime());
+      }
+    });
+  }
+
+  void _announce(String message) {
+    unawaited(
+      SemanticsService.sendAnnouncement(
+        View.of(context),
+        message,
+        Directionality.of(context),
+      ),
+    );
   }
 
   Future<void> _playChime() async {
@@ -232,7 +310,36 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
               : BoxDecoration(color: themeData.colorScheme.surface),
           child: SafeArea(
             bottom: false,
-            child: switch (playerState.screenPhase) {
+            child: _PhaseSwitcher(
+              reduceMotion: MediaQuery.disableAnimationsOf(context),
+              child: _buildPhase(context, themeData, playerState, controller),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhase(
+    BuildContext context,
+    ThemeData themeData,
+    RoutinePlayerUiState playerState,
+    RoutinePlayerController controller,
+  ) {
+    // The final step's check draws before the completion screen fades in,
+    // even though the run is already saved.
+    final phase =
+        playerState.screenPhase == RoutinePlayerScreenPhase.completion &&
+            _holdCompletion
+        ? RoutinePlayerScreenPhase.completing
+        : playerState.screenPhase;
+    return KeyedSubtree(
+      key: ValueKey(
+        phase == RoutinePlayerScreenPhase.completing
+            ? RoutinePlayerScreenPhase.ready
+            : phase,
+      ),
+      child: switch (phase) {
               RoutinePlayerScreenPhase.loading => const _PlayerStatusView(
                 title: 'Loading routine',
                 message: 'Restoring your place.',
@@ -286,10 +393,7 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
                 themeData,
                 playerState,
               ),
-            },
-          ),
-        ),
-      ),
+      },
     );
   }
 
@@ -326,108 +430,262 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
     final showPhotoSummary = playerState.hasPhotoRequirement;
     final isFreeTier = !premiumPolicy.canUseExtraProofPhotos;
     final isStepLocked = playerState.isCurrentStepLocked;
+    final showRing =
+        playerSettings.showVisualAnchor &&
+        !playerState.hasPhotoRequirement &&
+        !isStepLocked;
+    final type = PebbleType.of(context);
+    final instructionStyle = type.step.copyWith(
+      color: themeData.colorScheme.onSurface,
+    );
+
+    final photoSummary = showPhotoSummary && !isStepLocked
+        ? _PlayerPhotoSummary(
+            proofAssets: playerState.proofAssets,
+            capturedPhotoCount: playerState.capturedPhotoCount,
+            requiredPhotoCount: playerState.requiredPhotoCount,
+            maxPhotoCount: playerState.maxProofPhotosPerStep,
+            isFreeTier: isFreeTier,
+            resolveProofPath: proofStorage.resolveStoredPath,
+            onAddPhoto: canAddMore ? _captureCameraPhoto : null,
+            onChooseFromGallery: showGalleryAction ? _captureGalleryPhoto : null,
+            onOpenPhoto: _openCurrentStepProofGallery,
+            onPhotoLimitUpgrade: isFreeTier ? _openProofPhotoLimitPaywall : null,
+            onRemovePhoto: !playerState.isForegroundBusy
+                ? (proofId) async {
+                    await ref
+                        .read(routinePlayerProvider(widget.sessionId).notifier)
+                        .removeProof(proofId);
+                  }
+                : null,
+          )
+        : null;
+    final guidanceAudioCard =
+        currentStep.guidanceAudio != null && !isStepLocked
+        ? _PlayerGuidanceAudioCard(
+            audio: currentStep.guidanceAudio!,
+            storage: guidanceAudioStorage,
+          )
+        : null;
+
+    final incoming = Column(
+      key: ValueKey('routine-player-step-${playerState.currentStepIndex}'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (isStepLocked) ...[
+          _LockedStepBoundaryBanner(
+            lockedStepCount: playerState.lockedStepCount,
+          ),
+          const SizedBox(height: PebbleSpacing.xl),
+        ],
+        ImageFiltered(
+          enabled: isStepLocked,
+          imageFilter: ui.ImageFilter.blur(sigmaX: 2.4, sigmaY: 2.4),
+          child: Opacity(
+            opacity: isStepLocked ? 0.30 : 1,
+            child: Text(
+              _stepInstruction(currentStep),
+              textAlign: TextAlign.center,
+              style: instructionStyle,
+            ),
+          ),
+        ),
+        if (photoSummary != null) ...[
+          const SizedBox(height: PebbleSpacing.xl),
+          photoSummary,
+        ],
+        if (guidanceAudioCard != null) ...[
+          const SizedBox(height: PebbleSpacing.md),
+          guidanceAudioCard,
+        ],
+      ],
+    );
+
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    final outgoing = _outgoing;
+    final stage = AnimatedBuilder(
+      animation: _checkOff,
+      builder: (context, _) {
+        final timeline = outgoing == null
+            ? null
+            : CheckOffTimeline(_checkOff.value, reduced: _checkOffReduced);
+        return CheckOffStage(
+          incoming: incoming,
+          incomingRing: showRing,
+          instructionStyle: instructionStyle,
+          outgoing: outgoing,
+          timeline: timeline,
+        );
+      },
+    );
+    final trail = AnimatedBuilder(
+      animation: _checkOff,
+      builder: (context, _) {
+        final timeline = outgoing == null
+            ? null
+            : CheckOffTimeline(_checkOff.value, reduced: _checkOffReduced);
+        return StepTrail(
+          entries: _trailEntries(session, including: outgoing?.stepIndex),
+          revealing: outgoing?.stepIndex,
+          reveal: timeline?.trailReveal ?? 1,
+          revealOpacity: timeline?.trailOpacity ?? 1,
+          visibleRows: textScale >= 1.6 ? 1 : 2,
+          maxExpandedHeight: MediaQuery.sizeOf(context).height * 0.4,
+        );
+      },
+    );
+
+    // The footer never flickers through "Saving" for a step save: the check
+    // is already on screen, and the save takes a few milliseconds.
+    final operation = playerState.activeOperation;
+    final holdingFinal = outgoing?.isFinal == true;
+    final savingStep = operation == RoutinePlayerOperation.savingStep;
+    final readyPhase =
+        playerState.screenPhase == RoutinePlayerScreenPhase.ready;
+    final looksEnabled =
+        isStepLocked ||
+        holdingFinal ||
+        (readyPhase &&
+            playerState.hasEnoughPhotos &&
+            (operation == RoutinePlayerOperation.none || savingStep));
+    final primaryLabel = isStepLocked
+        ? 'Upgrade to reactivate'
+        : holdingFinal
+        ? 'Finish routine'
+        : savingStep
+        ? (playerState.isFinalStep ? 'Finish routine' : 'Complete step')
+        : playerState.primaryLabel;
+    final isBusy = !holdingFinal && !savingStep && playerState.isPrimaryBusy;
 
     return _RoutineStepSurface(
       routineName: session.routineTitleSnapshot,
       stepIndex: playerState.currentStepIndex,
       stepCount: playerState.totalSteps,
       progress: playerState.progress,
-      instruction: _stepInstruction(currentStep),
-      guidanceAudioCard: currentStep.guidanceAudio != null && !isStepLocked
-          ? _PlayerGuidanceAudioCard(
-              audio: currentStep.guidanceAudio!,
-              storage: guidanceAudioStorage,
-            )
-          : null,
-      isStepLocked: isStepLocked,
-      lockedStepCount: playerState.lockedStepCount,
-      photoRequired: playerState.hasPhotoRequirement,
-      showVisualAnchor:
-          playerSettings.showVisualAnchor &&
-          !playerState.hasPhotoRequirement &&
-          !isStepLocked,
-      visualAnchorStepKey: playerState.currentStepIndex,
-      visualAnchorKey: _visualAnchorKey,
-      isBusy: playerState.isPrimaryBusy || _isPrimaryPreludeRunning,
-      primaryLabel: isStepLocked
-          ? 'Upgrade to reactivate'
-          : playerState.primaryLabel,
-      isPrimaryEnabled: isStepLocked || playerState.isPrimaryEnabled,
+      trail: trail,
+      stage: stage,
+      isBusy: isBusy,
+      primaryLabel: primaryLabel,
+      isPrimaryEnabled: looksEnabled,
       onBack: _attemptExit,
       onComplete: isStepLocked ? _openStepLimitPaywall : _handlePrimaryAction,
-      photoSummary: showPhotoSummary && !isStepLocked
-          ? _PlayerPhotoSummary(
-              proofAssets: playerState.proofAssets,
-              capturedPhotoCount: playerState.capturedPhotoCount,
-              requiredPhotoCount: playerState.requiredPhotoCount,
-              maxPhotoCount: playerState.maxProofPhotosPerStep,
-              isFreeTier: isFreeTier,
-              resolveProofPath: proofStorage.resolveStoredPath,
-              onAddPhoto: canAddMore ? _captureCameraPhoto : null,
-              onChooseFromGallery: showGalleryAction
-                  ? _captureGalleryPhoto
-                  : null,
-              onOpenPhoto: _openCurrentStepProofGallery,
-              onPhotoLimitUpgrade: isFreeTier
-                  ? _openProofPhotoLimitPaywall
-                  : null,
-              onRemovePhoto: !playerState.isForegroundBusy
-                  ? (proofId) async {
-                      await ref
-                          .read(
-                            routinePlayerProvider(widget.sessionId).notifier,
-                          )
-                          .removeProof(proofId);
-                    }
-                  : null,
-            )
-          : null,
       secondaryActions: _PlayerSecondaryActionRow(
-        showPrevious: playerState.canGoBack,
-        onPrevious: playerState.canGoBack
-            ? () async {
-                await ref
-                    .read(routinePlayerProvider(widget.sessionId).notifier)
-                    .previousStep();
-              }
-            : null,
-        showSkip: playerState.canSkip,
-        onSkip: playerState.canSkip
-            ? () async {
-                final run = await ref
-                    .read(routinePlayerProvider(widget.sessionId).notifier)
-                    .skipCurrentStep();
-                await _handlePostCompletion(run);
-              }
-            : null,
+        showPrevious: readyPhase && playerState.currentStepIndex > 0,
+        onPrevious: _handlePrevious,
+        showSkip: readyPhase && currentStep.canSkip && !isStepLocked,
+        onSkip: _handleSkip,
       ),
     );
   }
 
-  Future<void> _handlePrimaryAction() async {
+  List<StepTrailEntry> _trailEntries(RoutineSession session, {int? including}) {
+    final entries = <StepTrailEntry>[];
+    for (final stepState in session.stepStates) {
+      if (stepState.status == SessionStepStatus.pending) continue;
+      final index = stepState.stepIndex;
+      if (index < 0 || index >= session.routineSnapshotSteps.length) continue;
+      if (index >= session.currentStepIndex && index != including) continue;
+      final at = stepState.completedAt;
+      entries.add(
+        StepTrailEntry(
+          stepIndex: index,
+          label: _stepTitle(session.routineSnapshotSteps[index]),
+          timeLabel: at == null ? null : formatCheckTime(context, at),
+          skipped: stepState.status == SessionStepStatus.skipped,
+        ),
+      );
+    }
+    entries.sort((a, b) => a.stepIndex.compareTo(b.stepIndex));
+    return entries;
+  }
+
+  Future<void> _handlePrimaryAction() => _checkOffCurrentStep(skipped: false);
+
+  Future<void> _handleSkip() => _checkOffCurrentStep(skipped: true);
+
+  Future<void> _handlePrevious() async {
     final state = ref.read(routinePlayerProvider(widget.sessionId));
-    if (_isPrimaryPreludeRunning || !state.isPrimaryEnabled) {
+    if (!state.canGoBack || _inputGuarded) {
       return;
     }
-    final playerSettings = ref.read(playerSettingsControllerProvider);
-    if (playerSettings.enableTransitions) {
-      setState(() => _isPrimaryPreludeRunning = true);
-      try {
-        await _visualAnchorKey.currentState?.playCompletion();
-      } finally {
-        if (mounted) {
-          setState(() => _isPrimaryPreludeRunning = false);
-        }
-      }
+    _finishRunningCheckOff();
+    setState(() {});
+    await ref
+        .read(routinePlayerProvider(widget.sessionId).notifier)
+        .previousStep();
+  }
+
+  /// Moment 1: commit first, then play the motion over the saved state.
+  ///
+  /// The step is saved the instant it is tapped (the time shown is the time
+  /// stored). The motion never blocks: taps within [CheckOffTimeline
+  /// .inputGuard] are dropped so a double tap checks one step, and a later
+  /// tap jumps the running motion to its end. Nothing is ever queued.
+  Future<void> _checkOffCurrentStep({required bool skipped}) async {
+    if (_inputGuarded) {
+      return;
+    }
+    final state = ref.read(routinePlayerProvider(widget.sessionId));
+    final step = state.currentStep;
+    if (step == null || state.session == null) {
+      return;
+    }
+    // The primary button only ever completes the step. Photo capture is
+    // driven by the Add tile in the strip, and completion is gated on having
+    // enough photos, so photoRequired never reaches here enabled.
+    if (skipped ? !state.canSkip : !state.isPrimaryEnabled) {
+      return;
     }
 
-    // The primary button only ever completes the step now. Photo capture is
-    // driven by the Add tile in the strip, and the button stays disabled until
-    // the step has enough photos, so photoRequired never reaches here enabled.
-    _playStepCompleteFeedback();
-    final run = await ref
-        .read(routinePlayerProvider(widget.sessionId).notifier)
-        .completeCurrentStep();
+    final at = DateTime.now();
+    final reduced = _reduceMotion();
+    final label = _stepTitle(step);
+    final timeLabel = formatCheckTime(context, at);
+    final playerSettings = ref.read(playerSettingsControllerProvider);
+    final isFinal = state.isFinalStep;
+
+    _finishRunningCheckOff();
+    setState(() {
+      _outgoing = CheckedStepSnapshot(
+        stepIndex: state.currentStepIndex,
+        instruction: _stepInstruction(step),
+        timeLabel: timeLabel,
+        skipped: skipped,
+        hadRing:
+            playerSettings.showVisualAnchor &&
+            !state.hasPhotoRequirement &&
+            !state.isCurrentStepLocked,
+        isFinal: isFinal,
+      );
+      _checkOffReduced = reduced;
+      _inputGuarded = true;
+      _holdCompletion = isFinal;
+    });
+    _checkOff.duration = reduced
+        ? CheckOffTimeline.reducedDuration
+        : CheckOffTimeline.duration;
+    unawaited(_checkOff.forward(from: 0));
+    _scheduleCheckOff(CheckOffTimeline.inputGuard, () {
+      setState(() => _inputGuarded = false);
+    });
+    if (isFinal) {
+      _scheduleCheckOff(
+        reduced ? CheckOffTimeline.reducedDuration : CheckOffTimeline.finalHold,
+        () => setState(() => _holdCompletion = false),
+      );
+    }
+    // A skip gets no stroke and no buzz: the run stays honest.
+    if (!skipped) {
+      _playCheckFeedback();
+    }
+    _announce(skipped ? '$label, skipped.' : '$label, checked at $timeLabel.');
+
+    final controller = ref.read(
+      routinePlayerProvider(widget.sessionId).notifier,
+    );
+    final run = skipped
+        ? await controller.skipCurrentStep(at: at)
+        : await controller.completeCurrentStep(at: at);
     await _handlePostCompletion(run);
   }
 
@@ -952,47 +1210,35 @@ class _RoutineStepSurface extends StatelessWidget {
     required this.stepIndex,
     required this.stepCount,
     required this.progress,
-    required this.instruction,
-    this.guidanceAudioCard,
-    required this.isStepLocked,
-    required this.lockedStepCount,
-    required this.photoRequired,
-    required this.showVisualAnchor,
-    required this.visualAnchorStepKey,
-    required this.visualAnchorKey,
+    required this.trail,
+    required this.stage,
     required this.isBusy,
     required this.primaryLabel,
     required this.isPrimaryEnabled,
     required this.onBack,
     required this.onComplete,
     required this.secondaryActions,
-    this.photoSummary,
   });
 
   final String routineName;
   final int stepIndex;
   final int stepCount;
   final double progress;
-  final String instruction;
-  final Widget? guidanceAudioCard;
-  final bool isStepLocked;
-  final int lockedStepCount;
-  final bool photoRequired;
-  final bool showVisualAnchor;
-  final int visualAnchorStepKey;
-  final GlobalKey<AnimatedVisualAnchorState> visualAnchorKey;
+  final Widget trail;
+  final Widget stage;
   final bool isBusy;
   final String primaryLabel;
   final bool isPrimaryEnabled;
   final Future<void> Function() onBack;
   final Future<void> Function() onComplete;
-  final Widget? photoSummary;
   final Widget secondaryActions;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final onSurface = theme.colorScheme.onSurface;
+    final type = PebbleType.of(context);
+    final gutter = PebbleSpacing.gutter(MediaQuery.sizeOf(context).width);
 
     return Column(
       children: [
@@ -1004,13 +1250,20 @@ class _RoutineStepSurface extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    minHeight: 8,
-                    backgroundColor: onSurface.withValues(alpha: 0.08),
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      theme.colorScheme.primary,
+                  borderRadius: PebbleRadius.pillAll,
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween(end: progress),
+                    duration: MediaQuery.disableAnimationsOf(context)
+                        ? Duration.zero
+                        : PebbleMotion.emphasized,
+                    curve: PebbleMotion.emphasizedCurve,
+                    builder: (context, value, _) => LinearProgressIndicator(
+                      value: value,
+                      minHeight: 8,
+                      backgroundColor: onSurface.withValues(alpha: 0.08),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        theme.colorScheme.primary,
+                      ),
                     ),
                   ),
                 ),
@@ -1019,87 +1272,59 @@ class _RoutineStepSurface extends StatelessWidget {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
-          child: Column(
-            children: [
-              Text(
-                routineName.toUpperCase(),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0,
-                  color: context.readableSecondaryText,
-                ),
+          padding: EdgeInsets.fromLTRB(gutter, PebbleSpacing.md, gutter, 0),
+          child: Semantics(
+            header: true,
+            label: '$routineName, step ${stepIndex + 1} of $stepCount',
+            excludeSemantics: true,
+            child: Text(
+              '$routineName · ${stepIndex + 1} of $stepCount',
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: type.caption.copyWith(
+                color: context.readableSecondaryText,
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
-              const SizedBox(height: 6),
-              Text(
-                'Step ${stepIndex + 1} of $stepCount',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: context.readableSecondaryText,
-                ),
-              ),
-            ],
+            ),
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(gutter, PebbleSpacing.sm, gutter, 0),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: trail,
           ),
         ),
         Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: MediaQuery.sizeOf(context).height * 0.42,
+          child: LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                gutter,
+                PebbleSpacing.md,
+                gutter,
+                PebbleSpacing.xl,
               ),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 560),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (showVisualAnchor) ...[
-                        AnimatedVisualAnchor(
-                          key: visualAnchorKey,
-                          stepKey: visualAnchorStepKey,
-                        ),
-                        const SizedBox(height: 34),
-                      ],
-                      if (isStepLocked) ...[
-                        _LockedStepBoundaryBanner(
-                          lockedStepCount: lockedStepCount,
-                        ),
-                        const SizedBox(height: 24),
-                      ],
-                      ImageFiltered(
-                        enabled: isStepLocked,
-                        imageFilter: ui.ImageFilter.blur(
-                          sigmaX: 2.4,
-                          sigmaY: 2.4,
-                        ),
-                        child: Opacity(
-                          opacity: isStepLocked ? 0.30 : 1,
-                          child: Text(
-                            instruction,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 36,
-                              fontWeight: FontWeight.w800,
-                              height: 1.08,
-                              color: onSurface,
-                            ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: (constraints.maxHeight - 40).clamp(
+                    0.0,
+                    double.infinity,
+                  ),
+                ),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 560),
+                    // AnimatedSize can't run at zero duration, so Reduce
+                    // Motion simply skips it.
+                    child: MediaQuery.disableAnimationsOf(context)
+                        ? stage
+                        : AnimatedSize(
+                            duration: PebbleMotion.standard,
+                            curve: PebbleMotion.enter,
+                            alignment: Alignment.topCenter,
+                            child: stage,
                           ),
-                        ),
-                      ),
-                      if (photoSummary != null) ...[
-                        const SizedBox(height: 24),
-                        photoSummary!,
-                      ],
-                      if (guidanceAudioCard != null) ...[
-                        const SizedBox(height: 16),
-                        guidanceAudioCard!,
-                      ],
-                    ],
                   ),
                 ),
               ),
@@ -1114,146 +1339,6 @@ class _RoutineStepSurface extends StatelessWidget {
           secondaryActions: secondaryActions,
         ),
       ],
-    );
-  }
-}
-
-class AnimatedVisualAnchor extends StatefulWidget {
-  const AnimatedVisualAnchor({super.key, required this.stepKey});
-
-  final int stepKey;
-
-  @override
-  State<AnimatedVisualAnchor> createState() => AnimatedVisualAnchorState();
-}
-
-class AnimatedVisualAnchorState extends State<AnimatedVisualAnchor>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _curve;
-  bool _showCheck = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 400),
-      vsync: this,
-    );
-    _curve = CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  void didUpdateWidget(covariant AnimatedVisualAnchor oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.stepKey != widget.stepKey) {
-      _reset();
-    }
-  }
-
-  Future<void> playCompletion() async {
-    if (!mounted) {
-      return;
-    }
-    setState(() => _showCheck = true);
-    _controller.value = 0;
-    await _controller.forward();
-  }
-
-  void _reset() {
-    _controller.value = 0;
-    if (_showCheck) {
-      setState(() => _showCheck = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    // The theme's "done" role, not stock Material green.
-    final success = context.done;
-
-    return SizedBox(
-      key: const ValueKey('routine-player-visual-anchor'),
-      width: 160,
-      height: 160,
-      child: AnimatedBuilder(
-        animation: _curve,
-        builder: (context, child) {
-          final t = _showCheck ? _curve.value : 0.0;
-          final idleAlpha = 1 - t;
-          return DecoratedBox(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Color.lerp(
-                theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.82),
-                context.doneContainer,
-                t,
-              ),
-              border: Border.all(
-                width: 2 + (2 * t),
-                color: Color.lerp(
-                  theme.colorScheme.primary.withValues(alpha: 0.18),
-                  success,
-                  t,
-                )!,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Color.lerp(
-                    theme.colorScheme.primary.withValues(alpha: 0.08),
-                    success.withValues(alpha: 0.18),
-                    t,
-                  )!,
-                  blurRadius: 28,
-                  spreadRadius: 2,
-                ),
-              ],
-            ),
-            child: Center(
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Opacity(
-                    opacity: idleAlpha,
-                    child: Container(
-                      width: 82,
-                      height: 82,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          width: 3,
-                          color: theme.colorScheme.primary.withValues(
-                            alpha: 0.24,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (_showCheck)
-                    Opacity(
-                      opacity: t,
-                      child: Transform.scale(
-                        scale: 0.72 + (0.28 * t),
-                        child: Icon(
-                          LucideIcons.check,
-                          size: 54,
-                          color: success,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
     );
   }
 }
@@ -1340,8 +1425,12 @@ class _RoutineStepFooter extends StatelessWidget {
                     : null,
               ),
               const SizedBox(height: 8),
+              // Always reserve the secondary row, so the primary button
+              // never moves between steps with and without Previous/Skip.
               Container(
-                constraints: const BoxConstraints(minHeight: 36),
+                constraints: const BoxConstraints(
+                  minHeight: PebbleButton.tertiaryHeight,
+                ),
                 child: Align(
                   alignment: Alignment.center,
                   child: secondaryActions,
@@ -2382,3 +2471,35 @@ class _PlayerStatusView extends StatelessWidget {
 }
 
 enum _RoutineExitAction { stay, leaveAndSave, discard }
+
+/// Fade-through between player phases (DESIGN_DIRECTION.md Moment 2): the
+/// player fades out over the first 90 ms, the next phase in over the next
+/// 210. Reduce Motion gets a 120 ms cross-fade.
+class _PhaseSwitcher extends StatelessWidget {
+  const _PhaseSwitcher({required this.reduceMotion, required this.child});
+
+  final bool reduceMotion;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: reduceMotion
+          ? PebbleMotion.reduced
+          : PebbleMotion.quick + PebbleMotion.quick,
+      switchInCurve: reduceMotion
+          ? Curves.linear
+          : const Interval(0.3, 1, curve: PebbleMotion.enter),
+      switchOutCurve: reduceMotion
+          ? Curves.linear
+          : const Interval(0.7, 1, curve: Curves.easeOut),
+      layoutBuilder: (current, previous) => Stack(
+        fit: StackFit.expand,
+        children: [...previous, ?current],
+      ),
+      transitionBuilder: (child, animation) =>
+          FadeTransition(opacity: animation, child: child),
+      child: child,
+    );
+  }
+}

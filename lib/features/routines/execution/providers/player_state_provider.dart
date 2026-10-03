@@ -439,18 +439,20 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
     await _persistSession(session.copyWith(currentStepIndex: boundedTarget));
   }
 
-  Future<RoutineRun?> completeCurrentStep() {
+  /// Checks the current step. [at] is the moment of the tap, so the time the
+  /// screen shows is exactly the time that is saved.
+  Future<RoutineRun?> completeCurrentStep({DateTime? at}) {
     final operation = state.isFinalStep
         ? RoutinePlayerOperation.completing
         : RoutinePlayerOperation.savingStep;
     return _runForeground<RoutineRun?>(
       operation,
       fallback: null,
-      task: _completeCurrentStep,
+      task: () => _completeCurrentStep(at ?? DateTime.now()),
     );
   }
 
-  Future<RoutineRun?> _completeCurrentStep() async {
+  Future<RoutineRun?> _completeCurrentStep(DateTime now) async {
     final session = _requireSession();
     final stepState = session.currentStepState;
     if (stepState == null ||
@@ -460,7 +462,6 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
       return null;
     }
 
-    final now = DateTime.now();
     final updatedStates = List<RoutineSessionStepState>.from(
       session.stepStates,
     );
@@ -519,18 +520,18 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
     }
   }
 
-  Future<RoutineRun?> skipCurrentStep() {
+  Future<RoutineRun?> skipCurrentStep({DateTime? at}) {
     final operation = state.isFinalStep
         ? RoutinePlayerOperation.completing
         : RoutinePlayerOperation.savingStep;
     return _runForeground<RoutineRun?>(
       operation,
       fallback: null,
-      task: _skipCurrentStep,
+      task: () => _skipCurrentStep(at ?? DateTime.now()),
     );
   }
 
-  Future<RoutineRun?> _skipCurrentStep() async {
+  Future<RoutineRun?> _skipCurrentStep(DateTime now) async {
     final session = _requireSession();
     final step = state.currentStep;
     final stepState = session.currentStepState;
@@ -547,7 +548,7 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
     );
     updatedStates[session.currentStepIndex] = stepState.copyWith(
       status: SessionStepStatus.skipped,
-      completedAt: DateTime.now(),
+      completedAt: now,
     );
 
     final updatedSession = session.copyWith(

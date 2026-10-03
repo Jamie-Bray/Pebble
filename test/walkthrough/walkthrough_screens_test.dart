@@ -790,6 +790,11 @@ class _Env {
 
   Future<void> shot(String name) async {
     await settle(4);
+    await shotNow(name);
+  }
+
+  /// Captures the current frame without settling first, for motion strips.
+  Future<void> shotNow(String name) async {
     final boundary =
         _rootKey.currentContext!.findRenderObject()! as RenderRepaintBoundary;
     final shotName = '${device.id}__$name';
@@ -1168,6 +1173,49 @@ void main() {
       await env.shot('theme_nordicNight_complete');
     },
   );
+  // Moment 1: the trail of checked steps, and the check-off as a strip.
+  _capture('player trail', account: _Account.signedInPremium, (env) async {
+    await _openPlayer(env, 1);
+    await _tapPrimary(env);
+    await env.realWait(2);
+    await _tapPrimary(env);
+    await env.realWait(2);
+    await env.shot('player_trail');
+    await _tapPrimary(env);
+    await env.realWait(2);
+    await env.shot('player_trail_photo_step');
+  });
+  _capture(
+    'player trail nordicNight',
+    theme: ThemeId.nordicNight,
+    account: _Account.signedInPremium,
+    (env) async {
+      await _openPlayer(env, 1);
+      await _tapPrimary(env);
+      await env.realWait(2);
+      await _tapPrimary(env);
+      await env.realWait(2);
+      await env.shot('theme_nordicNight_player_trail');
+    },
+  );
+  _capture('player check motion', account: _Account.signedInPremium, (
+    env,
+  ) async {
+    await _openPlayer(env, 3);
+    await _tapPrimary(env);
+    await env.realWait(2);
+    await env.settle(10);
+    await env.tester.tap(find.byType(FilledButton).last);
+    var elapsed = 0;
+    await env.tester.pump();
+    for (final ms in [120, 220, 330, 450, 800]) {
+      while (elapsed < ms) {
+        await env.tester.pump(const Duration(milliseconds: 10));
+        elapsed += 10;
+      }
+      await env.shotNow('motion_check_${ms.toString().padLeft(3, '0')}ms');
+    }
+  });
   _capture('player voice', account: _Account.signedInPremium, (env) async {
     await _openPlayer(env, 2);
     await env.shot('player_voice_step');

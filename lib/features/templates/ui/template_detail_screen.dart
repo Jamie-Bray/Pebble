@@ -8,6 +8,7 @@ import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
+import 'package:pebble_routines/features/settings/data/player_settings_controller.dart';
 import 'package:pebble_routines/features/subscription/ui/subscription_guard.dart';
 import 'package:pebble_routines/features/templates/data/models/template.dart';
 import 'package:pebble_routines/features/templates/domain/usecases/use_template_usecase.dart';
@@ -195,9 +196,11 @@ class _TemplateDetailContent extends ConsumerWidget {
                           .read(useTemplateUseCaseProvider)
                           .call(template);
                       if (fromOnboarding) {
-                        await ref
-                            .read(sharedPreferencesProvider)
-                            .setBool('has_completed_onboarding', true);
+                        final prefs = ref.read(sharedPreferencesProvider);
+                        await PlayerSettingsController.applyNewInstallDefaults(
+                          prefs,
+                        );
+                        await prefs.setBool('has_completed_onboarding', true);
                       }
                       ref.read(navIndexProvider.notifier).state = 0;
                       ref

@@ -20,6 +20,9 @@ import 'package:pebble_routines/features/routines/execution/data/services/routin
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
 import 'package:pebble_routines/features/routines/execution/providers/player_state_provider.dart';
 import 'package:pebble_routines/features/routines/execution/ui/routine_player_screen.dart';
+import 'package:pebble_routines/features/routines/execution/ui/step_check_off.dart';
+import 'package:pebble_routines/core/ui/pebble_time.dart';
+import 'package:pebble_routines/features/settings/data/player_settings_controller.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
 import 'package:pebble_routines/features/subscription/domain/routine_limit_policy.dart';
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
@@ -115,8 +118,7 @@ void main() {
       repository,
     );
 
-    expect(find.text('TEST ROUTINE'), findsOneWidget);
-    expect(find.text('Step 1 of 1'), findsOneWidget);
+    expect(find.text('Test routine · 1 of 1'), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
     expect(find.text('Text Step'), findsNothing);
     expect(find.text('Lock the door'), findsOneWidget);
@@ -350,28 +352,26 @@ void main() {
     expect(repository.session?.stepStates.single.proofAssets, hasLength(1));
   });
 
-  testWidgets('primary action waits for anchor animation before completing', (
+  testWidgets('primary action saves the check before any motion plays', (
     tester,
   ) async {
     final repository = _FakeRoutineSessionRepository();
     await pumpPlayer(
       tester,
-      const RoutineStep.check(label: 'Wait for it'),
+      const RoutineStep.check(label: 'Do not wait'),
       repository,
     );
 
     await tester.tap(find.widgetWithText(FilledButton, 'Finish routine'));
     await tester.pump();
 
-    expect(repository.completedSession, isNull);
-
-    await tester.pump(const Duration(milliseconds: 399));
-    expect(repository.completedSession, isNull);
-
-    await tester.pump(const Duration(milliseconds: 1));
-    await tester.pumpAndSettle();
-
+    // Commit first: the run is written on the tap, not after the animation.
     expect(repository.completedSession, isNotNull);
+    expect(
+      repository.completedSession!.stepStates.single.status,
+      SessionStepStatus.completed,
+    );
+    await tester.pumpAndSettle();
   });
 
   testWidgets('anchor resets after advancing to the next text step', (
@@ -649,6 +649,264 @@ void main() {
     expect(find.text('Add more'), findsNothing);
     expect(find.text('Add'), findsNothing);
     expect(find.text('Choose from library'), findsNothing);
+  });
+
+  group('step check-off (Moment 1)', () {
+    const threeSteps = [
+      RoutineStep.check(label: 'Stove off'),
+      RoutineStep.check(label: 'Hair tools unplugged', allowSkip: true),
+      RoutineStep.check(label: 'Front door locked'),
+    ];
+
+    List<MethodCall> recordPlatformCalls(WidgetTester tester) {
+      final calls = <MethodCall>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          calls.add(call);
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      return calls;
+    }
+
+    List<String> hapticsIn(List<MethodCall> calls) => [
+      for (final call in calls)
+        if (call.method == 'HapticFeedback.vibrate') '${call.arguments}',
+    ];
+
+    testWidgets('a fast double tap checks exactly one step', (tester) async {
+      final repository = _FakeRoutineSessionRepository();
+      await pumpPlayer(
+        tester,
+        threeSteps.first,
+        repository,
+        session: _sessionForSteps(threeSteps),
+      );
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Complete step'));
+      await tester.pump(const Duration(milliseconds: 90));
+      await tester.tap(find.widgetWithText(FilledButton, 'Complete step'));
+      await tester.pump(const Duration(milliseconds: 90));
+
+      final session = repository.session!;
+      expect(session.currentStepIndex, 1);
+      expect(session.stepStates[0].status, SessionStepStatus.completed);
+      expect(session.stepStates[1].status, SessionStepStatus.pending);
+
+      // A deliberate tap once the guard is over checks the next step at
+      // once, jumping the first step's motion to its end (never queued).
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.tap(find.widgetWithText(FilledButton, 'Complete step'));
+      await tester.pump();
+      expect(repository.session!.stepStates[1].status,
+          SessionStepStatus.completed);
+      expect(repository.session!.currentStepIndex, 2);
+      await tester.pumpAndSettle();
+      expect(find.text('Front door locked'), findsOneWidget);
+    });
+
+    testWidgets('the check is saved on the tap, with the time it shows', (
+      tester,
+    ) async {
+      final repository = _FakeRoutineSessionRepository();
+      await pumpPlayer(
+        tester,
+        threeSteps.first,
+        repository,
+        session: _sessionForSteps(threeSteps),
+      );
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Complete step'));
+      await tester.pump();
+      // Saved before a single frame of motion has played.
+      final saved = repository.session!.stepStates[0];
+      expect(saved.status, SessionStepStatus.completed);
+
+      // Mid-motion: the check is drawing and the time chip is rising.
+      await tester.pump(const Duration(milliseconds: 200));
+      final anchor = tester.widget<AnimatedVisualAnchor>(
+        find.byType(AnimatedVisualAnchor),
+      );
+      expect(anchor.check, greaterThan(0));
+      expect(anchor.check, lessThan(1));
+      final context = tester.element(find.byType(CheckTimeChip));
+      final chip = tester.widget<CheckTimeChip>(find.byType(CheckTimeChip));
+      expect(chip.label, formatCheckTime(context, saved.completedAt!));
+
+      // Settled: the step now lives in the trail with its time.
+      await tester.pumpAndSettle();
+      expect(find.byType(CheckTimeChip), findsNothing);
+      expect(find.text('Stove off'), findsOneWidget);
+      expect(find.text(chip.label), findsOneWidget);
+      expect(find.text('Hair tools unplugged'), findsOneWidget);
+    });
+
+    testWidgets('skip records an honest skip with no stroke or buzz', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({'stepCompleteHaptic': true});
+      final calls = recordPlatformCalls(tester);
+      final repository = _FakeRoutineSessionRepository();
+      final session = _sessionForSteps(threeSteps).copyWith(
+        currentStepIndex: 1,
+        stepStates: [
+          RoutineSessionStepState.initial(0).copyWith(
+            status: SessionStepStatus.completed,
+            completedAt: DateTime(2026, 4, 18, 9, 1),
+          ),
+          RoutineSessionStepState.initial(1),
+          RoutineSessionStepState.initial(2),
+        ],
+      );
+      await pumpPlayer(tester, threeSteps[1], repository, session: session);
+      calls.clear();
+
+      await tester.tap(find.text('Skip step'));
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(repository.session!.stepStates[1].status,
+          SessionStepStatus.skipped);
+      final anchor = tester.widget<AnimatedVisualAnchor>(
+        find.byType(AnimatedVisualAnchor),
+      );
+      expect(anchor.check, 0);
+      expect(anchor.done, 0);
+      await tester.pumpAndSettle();
+      expect(hapticsIn(calls), isEmpty);
+      // The trail shows the checked step with its time and the skip as
+      // "Skipped", never as done.
+      expect(find.text('Stove off'), findsOneWidget);
+      expect(find.text('Skipped'), findsOneWidget);
+      expect(find.text('Front door locked'), findsOneWidget);
+    });
+
+    testWidgets('Reduce Motion: no stroke, quick cross-fade, haptics stay', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({'stepCompleteHaptic': true});
+      final calls = recordPlatformCalls(tester);
+      final repository = _FakeRoutineSessionRepository();
+      repository.session = _sessionForSteps(threeSteps);
+      final prefs = await SharedPreferences.getInstance();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            sharedPreferencesProvider.overrideWithValue(prefs),
+            routineSessionRepositoryProvider.overrideWithValue(repository),
+            routineSessionProofStorageProvider.overrideWithValue(
+              const _FakeProofStorage(),
+            ),
+            guidanceAudioStorageProvider.overrideWithValue(
+              const _FakeGuidanceAudioStorage(),
+            ),
+            subscriptionProvider.overrideWithValue(UserTier.personalPremium),
+            premiumFeaturePolicyProvider.overrideWithValue(
+              premiumFeaturePolicyForTier(UserTier.personalPremium),
+            ),
+          ],
+          child: MaterialApp(
+            home: Builder(
+              builder: (context) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(disableAnimations: true),
+                child: const RoutinePlayerScreen(sessionId: 'session-1'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      calls.clear();
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Complete step'));
+      await tester.pump();
+      // The check is there in full at once: no stroke animation.
+      final anchor = tester.widget<AnimatedVisualAnchor>(
+        find.byType(AnimatedVisualAnchor),
+      );
+      expect(anchor.check, 1);
+
+      // The whole cross-fade is over in 120 ms.
+      await tester.pump(const Duration(milliseconds: 130));
+      expect(find.byType(CheckTimeChip), findsNothing);
+      expect(find.text('Hair tools unplugged'), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(hapticsIn(calls), [
+        'HapticFeedbackType.lightImpact',
+        'HapticFeedbackType.selectionClick',
+      ]);
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('each check is announced to screen readers', (tester) async {
+      final announcements = <String>[];
+      tester.binding.defaultBinaryMessenger.setMockDecodedMessageHandler<
+        dynamic
+      >(SystemChannels.accessibility, (message) async {
+        final map = message as Map<dynamic, dynamic>;
+        if (map['type'] == 'announce') {
+          announcements.add((map['data'] as Map)['message'] as String);
+        }
+        return null;
+      });
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger
+            .setMockDecodedMessageHandler<dynamic>(
+              SystemChannels.accessibility,
+              null,
+            ),
+      );
+      final repository = _FakeRoutineSessionRepository();
+      await pumpPlayer(
+        tester,
+        threeSteps.first,
+        repository,
+        session: _sessionForSteps(threeSteps),
+      );
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Complete step'));
+      await tester.pump();
+      final context = tester.element(find.byType(RoutinePlayerScreen));
+      final time = formatCheckTime(
+        context,
+        repository.session!.stepStates[0].completedAt!,
+      );
+      expect(announcements, ['Stove off, checked at $time.']);
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('the footer keeps its place between steps', (tester) async {
+      final repository = _FakeRoutineSessionRepository();
+      await pumpPlayer(
+        tester,
+        threeSteps.first,
+        repository,
+        session: _sessionForSteps(threeSteps),
+      );
+      final before = tester.getTopLeft(find.byType(FilledButton)).dy;
+      await tester.tap(find.widgetWithText(FilledButton, 'Complete step'));
+      await tester.pumpAndSettle();
+      expect(find.text('Previous'), findsOneWidget);
+      expect(tester.getTopLeft(find.byType(FilledButton)).dy, before);
+    });
+
+    test('new installs get the check buzz; existing choices are kept', () async {
+      SharedPreferences.setMockInitialValues({});
+      final fresh = await SharedPreferences.getInstance();
+      await PlayerSettingsController.applyNewInstallDefaults(fresh);
+      expect(PlayerSettingsController(fresh).stepCompleteHaptic, isTrue);
+
+      SharedPreferences.setMockInitialValues({'stepCompleteHaptic': false});
+      final existing = await SharedPreferences.getInstance();
+      await PlayerSettingsController.applyNewInstallDefaults(existing);
+      expect(PlayerSettingsController(existing).stepCompleteHaptic, isFalse);
+    });
   });
 
   test('photo attach repairs any stale in-flight lifecycle save', () async {

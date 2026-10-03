@@ -19,6 +19,7 @@ import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/features/routines/data/models/routine_icon_catalog.dart';
 import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:pebble_routines/features/settings/data/player_settings_controller.dart';
 
 class _StarterStep {
   const _StarterStep(this.label, {this.requiresPhoto = false});
@@ -187,6 +188,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   Future<void> _markOnboardingComplete() async {
     final prefs = await SharedPreferences.getInstance();
+    await PlayerSettingsController.applyNewInstallDefaults(prefs);
     await prefs.setBool('has_completed_onboarding', true);
   }
 
