@@ -15,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
+import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/core/navigation/app_shell.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
@@ -258,6 +259,16 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
                 totalPhotosSaved:
                     playerState.completionSummary?.photoCount ??
                     playerState.proofAssets.length,
+                totalSteps: playerState.session?.routineSnapshotSteps.length,
+                skippedSteps: playerState.completionSummary?.skippedSteps ?? 0,
+                showPhotoSummary:
+                    (playerState.completionSummary?.photoCount ??
+                            playerState.proofAssets.length) >
+                        0 ||
+                    (playerState.session?.routineSnapshotSteps.any(
+                          (step) => step.hasPhotoRequirement,
+                        ) ??
+                        true),
                 onBackToHome: _goHome,
                 onReviewRoutine: _openVault,
               ),
@@ -1021,7 +1032,7 @@ class _RoutineStepSurface extends StatelessWidget {
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0,
-                  color: onSurface.withValues(alpha: 0.52),
+                  color: context.readableSecondaryText,
                 ),
               ),
               const SizedBox(height: 6),
@@ -1031,7 +1042,7 @@ class _RoutineStepSurface extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: onSurface.withValues(alpha: 0.64),
+                  color: context.readableSecondaryText,
                 ),
               ),
             ],
@@ -1434,7 +1445,7 @@ class _PlayerGuidanceAudioCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w500,
-                    color: onSurface.withValues(alpha: 0.56),
+                    color: context.readableSecondaryText,
                   ),
                 ),
               ],
@@ -1511,16 +1522,16 @@ class _PlayerPhotoSummary extends StatelessWidget {
       subtitleColor = primary;
     } else if (!isFreeTier && maxPhotoCount > 1 && !atMax) {
       subtitle = 'Add up to $maxPhotoCount photos';
-      subtitleColor = onSurface.withValues(alpha: 0.55);
+      subtitleColor = context.readableSecondaryText;
     } else if (!isFreeTier && maxPhotoCount > 1 && atMax) {
       subtitle = 'All $maxPhotoCount added';
-      subtitleColor = onSurface.withValues(alpha: 0.55);
+      subtitleColor = context.readableSecondaryText;
     } else if (isFreeTier && onPhotoLimitUpgrade != null) {
       subtitle = 'More photos with Premium';
-      subtitleColor = onSurface.withValues(alpha: 0.55);
+      subtitleColor = context.readableSecondaryText;
     } else {
       subtitle = '';
-      subtitleColor = onSurface.withValues(alpha: 0.55);
+      subtitleColor = context.readableSecondaryText;
     }
 
     final tiles = <Widget>[
@@ -1572,9 +1583,12 @@ class _PlayerPhotoSummary extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 2),
-          // Reserve the line height so the strip never shifts as copy changes.
-          SizedBox(
-            height: 17,
+          // Reserve one line (at the user's text size) so the strip never
+          // shifts as copy changes, but let longer or larger copy wrap.
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: MediaQuery.textScalerOf(context).scale(17),
+            ),
             child: subtitle.isEmpty
                 ? null
                 : Text(
@@ -1605,7 +1619,7 @@ class _PlayerPhotoSummary extends StatelessWidget {
               icon: const Icon(LucideIcons.images, size: 15),
               label: const Text('Choose from library'),
               style: TextButton.styleFrom(
-                foregroundColor: onSurface.withValues(alpha: 0.55),
+                foregroundColor: context.readableSecondaryText,
                 padding: EdgeInsets.zero,
                 minimumSize: const Size(0, 32),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -1904,8 +1918,7 @@ class _PlayerSecondaryActionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final textColor = theme.colorScheme.onSurface.withValues(alpha: 0.62);
+    final textColor = context.readableSecondaryText;
 
     final actions = <Widget>[
       if (showPrevious)
@@ -1952,6 +1965,9 @@ class RoutineCompleteScreen extends StatefulWidget {
     required this.routineName,
     required this.totalStepsCompleted,
     required this.totalPhotosSaved,
+    this.totalSteps,
+    this.skippedSteps = 0,
+    this.showPhotoSummary = true,
     required this.onBackToHome,
     required this.onReviewRoutine,
   });
@@ -1959,6 +1975,14 @@ class RoutineCompleteScreen extends StatefulWidget {
   final String routineName;
   final int totalStepsCompleted;
   final int totalPhotosSaved;
+
+  /// Steps in the run. Defaults to completed + skipped.
+  final int? totalSteps;
+  final int skippedSteps;
+
+  /// False for a routine with no photo steps, so the summary doesn't report
+  /// "0 photos" for something that was never asked for.
+  final bool showPhotoSummary;
   final VoidCallback onBackToHome;
   final VoidCallback onReviewRoutine;
 
@@ -2072,6 +2096,11 @@ class _RoutineCompleteScreenState extends State<RoutineCompleteScreen>
                       child: _RoutineSummaryCard(
                         totalStepsCompleted: widget.totalStepsCompleted,
                         totalPhotosSaved: widget.totalPhotosSaved,
+                        totalSteps:
+                            widget.totalSteps ??
+                            widget.totalStepsCompleted + widget.skippedSteps,
+                        skippedSteps: widget.skippedSteps,
+                        showPhotoSummary: widget.showPhotoSummary,
                       ),
                     ),
                   ],
@@ -2129,7 +2158,7 @@ class _RoutineCompleteScreenState extends State<RoutineCompleteScreen>
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      child: const Text('Review Routine'),
+                      child: const Text('Review routine'),
                     ),
                   ),
                 ],
@@ -2146,10 +2175,16 @@ class _RoutineSummaryCard extends StatelessWidget {
   const _RoutineSummaryCard({
     required this.totalStepsCompleted,
     required this.totalPhotosSaved,
+    required this.totalSteps,
+    required this.skippedSteps,
+    required this.showPhotoSummary,
   });
 
   final int totalStepsCompleted;
   final int totalPhotosSaved;
+  final int totalSteps;
+  final int skippedSteps;
+  final bool showPhotoSummary;
 
   @override
   Widget build(BuildContext context) {
@@ -2180,21 +2215,27 @@ class _RoutineSummaryCard extends StatelessWidget {
               fontSize: 12,
               fontWeight: FontWeight.w800,
               letterSpacing: 1.2,
-              color: Color(0xFFADA69F),
+              color: Color(0xFF746D66),
             ),
           ),
           const SizedBox(height: 16),
+          // Same counting as History: a skipped step is never shown as done.
           _RoutineSummaryRow(
             icon: LucideIcons.circleCheck,
-            label: 'Steps Completed',
-            value: '$totalStepsCompleted / $totalStepsCompleted',
+            label: 'Steps completed',
+            value: skippedSteps > 0
+                ? '$totalStepsCompleted of $totalSteps · $skippedSteps skipped'
+                : '$totalStepsCompleted of $totalSteps',
           ),
-          Divider(height: 25, color: completionText.withValues(alpha: 0.08)),
-          _RoutineSummaryRow(
-            icon: LucideIcons.image,
-            label: 'Evidence Saved',
-            value: '$totalPhotosSaved Photo${totalPhotosSaved == 1 ? '' : 's'}',
-          ),
+          if (showPhotoSummary) ...[
+            Divider(height: 25, color: completionText.withValues(alpha: 0.08)),
+            _RoutineSummaryRow(
+              icon: LucideIcons.image,
+              label: 'Photos saved',
+              value:
+                  '$totalPhotosSaved photo${totalPhotosSaved == 1 ? '' : 's'}',
+            ),
+          ],
         ],
       ),
     );
@@ -2216,7 +2257,7 @@ class _RoutineSummaryRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     const completionText = Color(0xFF2D2B2A);
-    const mutedText = Color(0xFF8C857E);
+    const mutedText = Color(0xFF6F6861);
 
     return Row(
       children: [
