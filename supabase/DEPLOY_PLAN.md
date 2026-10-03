@@ -20,7 +20,7 @@ The live `verify_jwt` settings below were read with `list_edge_functions` on 3 O
 
 ## Order
 
-1. **Migration 016** (service_role grant). It fixes completion emails and contact invites immediately, with no function deploy. See `MIGRATION_REPAIR_PLAN.md` for the history repair that `db push` needs first.
+1. **Migration 016** (service_role grant). **Done on production 3 Oct 2026:** the `GRANT` was run directly with `execute_sql`, and `has_function_privilege` now returns true. It is not yet recorded in `supabase_migrations`; the history repair below should mark 016 as applied rather than re-run it (re-running is harmless). Roll back with `revoke execute on function public.has_active_personal_entitlement(uuid) from service_role;`. It fixes completion emails and contact invites immediately, with no function deploy. See `MIGRATION_REPAIR_PLAN.md` for the history repair that `db push` needs first.
 2. **Confirm `CLEANUP_PROOF_RETENTION_SECRET` exists** (Dashboard → Edge Functions → Secrets). Its value must equal the Vault secret `cleanup-proof-retention-header` (present since 10 May) that cron job `cleanup-proof-retention-daily` sends as `x-cleanup-secret`. If it is missing, set it from the Vault value *before* deploying, or the nightly cleanup will start returning 503.
 3. Deploy the functions:
    ```bash

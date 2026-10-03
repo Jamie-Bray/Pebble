@@ -15,7 +15,8 @@ Checked read-only on 3 Oct 2026 with `list_migrations` and catalog queries.
 | `013_restore_rls_helper_grants` | *not recorded* | Yes. `authenticated` has EXECUTE on `has_active_personal_entitlement` and `has_personal_cloud_write_access`. |
 | `014_rls_initplan_and_index` | *not recorded* | **No.** 36 public policies still have `roles = {public}` and bare `auth.uid()`; `idx_routine_reminders_routine_id` does not exist. |
 | `015_proof_usage_soft_delete_without_entitlement` | `20260714194247` (name `proof_usage_soft_delete_without_entitlement`) | Yes. `proof_asset_usage_update_with_entitlement` is `to authenticated` with the `deleted_at is not null` escape. |
-| `016` … `019` (new on this branch) | *not recorded* | No |
+| `016` | *not recorded* | **Yes**, the grant was run directly on 3 Oct 2026. Record it with `supabase migration repair --status applied 016 --linked`. |
+| `017` … `019` (new on this branch) | *not recorded* | No |
 
 Because the remote has two versions the repo does not know (`20260610083720`, `20260714194247`), `supabase db push` refuses to run until history is repaired.
 
