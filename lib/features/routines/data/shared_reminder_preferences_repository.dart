@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -38,6 +40,8 @@ class SharedReminderContact {
   SharedReminderContact copyWith({
     SharedReminderContactStatus? status,
     bool? notifyWhenFinished,
+    bool? includeRoutineName,
+    bool? includeStepCount,
     DateTime? updatedAt,
   }) {
     return SharedReminderContact(
@@ -46,8 +50,8 @@ class SharedReminderContact {
       recipientEmail: recipientEmail,
       status: status ?? this.status,
       notifyWhenFinished: notifyWhenFinished ?? this.notifyWhenFinished,
-      includeRoutineName: includeRoutineName,
-      includeStepCount: includeStepCount,
+      includeRoutineName: includeRoutineName ?? this.includeRoutineName,
+      includeStepCount: includeStepCount ?? this.includeStepCount,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
@@ -69,14 +73,23 @@ class SharedReminderContact {
 }
 
 class SharedReminderRepositoryException implements Exception {
-  SharedReminderRepositoryException(this.message);
+  SharedReminderRepositoryException(this.message, {this.code, this.status});
 
   final String message;
+
+  /// Machine-readable reason from the server, such as `senderDailyLimit`.
+  final String? code;
+  final int? status;
 
   @override
   String toString() => message;
 }
 
+/// Outcome of trying to send a completion email after a run.
+///
+/// [reason] is one of the server's reasons (`noAcceptedContact`,
+/// `noActiveEntitlement`, `rateLimited`, `duplicateRun`, `alreadySent`) or,
+/// from the app, `offline` / `failed` when the email could not be sent.
 class SharedReminderCompletionResult {
   const SharedReminderCompletionResult({
     required this.sent,
@@ -92,8 +105,29 @@ class SharedReminderCompletionResult {
     return SharedReminderCompletionResult(
       sent: json['sent'] == true,
       recipientEmail: json['recipientEmail']?.toString(),
-      reason: json['reason']?.toString(),
+      reason: json['alreadySent'] == true
+          ? 'alreadySent'
+          : json['reason']?.toString(),
     );
+  }
+
+  /// A short line for the completion screen, or null when there is nothing
+  /// worth saying (no contact set up, emails turned off, or already sent).
+  String? get completionScreenNote {
+    if (sent) {
+      if (reason == 'alreadySent') return null;
+      final to = recipientEmail?.trim();
+      return to == null || to.isEmpty
+          ? 'Completion email sent.'
+          : 'Completion email sent to $to.';
+    }
+    return switch (reason) {
+      'rateLimited' =>
+        'Completion email not sent. This contact has had several recently.',
+      'offline' => 'Completion email not sent. No connection.',
+      'failed' => "Completion email couldn't be sent this time.",
+      _ => null,
+    };
   }
 }
 
@@ -117,25 +151,18 @@ class SharedReminderPreferencesRepository {
     String? routineCloudId,
   }) async {
     final client = await _clientWithSession();
-    final response = await client.functions
-        .invoke(
-          'request-shared-alert-contact',
-          method: HttpMethod.get,
-          queryParameters: {
-            'routineKey': routineKeyFor(
-              routineId: routineId,
-              routineCloudId: routineCloudId,
-            ),
-          },
-        )
-        .timeout(
-          const Duration(seconds: 10),
-          onTimeout: () {
-            throw SharedReminderRepositoryException(
-              'Could not check contact status. Please try again.',
-            );
-          },
-        );
+    final response = await _invoke(
+      client,
+      'request-shared-alert-contact',
+      method: HttpMethod.get,
+      queryParameters: {
+        'routineKey': routineKeyFor(
+          routineId: routineId,
+          routineCloudId: routineCloudId,
+        ),
+      },
+      timeoutMessage: "Couldn't check the contact. Try again.",
+    );
     _throwIfFailed(response);
     final data = response.data;
     if (data is Map && data['contact'] is Map) {
@@ -151,30 +178,27 @@ class SharedReminderPreferencesRepository {
     required String recipientEmail,
     String? routineCloudId,
     bool resend = false,
+    bool includeRoutineName = true,
+    bool includeStepCount = true,
   }) async {
     final client = await _clientWithSession();
-    final response = await client.functions
-        .invoke(
-          'request-shared-alert-contact',
-          body: {
-            'routineKey': routineKeyFor(
-              routineId: routineId,
-              routineCloudId: routineCloudId,
-            ),
-            'recipientEmail': recipientEmail,
-            'resend': resend,
-            'includeRoutineName': true,
-            'includeStepCount': true,
-          },
-        )
-        .timeout(
-          const Duration(seconds: 15),
-          onTimeout: () {
-            throw SharedReminderRepositoryException(
-              'The request timed out. Please check your internet connection.',
-            );
-          },
-        );
+    final response = await _invoke(
+      client,
+      'request-shared-alert-contact',
+      body: {
+        'routineKey': routineKeyFor(
+          routineId: routineId,
+          routineCloudId: routineCloudId,
+        ),
+        'recipientEmail': recipientEmail,
+        'resend': resend,
+        'includeRoutineName': includeRoutineName,
+        'includeStepCount': includeStepCount,
+      },
+      timeout: const Duration(seconds: 20),
+      timeoutMessage:
+          'The invite timed out. Check your connection and try again.',
+    );
     _throwIfFailed(response);
     final data = response.data;
     if (data is Map && data['contact'] is Map) {
@@ -183,7 +207,7 @@ class SharedReminderPreferencesRepository {
       );
     }
     throw SharedReminderRepositoryException(
-      'Could not create shared reminder.',
+      "Couldn't send the invite. Try again.",
     );
   }
 
@@ -192,20 +216,13 @@ class SharedReminderPreferencesRepository {
     required bool enabled,
   }) async {
     final client = await _clientWithSession();
-    final response = await client.functions
-        .invoke(
-          'request-shared-alert-contact',
-          method: HttpMethod.patch,
-          body: {'contactId': contact.id, 'notifyWhenFinished': enabled},
-        )
-        .timeout(
-          const Duration(seconds: 10),
-          onTimeout: () {
-            throw SharedReminderRepositoryException(
-              'Could not update shared reminder. Please try again.',
-            );
-          },
-        );
+    final response = await _invoke(
+      client,
+      'request-shared-alert-contact',
+      method: HttpMethod.patch,
+      body: {'contactId': contact.id, 'notifyWhenFinished': enabled},
+      timeoutMessage: "Couldn't update completion emails. Try again.",
+    );
     _throwIfFailed(response);
     final data = response.data;
     if (data is Map && data['contact'] is Map) {
@@ -219,25 +236,57 @@ class SharedReminderPreferencesRepository {
     );
   }
 
+  /// Chooses what completion emails show. Allowed without Premium, because
+  /// it only ever shares less or the same.
+  Future<SharedReminderContact> setSharingOptions({
+    required SharedReminderContact contact,
+    bool? includeRoutineName,
+    bool? includeStepCount,
+  }) async {
+    final client = await _clientWithSession();
+    final response = await _invoke(
+      client,
+      'request-shared-alert-contact',
+      method: HttpMethod.patch,
+      body: {
+        'contactId': contact.id,
+        if (includeRoutineName != null)
+          'includeRoutineName': includeRoutineName,
+        if (includeStepCount != null) 'includeStepCount': includeStepCount,
+      },
+      timeoutMessage: "Couldn't update completion emails. Try again.",
+    );
+    _throwIfFailed(response);
+    final data = response.data;
+    if (data is Map && data['contact'] is Map) {
+      return SharedReminderContact.fromJson(
+        Map<String, dynamic>.from(data['contact'] as Map),
+      );
+    }
+    return contact.copyWith(
+      includeRoutineName: includeRoutineName,
+      includeStepCount: includeStepCount,
+      updatedAt: DateTime.now(),
+    );
+  }
+
   Future<void> removeContact({required SharedReminderContact contact}) async {
     final client = await _clientWithSession();
-    final response = await client.functions
-        .invoke(
-          'request-shared-alert-contact',
-          method: HttpMethod.delete,
-          body: {'contactId': contact.id},
-        )
-        .timeout(
-          const Duration(seconds: 10),
-          onTimeout: () {
-            throw SharedReminderRepositoryException(
-              'Could not remove this contact. Please try again.',
-            );
-          },
-        );
+    final response = await _invoke(
+      client,
+      'request-shared-alert-contact',
+      method: HttpMethod.delete,
+      body: {'contactId': contact.id},
+      timeoutMessage: "Couldn't remove this contact. Try again.",
+    );
     _throwIfFailed(response);
   }
 
+  /// Emails the routine's accepted contact, if there is one. Never throws: a
+  /// completion email must not make a finished routine look unfinished.
+  ///
+  /// A failed send is retried once after [retryDelay]. The server emails each
+  /// run at most once, so a retry can never produce a duplicate email.
   Future<SharedReminderCompletionResult> sendCompletionReminder({
     required int routineId,
     required String routineTitle,
@@ -247,45 +296,101 @@ class SharedReminderPreferencesRepository {
     required int completedSteps,
     required int totalSteps,
     String? routineCloudId,
+    Duration retryDelay = const Duration(seconds: 4),
   }) async {
     final client = _client;
-    if (client == null) {
-      return const SharedReminderCompletionResult(
-        sent: false,
-        reason: 'offline',
-      );
+    if (client == null || client.auth.currentSession == null) {
+      return const SharedReminderCompletionResult(sent: false);
     }
-    await _ensureSession(client);
-    final response = await client.functions.invoke(
-      'send-routine-completion-alert',
-      body: {
-        'routineKey': routineKeyFor(
-          routineId: routineId,
-          routineCloudId: routineCloudId,
-        ),
-        'routineTitle': routineTitle,
-        'runId': runId,
-        'sessionId': sessionId,
-        'completedAt': completedAt.toIso8601String(),
-        'completedSteps': completedSteps,
-        'totalSteps': totalSteps,
-      },
+    final body = completionRequestBody(
+      routineKey: routineKeyFor(
+        routineId: routineId,
+        routineCloudId: routineCloudId,
+      ),
+      routineTitle: routineTitle,
+      runId: runId,
+      sessionId: sessionId,
+      completedAt: completedAt,
+      completedSteps: completedSteps,
+      totalSteps: totalSteps,
     );
-    _throwIfFailed(response);
-    final data = response.data;
-    if (data is Map) {
-      return SharedReminderCompletionResult.fromJson(
-        Map<String, dynamic>.from(data),
+    var result = await _sendCompletionOnce(client, body);
+    if (!result.sent &&
+        (result.reason == 'failed' || result.reason == 'offline')) {
+      await Future<void>.delayed(retryDelay);
+      result = await _sendCompletionOnce(client, body);
+    }
+    return result;
+  }
+
+  Future<SharedReminderCompletionResult> _sendCompletionOnce(
+    SupabaseClient client,
+    Map<String, dynamic> body,
+  ) async {
+    try {
+      final response = await _invoke(
+        client,
+        'send-routine-completion-alert',
+        body: body,
+        timeout: const Duration(seconds: 25),
+        timeoutMessage: 'timeout',
+      );
+      final data = response.data;
+      if (data is Map) {
+        return SharedReminderCompletionResult.fromJson(
+          Map<String, dynamic>.from(data),
+        );
+      }
+      return const SharedReminderCompletionResult(sent: false);
+    } on SharedReminderRepositoryException catch (error) {
+      final offline = error.code == 'network' || error.code == 'timeout';
+      return SharedReminderCompletionResult(
+        sent: false,
+        reason: offline ? 'offline' : 'failed',
       );
     }
-    return const SharedReminderCompletionResult(sent: false);
+  }
+
+  /// Calls an Edge Function and turns its non-2xx responses (which
+  /// supabase_flutter throws as [FunctionException]) into
+  /// [SharedReminderRepositoryException] carrying the server's own message.
+  Future<FunctionResponse> _invoke(
+    SupabaseClient client,
+    String function, {
+    required String timeoutMessage,
+    Duration timeout = const Duration(seconds: 10),
+    HttpMethod method = HttpMethod.post,
+    Map<String, dynamic>? body,
+    Map<String, String>? queryParameters,
+  }) async {
+    try {
+      return await client.functions
+          .invoke(
+            function,
+            method: method,
+            body: body,
+            queryParameters: queryParameters,
+          )
+          .timeout(timeout);
+    } on TimeoutException {
+      throw SharedReminderRepositoryException(timeoutMessage, code: 'timeout');
+    } on FunctionException catch (error) {
+      throw sharedReminderExceptionFromFunctionError(error);
+    } on SharedReminderRepositoryException {
+      rethrow;
+    } catch (_) {
+      throw SharedReminderRepositoryException(
+        'No connection. Check your network and try again.',
+        code: 'network',
+      );
+    }
   }
 
   Future<SupabaseClient> _clientWithSession() async {
     final client = _client;
     if (client == null) {
       throw SharedReminderRepositoryException(
-        'Email setup is not available in this build.',
+        "Completion emails aren't available in this build.",
       );
     }
     await _ensureSession(client);
@@ -307,9 +412,53 @@ class SharedReminderPreferencesRepository {
       throw SharedReminderRepositoryException(data['error'].toString());
     }
     throw SharedReminderRepositoryException(
-      'Shared reminders are not available right now.',
+      "Completion emails aren't available right now. Try again later.",
     );
   }
+}
+
+/// Request body for `send-routine-completion-alert`. The time is sent in UTC
+/// with the device's offset, so the email shows the sender's local time.
+Map<String, dynamic> completionRequestBody({
+  required String routineKey,
+  required String routineTitle,
+  required String runId,
+  required String sessionId,
+  required DateTime completedAt,
+  required int completedSteps,
+  required int totalSteps,
+}) {
+  return {
+    'routineKey': routineKey,
+    'routineTitle': routineTitle,
+    'runId': runId,
+    'sessionId': sessionId,
+    'completedAt': completedAt.toUtc().toIso8601String(),
+    'utcOffsetMinutes': completedAt.toLocal().timeZoneOffset.inMinutes,
+    'completedSteps': completedSteps,
+    'totalSteps': totalSteps,
+  };
+}
+
+/// Maps a non-2xx Edge Function response to an exception carrying the
+/// server's user-facing message, or a plain fallback when there isn't one.
+SharedReminderRepositoryException sharedReminderExceptionFromFunctionError(
+  FunctionException error,
+) {
+  final details = error.details;
+  String? message;
+  String? code;
+  if (details is Map) {
+    message = details['error']?.toString();
+    code = details['code']?.toString();
+  }
+  return SharedReminderRepositoryException(
+    message == null || message.trim().isEmpty
+        ? "Completion emails aren't available right now. Try again later."
+        : message.trim(),
+    code: code,
+    status: error.status,
+  );
 }
 
 SharedReminderContactStatus _contactStatusFromString(String? value) {
