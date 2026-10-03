@@ -14,6 +14,10 @@ class RemoteProofAssetDataSource {
 
   bool get isEnabled => _client != null;
 
+  /// The account whose proofs can be downloaded right now, or null when
+  /// signed out. Storage RLS only serves `users/<this id>/...` objects.
+  String? get signedInUserId => _client?.auth.currentUser?.id;
+
   Future<void> uploadBytes({
     required String objectKey,
     required Uint8List bytes,
@@ -53,7 +57,9 @@ class RemoteProofAssetDataSource {
   }
 
   Future<Uint8List?> downloadBytes(String objectKey) async {
-    if (_client == null) return null;
+    // Signed out (including after account deletion) nothing is readable, so
+    // never spend a request that can only come back "not found".
+    if (_client == null || _client.auth.currentSession == null) return null;
     return _client.storage.from(_bucket).download(objectKey);
   }
 
@@ -125,3 +131,14 @@ final remoteProofAssetDataSourceProvider = Provider<RemoteProofAssetDataSource>(
     return RemoteProofAssetDataSource(client);
   },
 );
+
+/// Supabase Storage reports a missing (or RLS-hidden) object as
+/// `{"statusCode": "404", "error": "not_found", "message": "Object not found"}`,
+/// sometimes behind an HTTP 400. Retrying those can never succeed.
+bool isMissingProofObjectError(Object error) {
+  if (error is StorageException) {
+    if (error.statusCode == '404' || error.error == 'not_found') return true;
+    return error.message.toLowerCase().contains('not found');
+  }
+  return false;
+}

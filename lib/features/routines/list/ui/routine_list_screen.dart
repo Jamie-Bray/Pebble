@@ -967,10 +967,9 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                   padding: const EdgeInsets.symmetric(horizontal: 22),
                   sliver: SliverReorderableList(
                     itemCount: visibleRoutines.length,
-                    onReorder: (oldIndex, newIndex) {
-                      if (newIndex > oldIndex) {
-                        newIndex -= 1;
-                      }
+                    // onReorderItem already adjusts newIndex for the
+                    // removed item.
+                    onReorderItem: (oldIndex, newIndex) {
                       unawaited(
                         _reorderRoutine(visibleRoutines, oldIndex, newIndex),
                       );

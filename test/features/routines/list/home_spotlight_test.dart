@@ -719,6 +719,51 @@ void main() {
 
     expect(repo.pinnedUpdates, equals([(1, true)]));
   });
+
+  testWidgets('library reorder moves a routine to the dropped position', (
+    tester,
+  ) async {
+    final repo = _FakeRoutineRepository(
+      List.generate(
+        5,
+        (index) => _routine(id: index + 1, title: 'Routine ${index + 1}'),
+      ),
+    );
+
+    await _pumpHome(
+      tester,
+      routines: repo._routines.values.toList(),
+      routineRepository: repo,
+    );
+    await tester.tap(find.text('Your Routines'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    final list = tester.widget<SliverReorderableList>(
+      find.byType(SliverReorderableList),
+    );
+    expect(list.itemCount, 5);
+
+    // onReorderItem reports the final index: first row dropped in third
+    // place is exactly two single-step moves down.
+    list.onReorderItem!(0, 2);
+    await tester.pump();
+    expect(repo.moves, hasLength(2));
+    expect(
+      repo.moves.map((move) => move.$2),
+      everyElement(RoutineMoveDirection.down),
+    );
+    expect(repo.moves.map((move) => move.$1).toSet(), hasLength(1));
+
+    repo.moves.clear();
+    list.onReorderItem!(3, 1);
+    await tester.pump();
+    expect(repo.moves, hasLength(2));
+    expect(
+      repo.moves.map((move) => move.$2),
+      everyElement(RoutineMoveDirection.up),
+    );
+  });
 }
 
 List<Override> _homeOverrides({
@@ -796,6 +841,7 @@ class _FakeRoutineRepository implements RoutineRepository {
 
   final Map<int, Routine> _routines;
   final List<(int, bool)> pinnedUpdates = [];
+  final List<(int, RoutineMoveDirection)> moves = [];
 
   @override
   Stream<List<Routine>> watchRoutines() =>
@@ -836,8 +882,10 @@ class _FakeRoutineRepository implements RoutineRepository {
   }
 
   @override
-  Future<bool> moveRoutine(int id, RoutineMoveDirection direction) async =>
-      true;
+  Future<bool> moveRoutine(int id, RoutineMoveDirection direction) async {
+    moves.add((id, direction));
+    return true;
+  }
 
   @override
   Future<void> updateRoutineAppearance({

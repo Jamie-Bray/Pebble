@@ -1,5 +1,6 @@
 import 'dart:developer' as developer;
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
@@ -33,16 +34,29 @@ abstract class RoutineSessionProofStorage {
 }
 
 class LocalRoutineSessionProofStorage implements RoutineSessionProofStorage {
-  const LocalRoutineSessionProofStorage({
+  LocalRoutineSessionProofStorage({
     required RemoteProofAssetDataSource remote,
     required ProofMediaFairUseStore fairUseStore,
+    DateTime Function()? clock,
   }) : _remote = remote,
-       _fairUseStore = fairUseStore;
+       _fairUseStore = fairUseStore,
+       _clock = clock ?? DateTime.now;
 
   static const _rootFolder = 'routine_session_proofs';
   static const _uuid = Uuid();
+  static const _downloadRetryBase = Duration(minutes: 1);
+  static const _downloadRetryMax = Duration(hours: 1);
   final RemoteProofAssetDataSource _remote;
   final ProofMediaFairUseStore _fairUseStore;
+  final DateTime Function() _clock;
+
+  // History and gallery screens resolve every photo on each rebuild, and any
+  // sync state change rebuilds them. Without this memory a proof whose cloud
+  // copy is gone was re-requested every few minutes for as long as the app
+  // stayed open. Missing objects are not retried until the next launch;
+  // other failures back off exponentially.
+  final Map<String, _ProofDownloadFailure> _downloadFailures = {};
+  final Map<String, Future<Uint8List?>> _downloadsInFlight = {};
 
   @override
   Future<RoutineSessionProofAsset> persistCapturedProof({
@@ -153,7 +167,7 @@ class LocalRoutineSessionProofStorage implements RoutineSessionProofStorage {
       return null;
     }
 
-    final bytes = await _remote.downloadBytes(remoteObjectKey);
+    final bytes = await _downloadProofBytes(remoteObjectKey);
     if (bytes == null) {
       return null;
     }
@@ -162,6 +176,63 @@ class LocalRoutineSessionProofStorage implements RoutineSessionProofStorage {
     await file.parent.create(recursive: true);
     await file.writeAsBytes(bytes, flush: true);
     return file;
+  }
+
+  Future<Uint8List?> _downloadProofBytes(String objectKey) async {
+    // Only the signed-in owner can read users/<uid>/... objects. Signed out,
+    // deleted, or a different account: the request could only fail.
+    final userId = _remote.signedInUserId;
+    if (userId == null ||
+        userId.isEmpty ||
+        !objectKey.startsWith('users/$userId/')) {
+      return null;
+    }
+    final failure = _downloadFailures[objectKey];
+    if (failure != null && _clock().isBefore(failure.retryAt)) {
+      return null;
+    }
+    final inFlight = _downloadsInFlight[objectKey];
+    if (inFlight != null) {
+      return inFlight;
+    }
+    final download = _attemptDownload(objectKey);
+    _downloadsInFlight[objectKey] = download;
+    try {
+      return await download;
+    } finally {
+      // Already awaited above; removing it just ends the de-duplication.
+      _downloadsInFlight.remove(objectKey)?.ignore();
+    }
+  }
+
+  Future<Uint8List?> _attemptDownload(String objectKey) async {
+    try {
+      final bytes = await _remote.downloadBytes(objectKey);
+      if (bytes != null) {
+        _downloadFailures.remove(objectKey);
+      }
+      return bytes;
+    } catch (error) {
+      final missing = isMissingProofObjectError(error);
+      final attempts = (_downloadFailures[objectKey]?.attempts ?? 0) + 1;
+      final backoff = _downloadRetryBase * (1 << (attempts - 1).clamp(0, 6));
+      final retryIn = missing
+          ? const Duration(days: 365)
+          : backoff > _downloadRetryMax
+          ? _downloadRetryMax
+          : backoff;
+      _downloadFailures[objectKey] = _ProofDownloadFailure(
+        attempts: attempts,
+        retryAt: _clock().add(retryIn),
+      );
+      developer.log(
+        'Proof download failed for $objectKey '
+        '(${missing ? 'missing, not retrying' : 'attempt $attempts'}): '
+        '$error',
+        name: 'RoutinePlayer',
+      );
+      return null;
+    }
   }
 
   @override
@@ -302,6 +373,13 @@ class LocalRoutineSessionProofStorage implements RoutineSessionProofStorage {
         return 'image/jpeg';
     }
   }
+}
+
+class _ProofDownloadFailure {
+  const _ProofDownloadFailure({required this.attempts, required this.retryAt});
+
+  final int attempts;
+  final DateTime retryAt;
 }
 
 final routineSessionProofStorageProvider = Provider<RoutineSessionProofStorage>(

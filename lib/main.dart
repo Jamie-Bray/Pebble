@@ -537,14 +537,29 @@ Future<void> _startPebble(AppRuntimeConfig appRuntimeConfig) async {
     );
   }
 
-  // Initialize services - MUST be awaited before runApp
-  await NotificationService().init();
-  await _resyncEnabledReminderNotifications(db);
+  // Notifications must never keep the app from starting: a plugin or
+  // database failure here costs reminders, not a splash screen stuck forever.
+  final notificationsReady = await _runStartupStep(
+    'notification init',
+    NotificationService().init,
+  );
 
   // Handle notification taps: navigate to player
   NotificationService().selectedRoutineIdStream.listen((routineId) {
     unawaited(_openRoutineFromExternalLaunch(routineId));
   });
+  // A tap that cold-starts a killed app is not delivered to the stream above;
+  // it is only available from the plugin's launch details.
+  if (notificationsReady) {
+    unawaited(
+      _runStartupStep('notification launch', () async {
+        final routineId = await NotificationService().launchRoutineId();
+        if (routineId != null) {
+          unawaited(_openRoutineFromExternalLaunch(routineId));
+        }
+      }),
+    );
+  }
 
   // Home-screen widget: republish display data whenever routines change
   // (covers startup, pin/unpin, rename, delete - all in-app events, so no
@@ -581,6 +596,31 @@ Future<void> _startPebble(AppRuntimeConfig appRuntimeConfig) async {
       child: const PebbleApp(),
     ),
   );
+
+  // Rescheduling reminders touches every routine, so it runs after the first
+  // frame instead of holding the splash screen.
+  if (notificationsReady) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(
+        _runStartupStep(
+          'reminder resync',
+          () => _resyncEnabledReminderNotifications(db),
+        ),
+      );
+    });
+  }
+}
+
+/// Runs a non-essential startup step, reporting (not rethrowing) failures so
+/// startup always reaches runApp. Returns whether the step succeeded.
+Future<bool> _runStartupStep(String label, Future<void> Function() step) async {
+  try {
+    await step();
+    return true;
+  } catch (error, stackTrace) {
+    reportRecoveredError(error, stackTrace, context: 'startup: $label');
+    return false;
+  }
 }
 
 /// Navigates to the player for an externally triggered launch (widget tap or

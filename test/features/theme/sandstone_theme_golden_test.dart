@@ -180,9 +180,7 @@ class _ThemedPreview extends StatelessWidget {
   ) {
     final themeX = Theme.of(context).extension<PebbleThemeX>();
     final usesCategory = themeX != null && themeX.categoryAccents.length > 1;
-    final categoryColor = usesCategory
-        ? themeX.categoryAccentAt(index)
-        : null;
+    final categoryColor = usesCategory ? themeX.categoryAccentAt(index) : null;
     return Container(
       padding: const EdgeInsets.all(11),
       decoration: BoxDecoration(
@@ -213,9 +211,13 @@ class _ThemedPreview extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          Text(
-            label,
-            style: TextStyle(fontSize: 13, color: foundation.textMuted),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 13, color: foundation.textMuted),
+            ),
           ),
         ],
       ),
