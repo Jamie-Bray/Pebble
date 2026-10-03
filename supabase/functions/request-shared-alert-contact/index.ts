@@ -39,7 +39,7 @@ serve(async (req) => {
 
   if (req.method === 'DELETE') {
     if (!await hasActivePersonalEntitlement(serviceClient, userId)) {
-      return json({ error: 'Personal Premium is required for trusted contacts.' }, 403);
+      return json({ error: 'Personal Premium is required for completion emails.' }, 403);
     }
 
     let body: { contactId?: string };
@@ -80,7 +80,7 @@ serve(async (req) => {
 
   if (req.method === 'PATCH') {
     if (!await hasActivePersonalEntitlement(serviceClient, userId)) {
-      return json({ error: 'Personal Premium is required for trusted contacts.' }, 403);
+      return json({ error: 'Personal Premium is required for completion emails.' }, 403);
     }
 
     let body: { contactId?: string; notifyWhenFinished?: boolean };
@@ -123,7 +123,7 @@ serve(async (req) => {
   }
 
   if (!await hasActivePersonalEntitlement(serviceClient, userId)) {
-    return json({ error: 'Personal Premium is required for trusted contacts.' }, 403);
+    return json({ error: 'Personal Premium is required for completion emails.' }, 403);
   }
 
   let body: {
