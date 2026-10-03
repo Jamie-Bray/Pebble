@@ -274,6 +274,14 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
       await _continueAfterPurchase(result);
     } catch (error) {
       if (error is PurchaseCancelledException) return;
+      if (error is PurchaseFlowException && error.isPending) {
+        _showNotice(
+          error.message,
+          title: 'Payment pending',
+          type: NotificationType.info,
+        );
+        return;
+      }
       _showNotice(
         _purchaseErrorMessage(error),
         title: 'Purchase not completed',
@@ -817,9 +825,9 @@ class _PremiumActivatedSheet extends StatelessWidget {
                     TextSpan(
                       style: _serifStyle(context, fontSize: 30, height: 1.12),
                       children: [
-                        const TextSpan(text: 'One last thing\nto '),
+                        const TextSpan(text: 'Optional: sign in\nto '),
                         TextSpan(
-                          text: 'unlock it all.',
+                          text: 'back it all up.',
                           style: TextStyle(
                             color: accent,
                             fontStyle: FontStyle.italic,

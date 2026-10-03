@@ -63,9 +63,14 @@ class PurchaseCancelledException implements Exception {
 }
 
 class PurchaseFlowException implements Exception {
-  const PurchaseFlowException(this.message);
+  const PurchaseFlowException(this.message, {this.isPending = false});
 
   final String message;
+
+  /// The store accepted the purchase but is still waiting on payment (a slow
+  /// card on Google Play, Ask to Buy on the App Store). Nothing was charged
+  /// twice; Premium unlocks when the store confirms it.
+  final bool isPending;
 
   @override
   String toString() => message;
@@ -75,8 +80,14 @@ abstract class EntitlementStore {
   Future<void> applyRevenueCatEntitlement(
     UserTier tier, {
     DateTime? periodEndsAt,
+    bool? willRenew,
+    DateTime? billingIssueAt,
   });
   Future<void> applyExpiredEntitlement();
+
+  /// The store found no active Premium: if the plan already reads as expired
+  /// (inferred from a cached period end), mark the lapse as confirmed.
+  Future<void> confirmLapseIfExpired();
   Future<void> recordEntitlementError(String message);
   Future<bool> refreshServerVerifiedEntitlement({
     bool requestServerReconciliation = false,
@@ -92,10 +103,24 @@ class LocalEntitlementStore implements EntitlementStore {
   Future<void> applyRevenueCatEntitlement(
     UserTier tier, {
     DateTime? periodEndsAt,
+    bool? willRenew,
+    DateTime? billingIssueAt,
   }) async {
     await _ref
         .read(subscriptionAccountControllerProvider.notifier)
-        .applyRevenueCatEntitlement(tier, periodEndsAt: periodEndsAt);
+        .applyRevenueCatEntitlement(
+          tier,
+          periodEndsAt: periodEndsAt,
+          willRenew: willRenew,
+          billingIssueAt: billingIssueAt,
+        );
+  }
+
+  @override
+  Future<void> confirmLapseIfExpired() async {
+    await _ref
+        .read(subscriptionAccountControllerProvider.notifier)
+        .confirmLapseIfExpired();
   }
 
   @override
