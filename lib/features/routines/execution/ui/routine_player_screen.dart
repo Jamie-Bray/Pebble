@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -1342,7 +1343,7 @@ class _RoutineStepFooter extends StatelessWidget {
                       : null,
                   style: FilledButton.styleFrom(
                     minimumSize: const Size.fromHeight(56),
-                    textStyle: const TextStyle(
+                    textStyle: PebbleFonts.sans(
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
                     ),
@@ -1623,7 +1624,7 @@ class _PlayerPhotoSummary extends StatelessWidget {
                 padding: EdgeInsets.zero,
                 minimumSize: const Size(0, 32),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                textStyle: const TextStyle(
+                textStyle: PebbleFonts.sans(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                 ),
@@ -1933,7 +1934,7 @@ class _PlayerSecondaryActionRow extends StatelessWidget {
           onPressed: onSkip == null ? null : () => unawaited(onSkip!()),
           style: TextButton.styleFrom(
             foregroundColor: textColor,
-            textStyle: const TextStyle(
+            textStyle: PebbleFonts.sans(
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
@@ -2129,7 +2130,7 @@ class _RoutineCompleteScreenState extends State<RoutineCompleteScreen>
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        textStyle: const TextStyle(
+                        textStyle: PebbleFonts.sans(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
                         ),
@@ -2153,7 +2154,7 @@ class _RoutineCompleteScreenState extends State<RoutineCompleteScreen>
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        textStyle: const TextStyle(
+                        textStyle: PebbleFonts.sans(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                         ),

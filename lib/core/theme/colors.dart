@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 enum ThemeId {
@@ -107,7 +107,7 @@ abstract class _BaseThemeFactory {
           : Color.lerp(bg, fg, 0.1) ?? bg,
     );
 
-    final textTheme = GoogleFonts.dmSansTextTheme().apply(
+    final textTheme = PebbleFonts.sansTextTheme().apply(
       bodyColor: fg,
       displayColor: fg,
     );

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -445,7 +445,7 @@ class _AccountIdentityHeader extends StatelessWidget {
                   profile.identityLabel,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.outfit(
+                  style: PebbleFonts.sans(
                     color: colorScheme.onSurface,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -457,7 +457,7 @@ class _AccountIdentityHeader extends StatelessWidget {
                   caption,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.outfit(
+                  style: PebbleFonts.sans(
                     color: colorScheme.onSurface.withValues(alpha: 0.58),
                     fontSize: 13,
                     fontWeight: FontWeight.w400,
@@ -495,7 +495,7 @@ class _AccountPlanCard extends StatelessWidget {
             children: [
               Text(
                 profile.planName,
-                style: GoogleFonts.dmSerifDisplay(
+                style: PebbleFonts.serif(
                   color: colorScheme.onSurface,
                   fontSize: 30,
                   fontWeight: FontWeight.w400,
@@ -511,7 +511,7 @@ class _AccountPlanCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               periodLine,
-              style: GoogleFonts.outfit(
+              style: PebbleFonts.sans(
                 color: colorScheme.onSurface.withValues(alpha: 0.68),
                 fontSize: 13.5,
                 fontWeight: FontWeight.w400,
@@ -553,7 +553,7 @@ class _AccountSignInCard extends StatelessWidget {
         children: [
           Text(
             title,
-            style: GoogleFonts.dmSerifDisplay(
+            style: PebbleFonts.serif(
               color: colorScheme.onSurface,
               fontSize: 24,
               fontWeight: FontWeight.w400,
@@ -564,7 +564,7 @@ class _AccountSignInCard extends StatelessWidget {
           const SizedBox(height: 7),
           Text(
             body,
-            style: GoogleFonts.outfit(
+            style: PebbleFonts.sans(
               color: colorScheme.onSurface.withValues(alpha: 0.68),
               fontSize: 13.5,
               fontWeight: FontWeight.w400,
@@ -614,7 +614,7 @@ class _AccountUpgradeCard extends StatelessWidget {
         children: [
           Text(
             'Personal Premium',
-            style: GoogleFonts.dmSerifDisplay(
+            style: PebbleFonts.serif(
               color: colorScheme.onSurface,
               fontSize: 24,
               fontWeight: FontWeight.w400,
@@ -626,7 +626,7 @@ class _AccountUpgradeCard extends StatelessWidget {
           Text(
             'Get 21 days of history, unlimited routines and steps, and '
             'cloud backup when you choose to turn it on.',
-            style: GoogleFonts.outfit(
+            style: PebbleFonts.sans(
               color: colorScheme.onSurface.withValues(alpha: 0.66),
               fontSize: 13.5,
               fontWeight: FontWeight.w300,
@@ -753,7 +753,7 @@ class _AccountSettingsRow extends StatelessWidget {
             Expanded(
               child: Text(
                 label,
-                style: GoogleFonts.outfit(
+                style: PebbleFonts.sans(
                   color: colorScheme.onSurface.withValues(
                     alpha: onTap == null ? 0.45 : 0.86,
                   ),
@@ -771,7 +771,7 @@ class _AccountSettingsRow extends StatelessWidget {
                   textAlign: TextAlign.end,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.outfit(
+                  style: PebbleFonts.sans(
                     color: colorScheme.onSurface.withValues(alpha: 0.62),
                     fontSize: 13,
                     fontWeight: FontWeight.w400,
@@ -834,7 +834,7 @@ class _AccountLimitTile extends StatelessWidget {
               child: Text(
                 limit.value,
                 maxLines: 1,
-                style: GoogleFonts.dmSerifDisplay(
+                style: PebbleFonts.serif(
                   color: colorScheme.onSurface,
                   fontSize: 22,
                   fontWeight: FontWeight.w400,
@@ -849,7 +849,7 @@ class _AccountLimitTile extends StatelessWidget {
               maxLines: 2,
               textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.outfit(
+              style: PebbleFonts.sans(
                 color: colorScheme.onSurface.withValues(alpha: 0.56),
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
@@ -901,7 +901,7 @@ class _AccountPill extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
         child: Text(
           label,
-          style: GoogleFonts.outfit(
+          style: PebbleFonts.sans(
             color: colorScheme.onSurface.withValues(alpha: 0.66),
             fontSize: 11,
             fontWeight: FontWeight.w700,
@@ -1013,7 +1013,7 @@ class _LapsedPremiumSection extends StatelessWidget {
         Text(
           'Works without an account · Cancel anytime',
           textAlign: TextAlign.center,
-          style: GoogleFonts.outfit(
+          style: PebbleFonts.sans(
             fontSize: 11,
             fontWeight: FontWeight.w300,
             letterSpacing: 0.3,
@@ -1087,7 +1087,7 @@ class _LapsedHero extends StatelessWidget {
               ),
             ],
           ),
-          style: GoogleFonts.dmSerifDisplay(
+          style: PebbleFonts.serif(
             fontSize: 38,
             height: 1.06,
             fontWeight: FontWeight.w400,
@@ -1101,7 +1101,7 @@ class _LapsedHero extends StatelessWidget {
                     '$graceEndDate. Here is what changes after that.'
               : 'Pebble now uses Free limits. Here is what that means for '
                     'what you saved.',
-          style: GoogleFonts.outfit(
+          style: PebbleFonts.sans(
             fontSize: 14,
             fontWeight: FontWeight.w300,
             height: 1.6,
@@ -1165,7 +1165,7 @@ class _RiskCard extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: GoogleFonts.outfit(
+                  style: PebbleFonts.sans(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: colorScheme.onSurface,
@@ -1174,7 +1174,7 @@ class _RiskCard extends StatelessWidget {
                 const SizedBox(height: 3),
                 Text(
                   body,
-                  style: GoogleFonts.outfit(
+                  style: PebbleFonts.sans(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w400,
                     height: 1.5,
@@ -1196,7 +1196,7 @@ class _RiskCard extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   countdown,
-                  style: GoogleFonts.outfit(
+                  style: PebbleFonts.sans(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.6,
@@ -1255,14 +1255,14 @@ class _LapsedCtaSection extends StatelessWidget {
             children: [
               Text(
                 monthlyPrice,
-                style: GoogleFonts.dmSerifDisplay(
+                style: PebbleFonts.serif(
                   fontSize: 30,
                   color: colorScheme.onSurface,
                 ),
               ),
               Text(
                 '/ month',
-                style: GoogleFonts.outfit(
+                style: PebbleFonts.sans(
                   fontSize: 13,
                   fontWeight: FontWeight.w300,
                   color: colorScheme.onSurface.withValues(alpha: 0.62),
@@ -1406,7 +1406,7 @@ class _AccountActionSheet extends StatelessWidget {
                     Text(
                       eyebrow.toUpperCase(),
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.outfit(
+                      style: PebbleFonts.sans(
                         color: accentColor,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
@@ -1417,7 +1417,7 @@ class _AccountActionSheet extends StatelessWidget {
                     Text(
                       title,
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.dmSerifDisplay(
+                      style: PebbleFonts.serif(
                         color: foreground,
                         fontSize: 30,
                         fontWeight: FontWeight.w400,
@@ -1429,7 +1429,7 @@ class _AccountActionSheet extends StatelessWidget {
                     Text(
                       body,
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.outfit(
+                      style: PebbleFonts.sans(
                         color: secondaryText,
                         fontSize: 14,
                         fontWeight: FontWeight.w300,
@@ -1602,7 +1602,7 @@ class _AccountSheetWarningRow extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: GoogleFonts.outfit(
+              style: PebbleFonts.sans(
                 color: colorScheme.onSurface.withValues(alpha: 0.76),
                 fontSize: 13,
                 fontWeight: FontWeight.w400,

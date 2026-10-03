@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'dart:convert';
 import 'dart:math' as math;
 
@@ -36,7 +37,6 @@ import 'package:pebble_routines/features/subscription/providers/premium_lapse_pr
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 import 'package:pebble_routines/features/subscription/ui/premium_lapse_ui.dart';
 import 'package:pebble_routines/features/subscription/ui/subscription_guard.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -352,7 +352,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                             const Spacer(),
                             Text(
                               'Start with one routine.',
-                              style: GoogleFonts.dmSerifDisplay(
+                              style: PebbleFonts.serif(
                                 fontSize: 36,
                                 fontWeight: FontWeight.w400,
                                 height: 1.06,
@@ -766,7 +766,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                         ),
                         maxLines: 1,
                         softWrap: false,
-                        style: GoogleFonts.dmSerifDisplay(
+                        style: PebbleFonts.serif(
                           fontSize: 22,
                           fontStyle: FontStyle.italic,
                           height: 1,
@@ -941,7 +941,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen>
                           children: [
                             Text(
                               'Your Routines',
-                              style: GoogleFonts.dmSerifDisplay(
+                              style: PebbleFonts.serif(
                                 fontSize: 22,
                                 fontWeight: FontWeight.w400,
                                 letterSpacing: -0.3,
@@ -2186,7 +2186,7 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.dmSerifDisplay(
+                  style: PebbleFonts.serif(
                     fontSize: metrics.titleFontSize,
                     fontWeight: FontWeight.w400,
                     height: 1.02,
@@ -2227,7 +2227,7 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(18),
                       ),
-                      textStyle: const TextStyle(
+                      textStyle: PebbleFonts.sans(
                         fontSize: 17,
                         fontWeight: FontWeight.w600,
                         letterSpacing: -0.1,

@@ -10,9 +10,10 @@ import 'package:pebble_routines/core/theme/colors.dart';
 /// palette in the image is exactly what ships. High Noon is rendered beside it
 /// to prove single-accent themes are unchanged (grey badges, green action).
 ///
-/// Building the real theme pulls in GoogleFonts, which cannot fetch in the test
-/// sandbox; runtime fetching is disabled and the resulting font error is
-/// consumed with `takeException` so it does not fail these colour checks.
+/// Building the real theme pulls in GoogleFonts. The fonts are bundled assets
+/// (preloaded by flutter_test_config.dart) and runtime fetching is disabled;
+/// `takeException` stays as a guard so a font problem never fails these
+/// colour checks.
 void main() {
   setUpAll(() {
     GoogleFonts.config.allowRuntimeFetching = false;
@@ -68,7 +69,7 @@ void main() {
         ),
       ),
     );
-    tester.takeException(); // swallow the GoogleFonts fetch failure
+    tester.takeException(); // guard against any font-loading error
     await tester.pump();
 
     await expectLater(

@@ -12,6 +12,7 @@ import 'package:intl/intl.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'core/theme/pebble_fonts.dart';
 import 'core/theme/theme_provider.dart';
 import 'core/config/app_runtime_config.dart';
 import 'core/monitoring/crash_reporting.dart';
@@ -479,6 +480,8 @@ void main() async {
 
 Future<void> _startPebble(AppRuntimeConfig appRuntimeConfig) async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Fonts are bundled; never fetch them (and never show system fonts offline).
+  PebbleFonts.configure();
   final prefs = await SharedPreferences.getInstance();
   final db = LocalDb();
   const supabaseUrl = String.fromEnvironment('SUPABASE_URL');

@@ -1,10 +1,10 @@
 import 'dart:async';
+import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -475,7 +475,7 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
         surface: foundation.bgBase,
         onSurface: foundation.textPrimary,
       ),
-      textTheme: GoogleFonts.outfitTextTheme(parentTheme.textTheme).apply(
+      textTheme: PebbleFonts.sansTextTheme(parentTheme.textTheme).apply(
         bodyColor: foundation.textPrimary,
         displayColor: foundation.textPrimary,
       ),
@@ -1965,7 +1965,7 @@ class _FooterLinks extends StatelessWidget {
       foregroundColor: foundation.textPrimary.withValues(alpha: 0.82),
       visualDensity: VisualDensity.compact,
       padding: const EdgeInsets.symmetric(horizontal: 4),
-      textStyle: const TextStyle(
+      textStyle: PebbleFonts.sans(
         fontSize: 12.5,
         fontWeight: FontWeight.w500,
         decoration: TextDecoration.underline,
@@ -2076,7 +2076,7 @@ TextStyle _serifStyle(
   double height = 1,
 }) {
   final foundation = context.darkFoundation;
-  return GoogleFonts.dmSerifDisplay(
+  return PebbleFonts.serif(
     color: foundation.textPrimary,
     fontSize: fontSize,
     fontWeight: FontWeight.w400,

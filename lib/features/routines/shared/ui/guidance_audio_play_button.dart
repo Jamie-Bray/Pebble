@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -72,7 +73,7 @@ class _GuidanceAudioPlayButtonState extends State<GuidanceAudioPlayButton> {
         ),
         minimumSize: Size(0, widget.compact ? 36 : 42),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        textStyle: TextStyle(
+        textStyle: PebbleFonts.sans(
           fontSize: widget.compact ? 12.5 : 14,
           fontWeight: FontWeight.w600,
         ),

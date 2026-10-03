@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
+import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
@@ -276,7 +276,7 @@ class _SignInBackRow extends StatelessWidget {
         const SizedBox(width: 12),
         Text(
           'YOUR ACCOUNT',
-          style: GoogleFonts.outfit(
+          style: PebbleFonts.sans(
             fontSize: 12,
             fontWeight: FontWeight.w500,
             letterSpacing: 1.44,
@@ -319,7 +319,7 @@ class _SignInHero extends StatelessWidget {
               ),
             ],
           ),
-          style: GoogleFonts.dmSerifDisplay(
+          style: PebbleFonts.serif(
             fontSize: 38,
             height: 1.08,
             fontWeight: FontWeight.w400,
@@ -341,7 +341,7 @@ class _SignInHero extends StatelessWidget {
               const TextSpan(text: ' without an account.'),
             ],
           ),
-          style: GoogleFonts.outfit(
+          style: PebbleFonts.sans(
             fontSize: 14,
             fontWeight: FontWeight.w300,
             height: 1.65,
@@ -437,7 +437,7 @@ class _SignInPerk extends StatelessWidget {
                 TextSpan(text: ' – $body'),
               ],
             ),
-            style: GoogleFonts.outfit(
+            style: PebbleFonts.sans(
               fontSize: 13,
               fontWeight: FontWeight.w300,
               height: 1.45,
@@ -472,7 +472,7 @@ class _BackupOnSignInNote extends StatelessWidget {
             'Signing in turns on backup for this account. Pebble backs up '
             'routines, history, and proof photos, which can include personal '
             'details. You can pause backup any time in Your Account.',
-            style: GoogleFonts.outfit(
+            style: PebbleFonts.sans(
               fontSize: 12,
               fontWeight: FontWeight.w300,
               height: 1.5,
@@ -502,7 +502,7 @@ class _SignInUnavailableNotice extends StatelessWidget {
       ),
       child: Text(
         message,
-        style: GoogleFonts.outfit(
+        style: PebbleFonts.sans(
           fontSize: 14,
           height: 1.45,
           color: colorScheme.onSurface.withValues(alpha: 0.76),
@@ -525,7 +525,7 @@ class _NoAccountNote extends StatelessWidget {
         Text(
           'Pebble is fully functional offline.',
           textAlign: TextAlign.center,
-          style: GoogleFonts.outfit(
+          style: PebbleFonts.sans(
             fontSize: 12,
             fontWeight: FontWeight.w400,
             height: 1.6,
@@ -536,7 +536,7 @@ class _NoAccountNote extends StatelessWidget {
           onPressed: onTap,
           style: TextButton.styleFrom(
             foregroundColor: colorScheme.primary.withValues(alpha: 0.62),
-            textStyle: GoogleFonts.outfit(
+            textStyle: PebbleFonts.sans(
               fontSize: 12,
               fontWeight: FontWeight.w400,
             ),
@@ -592,7 +592,7 @@ class _SignInButton extends StatelessWidget {
               ).withValues(alpha: onTap == null ? 0.54 : 1),
             ),
             shape: shape,
-            textStyle: const TextStyle(
+            textStyle: PebbleFonts.sans(
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
@@ -610,7 +610,7 @@ class _SignInButton extends StatelessWidget {
           style: FilledButton.styleFrom(
             minimumSize: const Size.fromHeight(52),
             shape: shape,
-            textStyle: GoogleFonts.outfit(
+            textStyle: PebbleFonts.sans(
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
@@ -631,7 +631,7 @@ class _SignInButton extends StatelessWidget {
           ),
           minimumSize: const Size.fromHeight(52),
           shape: shape,
-          textStyle: GoogleFonts.outfit(
+          textStyle: PebbleFonts.sans(
             fontSize: 14,
             fontWeight: FontWeight.w400,
           ),

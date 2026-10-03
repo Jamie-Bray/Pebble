@@ -8,10 +8,12 @@
 //   WALKTHROUGH=1 WALKTHROUGH_OUT=/abs/out WALKTHROUGH_FONTS=/abs/fonts \
 //     flutter test test/walkthrough/walkthrough_screens_test.dart
 //
-// WALKTHROUGH_FONTS must contain the Google Fonts TTFs the app uses (Outfit,
-// DM Sans, DM Serif Display) named `<Family>_<variant>.ttf`, plus a
-// manifest.txt of `<family name> <file> <hash>` lines. Without it, text renders
-// in the test font.
+// The app's fonts (DM Sans, DM Serif Display) are bundled under
+// assets/fonts/: they are registered from FontManifest.json below, and
+// google_fonts loads its own copies from the asset bundle, so no download or
+// WALKTHROUGH_FONTS directory is needed. WALKTHROUGH_FONTS is still honoured
+// (a directory of `<Family>_<variant>.ttf` files plus a manifest.txt of
+// `<family name> <file> <hash>` lines) for any extra font a capture needs.
 //
 // Note: `flutter test` always starts flutter_tester with --use-test-fonts, so
 // any text whose style has no fontFamily (common in button styles) renders as
@@ -586,7 +588,8 @@ Future<void> _loadFonts() async {
   _fontsLoaded = true;
   GoogleFonts.config.allowRuntimeFetching = false;
 
-  // App + package fonts declared in pubspecs (MaterialIcons, Lucide).
+  // App + package fonts declared in pubspecs (DMSans, DMSerifDisplay,
+  // MaterialIcons, Lucide).
   final manifest =
       jsonDecode(await rootBundle.loadString('FontManifest.json')) as List;
   for (final entry in manifest.cast<Map<String, dynamic>>()) {
@@ -629,7 +632,7 @@ Future<void> _loadFonts() async {
   }
 
   // Google Fonts used by the app, registered under google_fonts' own family
-  // names so GoogleFonts.outfit(...) etc. resolve to real glyphs.
+  // names so GoogleFonts.dmSans(...) etc. resolve to real glyphs.
   // They are also copied into a fake "application support" directory under
   // google_fonts' cache naming, so its own loader finds them instead of
   // throwing (fetching is disabled in tests).

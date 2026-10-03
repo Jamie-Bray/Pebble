@@ -1,11 +1,11 @@
 import 'dart:async';
+import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -829,7 +829,7 @@ class _HistoryHeader extends StatelessWidget {
                     'History',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.dmSerifDisplay(
+                    style: PebbleFonts.serif(
                       fontSize: 34,
                       height: 1,
                       fontWeight: FontWeight.w400,
@@ -1099,7 +1099,7 @@ class _HistoryRunTimeBlock extends StatelessWidget {
                 DateFormat('h:mm').format(time),
                 maxLines: 1,
                 textAlign: TextAlign.right,
-                style: GoogleFonts.dmSerifDisplay(
+                style: PebbleFonts.serif(
                   fontSize: 26,
                   height: 1,
                   fontWeight: FontWeight.w400,
@@ -1439,7 +1439,7 @@ class _HistoryBackupFooter extends StatelessWidget {
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               foregroundColor: context.readableAccentText(cs.primary),
-              textStyle: const TextStyle(
+              textStyle: PebbleFonts.sans(
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
                 letterSpacing: 0.1,

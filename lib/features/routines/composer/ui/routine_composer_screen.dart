@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -1413,7 +1414,7 @@ class _GuidanceAudioSheet extends StatelessWidget {
                       label: const Text('Remove'),
                       style: TextButton.styleFrom(
                         foregroundColor: cs.error.withValues(alpha: 0.86),
-                        textStyle: const TextStyle(
+                        textStyle: PebbleFonts.sans(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
                         ),
@@ -1469,7 +1470,7 @@ class _LockedGuidanceAudio extends StatelessWidget {
           label: const Text('Upgrade for voice tips'),
           style: FilledButton.styleFrom(
             minimumSize: const Size.fromHeight(48),
-            textStyle: const TextStyle(
+            textStyle: PebbleFonts.sans(
               fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
@@ -1660,7 +1661,7 @@ class _DoneAction extends StatelessWidget {
         style: TextButton.styleFrom(
           foregroundColor: cs.primary,
           disabledForegroundColor: cs.onSurface.withValues(alpha: 0.34),
-          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+          textStyle: PebbleFonts.sans(fontSize: 14, fontWeight: FontWeight.w700),
         ),
       ),
     );
@@ -1691,7 +1692,7 @@ class _AddStepButton extends StatelessWidget {
         disabledBackgroundColor: cs.surfaceContainerHigh,
         disabledForegroundColor: cs.onSurface.withValues(alpha: 0.34),
         minimumSize: const Size.fromHeight(52),
-        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+        textStyle: PebbleFonts.sans(fontSize: 15, fontWeight: FontWeight.w700),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
       icon: const Icon(LucideIcons.plus, size: 16),

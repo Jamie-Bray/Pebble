@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/features/routines/composer/models/routine_composer_step_draft.dart';
 
@@ -390,7 +391,7 @@ class _StepOptionPill extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 7),
               minimumSize: const Size(0, 36),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              textStyle: const TextStyle(
+              textStyle: PebbleFonts.sans(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
