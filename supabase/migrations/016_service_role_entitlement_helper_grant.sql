@@ -1,0 +1,17 @@
+-- Restore service_role EXECUTE on the entitlement helper.
+--
+-- Migration 012 revoked EXECUTE on has_active_personal_entitlement(uuid) from
+-- PUBLIC, and 013 only gave it back to authenticated. service_role never had an
+-- explicit grant, so since 012 every edge function that checks Premium through
+--   serviceClient.rpc('has_active_personal_entitlement', ...)
+-- gets "permission denied", which those functions treat as "not Premium":
+--   * request-shared-alert-contact answers 403 "Personal Premium is required"
+--     to every POST/PATCH/DELETE;
+--   * send-routine-completion-alert answers {sent:false, reason:
+--     'noActiveEntitlement'} and never sends a completion email.
+-- Verified on production on 2026-10-03:
+--   has_function_privilege('service_role', 'public.has_active_personal_entitlement(uuid)', 'execute') = false
+--
+-- service_role already bypasses RLS and can read personal_entitlements
+-- directly, so this grant exposes nothing new.
+grant execute on function public.has_active_personal_entitlement(uuid) to service_role;
