@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,10 +15,10 @@ const _userId = '11111111-1111-1111-1111-111111111111';
 const _objectKey = 'users/$_userId/run/run-1/proof-1.webp';
 
 class _FakeRemoteProofs extends RemoteProofAssetDataSource {
-  _FakeRemoteProofs({this.signedInUserId = _userId}) : super(null);
+  _FakeRemoteProofs() : super(null);
 
   @override
-  String? signedInUserId;
+  String? signedInUserId = _userId;
 
   final List<String> requested = [];
   Object? failWith;
