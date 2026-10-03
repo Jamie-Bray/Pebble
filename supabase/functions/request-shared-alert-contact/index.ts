@@ -241,33 +241,37 @@ async function sendInviteEmail(
   const declineUrl = actionUrl(env.publicBaseUrl, 'shared-alert-decline', token);
   const blockUrl = actionUrl(env.publicBaseUrl, 'shared-alert-block', token);
   const text = [
-    'Pebble shared alert request',
+    'Allow completion emails from Pebble?',
     '',
-    'Someone who uses Pebble would like to email you when they complete a routine.',
+    'Someone has added this email address to receive an update when they complete a routine.',
     '',
-    'If you recognise this request, you can allow these alerts. Pebble will only send completion emails after you accept.',
+    'Completion emails can include the routine name, completion time, and step count. Photos and checklist details are never included.',
     '',
-    `Allow Pebble alerts: ${acceptUrl}`,
-    `Decline this invite: ${declineUrl}`,
-    `Block future invites from this sender: ${blockUrl}`,
+    'Pebble will not send any completion emails unless you allow them.',
     '',
-    'You are receiving this because someone entered your email address in Pebble. If you did not expect this, you can ignore this email.',
+    `Allow completion emails: ${acceptUrl}`,
+    `Decline: ${declineUrl}`,
+    `Block future invitations: ${blockUrl}`,
+    '',
+    'You received this because someone entered your email address in Pebble. If you were not expecting this, you can safely ignore it.',
   ].join('\n');
 
   const html = emailShell({
-    preheader: 'Someone would like to share Pebble completion updates with you.',
-    title: 'Shared alert request',
+    preheader: 'Choose whether to receive routine completion emails from Pebble.',
+    eyebrow: 'Invitation',
+    title: 'Allow completion emails?',
+    intro: 'Someone has added this email address to receive an update when they complete a routine.',
     body: [
-      'Someone who uses Pebble would like to email you when they complete a routine.',
-      'If you recognise this request, you can allow these alerts. Pebble will only send completion emails after you accept.',
+      'Completion emails can include the routine name, completion time, and step count.',
+      'Photos and checklist details are never included.',
     ],
-    ctaLabel: 'Allow Pebble alerts',
+    ctaLabel: 'Allow completion emails',
     ctaUrl: acceptUrl,
     secondaryLinks: [
-      { label: 'Decline this invite', url: declineUrl },
-      { label: 'Block future invites from this sender', url: blockUrl },
+      { label: 'Decline', url: declineUrl },
+      { label: 'Block future invitations', url: blockUrl },
     ],
-    footer: 'You are receiving this because someone entered your email address in Pebble. If you did not expect this, you can ignore this email.',
+    footer: 'You received this because someone entered your email address in Pebble. If you were not expecting this, you can safely ignore it.',
   });
 
   const response = await fetch('https://api.resend.com/emails', {
@@ -279,7 +283,7 @@ async function sendInviteEmail(
     body: JSON.stringify({
       from: env.fromEmail,
       to: [recipientEmail],
-      subject: 'Pebble shared alert request',
+      subject: 'Allow completion emails from Pebble?',
       text,
       html,
       ...(env.replyToEmail ? { reply_to: env.replyToEmail } : {}),
@@ -385,7 +389,9 @@ async function sha256Hex(value: string): Promise<string> {
 
 function emailShell(input: {
   preheader: string;
+  eyebrow: string;
   title: string;
+  intro: string;
   body: string[];
   ctaLabel: string;
   ctaUrl: string;
@@ -393,44 +399,67 @@ function emailShell(input: {
   footer: string;
 }): string {
   const paragraphs = input.body
-    .map((line) => `<p style="margin:0 0 14px;color:#253047;font-size:16px;line-height:1.6;">${escapeHtml(line)}</p>`)
+    .map((line) => `<p style="margin:0 0 8px;color:#45534b;font-size:14px;line-height:1.55;">${escapeHtml(line)}</p>`)
     .join('');
   const links = input.secondaryLinks
-    .map((link) => `<a href="${link.url}" style="color:#4b5cff;text-decoration:none;border-bottom:1px solid #c7ccff;">${escapeHtml(link.label)}</a>`)
-    .join('<span style="color:#a0a7b8;"> &nbsp;|&nbsp; </span>');
+    .map((link) => `<a href="${link.url}" style="color:#53665b;text-decoration:underline;text-decoration-color:#b7c0ba;text-underline-offset:3px;">${escapeHtml(link.label)}</a>`)
+    .join('<span style="color:#b2bbb5;"> &nbsp;&nbsp;·&nbsp;&nbsp; </span>');
   return `<!doctype html>
 <html lang="en">
-<body style="margin:0;padding:0;background:#f6f7fb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#111827;">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <style>
+    @media only screen and (max-width:620px) {
+      .email-shell { padding:20px 12px !important; }
+      .email-card { border-radius:18px !important; }
+      .email-section { padding-left:22px !important; padding-right:22px !important; }
+      .email-title { font-size:30px !important; }
+      .email-button { display:block !important; text-align:center !important; }
+    }
+  </style>
+</head>
+<body style="margin:0;padding:0;background:#f3f1ec;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#1d2922;">
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${escapeHtml(input.preheader)}</div>
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f6f7fb;padding:32px 12px;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="email-shell" style="width:100%;background:#f3f1ec;padding:40px 16px;">
     <tr>
       <td align="center">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border:1px solid #e7e9f2;border-radius:26px;box-shadow:0 18px 48px rgba(27,39,82,.10);overflow:hidden;">
-          <tr><td>
-            <div style="padding:30px 32px 0;background:linear-gradient(135deg,#ffffff 0%,#f7f8ff 52%,#f2fffb 100%);">
-              <p style="margin:0 0 20px;">
-                <span style="display:inline-block;background:#111827;color:#ffffff;border-radius:999px;padding:7px 11px;font-size:12px;font-weight:800;letter-spacing:0;">Pebble</span>
-                <span style="display:inline-block;margin-left:8px;color:#667085;font-size:13px;">Trusted contact invite</span>
-              </p>
-              <h1 style="margin:0 0 12px;color:#111827;font-size:32px;line-height:1.12;font-weight:800;letter-spacing:0;">${escapeHtml(input.title)}</h1>
-              <p style="margin:0;color:#596277;font-size:15px;line-height:1.55;">Completion emails only start after you allow them.</p>
-            </div>
-            <div style="padding:26px 32px 30px;background:#ffffff;">
-              ${paragraphs}
-              <p style="margin:24px 0 22px;">
-                <a href="${input.ctaUrl}" style="display:inline-block;background:#4b5cff;color:#ffffff;text-decoration:none;border-radius:999px;padding:14px 20px;font-size:15px;font-weight:800;box-shadow:0 10px 22px rgba(75,92,255,.22);">${escapeHtml(input.ctaLabel)}</a>
-              </p>
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 20px;background:#f8fafc;border:1px solid #e7eaf3;border-radius:18px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="email-card" style="width:100%;max-width:580px;background:#fffdfa;border:1px solid #deddd7;border-radius:24px;box-shadow:0 16px 42px rgba(42,55,47,.08);overflow:hidden;">
+          <tr>
+            <td class="email-section" style="padding:26px 34px 24px;border-bottom:1px solid #ebe9e3;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                 <tr>
-                  <td style="padding:14px 16px;">
-                    <p style="margin:0;color:#475467;font-size:13px;line-height:1.5;">Pebble will not send routine names or completion updates unless this invite is accepted.</p>
+                  <td><span style="display:inline-block;background:#24382d;color:#ffffff;border-radius:999px;padding:8px 12px;font-size:12px;line-height:1;font-weight:800;letter-spacing:.2px;">Pebble</span></td>
+                  <td align="right" style="color:#718077;font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;">${escapeHtml(input.eyebrow)}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td class="email-section" style="padding:38px 34px 34px;">
+              <h1 class="email-title" style="margin:0 0 14px;color:#1d2922;font-size:36px;line-height:1.12;font-weight:800;letter-spacing:-.7px;">${escapeHtml(input.title)}</h1>
+              <p style="margin:0 0 28px;color:#536159;font-size:16px;line-height:1.6;">${escapeHtml(input.intro)}</p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 28px;background:#f3f5f1;border:1px solid #dfe5df;border-radius:16px;">
+                <tr>
+                  <td style="padding:18px 20px;">
+                    <p style="margin:0 0 10px;color:#24382d;font-size:13px;line-height:1.4;font-weight:800;">What may be included</p>
+                    ${paragraphs}
                   </td>
                 </tr>
               </table>
-              <p style="margin:0 0 20px;font-size:13px;line-height:1.5;">${links}</p>
-              <p style="margin:20px 0 0;border-top:1px solid #edf0f6;padding-top:16px;color:#667085;font-size:12px;line-height:1.55;">${escapeHtml(input.footer)}</p>
-            </div>
-          </td></tr>
+              <p style="margin:0 0 28px;">
+                <a href="${input.ctaUrl}" class="email-button" style="display:inline-block;background:#2e5b43;color:#ffffff;text-decoration:none;border-radius:12px;padding:14px 20px;font-size:15px;line-height:1.2;font-weight:800;">${escapeHtml(input.ctaLabel)}</a>
+              </p>
+              <p style="margin:0 0 26px;color:#66746c;font-size:13px;line-height:1.6;">Nothing will be sent unless you choose to allow it.</p>
+              <p style="margin:0;font-size:13px;line-height:1.6;">${links}</p>
+            </td>
+          </tr>
+          <tr>
+            <td class="email-section" style="padding:20px 34px 24px;background:#f8f7f3;border-top:1px solid #ebe9e3;">
+              <p style="margin:0;color:#748078;font-size:12px;line-height:1.6;">${escapeHtml(input.footer)}</p>
+            </td>
+          </tr>
         </table>
       </td>
     </tr>
