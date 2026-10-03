@@ -5,186 +5,248 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Pebble Routines is a practical routine app for everyday checks, optional photo confirmation, and private-by-default records."
+      content="Pebble walks you through the routines you already have — one step at a time, with optional photo proof. Not a habit tracker: no streaks, nothing to keep up. Private by default, no account needed."
     />
-    <title>Pebble Routines | Routine checks that stick</title>
+    <meta name="theme-color" content="#f4eddf" />
+    <link rel="canonical" href="https://pebbleroutines.com/" />
+    <meta property="og:title" content="Pebble — routines, one step at a time" />
+    <meta
+      property="og:description"
+      content="Not a habit tracker. Pebble walks you through the routines you already have, one step at a time — with proof you locked the door."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://pebbleroutines.com/" />
+    <meta property="og:site_name" content="Pebble" />
+    <meta property="og:image" content="https://pebbleroutines.com/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Pebble — routines, one step at a time." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Pebble — routines, one step at a time" />
+    <meta
+      name="twitter:description"
+      content="Not a habit tracker. Pebble walks you through the routines you already have, one step at a time."
+    />
+    <meta name="twitter:image" content="https://pebbleroutines.com/og-image.png" />
+    <title>Pebble — routines, one step at a time</title>
+    <link rel="icon" type="image/svg+xml" href="icons/pebble-cairn.svg" />
     <link rel="icon" href="favicon.ico" sizes="any" />
     <link rel="icon" type="image/png" sizes="96x96" href="favicon-96x96.png" />
     <link rel="manifest" href="manifest.json" />
     <link rel="stylesheet" href="legal.css" />
+    <link rel="stylesheet" href="home.css" />
   </head>
-  <body>
-    <header class="site-header">
-      <a class="brand" href="index.html" aria-label="Pebble Routines home">
+  <body class="home-page">
+    <a class="skip-link" href="#try-pebble">Skip to the demo</a>
+    <header class="site-header home-header">
+      <a class="brand" href="index.html" aria-label="Pebble home">
         <span class="brand-mark" aria-hidden="true">P</span>
-        <span>Pebble Routines</span>
+        <span class="brand-word">pebble<span aria-hidden="true">.</span></span>
       </a>
       <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav">
         <span>Menu</span>
       </button>
       <nav id="site-nav" class="site-nav" aria-label="Primary navigation">
-        <a href="index.html" aria-current="page">Home</a>
-        <a href="privacy.html">Privacy</a>
-        <a href="terms.html">Terms</a>
+        <a href="#try-pebble">Try it</a>
+        <a href="#inside-pebble">What's inside</a>
         <a href="support.html">Support</a>
+        <a class="nav-cta" href="mailto:support@pebbleroutines.com?subject=Keep%20me%20posted%20about%20Pebble">Keep me posted</a>
       </nav>
     </header>
 
     <main>
-      <section class="hero-home">
-        <div class="hero-copy">
-          <p class="eyebrow">Coming soon</p>
-          <h1>Pebble Routines</h1>
-          <p class="hero-subtitle">A routine app for the checks that matter.</p>
-          <p class="lede">
-            Build repeatable checklists, run them step by step, and keep optional
-            proof for the moments when you want a record. Pebble is private by
-            default and clear by design.
+      <section class="home-hero" aria-labelledby="hero-title">
+        <div class="hero-copy-v2">
+          <p class="hero-kicker">Not a habit tracker</p>
+          <h1 id="hero-title">Your brain shouldn't have to hold the whole list.</h1>
+          <p class="hero-one-liner">
+            Pebble walks you through the routines you already have — one step at a time, with proof
+            you locked the door. No streaks to keep. Nothing to keep up.
           </p>
-          <div class="hero-actions" aria-label="Homepage actions">
-            <a class="button primary" href="#coming-soon">Get updates</a>
-            <a class="button ghost" href="privacy.html">Read privacy notes</a>
+          <div class="hero-actions">
+            <a class="button primary" href="#try-pebble">Try a routine <span aria-hidden="true">↓</span></a>
+            <a class="text-link" href="#inside-pebble">See what's inside <span aria-hidden="true">→</span></a>
           </div>
+          <ul class="trust-points" aria-label="Pebble basics">
+            <li><span aria-hidden="true">✓</span> Works without an account</li>
+            <li><span aria-hidden="true">✓</span> Private by default</li>
+          </ul>
         </div>
 
-        <div class="pebble-visual" aria-label="Pebble routine preview">
-          <div class="phone-shell">
-            <div class="phone-top">
-              <span>Today</span>
-              <strong>Front door check</strong>
-            </div>
-            <div class="check-card complete">
-              <span class="check-icon" aria-hidden="true"></span>
-              <div>
-                <strong>Keys returned</strong>
-                <small>Confirmed at 8:02</small>
-              </div>
-            </div>
-            <div class="check-card active">
-              <span class="photo-tile" aria-hidden="true"></span>
-              <div>
-                <strong>Door locked</strong>
-                <small>Photo confirmation optional</small>
-              </div>
-            </div>
-            <div class="check-card">
-              <span class="check-icon hollow" aria-hidden="true"></span>
-              <div>
-                <strong>Bag ready</strong>
-                <small>Next check ready</small>
-              </div>
-            </div>
-            <div class="privacy-strip">
-              <span aria-hidden="true"></span>
-              <p>Private by default</p>
-            </div>
-          </div>
+        <div class="hero-cairn" aria-hidden="true">
+          <div class="orbit orbit-one"></div>
+          <div class="orbit orbit-two"></div>
+          <div class="orbit orbit-three"></div>
+          <div class="floating-check check-one"></div>
+          <div class="floating-check check-two"></div>
+          <div class="floating-check check-three"></div>
+          <img src="icons/pebble-cairn.svg" alt="" width="512" height="512" />
+          <span class="hero-note note-one">keys</span>
+          <span class="hero-note note-two">water</span>
+          <span class="hero-note note-three">door</span>
         </div>
       </section>
 
-      <section class="section-shell" id="helps">
-        <div class="section-heading">
-          <p class="eyebrow">What Pebble helps with</p>
-          <h2>Everyday checks, easier to verify.</h2>
-        </div>
-        <div class="card-grid three">
-          <article class="feature-card">
-            <span class="feature-mark slate" aria-hidden="true"></span>
-            <h3>Leaving-home checks</h3>
-            <p>
-              Keep a simple sequence for the doors, keys, appliances, bags, or
-              other checks you want to remember before you leave.
-            </p>
-          </article>
-          <article class="feature-card">
-            <span class="feature-mark moss" aria-hidden="true"></span>
-            <h3>Optional records</h3>
-            <p>
-              Add notes, history, and optional photo confirmation when a visual
-              record would help you check back later.
-            </p>
-          </article>
-          <article class="feature-card">
-            <span class="feature-mark clay" aria-hidden="true"></span>
-            <h3>Reusable checklists</h3>
-            <p>
-              Create reusable routines with reminders and clear completion
-              states, without turning your day into a dashboard.
-            </p>
-          </article>
-        </div>
-      </section>
-
-      <section class="section-shell split-section" id="how-it-works">
-        <div class="section-heading">
-          <p class="eyebrow">How it works</p>
-          <h2>Set it up once. Use it when the moment comes.</h2>
-        </div>
-        <div class="steps-panel">
-          <article>
-            <span>1</span>
-            <div>
-              <h3>Create a routine</h3>
-              <p>Name the check, add the steps, and choose whether a reminder belongs with it.</p>
-            </div>
-          </article>
-          <article>
-            <span>2</span>
-            <div>
-              <h3>Run the checklist</h3>
-              <p>Move through each step on a clear screen that keeps the next action obvious.</p>
-            </div>
-          </article>
-          <article>
-            <span>3</span>
-            <div>
-              <h3>Keep a record</h3>
-              <p>Review recent completions and optional photos when you want to check back.</p>
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <section class="privacy-band" id="privacy-first">
-        <div>
-          <p class="eyebrow">Privacy-first</p>
-          <h2>Your routines are personal. Pebble keeps them that way.</h2>
-        </div>
+      <section class="stance" aria-label="How Pebble differs from a habit tracker">
         <p>
-          Pebble is designed for local-first use, private-by-default settings,
-          and clear choices before account or backup features are used. We do
-          not sell personal data, use routine content for ads, or use your
-          private routine content to train AI models.
+          A habit tracker is for the things you're <em>trying</em> to start doing.
+          Pebble is for the things you already do — and still get wrong when your head's somewhere
+          else.
         </p>
       </section>
 
-      <section class="section-shell" id="coming-soon">
-        <div class="coming-soon-panel">
-          <div>
-            <p class="eyebrow">Coming soon</p>
-            <h2>A better way to keep track.</h2>
-            <p>
-              Pebble Routines is being prepared for release. For questions,
-              early interest, or support, email the Pebble team.
-            </p>
-          </div>
-          <a class="button primary" href="mailto:support@pebbleroutines.app?subject=Pebble%20Routines%20updates">
-            Contact Pebble
-          </a>
+      <section class="try-section" id="try-pebble" aria-labelledby="try-title">
+        <div class="section-intro compact-intro">
+          <h2 id="try-title">Tap through a real routine.</h2>
+          <p>This is the actual flow from the app, running right here. Nothing is saved, nothing is sent.</p>
         </div>
+
+        <div class="demo-layout">
+          <div class="demo-controls-column">
+            <div class="routine-picker" aria-label="Choose a demo routine">
+              <button class="routine-choice is-active" type="button" data-routine="leaving" aria-pressed="true">
+                <span class="choice-icon" aria-hidden="true">↗</span>
+                <span><strong>Leaving home</strong><small>4 steps</small></span>
+              </button>
+              <button class="routine-choice" type="button" data-routine="morning" aria-pressed="false">
+                <span class="choice-icon" aria-hidden="true">☼</span>
+                <span><strong>Good morning</strong><small>4 steps</small></span>
+              </button>
+              <button class="routine-choice" type="button" data-routine="bedtime" aria-pressed="false">
+                <span class="choice-icon" aria-hidden="true">☾</span>
+                <span><strong>Bedtime reset</strong><small>4 steps</small></span>
+              </button>
+            </div>
+
+            <div class="theme-picker">
+              <p class="theme-picker-label" id="theme-picker-label">Try a colour</p>
+              <div class="theme-swatches" role="group" aria-labelledby="theme-picker-label">
+                <button class="theme-swatch is-active" type="button" data-preview-theme="sandstone" aria-pressed="true" aria-label="Sandstone theme"><span aria-hidden="true"></span></button>
+                <button class="theme-swatch matcha" type="button" data-preview-theme="matcha" aria-pressed="false" aria-label="Matcha theme"><span aria-hidden="true"></span></button>
+                <button class="theme-swatch rose" type="button" data-preview-theme="rose" aria-pressed="false" aria-label="Rose Quartz theme"><span aria-hidden="true"></span></button>
+                <button class="theme-swatch night" type="button" data-preview-theme="night" aria-pressed="false" aria-label="Pebble Dark theme"><span aria-hidden="true"></span></button>
+              </div>
+              <p class="theme-name" aria-live="polite">Sandstone — plenty more inside</p>
+            </div>
+          </div>
+
+          <div class="phone-stage">
+            <div class="demo-phone" data-theme="sandstone">
+              <div class="phone-speaker" aria-hidden="true"></div>
+              <div class="demo-screen">
+                <div class="demo-appbar">
+                  <button class="icon-button demo-reset" type="button" aria-label="Restart routine">↺</button>
+                  <span class="demo-counter">1 of 4</span>
+                  <button class="icon-button" type="button" aria-label="More options" tabindex="-1" aria-hidden="true">•••</button>
+                </div>
+                <div class="demo-progress" aria-hidden="true">
+                  <span class="is-current"></span><span></span><span></span><span></span>
+                </div>
+                <div class="demo-content" aria-live="polite">
+                  <p class="demo-routine-name">Leaving home</p>
+                  <div class="demo-step-icon" aria-hidden="true">⌂</div>
+                  <p class="demo-next-label">Up next</p>
+                  <h3 class="demo-step-title">Lock the back door</h3>
+                  <button class="proof-chip" type="button" hidden>
+                    <span aria-hidden="true">▣</span> Add a photo
+                  </button>
+                </div>
+                <div class="demo-complete" hidden>
+                  <div class="complete-cairn" aria-hidden="true"><i></i><i></i><i></i></div>
+                  <p>All done</p>
+                  <h3>You're good to go.</h3>
+                </div>
+                <div class="demo-buttons">
+                  <button class="demo-back" type="button" disabled>Back</button>
+                  <button class="demo-done" type="button">Done <span aria-hidden="true">✓</span></button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="inside-section" id="inside-pebble" aria-labelledby="inside-title">
+        <div class="section-intro">
+          <h2 id="inside-title">What's actually in it.</h2>
+        </div>
+
+        <div class="inside-cards">
+          <article class="inside-card">
+            <div class="inside-art art-templates" aria-hidden="true">
+              <div class="template-card card-a"><i>☀</i><span>Morning reset</span></div>
+              <div class="template-card card-b"><i>⌂</i><span>Leaving home</span></div>
+              <div class="template-card card-c"><i>✦</i><span>Make your own</span></div>
+            </div>
+            <h3>Templates and reminders</h3>
+            <p>
+              Start from a routine that already works, then change anything in it. Set a reminder for
+              a time that suits you, or skip reminders entirely.
+            </p>
+          </article>
+
+          <article class="inside-card">
+            <div class="inside-art art-guidance" aria-hidden="true">
+              <div class="audio-orb"><span></span><span></span><span></span><span></span><span></span></div>
+              <div class="guidance-card"><i>▶</i><span><small>Now playing</small><strong>Check the back door</strong></span></div>
+            </div>
+            <h3>Spoken steps and photo proof</h3>
+            <p>
+              Hear the next step read out while your hands are busy. Take a photo of the locked door
+              when seeing it again is the only thing that settles it.
+            </p>
+          </article>
+
+          <article class="inside-card">
+            <div class="inside-art art-history" aria-hidden="true">
+              <div class="history-line"><i></i><span><strong>Leaving home</strong><small>Today · 8:12</small></span><b>Done</b></div>
+              <div class="history-line"><i></i><span><strong>Bedtime reset</strong><small>Yesterday · 22:40</small></span><b>Done</b></div>
+            </div>
+            <h3>History and optional backup</h3>
+            <p>
+              Check what finished and when, and look back at any photo you kept. Cloud backup exists
+              if you want it — it stays off until you turn it on.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section class="privacy-section" aria-labelledby="privacy-title">
+        <div class="privacy-cairn" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div>
+          <p class="mini-label light">Private by default</p>
+          <h2 id="privacy-title">Your routines. Your business.</h2>
+        </div>
+        <ul class="privacy-list">
+          <li><strong>No account needed.</strong> Download it and start. There's nothing to sign up for.</li>
+          <li><strong>Backup is a choice.</strong> Your routines stay on your phone unless you switch it on.</li>
+          <li><strong>No ads, and nothing sold.</strong> Your data isn't the product.</li>
+        </ul>
+      </section>
+
+      <section class="final-cta">
+        <img src="icons/pebble-cairn.svg" alt="" width="96" height="96" />
+        <p class="mini-label">Coming to Google Play</p>
+        <h2>Ready when you are.</h2>
+        <p class="final-cta-note">Drop us a line and we'll tell you the day it lands.</p>
+        <a class="button primary" href="mailto:support@pebbleroutines.com?subject=Keep%20me%20posted%20about%20Pebble">Keep me posted <span aria-hidden="true">→</span></a>
       </section>
     </main>
 
-    <footer class="site-footer">
-      <p>&copy; <span data-year></span> Pebble Routines. Routine support, not medical advice.</p>
+    <footer class="site-footer home-footer">
+      <div class="footer-brand">
+        <span class="brand-mark" aria-hidden="true">P</span>
+        <span><strong>pebble.</strong><small>Routines, one step at a time.</small></span>
+      </div>
       <nav aria-label="Footer links">
         <a href="privacy.html">Privacy</a>
         <a href="terms.html">Terms</a>
         <a href="support.html">Support</a>
+        <a href="delete-account.html">Delete account</a>
       </nav>
+      <p>&copy; <span data-year></span> Pebble Routines.</p>
     </footer>
 
     <script src="site.js"></script>
   </body>
 </html>
-

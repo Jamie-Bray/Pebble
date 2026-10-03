@@ -16,8 +16,7 @@ Routine? selectWidgetRoutine(List<Routine> routines) {
       best = routine;
       continue;
     }
-    final bestAt =
-        best.pinnedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+    final bestAt = best.pinnedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
     final candidateAt =
         routine.pinnedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
     if (candidateAt.isAfter(bestAt)) {
@@ -59,9 +58,7 @@ Future<void> publishHomeWidgetRoutine(Routine? routine) async {
       'widget_routine_color',
       widgetColorHex(routine?.colorHex),
     );
-    await HomeWidget.updateWidget(
-      qualifiedAndroidName: _qualifiedProviderName,
-    );
+    await HomeWidget.updateWidget(qualifiedAndroidName: _qualifiedProviderName);
   } catch (_) {
     // Best-effort by design.
   }

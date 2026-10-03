@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
+import 'package:pebble_routines/features/subscription/data/entitlement_flow_messages.dart';
 import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
 import 'package:pebble_routines/features/subscription/data/models/subscription_account_state.dart';
 import 'package:pebble_routines/features/subscription/data/purchase_repository.dart';
@@ -252,23 +253,8 @@ String? _userFacingStatusFor({
   }
 }
 
-bool _looksAccountSwitchBlocked(String? message) {
-  if (message == null || message.isEmpty) {
-    return false;
-  }
-  final normalized = message.toLowerCase();
-  return normalized.contains('local data') ||
-      normalized.contains('another account') ||
-      normalized.contains('linked to this account') ||
-      normalized.contains('without your choice');
-}
+bool _looksAccountSwitchBlocked(String? message) =>
+    EntitlementFlowMessages.looksAccountSwitchBlocked(message);
 
-bool _looksPurchaseVerificationFailed(String? message) {
-  if (message == null || message.isEmpty) {
-    return false;
-  }
-  final normalized = message.toLowerCase();
-  return normalized.contains('backup could not be set up') ||
-      normalized.contains('could not finish backup setup') ||
-      normalized.contains('purchase verification');
-}
+bool _looksPurchaseVerificationFailed(String? message) =>
+    EntitlementFlowMessages.looksPurchaseVerificationFailed(message);

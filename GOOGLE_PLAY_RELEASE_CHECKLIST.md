@@ -20,7 +20,7 @@ This checklist turns the pre-launch audit into a concrete release plan for Pebbl
 
 ## 2. Android policy and permission hardening
 
-- [x] Remove legacy `READ_EXTERNAL_STORAGE` and `WRITE_EXTERNAL_STORAGE` permissions.
+- [x] Remove legacy `READ_EXTERNAL_STORAGE`. `WRITE_EXTERNAL_STORAGE` stays declared with `maxSdkVersion="29"` for Save a copy to Photos on Android 9 and below (see `LEGAL_PROCESSOR_MAP.md`).
 - [x] Stop declaring `SCHEDULE_EXACT_ALARM` and use inexact reminder scheduling by default.
 - [ ] Confirm camera, microphone, notifications, boot completed, vibrate, and wake lock are all declared in Play Console disclosures.
 - [ ] Disclose photo/media library access because users can choose existing proof photos.

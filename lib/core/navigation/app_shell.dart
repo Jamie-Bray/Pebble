@@ -147,25 +147,29 @@ class _AppShellState extends ConsumerState<AppShell> {
         ? Theme.of(context).colorScheme.onSurface
         : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5);
 
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: 68,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 23),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                color: color,
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          width: 68,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: color, size: 23),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                  color: color,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -175,38 +179,42 @@ class _AppShellState extends ConsumerState<AppShell> {
     // The warm action accent: terracotta on Sandstone, and identical to the
     // structural primary on every other theme.
     final action = context.actionAccent;
-    return ZenBounceButton(
-      onTap: () {
-        openRoutineCreationChoice(context, ref);
-      },
-      child: SizedBox(
-        width: 68,
-        child: Center(
-          child: Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  action,
-                  Color.lerp(action, Colors.black, 0.12) ?? action,
+    return Semantics(
+      button: true,
+      label: 'Create routine',
+      child: ZenBounceButton(
+        onTap: () {
+          openRoutineCreationChoice(context, ref);
+        },
+        child: SizedBox(
+          width: 68,
+          child: Center(
+            child: Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    action,
+                    Color.lerp(action, Colors.black, 0.12) ?? action,
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: [
+                  BoxShadow(
+                    color: action.withValues(alpha: 0.28),
+                    blurRadius: 18,
+                    offset: const Offset(0, 7),
+                  ),
                 ],
               ),
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: [
-                BoxShadow(
-                  color: action.withValues(alpha: 0.28),
-                  blurRadius: 18,
-                  offset: const Offset(0, 7),
-                ),
-              ],
-            ),
-            child: Icon(
-              LucideIcons.plus,
-              color: context.onActionAccent,
-              size: 26,
+              child: Icon(
+                LucideIcons.plus,
+                color: context.onActionAccent,
+                size: 26,
+              ),
             ),
           ),
         ),

@@ -156,7 +156,10 @@ class RoutinePlayerUiState {
 
   bool get hasPhotoRequirement => currentStep?.hasPhotoRequirement ?? false;
 
-  int get requiredPhotoCount => currentStep?.requiredPhotoCount ?? 0;
+  /// A proof step is satisfied by one photo for every tier. Premium expands
+  /// how many optional photos can be kept with the step; it never raises the
+  /// completion requirement.
+  int get requiredPhotoCount => hasPhotoRequirement ? 1 : 0;
 
   int get capturedPhotoCount => proofAssets.length;
 
@@ -230,6 +233,13 @@ class RoutinePlayerUiState {
     return RoutinePlayerPresentationState.standard;
   }
 
+  /// While a required proof photo is missing, the primary button IS the
+  /// camera: one thumb position drives the whole run instead of sending the
+  /// hand up to the photo strip mid-flow.
+  bool get primaryActionIsPhotoCapture =>
+      presentationState == RoutinePlayerPresentationState.photoRequired &&
+      canAddMorePhotos;
+
   bool get isPrimaryEnabled {
     if (session == null ||
         currentStep == null ||
@@ -239,10 +249,11 @@ class RoutinePlayerUiState {
       return false;
     }
 
-    // Completion is always gated on having enough photos. Capturing happens
-    // via the Add tile in the photo strip, not the primary button, so the
-    // primary button stays a disabled "Complete step" until a photo exists.
-    return hasEnoughPhotos;
+    // Completion is always gated on having enough photos, but the button
+    // never goes dead while a photo is missing: it flips into "Take photo"
+    // (primaryActionIsPhotoCapture) so the tap-through rhythm at the bottom
+    // of the screen carries straight into capture.
+    return hasEnoughPhotos || primaryActionIsPhotoCapture;
   }
 
   String get primaryLabel {
@@ -263,8 +274,11 @@ class RoutinePlayerUiState {
       case RoutinePlayerPresentationState.finalStep:
         return 'Finish routine';
       case RoutinePlayerPresentationState.photoRequired:
-        // Photo steps can also be the final step; keep the right verb even
-        // while the button is disabled awaiting the first photo.
+        if (primaryActionIsPhotoCapture) {
+          return 'Take photo';
+        }
+        // Capture is unavailable (e.g. at the per-step photo cap while still
+        // short of required); fall back to the disabled completion verb.
         return isFinalStep ? 'Finish routine' : 'Complete step';
       case RoutinePlayerPresentationState.standard:
       case RoutinePlayerPresentationState.photoCaptured:

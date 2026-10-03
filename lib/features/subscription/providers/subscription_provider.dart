@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -73,7 +75,27 @@ class SubscriptionAccountController
     bool loadOnInit = true,
   }) : super(const SubscriptionAccountState.initial()) {
     if (loadOnInit) {
-      _load();
+      _hydrate();
+    } else {
+      _hydratedCompleter.complete();
+    }
+  }
+
+  final Completer<void> _hydratedCompleter = Completer<void>();
+
+  /// Completes once the persisted entitlement state has been loaded. Before
+  /// this, [state] is the free-tier placeholder, so anything destructive that
+  /// keys off the entitlement (history/proof retention sweeps) must wait for
+  /// it or it will treat a premium account as free on cold start.
+  Future<void> get hydrated => _hydratedCompleter.future;
+
+  Future<void> _hydrate() async {
+    try {
+      await _load();
+    } finally {
+      if (!_hydratedCompleter.isCompleted) {
+        _hydratedCompleter.complete();
+      }
     }
   }
 

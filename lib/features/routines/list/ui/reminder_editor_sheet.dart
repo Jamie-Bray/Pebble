@@ -910,7 +910,7 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
         }
 
         if (mounted) {
-          ZenNotifications.showInfo(context, message: 'Reminder deleted');
+          // The reminder row disappearing is its own confirmation.
           Navigator.pop(context, true);
         }
         return;
@@ -935,7 +935,7 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
       );
 
       if (mounted) {
-        ZenNotifications.showInfo(context, message: 'All reminders removed');
+        // The emptied reminder list is its own confirmation.
         Navigator.pop(context, true);
       }
     } catch (_) {

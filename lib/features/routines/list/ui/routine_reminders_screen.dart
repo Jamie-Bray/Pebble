@@ -2177,7 +2177,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
       );
     }
     if (!mounted) return;
-    ZenNotifications.showInfo(context, message: 'Reminder deleted');
+    // The reminder disappearing from the list is its own confirmation.
     await _loadData();
   }
 
@@ -2329,12 +2329,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
     }
 
     if (!mounted) return;
-    ZenNotifications.showInfo(
-      context,
-      message: isRoutineSpecific
-          ? 'Reminders cleared for routine'
-          : 'All reminders cleared',
-    );
+    // The cleared list is its own confirmation.
     await _loadData();
   }
 

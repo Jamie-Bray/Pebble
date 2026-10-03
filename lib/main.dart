@@ -650,7 +650,10 @@ class _PebbleAppState extends ConsumerState<PebbleApp>
       builder: (context, child) {
         final mq = MediaQuery.of(context);
         final scale = mq.textScaler.scale(1);
-        final clampedScale = scale.clamp(1.0, 3.0);
+        // Cap at 1.6: the fixed-height cards, time blocks, and nav bar hold
+        // together up to here, but overflow beyond it. Raising this cap
+        // requires a responsive-layout pass first.
+        final clampedScale = scale.clamp(1.0, 1.6);
         return MediaQuery(
           data: mq.copyWith(textScaler: TextScaler.linear(clampedScale)),
           child: child!,

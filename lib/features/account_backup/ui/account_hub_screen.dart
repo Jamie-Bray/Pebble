@@ -72,24 +72,37 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
       final result = await ref
           .read(purchaseRepositoryProvider)
           .restorePurchases();
+      // Restore succeeded from here on: a backup hiccup below must not
+      // contradict it with a "Could not restore" error on top.
+      var backupRefreshFailed = false;
+      final auth = ref.read(authSessionProvider);
+      if (auth.isSignedIn) {
+        try {
+          await ref
+              .read(authControllerProvider.notifier)
+              .refreshCloudAccessAfterEntitlementChange(
+                refreshEntitlement: false,
+              );
+        } catch (_) {
+          backupRefreshFailed = true;
+        }
+      }
       if (!mounted) {
         return;
       }
-      _showVaultNotice(
-        result.message,
-        title: 'Purchase restored',
-        type: NotificationType.success,
-      );
-      final auth = ref.read(authSessionProvider);
-      if (auth.isSignedIn) {
-        await ref
-            .read(authControllerProvider.notifier)
-            .refreshCloudAccessAfterEntitlementChange(
-              refreshEntitlement: false,
-            );
-      }
-      if (mounted) {
-        context.go('/account-hub');
+      if (backupRefreshFailed) {
+        _showVaultNotice(
+          'Premium is back. Backup will finish setting up when Pebble can '
+          'verify this account.',
+          title: 'Purchase restored',
+          type: NotificationType.info,
+        );
+      } else {
+        _showVaultNotice(
+          result.message,
+          title: 'Purchase restored',
+          type: NotificationType.success,
+        );
       }
     } catch (error) {
       _showVaultNotice(
@@ -155,9 +168,44 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
     }
   }
 
+  Future<void> _showSignOutDialog() async {
+    final email = ref.read(authSessionProvider).email;
+    final backupIsOn = ref
+        .read(subscriptionLifecycleProvider)
+        .canUploadCloudChanges;
+
+    await _showAccountActionSheet<void>(
+      context: context,
+      builder: (sheetContext) => _AccountActionSheet(
+        icon: LucideIcons.logOut,
+        eyebrow: 'Your account',
+        title: 'Sign out?',
+        body: backupIsOn
+            ? 'Backup pauses until you sign in again. Everything already '
+                  'backed up stays safe, and local routines stay on this '
+                  'device.'
+            : 'Local routines stay on this device. Sign back in any time'
+                  '${email == null ? '' : ' with $email'}.',
+        accentColor: Theme.of(sheetContext).colorScheme.secondary,
+        primaryLabel: 'Sign out',
+        onPrimaryPressed: () async {
+          Navigator.of(sheetContext).pop();
+          await ref.read(authControllerProvider.notifier).signOut();
+          // No toast: the screen visibly switches to its signed-out state,
+          // and the sheet already explained what signing out means.
+        },
+        secondaryLabel: 'Cancel',
+        onSecondaryPressed: () => Navigator.of(sheetContext).pop(),
+      ),
+    );
+  }
+
   Future<void> _showDeleteAccountDialog() async {
     final runtimeConfig = ref.read(appRuntimeConfigProvider);
     final deletionUrl = runtimeConfig.accountDeletionUrl;
+    final hasActivePremium =
+        ref.read(subscriptionLifecycleProvider).phase ==
+        SubscriptionLifecyclePhase.activePremium;
 
     await _showAccountActionSheet<void>(
       context: context,
@@ -168,19 +216,27 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
         body:
             'This deletes your Pebble account and cloud backup data. Local routines already saved on this device will stay here until you remove them manually.',
         accentColor: Theme.of(sheetContext).colorScheme.error,
-        details: const [
-          _AccountSheetWarningRow(
+        details: [
+          const _AccountSheetWarningRow(
             icon: LucideIcons.userX,
             text: 'Your Pebble account is removed.',
           ),
-          _AccountSheetWarningRow(
+          const _AccountSheetWarningRow(
             icon: LucideIcons.cloudOff,
             text: 'Cloud backup data for this account is removed.',
           ),
-          _AccountSheetWarningRow(
+          const _AccountSheetWarningRow(
             icon: LucideIcons.smartphone,
             text: 'Local routines on this device stay here.',
           ),
+          if (hasActivePremium)
+            const _AccountSheetWarningRow(
+              icon: LucideIcons.creditCard,
+              text:
+                  'Your Premium subscription is billed by the store and does '
+                  'not cancel here. Cancel it in your store subscription '
+                  'settings.',
+            ),
         ],
         primaryLabel: 'Delete account',
         primaryTone: _AccountSheetButtonTone.danger,
@@ -322,16 +378,7 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
                 color: colorScheme.outline.withValues(alpha: 0.2),
               ),
             ),
-            onPressed: () async {
-              await ref.read(authControllerProvider.notifier).signOut();
-              if (context.mounted) {
-                _showVaultNotice(
-                  'Local routines stay on this device.',
-                  title: 'Signed out',
-                  type: NotificationType.info,
-                );
-              }
-            },
+            onPressed: _showSignOutDialog,
             child: Text(
               'Sign out',
               textAlign: TextAlign.center,
@@ -381,12 +428,14 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
       historyGraceDays: historyGraceDays,
       routineGraceDays: routineGraceDays,
       showRoutineRiskCard: showRoutineRiskCard,
+      // Display-only fallbacks for before the store catalog loads; the live
+      // localized store price replaces them the moment offerings arrive.
       monthlyPrice: monthly?.priceLabel.trim().isNotEmpty == true
           ? monthly!.priceLabel
-          : '99p',
+          : '£0.89',
       yearlyPrice: yearly?.priceLabel.trim().isNotEmpty == true
           ? yearly!.priceLabel
-          : 'GBP 7.99',
+          : '£6.49',
       canRenew: purchase.isPurchaseAvailable,
     );
   }

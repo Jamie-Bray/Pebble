@@ -123,6 +123,10 @@ class RoutineRunRepositoryImpl implements RoutineRunRepository {
   }
 
   Future<List<RoutineRun>> _pruneExpiredRuns(List<RoutineRun> runs) async {
+    // On cold start the entitlement store still holds the free-tier
+    // placeholder; pruning against it would delete a premium account's runs
+    // and proofs at the 48-hour cutoff.
+    await _ref.read(subscriptionAccountControllerProvider.notifier).hydrated;
     final retention = _ref.read(accountHistoryRetentionProvider);
 
     final cutoff = DateTime.now().subtract(retention);

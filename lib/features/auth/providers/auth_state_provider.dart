@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show AuthException;
 
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/features/auth/data/auth_repository.dart';
@@ -140,7 +141,7 @@ class AuthController extends StateNotifier<AuthState> {
     } catch (error) {
       state = state.copyWith(
         status: AuthStatus.authError,
-        errorMessage: error.toString(),
+        errorMessage: _userFacingAuthError(error),
       );
       return false;
     }
@@ -199,10 +200,29 @@ class AuthController extends StateNotifier<AuthState> {
     } catch (error) {
       state = state.copyWith(
         status: hadActiveUser ? AuthStatus.signedIn : AuthStatus.signedOut,
-        errorMessage: error.toString(),
+        errorMessage: _userFacingAuthError(error),
       );
       rethrow;
     }
+  }
+
+  /// Errors here surface directly in sign-in toasts, so strip the
+  /// exception-type prefixes that make friendly messages look like stack
+  /// traces ("Bad state: ...", "AuthApiException(...)").
+  String _userFacingAuthError(Object error) {
+    var message = error.toString().trim();
+    if (message.startsWith('Bad state: ')) {
+      message = message.substring('Bad state: '.length).trim();
+    }
+    if (error is AuthException) {
+      message = error.message.trim();
+    }
+    if (message.isEmpty ||
+        message.startsWith('PlatformException') ||
+        message.contains('Exception(')) {
+      return 'Sign-in did not finish. Please try again.';
+    }
+    return message;
   }
 
   Future<void> _logOutPurchaseSession(String context) async {
@@ -216,6 +236,9 @@ class AuthController extends StateNotifier<AuthState> {
   Future<bool> _completeSignIn(
     Future<AuthIdentity> Function() signInAction,
   ) async {
+    final statusBeforeAttempt = state.activeUserId != null
+        ? AuthStatus.signedIn
+        : AuthStatus.signedOut;
     state = state.copyWith(status: AuthStatus.authenticating, clearError: true);
     final AuthIdentity identity;
     try {
@@ -235,13 +258,17 @@ class AuthController extends StateNotifier<AuthState> {
         activeProvider: identity.provider,
         clearError: true,
       );
+    } on AuthCancelledException {
+      // Backing out of the sign-in prompt is not an error; return quietly.
+      state = state.copyWith(status: statusBeforeAttempt, clearError: true);
+      return false;
     } catch (error) {
       // Only a real authentication failure may fail the sign-in. Backup work
       // below is best-effort and must never bounce a signed-in user back to
       // an error screen.
       state = state.copyWith(
         status: AuthStatus.authError,
-        errorMessage: error.toString(),
+        errorMessage: _userFacingAuthError(error),
       );
       return false;
     }

@@ -225,7 +225,11 @@ class _PebblePhotoGalleryViewerState
                                 ),
                               )
                             : const Icon(LucideIcons.imageDown, size: 18),
-                        label: const Text('Save a copy to Photos'),
+                        label: Text(
+                          _isSavingCopy
+                              ? 'Saving a photo to your phone...'
+                              : 'Save a copy to Photos',
+                        ),
                       ),
                     ),
                   ],

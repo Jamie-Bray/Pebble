@@ -34,11 +34,7 @@ void main() {
       expect(templates, hasLength(12));
       expect(
         templates.map((Template template) => template.category).toSet(),
-        equals(<String>{
-          'Leaving & Locking Up',
-          'Daily Care',
-          'Work & Away',
-        }),
+        equals(<String>{'Leaving & Locking Up', 'Daily Care', 'Work & Away'}),
       );
       expect(
         templates.map((Template template) => template.title).toList(),

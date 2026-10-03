@@ -251,6 +251,9 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
                       routine: byId[run.routineId],
                       proofStorage: proofStorage,
                       showSyncState: backupStatus.showRunSyncState,
+                      // "OLDER" alone says nothing about when; only there does
+                      // each card need to carry its own date.
+                      showDate: section == HistorySection.older,
                       onDismiss: () => _confirmDismissRun(context, ref, run),
                       onManage: () {
                         _showManageRunSheet(context, ref, run, proofStorage);
@@ -880,22 +883,28 @@ class _ToggleItem extends StatelessWidget {
     final foundation = context.darkFoundation;
 
     return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: isSelected ? foundation.surfaceLow : Colors.transparent,
-            borderRadius: BorderRadius.circular(7),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
-              letterSpacing: 0.1,
-              color: isSelected ? foundation.textPrimary : foundation.textMuted,
+      child: Semantics(
+        button: true,
+        selected: isSelected,
+        child: GestureDetector(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: isSelected ? foundation.surfaceLow : Colors.transparent,
+              borderRadius: BorderRadius.circular(7),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
+                letterSpacing: 0.1,
+                color: isSelected
+                    ? foundation.textPrimary
+                    : foundation.textMuted,
+              ),
             ),
           ),
         ),
@@ -933,6 +942,7 @@ class _HistoryCard extends StatelessWidget {
     required this.routine,
     required this.proofStorage,
     required this.showSyncState,
+    required this.showDate,
     required this.onDismiss,
     required this.onManage,
   });
@@ -941,6 +951,7 @@ class _HistoryCard extends StatelessWidget {
   final Routine? routine;
   final RoutineSessionProofStorage proofStorage;
   final bool showSyncState;
+  final bool showDate;
   final Future<bool> Function() onDismiss;
   final VoidCallback onManage;
 
@@ -1007,7 +1018,10 @@ class _HistoryCard extends StatelessWidget {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        _HistoryRunTimeBlock(time: run.finishedAt),
+                        _HistoryRunTimeBlock(
+                          time: run.finishedAt,
+                          showDate: showDate,
+                        ),
                         Container(
                           width: 1,
                           height: 36,
@@ -1072,13 +1086,15 @@ class _HistoryCard extends StatelessWidget {
 }
 
 class _HistoryRunTimeBlock extends StatelessWidget {
-  const _HistoryRunTimeBlock({required this.time});
+  const _HistoryRunTimeBlock({required this.time, this.showDate = false});
 
   final DateTime time;
+  final bool showDate;
 
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
+    final sameYear = time.year == DateTime.now().year;
     return SizedBox(
       width: 68,
       child: Column(
@@ -1114,6 +1130,26 @@ class _HistoryRunTimeBlock extends StatelessWidget {
               color: foundation.textMuted,
             ),
           ),
+          if (showDate) ...[
+            const SizedBox(height: 4),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(
+                sameYear
+                    ? DateFormat('MMM d').format(time)
+                    : DateFormat('MMM d, y').format(time),
+                maxLines: 1,
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3,
+                  color: foundation.textSecondary,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1485,28 +1521,34 @@ class _VaultGridItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    return GestureDetector(
-      onTap: () async {
-        await _showGallery(context);
-      },
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          decoration: BoxDecoration(color: cs.surfaceContainerHighest),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              _VaultStoredPhotoView(
-                proofStorage: proofStorage,
-                storedPath: photo.path,
-                asset: photo.asset,
-                missing: _buildMissingPhotoPlaceholder(cs),
-              ),
+    return Semantics(
+      button: true,
+      label:
+          'Proof photo, ${photo.label}, '
+          '${DateFormat.yMMMd().format(photo.timestamp)}',
+      child: GestureDetector(
+        onTap: () async {
+          await _showGallery(context);
+        },
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            decoration: BoxDecoration(color: cs.surfaceContainerHighest),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                _VaultStoredPhotoView(
+                  proofStorage: proofStorage,
+                  storedPath: photo.path,
+                  asset: photo.asset,
+                  missing: _buildMissingPhotoPlaceholder(cs),
+                ),
 
-              // Overlays
-              _buildGradientOverlay(),
-              _buildInfoOverlay(context),
-            ],
+                // Overlays
+                _buildGradientOverlay(),
+                _buildInfoOverlay(context),
+              ],
+            ),
           ),
         ),
       ),

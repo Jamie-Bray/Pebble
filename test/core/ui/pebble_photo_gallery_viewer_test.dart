@@ -45,9 +45,7 @@ void main() {
 
   Widget buildViewer(_FakeProofPhotoExportService service) {
     return ProviderScope(
-      overrides: [
-        proofPhotoExportServiceProvider.overrideWithValue(service),
-      ],
+      overrides: [proofPhotoExportServiceProvider.overrideWithValue(service)],
       child: MaterialApp(
         home: PebblePhotoGalleryViewer(
           photos: const [

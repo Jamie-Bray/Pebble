@@ -3,27 +3,17 @@
     "short_name": "Pebble",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#FDFCF5",
-    "theme_color": "#4A5D4E",
-    "description": "A local-first routine support app with optional account backup.",
+    "background_color": "#F4EDDF",
+    "theme_color": "#2C4434",
+    "description": "One clear step at a time. A calm, private-by-default routine app.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
         {
-            "src": "icons/Icon-192.png",
-            "sizes": "192x192",
-            "type": "image/png"
-        },
-        {
-            "src": "icons/Icon-512.png",
-            "sizes": "512x512",
-            "type": "image/png"
-        },
-        {
-            "src": "icons/maskable-icon.png",
-            "sizes": "512x512",
-            "type": "image/png",
-            "purpose": "maskable"
+            "src": "icons/pebble-cairn.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
         }
     ]
 }

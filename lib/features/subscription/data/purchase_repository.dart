@@ -62,6 +62,18 @@ class PurchaseCancelledException implements Exception {
   const PurchaseCancelledException();
 }
 
+/// The store accepted the purchase but has not confirmed payment yet (e.g.
+/// Google Play pending transactions). This is progress, not a failure — the
+/// UI must not present it under an error title.
+class PurchasePendingException implements Exception {
+  const PurchasePendingException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 class PurchaseFlowException implements Exception {
   const PurchaseFlowException(this.message);
 
