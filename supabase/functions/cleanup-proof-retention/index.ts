@@ -1,35 +1,39 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { secretsMatch } from '../_shared/secrets.ts';
+import {
+  isGuidanceAudioKey,
+  planCleanup,
+  retentionDays,
+  type StorageObject,
+  type UsageRow,
+} from './plan.ts';
 
 const bucketName = 'routine-proofs';
-const retentionDays = 21;
 const pageSize = 1000;
 
-type SupabaseClient = ReturnType<typeof createClient>;
-type StorageBucket = ReturnType<ReturnType<typeof createClient>['storage']['from']>;
+// deno-lint-ignore no-explicit-any
+type SupabaseClient = any;
+// deno-lint-ignore no-explicit-any
+type StorageBucket = any;
 
-type UsageRow = {
-  id: string;
-  object_key: string;
-  created_at: string;
-  expires_at: string;
-  deleted_at: string | null;
-};
-
-type StorageObject = {
-  key: string;
-  createdAt: string | null;
-  updatedAt: string | null;
-};
-
-serve(async (req) => {
+export async function handler(req: Request): Promise<Response> {
   if (req.method !== 'POST') {
     return json({ error: 'Method not allowed' }, 405);
   }
 
-  const schedulerSecret = Deno.env.get('CLEANUP_PROOF_RETENTION_SECRET');
-  const provided = req.headers.get('x-cleanup-secret') ?? '';
-  if (!schedulerSecret || provided !== schedulerSecret) {
+  // Fail closed: this endpoint has verify_jwt = false and deletes storage, so
+  // it must never run without its scheduler secret configured.
+  const schedulerSecret = Deno.env.get('CLEANUP_PROOF_RETENTION_SECRET')?.trim();
+  if (!schedulerSecret) {
+    console.error(JSON.stringify({
+      scope: 'cleanup-proof-retention',
+      message: 'refused_secret_not_configured',
+    }));
+    return json({ error: 'Cleanup is not configured' }, 503);
+  }
+  const provided = req.headers.get('x-cleanup-secret');
+  if (!(await secretsMatch(provided, schedulerSecret))) {
     return json({ error: 'Unauthorized' }, 401);
   }
 
@@ -40,45 +44,28 @@ serve(async (req) => {
   }
 
   const client = createClient(supabaseUrl, serviceRoleKey);
-  const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
 
   try {
     const usageRows = await fetchAllUsageRows(client);
     const storageObjects = await listAllObjects(client.storage.from(bucketName), 'users');
-    const storageKeys = new Set(storageObjects.map((object) => object.key));
-    const usageByKey = new Map(usageRows.map((row) => [row.object_key, row]));
+    const plan = planCleanup(usageRows, storageObjects);
 
-    const expiredUsageRows = usageRows.filter((row) => isExpiredUsage(row, cutoff));
-    const missingStorageRows = usageRows.filter((row) => !storageKeys.has(row.object_key));
-    const orphanStorageObjects = storageObjects.filter((object) => {
-      if (usageByKey.has(object.key)) return false;
-      return objectIsOlderThan(object, cutoff);
-    });
-
-    const keysToRemove = unique([
-      ...expiredUsageRows.map((row) => row.object_key),
-      ...orphanStorageObjects.map((object) => object.key),
-    ]);
-    await removeStorageObjects(client, keysToRemove);
-
-    const metadataIdsToDelete = unique([
-      ...expiredUsageRows.map((row) => row.id),
-      ...missingStorageRows.map((row) => row.id),
-    ]);
-    await deleteUsageRows(client, metadataIdsToDelete);
+    await removeStorageObjects(client, plan.keysToRemove);
+    await deleteUsageRows(client, plan.metadataIdsToDelete);
 
     return json({
       retentionDays,
-      deletedStorageObjects: keysToRemove.length,
-      deletedProofMetadataRows: metadataIdsToDelete.length,
-      orphanStorageObjectsDeleted: orphanStorageObjects.length,
-      missingStorageMetadataRowsDeleted: missingStorageRows.length,
+      deletedStorageObjects: plan.keysToRemove.length,
+      deletedProofMetadataRows: plan.metadataIdsToDelete.length,
+      orphanStorageObjectsDeleted: plan.orphanStorageObjects,
+      missingStorageMetadataRowsDeleted: plan.missingStorageRows,
+      skippedGuidanceAudio: plan.skippedGuidanceAudio,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown cleanup failure';
     return json({ error: message }, 500);
   }
-});
+}
 
 async function fetchAllUsageRows(client: SupabaseClient): Promise<UsageRow[]> {
   const rows: UsageRow[] = [];
@@ -88,7 +75,8 @@ async function fetchAllUsageRows(client: SupabaseClient): Promise<UsageRow[]> {
     const to = from + pageSize - 1;
     const { data, error } = await client
       .from('proof_asset_usage')
-      .select('id, object_key, created_at, expires_at, deleted_at')
+      .select('id, object_key, entity_type, created_at, expires_at, deleted_at')
+      .order('id', { ascending: true })
       .range(from, to);
 
     if (error) {
@@ -101,13 +89,6 @@ async function fetchAllUsageRows(client: SupabaseClient): Promise<UsageRow[]> {
   }
 
   return rows;
-}
-
-function isExpiredUsage(row: UsageRow, cutoff: Date): boolean {
-  if (row.deleted_at) return true;
-  const expiresAt = new Date(row.expires_at);
-  const createdAt = new Date(row.created_at);
-  return expiresAt <= new Date() || createdAt <= cutoff;
 }
 
 async function listAllObjects(
@@ -134,6 +115,8 @@ async function listAllObjects(
       if (!entry.name) continue;
       const childPath = `${path}/${entry.name}`;
       if (entry.id === null) {
+        // Never descend into voice-prompt folders (users/<uid>/guidance_audio).
+        if (isGuidanceAudioKey(`${childPath}/x`)) continue;
         objects.push(...await listAllObjects(bucket, childPath));
         continue;
       }
@@ -151,12 +134,6 @@ async function listAllObjects(
   return objects;
 }
 
-function objectIsOlderThan(object: StorageObject, cutoff: Date): boolean {
-  const timestamp = object.updatedAt ?? object.createdAt;
-  if (!timestamp) return false;
-  return new Date(timestamp) <= cutoff;
-}
-
 async function removeStorageObjects(client: SupabaseClient, objectKeys: string[]) {
   const bucket = client.storage.from(bucketName);
   for (const chunk of chunks(objectKeys, 100)) {
@@ -171,15 +148,16 @@ async function removeStorageObjects(client: SupabaseClient, objectKeys: string[]
 async function deleteUsageRows(client: SupabaseClient, ids: string[]) {
   for (const chunk of chunks(ids, 100)) {
     if (chunk.length === 0) continue;
-    const { error } = await client.from('proof_asset_usage').delete().in('id', chunk);
+    const { error } = await client
+      .from('proof_asset_usage')
+      .delete()
+      .in('id', chunk)
+      // Belt and braces: never delete voice-prompt metadata from this job.
+      .or('entity_type.is.null,entity_type.neq.guidance_audio');
     if (error) {
       throw new Error(`Could not delete proof metadata rows: ${error.message}`);
     }
   }
-}
-
-function unique(values: string[]): string[] {
-  return [...new Set(values.filter((value) => value.length > 0))];
 }
 
 function chunks<T>(values: T[], size: number): T[][] {
@@ -195,4 +173,8 @@ function json(body: unknown, status = 200): Response {
     status,
     headers: { 'content-type': 'application/json' },
   });
+}
+
+if (import.meta.main) {
+  serve(handler);
 }

@@ -1,7 +1,9 @@
 [auth]
 site_url = "https://pebbleroutines.com"
 additional_redirect_urls = ["com.vix.pebble.routines://login-callback", "https://pebbleroutines.com"]
-enable_anonymous_sign_ins = true
+# The app never calls signInAnonymously; anonymous users would only inflate MAU
+# and be able to call JWT-protected functions.
+enable_anonymous_sign_ins = false
 
 [auth.mfa.totp]
 enroll_enabled = true
@@ -10,7 +12,20 @@ verify_enabled = true
 [auth.email]
 enable_confirmations = true
 max_frequency = "1m0s"
+# Email sign-in is a typed code (verifyOTP with OtpType.email / OtpType.signup
+# in lib/features/auth/data/auth_repository.dart), not a magic link. The code
+# only reaches the user if the template prints {{ .Token }}, so both templates
+# that signInWithOtp can trigger (existing user -> magic_link, new user ->
+# confirmation) use the code template below.
 otp_length = 8
+
+[auth.email.template.magic_link]
+subject = "Your Pebble sign-in code"
+content_path = "./supabase/templates/email_code.html"
+
+[auth.email.template.confirmation]
+subject = "Your Pebble sign-in code"
+content_path = "./supabase/templates/email_code.html"
 
 [functions.shared-alert-accept]
 verify_jwt = false
@@ -31,4 +46,13 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.revenuecat-sync-entitlement]
+verify_jwt = true
+
+[functions.request-shared-alert-contact]
+verify_jwt = true
+
+[functions.send-routine-completion-alert]
+verify_jwt = true
+
+[functions.delete-account]
 verify_jwt = true
