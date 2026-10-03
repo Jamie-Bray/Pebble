@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:pebble_routines/core/config/legal_links.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/ui/zen_notifications.dart';
 
@@ -12,6 +13,16 @@ class LegalAboutScreen extends StatelessWidget {
     final opened = await launchUrl(Uri.parse('mailto:$address'));
     if (!opened && context.mounted) {
       ZenNotifications.showInfo(context, message: 'Email us at $address');
+    }
+  }
+
+  Future<void> _openWebPage(BuildContext context, String url) async {
+    final opened = await launchUrl(
+      Uri.parse(url),
+      mode: LaunchMode.externalApplication,
+    );
+    if (!opened && context.mounted) {
+      ZenNotifications.showInfo(context, message: 'Visit $url');
     }
   }
 
@@ -52,6 +63,9 @@ class LegalAboutScreen extends StatelessWidget {
                 children: [
                   _LegalPage(
                     title: 'Privacy, without the fog.',
+                    webLinkLabel: 'Read the full Privacy Policy',
+                    onWebLink: () =>
+                        _openWebPage(context, pebblePrivacyPolicyUrl),
                     intro:
                         'Pebble is local-first. Most routine data stays on this device unless you choose account, subscription, or cloud backup features.',
                     sections: const [
@@ -88,13 +102,15 @@ class LegalAboutScreen extends StatelessWidget {
                     ],
                     footer: _OwnerFooter(
                       onPrivacy: () =>
-                          _email(context, 'privacy@pebbleroutines.app'),
+                          _email(context, pebblePrivacyEmail),
                       onSupport: () =>
-                          _email(context, 'support@pebbleroutines.app'),
+                          _email(context, pebbleSupportEmail),
                     ),
                   ),
                   _LegalPage(
                     title: 'Using Pebble fairly.',
+                    webLinkLabel: 'Read the full Terms of Use',
+                    onWebLink: () => _openWebPage(context, pebbleTermsUrl),
                     intro:
                         'Pebble is a routine support and reassurance app. It is not a medical, emergency, alarm, workplace safety, legal evidence, or guaranteed archive service.',
                     sections: const [
@@ -131,9 +147,9 @@ class LegalAboutScreen extends StatelessWidget {
                     ],
                     footer: _OwnerFooter(
                       onPrivacy: () =>
-                          _email(context, 'privacy@pebbleroutines.app'),
+                          _email(context, pebblePrivacyEmail),
                       onSupport: () =>
-                          _email(context, 'support@pebbleroutines.app'),
+                          _email(context, pebbleSupportEmail),
                     ),
                   ),
                   _LegalPage(
@@ -168,7 +184,7 @@ class LegalAboutScreen extends StatelessWidget {
                     ],
                     footer: _DeleteFooter(
                       onSupport: () =>
-                          _email(context, 'support@pebbleroutines.app'),
+                          _email(context, pebbleSupportEmail),
                     ),
                   ),
                 ],
@@ -187,12 +203,18 @@ class _LegalPage extends StatelessWidget {
     required this.intro,
     required this.sections,
     required this.footer,
+    this.webLinkLabel,
+    this.onWebLink,
   });
 
   final String title;
   final String intro;
   final List<_LegalSection> sections;
   final Widget footer;
+
+  /// Link to the full legal document on the web; this page is a summary.
+  final String? webLinkLabel;
+  final VoidCallback? onWebLink;
 
   @override
   Widget build(BuildContext context) {
@@ -218,6 +240,17 @@ class _LegalPage extends StatelessWidget {
             color: colorScheme.onSurface.withValues(alpha: 0.68),
           ),
         ),
+        if (webLinkLabel != null && onWebLink != null) ...[
+          const SizedBox(height: 14),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: onWebLink,
+              icon: const Icon(LucideIcons.externalLink, size: 16),
+              label: Text(webLinkLabel!),
+            ),
+          ),
+        ],
         const SizedBox(height: 18),
         ...sections.map((section) => _LegalCard(section: section)),
         const SizedBox(height: 8),
@@ -319,7 +352,7 @@ class _DeleteFooter extends StatelessWidget {
     return _FooterBox(
       title: 'Need help?',
       body:
-          'If you cannot access Your account, email support@pebbleroutines.app from the address linked to your Pebble account if possible.',
+          'If you cannot open Your account, email $pebbleSupportEmail from the address linked to your Pebble account if you can.',
       actions: [
         TextButton(onPressed: onSupport, child: const Text('Email support')),
       ],

@@ -39,20 +39,33 @@ class ZenScreenHeader extends StatelessWidget {
   final List<Widget>? actions;
   final Widget? leading;
 
+  /// Set when a floating back button ([PebbleBackChrome]) sits above the
+  /// header, so the title starts below it instead of underneath it.
+  final bool reserveBackButtonSpace;
+
   const ZenScreenHeader({
     super.key,
     required this.title,
     required this.subtitle,
     this.actions,
     this.leading,
+    this.reserveBackButtonSpace = false,
   });
+
+  /// Back chrome: 8 top padding + 44 button, plus breathing room.
+  static const double _backButtonClearance = 8 + 44 + 16;
 
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
+    // Inside a SafeArea this inset is already 0, so it never double counts.
+    final topInset = MediaQuery.paddingOf(context).top;
+    final topPadding = reserveBackButtonSpace
+        ? topInset + _backButtonClearance
+        : max(84.0, topInset + 24);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 84, 24, 28),
+      padding: EdgeInsets.fromLTRB(24, topPadding, 24, 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -61,20 +74,26 @@ class ZenScreenHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               if (leading != null) ...[leading!, const SizedBox(width: 8)],
-              Padding(
-                padding: const EdgeInsets.only(
-                  bottom: 2,
-                ), // Precision alignment
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w700,
-                    color: foundation.textPrimary,
+              // Expanded + scaleDown: at large text the title shrinks instead
+              // of pushing the actions off screen.
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      title,
+                      maxLines: 1,
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w700,
+                        color: foundation.textPrimary,
+                      ),
+                    ),
                   ),
                 ),
               ),
-              const Spacer(),
               if (actions != null) ...actions!,
             ],
           ),

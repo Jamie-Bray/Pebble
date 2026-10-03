@@ -1,7 +1,10 @@
 // lib/features/settings/ui/settings_screen.dart
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
+import "package:pebble_routines/core/config/legal_links.dart";
 import "package:pebble_routines/core/theme/theme_provider.dart";
+import "package:pebble_routines/core/ui/zen_notifications.dart";
+import "package:url_launcher/url_launcher.dart";
 import "package:pebble_routines/features/settings/ui/appearance_screen.dart";
 import "package:pebble_routines/features/settings/ui/legal_about_screen.dart";
 import "package:lucide_icons_flutter/lucide_icons.dart";
@@ -53,6 +56,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     super.dispose();
   }
 
+  Future<void> _emailSupport(BuildContext context) async {
+    final opened = await launchUrl(Uri.parse('mailto:$pebbleSupportEmail'));
+    if (!opened && context.mounted) {
+      ZenNotifications.showInfo(
+        context,
+        message: 'Email us at $pebbleSupportEmail',
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = ref.watch(currentThemeDataProvider);
@@ -75,7 +88,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                 const SliverToBoxAdapter(
                   child: ZenScreenHeader(
                     title: 'Settings',
-                    subtitle: 'System configurations & preferences',
+                    subtitle: 'Reminders, feedback, appearance and account',
+                    reserveBackButtonSpace: true,
                   ),
                 ),
 
@@ -153,6 +167,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                   ),
                 ),
 
+                // Account group: one obvious way in to plan, restore, sign-in
+                // and backup from Settings.
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    child: _FlowBlock(
+                      title: 'Account',
+                      children: [
+                        _FlowTile(
+                          icon: LucideIcons.userRound,
+                          title: 'Your account',
+                          subtitle: 'Plan, sign-in and restore purchase',
+                          onTap: () => context.push('/account-hub'),
+                        ),
+                        const _Hairline(),
+                        _FlowTile(
+                          icon: LucideIcons.cloud,
+                          title: 'Backup',
+                          subtitle: 'Cloud backup with Premium',
+                          onTap: () => context.push('/cloud-backup'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
                 // About group
                 SliverToBoxAdapter(
                   child: Padding(
@@ -168,7 +211,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                         _FlowTile(
                           icon: Icons.info_rounded,
                           title: 'About Pebble',
-                          subtitle: 'Version 1.0.0 - Privacy, terms, deletion',
+                          subtitle: 'Version 1.0.0 · Privacy, terms, deletion',
                           onTap: () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
@@ -176,6 +219,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                               ),
                             );
                           },
+                        ),
+                        const _Hairline(),
+                        _FlowTile(
+                          icon: LucideIcons.mail,
+                          title: 'Contact support',
+                          subtitle: pebbleSupportEmail,
+                          onTap: () => _emailSupport(context),
                         ),
                       ],
                     ),
@@ -381,7 +431,12 @@ class _FlowSwitchTile extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          Switch.adaptive(value: value, onChanged: onChanged),
+          Switch.adaptive(
+            value: value,
+            onChanged: onChanged,
+            // Theme accent instead of the bright iOS system green.
+            activeTrackColor: theme.colorScheme.primary,
+          ),
         ],
       ),
     );
