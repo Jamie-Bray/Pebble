@@ -58,9 +58,9 @@ class _ReorderStepsScreenState extends ConsumerState<ReorderStepsScreen> {
                 final step = steps[index];
                 return _buildStepTile(step, index, cs);
               },
-              onReorder: (oldIndex, newIndex) {
+              // onReorderItem already adjusts newIndex for the removed item.
+              onReorderItem: (oldIndex, newIndex) {
                 setState(() {
-                  if (newIndex > oldIndex) newIndex--;
                   final item = steps.removeAt(oldIndex);
                   steps.insert(newIndex, item);
                 });
