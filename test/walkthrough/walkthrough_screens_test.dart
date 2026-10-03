@@ -187,6 +187,12 @@ bool _isSignedIn(_Account a) =>
     a == _Account.signedInFree || a == _Account.signedInPremium;
 
 class _FakePurchases extends ChangeNotifier implements PurchaseRepository {
+
+  @override
+  bool get isLoadingProducts => false;
+
+  @override
+  Future<void> retryLoadProducts() async {}
   _FakePurchases(this.store);
   final _Store store;
 

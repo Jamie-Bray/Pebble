@@ -342,6 +342,12 @@ class _FakeAuthRepository implements AuthRepository {
 
 class _FakePurchaseRepository extends ChangeNotifier
     implements PurchaseRepository {
+
+  @override
+  bool get isLoadingProducts => false;
+
+  @override
+  Future<void> retryLoadProducts() async {}
   bool waitedForServerMirror = false;
 
   @override

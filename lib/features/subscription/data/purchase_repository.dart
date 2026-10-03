@@ -132,6 +132,15 @@ abstract class PurchaseRepository extends ChangeNotifier {
   DateTime? get lastPurchaseCheckAt;
   Set<String> get loadedProductIds;
   String? get unavailableReason;
+
+  /// True while store products are being requested (at start-up or after
+  /// [retryLoadProducts]). Lets the paywall tell "still loading" apart from
+  /// "the store could not be reached".
+  bool get isLoadingProducts;
+
+  /// Asks the store for products again after a failed or empty load. Never
+  /// purchases, restores or syncs anything.
+  Future<void> retryLoadProducts();
   Future<PurchaseResult> purchasePersonalPremium(BillingPlan plan);
   Future<PurchaseResult> restorePurchases();
   Future<void> syncPurchasesSilently({bool waitForServerMirror = false});
@@ -161,6 +170,15 @@ class StoreUnavailablePurchaseRepository extends ChangeNotifier
 
   @override
   String get unavailableReason => _message;
+
+  @override
+  bool get isLoadingProducts => false;
+
+  @override
+  Future<void> retryLoadProducts() async {
+    // Nothing to retry: this build has no store configured.
+    notifyListeners();
+  }
 
   @override
   List<PremiumProduct> get personalPremiumProducts =>

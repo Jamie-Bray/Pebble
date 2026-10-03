@@ -158,6 +158,12 @@ class _CapturingRunDataSource extends RemoteRoutineRunDataSource {
 
 class _AccountTestPurchaseRepository extends ChangeNotifier
     implements PurchaseRepository {
+
+  @override
+  bool get isLoadingProducts => false;
+
+  @override
+  Future<void> retryLoadProducts() async {}
   @override
   bool get isPurchaseAvailable => true;
 
