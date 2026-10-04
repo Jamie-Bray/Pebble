@@ -729,7 +729,7 @@ class _FakeSharedReminders extends SharedReminderPreferencesRepository {
 }
 
 // ---------------------------------------------------------------------------
-// Photos: the "camera" hands back sample images from the support directory
+// Photos: the "camera" hands back sample images from test/walkthrough/fixtures
 // (sample_photo_1.jpg, sample_photo_2.jpg), copied fresh each time because
 // the player deletes the picker's temp file once the photo is saved.
 // ---------------------------------------------------------------------------
@@ -758,8 +758,12 @@ class _FakePhotoPicker implements RoutinePlayerPhotoPicker {
     int? imageQuality,
     double? maxWidth,
   }) async {
-    final sample = File('$_supportDir/sample_photo_${_count % 2 + 1}.jpg');
+    // Samples ship with the harness so captures work from any output folder.
+    final sample = File(
+      'test/walkthrough/fixtures/sample_photo_${_count % 2 + 1}.jpg',
+    );
     if (!sample.existsSync()) return null;
+    Directory(_supportDir).createSync(recursive: true);
     final copy = sample.copySync('$_supportDir/picked_${_count++}.jpg');
     return XFile(copy.path);
   }
@@ -1072,7 +1076,8 @@ Future<void> _runLeavingHouseToHome(_Env env) async {
     await _tapPrimary(env);
     await env.realWait(2);
   }
-  await env.tapText('Add');
+  // A required photo is missing, so the primary button is the camera.
+  await _tapPrimary(env);
   await env.realWait(12);
   await _tapPrimary(env);
   await env.realWait(2);
@@ -1366,10 +1371,12 @@ void main() {
         await env.realWait(2);
         await _tapPrimary(env);
         await env.realWait(2);
-        for (var i = 0; i < 2; i++) {
-          await env.tapText('Add');
-          await env.realWait(12);
-        }
+        // First photo from the primary (camera) button, the second from the
+        // proof card's "Add photo" action.
+        await _tapPrimary(env);
+        await env.realWait(12);
+        await env.tapText('Add photo');
+        await env.realWait(12);
         await _tapPrimary(env);
         await env.realWait(3);
         await env.tapText('Skip step');
