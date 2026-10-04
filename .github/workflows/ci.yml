@@ -76,11 +76,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      # The build downloads an Android NDK and was failing with "No space left
-      # on device". Remove preinstalled toolchains this job never uses.
+      # The Android build (NDK, Gradle caches, a debug APK per ABI) can fill
+      # the runner's disk. Remove preinstalled toolchains this job never uses.
+      # The Android SDK in /usr/local/lib/android is kept.
       - name: Free disk space
         run: |
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/share/swift /usr/local/share/boost /opt/hostedtoolcache/CodeQL
+          df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+            /usr/local/share/boost /usr/share/swift /usr/local/julia* \
+            "$AGENT_TOOLSDIRECTORY/CodeQL" || true
+          sudo docker image prune --all --force > /dev/null 2>&1 || true
           df -h /
 
       - uses: actions/checkout@v6

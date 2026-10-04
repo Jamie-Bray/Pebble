@@ -120,7 +120,7 @@ void main() {
         revenueCatMessageForPurchasesError(
           rc.PurchasesErrorCode.configurationError,
         ),
-        contains('not configured'),
+        contains("isn't set up correctly"),
       );
     });
   });

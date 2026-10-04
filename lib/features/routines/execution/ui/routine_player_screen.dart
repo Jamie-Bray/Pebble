@@ -371,20 +371,20 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
                 icon: LucideIcons.loaderCircle,
               ),
               RoutinePlayerScreenPhase.error => _PlayerStatusView(
-                title: 'Could not load routine',
+                title: "Couldn't load this routine",
                 message:
-                    playerState.errorMessage ?? 'Please try again in a moment.',
+                    playerState.errorMessage ?? 'Try again in a moment.',
                 icon: LucideIcons.circleAlert,
                 primaryLabel: 'Retry',
                 onPrimary: () => unawaited(controller.refresh()),
-                secondaryLabel: 'Back to Home',
+                secondaryLabel: 'Back to home',
                 onSecondary: _goHome,
               ),
               RoutinePlayerScreenPhase.empty => _PlayerStatusView(
                 title: playerState.session?.routineTitleSnapshot ?? 'Routine',
-                message: 'This routine does not have any steps yet.',
+                message: "This routine doesn't have any steps yet.",
                 icon: LucideIcons.listTodo,
-                primaryLabel: 'Back to Home',
+                primaryLabel: 'Back to home',
                 onPrimary: _goHome,
                 topAction: _TopBackButton(onBack: _attemptExit),
               ),
@@ -478,10 +478,10 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
     final session = playerState.session;
     if (currentStep == null || session == null) {
       return _PlayerStatusView(
-        title: 'Routine unavailable',
-        message: 'We could not find the current step.',
+        title: "Can't continue this routine",
+        message: "Pebble couldn't find the step you were on.",
         icon: LucideIcons.circleAlert,
-        primaryLabel: 'Back to Home',
+        primaryLabel: 'Back to home',
         onPrimary: _goHome,
         topAction: _TopBackButton(onBack: _attemptExit),
       );
@@ -636,7 +636,7 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
             playerState.hasEnoughPhotos &&
             (operation == RoutinePlayerOperation.none || savingStep));
     final primaryLabel = isStepLocked
-        ? 'Upgrade to reactivate'
+        ? 'Renew to unlock'
         : holdingFinal
         ? 'Finish routine'
         : savingStep
@@ -986,8 +986,8 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
         ZenNotifications.showWarning(
           context,
           message:
-              'Camera access is turned off for Pebble. '
-              'Allow camera in your phone settings to take photos.',
+              'Camera access is off for Pebble. '
+              'Turn it on in your phone settings to take a photo.',
           actionLabel: 'Open settings',
           onAction: () => unawaited(permissions.openAppSettings()),
         );
@@ -995,8 +995,8 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
         ZenNotifications.showWarning(
           context,
           message:
-              'Photos access is turned off for Pebble. '
-              'Allow photo access in your phone settings to choose a photo.',
+              'Photo access is off for Pebble. '
+              'Turn it on in your phone settings to choose a photo.',
           actionLabel: 'Open settings',
           onAction: () => unawaited(permissions.openAppSettings()),
         );
@@ -1004,8 +1004,8 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
         ZenNotifications.showError(
           context,
           message: source == ImageSource.camera
-              ? 'Could not open the camera. Please try again.'
-              : 'Could not open your photos. Please try again.',
+              ? "Couldn't open the camera. Try again."
+              : "Couldn't open your photos. Try again.",
         );
     }
   }
@@ -1029,8 +1029,8 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
           title: Text(isCamera ? 'Use camera?' : 'Choose from Photos?'),
           content: Text(
             isCamera
-                ? 'Pebble uses the camera only when you choose to capture a proof photo for this routine step.'
-                : 'Pebble opens Photos only when you choose an existing image as a proof photo.',
+                ? 'Pebble only uses the camera when you take a photo for a step.'
+                : 'Pebble only opens Photos when you pick a photo for a step.',
           ),
           actions: [
             TextButton(
@@ -1060,9 +1060,9 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
     ZenNotifications.showWarning(
       context,
       message: isFreeTier
-          ? 'Pebble Free includes one proof photo per step.'
-          : 'Maximum photos added for this step.',
-      actionLabel: isFreeTier ? 'Plus' : null,
+          ? 'Free includes one photo per step.'
+          : "That's the most photos this step can hold.",
+      actionLabel: isFreeTier ? 'Premium' : null,
       onAction: isFreeTier ? _openProofPhotoLimitPaywall : null,
     );
   }
@@ -1192,7 +1192,7 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'Your progress is saved and ready to resume.',
+                  'You can save your progress and carry on later, or discard it.',
                   style: TextStyle(
                     fontSize: 15,
                     color: themeData.colorScheme.onSurface.withValues(
@@ -1280,7 +1280,7 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
         if (minutes > 0) {
           return 'Pause for $minutes minute${minutes == 1 ? '' : 's'}.';
         }
-        return 'Pause briefly before continuing.';
+        return 'Take a short pause before the next step.';
       },
       orElse: () => null,
     );
@@ -1482,7 +1482,7 @@ class _LockedStepBoundaryBanner extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              '+$count more step${count == 1 ? '' : 's'} locked. Upgrade to reactivate.',
+              '$count more step${count == 1 ? '' : 's'} locked. Renew Premium to unlock ${count == 1 ? 'it' : 'them'}.',
               style: TextStyle(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.76),
                 fontSize: 14,
@@ -1836,7 +1836,7 @@ class _ProofPhotoHeaderAction extends StatelessWidget {
       button: true,
       onTap: onTap,
       label: isUpgrade
-          ? 'Add more proof photos with Premium'
+          ? 'Add more photos with Premium'
           : 'Add another proof photo',
       child: ExcludeSemantics(
         child: TextButton.icon(
@@ -2100,7 +2100,7 @@ class _ProofSlotCell extends StatelessWidget {
       ),
       child: Semantics(
         button: onTap != null,
-        label: 'Take a proof photo',
+        label: 'Take photo',
         child: Material(
           color: Colors.transparent,
           child: InkWell(

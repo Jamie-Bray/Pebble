@@ -224,7 +224,7 @@ class AuthController extends StateNotifier<AuthState> {
     if (message.isEmpty ||
         message.startsWith('PlatformException') ||
         message.contains('Exception(')) {
-      return 'Sign-in did not finish. Please try again.';
+      return "Sign-in didn't finish. Try again.";
     }
     return message;
   }

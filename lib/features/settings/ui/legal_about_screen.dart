@@ -62,42 +62,42 @@ class LegalAboutScreen extends StatelessWidget {
               child: TabBarView(
                 children: [
                   _LegalPage(
-                    title: 'Privacy, without the fog.',
+                    title: 'Privacy in brief',
                     webLinkLabel: 'Read the full Privacy Policy',
                     onWebLink: () =>
                         _openWebPage(context, pebblePrivacyPolicyUrl),
                     intro:
-                        'Pebble is local-first. Most routine data stays on this device unless you choose account, subscription, or cloud backup features.',
+                        'Most of your routine data stays on this phone unless you use an account, a subscription or cloud backup.',
                     sections: const [
                       _LegalSection(
                         icon: LucideIcons.hardDrive,
-                        title: 'Local-first by default',
+                        title: 'On this phone by default',
                         body:
-                            'Without an account, Pebble stores routines, reminders, history, proof photos, guidance audio, and settings on your device.',
+                            'Without an account, Pebble keeps your routines, reminders, history, proof photos, voice tips and settings on your phone.',
                       ),
                       _LegalSection(
                         icon: LucideIcons.cloud,
                         title: 'Cloud backup is optional',
                         body:
-                            'If you sign in, have a paid entitlement, and enable cloud backup, Pebble may back up supported routine data, proof photos, sync records, and account metadata in Supabase.',
+                            'If you sign in, have Premium and turn on cloud backup, Pebble can back up your routine data, proof photos, sync records and account details to Supabase.',
                       ),
                       _LegalSection(
                         icon: LucideIcons.fileCheck,
-                        title: 'Sensitive content consent',
+                        title: 'Asking before backup',
                         body:
-                            'Before cloud backup uploads supported routine data, Pebble asks you to confirm that backup may include private details you chose to add.',
+                            'Before backup uploads anything, Pebble asks you to confirm that it may include private details you added.',
                       ),
                       _LegalSection(
                         icon: LucideIcons.megaphoneOff,
                         title: 'No ads or AI training',
                         body:
-                            'Pebble does not sell your personal data, use private routine content for advertising, or use routines, proof photos, or guidance audio to train AI models.',
+                            "Pebble doesn't sell your personal data, use your routines for advertising, or use your routines, proof photos or voice tips to train AI models.",
                       ),
                       _LegalSection(
                         icon: LucideIcons.camera,
                         title: 'Permissions',
                         body:
-                            'Camera, photos, microphone, and notifications are used only for proof photos, guidance audio, and reminders you choose to create.',
+                            'Pebble only uses the camera, photos, microphone and notifications for proof photos, voice tips and reminders you set up.',
                       ),
                     ],
                     footer: _OwnerFooter(
@@ -108,17 +108,17 @@ class LegalAboutScreen extends StatelessWidget {
                     ),
                   ),
                   _LegalPage(
-                    title: 'Using Pebble fairly.',
+                    title: 'Terms in brief',
                     webLinkLabel: 'Read the full Terms of Use',
                     onWebLink: () => _openWebPage(context, pebbleTermsUrl),
                     intro:
-                        'Pebble is a routine support and reassurance app. It is not a medical, emergency, alarm, workplace safety, legal evidence, or guaranteed archive service.',
+                        'Pebble is a routine and checklist app. It is not a medical, emergency, alarm, workplace safety, legal evidence or guaranteed archive service.',
                     sections: const [
                       _LegalSection(
                         icon: LucideIcons.userRound,
                         title: 'Accounts',
                         body:
-                            'Signing out pauses account-linked features on that device. It does not delete cloud data, cancel subscriptions, or remove local data.',
+                            "Signing out pauses account features on that phone. It doesn't delete cloud data, cancel a subscription or remove anything stored on the phone.",
                       ),
                       _LegalSection(
                         icon: LucideIcons.creditCard,
@@ -130,7 +130,7 @@ class LegalAboutScreen extends StatelessWidget {
                         icon: LucideIcons.archive,
                         title: 'Backup limits',
                         body:
-                            'Cloud backup reduces some risk but is not permanent archive storage. Keep separate records for anything legally, medically, financially, or operationally important.',
+                            'Cloud backup lowers the risk of losing data, but it is not a permanent archive. Keep separate records of anything important for legal, medical, financial or work reasons.',
                       ),
                       _LegalSection(
                         icon: LucideIcons.image,
@@ -153,9 +153,9 @@ class LegalAboutScreen extends StatelessWidget {
                     ),
                   ),
                   _LegalPage(
-                    title: 'Deleting your account.',
+                    title: 'Deleting your account',
                     intro:
-                        'If you sign in, you can delete your Pebble account from Your account. You can also contact support if you cannot access the app.',
+                        "You can delete your Pebble account from Your account. If you can't get into the app, contact support.",
                     sections: const [
                       _LegalSection(
                         icon: LucideIcons.trash2,
@@ -173,13 +173,13 @@ class LegalAboutScreen extends StatelessWidget {
                         icon: LucideIcons.smartphone,
                         title: 'Local data may remain',
                         body:
-                            'Account deletion does not necessarily remove routines, history, proof photos, guidance audio, or settings already stored on your device.',
+                            "Deleting your account doesn't always remove routines, history, proof photos, voice tips or settings already stored on your phone.",
                       ),
                       _LegalSection(
                         icon: LucideIcons.receipt,
                         title: 'Subscriptions are separate',
                         body:
-                            'Deleting your account, uninstalling Pebble, or signing out does not cancel app-store subscriptions. Cancel through the relevant app-store settings.',
+                            "Deleting your account, uninstalling Pebble or signing out doesn't cancel an app store subscription. Cancel it in your app store's subscription settings.",
                       ),
                     ],
                     footer: _DeleteFooter(
@@ -352,7 +352,7 @@ class _DeleteFooter extends StatelessWidget {
     return _FooterBox(
       title: 'Need help?',
       body:
-          'If you cannot open Your account, email $pebbleSupportEmail from the address linked to your Pebble account if you can.',
+          "If you can't open Your account, email $pebbleSupportEmail, ideally from the address linked to your Pebble account.",
       actions: [
         TextButton(onPressed: onSupport, child: const Text('Email support')),
       ],

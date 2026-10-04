@@ -124,7 +124,7 @@ class SharedReminderCompletionResult {
     return switch (reason) {
       'rateLimited' =>
         'Completion email not sent. This contact has had several recently.',
-      'offline' => 'Completion email not sent. No connection.',
+      'offline' => "Completion email not sent because there's no connection.",
       'failed' => "Completion email couldn't be sent this time.",
       _ => null,
     };

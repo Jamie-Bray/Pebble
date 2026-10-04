@@ -130,7 +130,7 @@ class PremiumPaywallCopy {
         renewalLine:
             'Renews automatically unless cancelled at least 24 hours before the end of the current period. Payment is charged to your Apple ID when you confirm. Cancel anytime in the App Store subscription settings. Pebble also works free without Premium.',
         purchaseErrorLine:
-            'The App Store could not complete that request. Please try again.',
+            "The App Store couldn't finish that. Try again.",
         consoleName: 'App Store Connect',
       ),
       StorePlatform.googlePlay => const PremiumPaywallCopy._(
@@ -139,7 +139,7 @@ class PremiumPaywallCopy {
         renewalLine:
             'Renews automatically until cancelled. Cancel anytime in Google Play subscription settings. Pebble also works free without Premium.',
         purchaseErrorLine:
-            'Google Play could not complete that request. Please try again.',
+            "Google Play couldn't finish that. Try again.",
         consoleName: 'Play Console',
       ),
       StorePlatform.other => const PremiumPaywallCopy._(
@@ -148,7 +148,7 @@ class PremiumPaywallCopy {
         renewalLine:
             'Renews automatically until cancelled. Cancel anytime through your app store subscription settings. Pebble also works free without Premium.',
         purchaseErrorLine:
-            'The store could not complete that request. Please try again.',
+            "The store couldn't finish that. Try again.",
         consoleName: 'store console',
       ),
     };
@@ -316,7 +316,7 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
     } catch (error) {
       _showNotice(
         _purchaseErrorMessage(error),
-        title: 'Could not restore',
+        title: "Couldn't restore",
         type: NotificationType.error,
       );
     } finally {
@@ -444,8 +444,8 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
     );
     if (!opened) {
       _showNotice(
-        'Could not open that page.',
-        title: 'Could not open',
+        "Couldn't open that page.",
+        title: "Couldn't open",
         type: NotificationType.error,
       );
     }
@@ -639,9 +639,9 @@ class _PostPurchaseBackupSheetState
       setState(() => _busy = false);
       ZenNotifications.showError(
         context,
-        title: 'Could not turn on backup',
+        title: "Couldn't turn on backup",
         message:
-            'Premium is on. Pebble will try backup again when you are online.',
+            "Premium is on. Pebble will try backup again when you're online.",
       );
       Navigator.of(context).pop(false);
       return;
@@ -712,7 +712,7 @@ class _PostPurchaseBackupSheetState
                 Text(
                   'Pebble backs up routines, history, and proof photos, '
                   'which can include personal details. You can pause backup '
-                  'any time in Your Account.',
+                  'any time in Your account.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: foundation.textSecondary,
@@ -843,9 +843,9 @@ class _PremiumActivatedSheet extends StatelessWidget {
                     TextSpan(
                       style: _serifStyle(context, fontSize: 30, height: 1.12),
                       children: [
-                        const TextSpan(text: 'Optional: sign in\nto '),
+                        const TextSpan(text: 'Sign in to\n'),
                         TextSpan(
-                          text: 'back it all up.',
+                          text: 'turn on backup.',
                           style: TextStyle(
                             color: _premiumAccentText(context),
                             fontStyle: FontStyle.italic,
@@ -857,7 +857,7 @@ class _PremiumActivatedSheet extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    'Sign in to back up your history, routines, and photos, and keep them ready across devices. Totally optional; Premium works right now without it.',
+                    "Signing in lets Pebble back up your history, routines and photos, so you can restore them on another phone. It's optional. Premium already works without it.",
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: foundation.textSecondary,
@@ -942,7 +942,7 @@ class _PremiumActivatedSheet extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    'You can always sign in later from Your Account.',
+                    'You can sign in later from Your account.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: foundation.textMuted,
@@ -1024,9 +1024,9 @@ class _AlreadyPremiumScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 14),
                       Text(
-                        'Everything Premium includes is already unlocked on '
-                        'this device. Billing and plan changes live in your '
-                        'store subscription settings.',
+                        'Everything in Premium is already on for this phone. To '
+                        'change or cancel your plan, use your app store\'s '
+                        'subscription settings.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: foundation.textSecondary,
@@ -1187,9 +1187,9 @@ class _PremiumResubscribedSheet extends StatelessWidget {
                   TextSpan(
                     style: _serifStyle(context, fontSize: 30, height: 1.12),
                     children: [
-                      const TextSpan(text: 'Welcome back.\nYou\'re '),
+                      const TextSpan(text: 'Premium is\n'),
                       TextSpan(
-                        text: 'all set.',
+                        text: 'active again.',
                         style: TextStyle(
                           color: accent,
                           fontStyle: FontStyle.italic,
@@ -1203,10 +1203,10 @@ class _PremiumResubscribedSheet extends StatelessWidget {
                 Text(
                   backupIsOn
                       ? 'Backup is already on for this account, so your '
-                            'routines, history, and proof photos keep saving '
-                            'from here.'
+                            'routines, history and proof photos will carry on '
+                            'backing up.'
                       : 'Backup is set up for this account. Pebble will '
-                            'finish reconnecting it automatically.',
+                            'reconnect it in the background.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: foundation.textSecondary,
@@ -1362,24 +1362,24 @@ class _PaywallHeader extends StatelessWidget {
         "When one photo\nisn't ",
         'enough.',
       ),
-      PremiumEntrySource.backup => ('Answers that\n', 'stick around.'),
+      PremiumEntrySource.backup => ('History that\n', 'lasts 21 days.'),
       PremiumEntrySource.routineLimit ||
       PremiumEntrySource.stepLimit => ('Room for every\n', 'routine.'),
       PremiumEntrySource.guidanceAudio => (
         'Say it once,\nhear it ',
         'every time.',
       ),
-      _ => ('Never wonder\n', 'twice.'),
+      _ => ('Keep three weeks\n', 'of checks.'),
     };
     final body = switch (entrySource) {
       PremiumEntrySource.backup =>
-        'Free keeps recent history on this device for 48 hours. Premium keeps recent checks for up to 21 days, with backup when you choose to turn it on.',
+        'Free keeps history on this phone for 48 hours. Premium keeps it for 21 days, and backs it up if you turn backup on.',
       PremiumEntrySource.proofPhotoLimit =>
-        'Free includes one photo per step. Premium gives you more proof when one picture does not capture the full check.',
+        'Free includes one photo per step. Premium lets you add up to four, for checks that need more than one angle.',
       PremiumEntrySource.guidanceAudio =>
-        'Add a short voice prompt to a step, so future-you knows exactly what to check.',
+        'Record a few seconds on any step saying what to check, and play it back when you get there.',
       _ =>
-        'Free includes 2 routines and 10 steps each. Premium gives you unlimited routines, longer recent history, and backup when you choose to turn it on.',
+        'Free includes 2 routines with up to 10 steps each. Premium gives you unlimited routines, 21 days of history, and backup if you turn it on.',
     };
 
     return Column(
@@ -1494,7 +1494,7 @@ const _premiumFeatures = [
   _PremiumFeature(
     icon: LucideIcons.infinity,
     title: 'Unlimited routines and steps',
-    description: 'Every check you run, not just two of them.',
+    description: 'As many routines as you need, with as many steps.',
     freeLabel: '2 routines, 10 steps',
     premiumLabel: 'Unlimited',
   ),
@@ -1502,14 +1502,14 @@ const _premiumFeatures = [
     icon: LucideIcons.cloud,
     title: 'Longer history and backup',
     description:
-        'Three weeks of answers, safe if you reinstall or change phone.',
+        'Three weeks of history, backed up in case you reinstall or change phone.',
     freeLabel: '48 hours',
     premiumLabel: '21 days + backup',
   ),
   _PremiumFeature(
     icon: LucideIcons.camera,
     title: 'More photos per step',
-    description: 'Four angles when one picture cannot prove the whole check.',
+    description: 'For checks that need more than one angle.',
     freeLabel: '1 photo',
     premiumLabel: 'Up to 4',
   ),
@@ -1517,8 +1517,8 @@ const _premiumFeatures = [
     icon: LucideIcons.mic,
     title: 'Voice tips',
     description:
-        'Record a prompt on any step, so future-you hears exactly '
-        'what to look for.',
+        'Record a short note on any step and play it back when you '
+        'get there.',
     freeLabel: 'Not available',
     premiumLabel: 'Included',
   ),
@@ -1829,7 +1829,7 @@ class _TrustCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    'Pebble has no ads, does not sell your data, and backup only starts when you choose to turn it on.',
+                    "Pebble has no ads and doesn't sell your data. Backup only starts if you turn it on.",
                     style: TextStyle(
                       color: foundation.textSecondary,
                       fontSize: 12,

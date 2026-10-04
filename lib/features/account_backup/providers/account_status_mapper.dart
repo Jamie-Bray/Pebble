@@ -193,7 +193,7 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
       secondaryActionLabel: restoreLabel,
       supportingDetail: purchase.unavailableReason != null
           ? 'Check your connection or try again later.'
-          : 'You have not done anything wrong. This build is waiting for store setup.',
+          : 'This version of Pebble is waiting for store setup.',
       tone: AccountStatusTone.neutral,
       icon: LucideIcons.clock3,
       isSyncRunning: false,
@@ -356,7 +356,7 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
           planLabel: planFacts.label,
           title: 'Premium is active',
           body:
-              'Pebble is double-checking your purchase with Google Play. Backup starts right after.',
+              "Pebble is checking your purchase with Google Play. Backup starts once that's done.",
           statusLabel: 'Checking your purchase',
           historyLabel: 'Backup pending',
           limitChips: planFacts.chips,
@@ -386,7 +386,7 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
         planLabel: planFacts.label,
         title: 'Backup is on',
         body:
-            'Your routines and history are backed up. If you lose or change your phone, they come back with you.',
+            'Your routines and history are backed up. On a new phone, sign in and they come back.',
         statusLabel: 'Backup is on',
         historyLabel: 'Backup is on',
         limitChips: planFacts.chips,
@@ -429,7 +429,7 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
         secondaryAction: AccountStatusAction.managePlan,
         secondaryActionLabel: 'Manage plan',
         supportingDetail:
-            account.entitlementError ?? 'Try again to re-check Premium.',
+            account.entitlementError ?? 'Try again to check Premium.',
         tone: AccountStatusTone.attention,
         icon: LucideIcons.cloudAlert,
         isSyncRunning: false,
