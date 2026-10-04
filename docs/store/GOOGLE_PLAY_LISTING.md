@@ -139,7 +139,7 @@ WHAT PEBBLE IS, AND IS NOT
 Pebble is a routine and checklist app. It is not a medical app or treatment, a home security system, or an emergency service, and photos in Pebble are not legal evidence. If checking is taking up a lot of your day, a doctor or other qualified professional can help.
 
 Privacy policy: https://pebbleroutines.com/privacy
-Support: support@pebbleroutines.app
+Support: support@pebbleroutines.com
 ```
 
 Optional neutral line, only if you decide you want "peace of mind" indexed. Put
@@ -166,7 +166,7 @@ Check the length again after adding it.
   5. Personal organiser / Productivity tools
 
   Do not pick health, wellness, or mental health tags.
-- **Contact details:** email `support@pebbleroutines.app` (confirm the domain;
+- **Contact details:** email `support@pebbleroutines.com` (confirm the domain;
   see `OWNER_NOTES.md`), website `https://pebbleroutines.com`, privacy policy
   `https://pebbleroutines.com/privacy`.
 

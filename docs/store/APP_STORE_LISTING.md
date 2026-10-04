@@ -236,7 +236,7 @@ Camera: proof photos. Photo library: choosing an existing photo and "Save a copy
 ACCOUNT DELETION
 Your account > Delete Account. A web request form is also at https://pebbleroutines.com/delete-account.
 
-Contact: support@pebbleroutines.app
+Contact: support@pebbleroutines.com
 ```
 
 Before submitting, check every path in these notes on a TestFlight build.

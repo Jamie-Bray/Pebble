@@ -42,7 +42,7 @@ This checklist turns the pre-launch audit into a concrete release plan for Pebbl
 - [ ] Confirm the legal publication details in `LEGAL_PUBLICATION_CHECKS.md`.
 - [ ] Review `LEGAL_PROCESSOR_MAP.md` against the Play Data safety form before submission.
 - [ ] Review `COPY_RISK_SCAN.md` against store listing, screenshots, onboarding, and paywall copy.
-- [ ] Create and monitor the `privacy@pebbleroutines.app` and `support@pebbleroutines.app` inboxes, or update the pages with the final inboxes.
+- [ ] Create and monitor the `privacy@pebbleroutines.com` and `support@pebbleroutines.com` inboxes, or update the pages with the final inboxes.
 - [x] Add a clear in-app opt-in before cloud backup of sensitive user-added content goes live.
 - [ ] Complete the Data safety form for account data, photos, audio, and diagnostics/logging if applicable.
 - [x] Confirm the account deletion web link in Play Console matches the in-app deletion destination.

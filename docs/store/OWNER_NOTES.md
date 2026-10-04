@@ -6,44 +6,24 @@ Decisions and facts only you can confirm, gathered while preparing
 `web/privacy.html`, `web/terms.html` and the files in `docs/store/`. Nothing
 in `lib/`, `ios/`, `android/` or `supabase/` was changed.
 
-## 1. Email domain: `.com` site, `.app` inboxes
+## 1. Email domain: decided, `@pebbleroutines.com`
 
-The website and every URL use **pebbleroutines.com**. Every contact email uses
-**@pebbleroutines.app**. No `@pebbleroutines.com` address appears anywhere in
-the repo. Nothing was changed. Confirm which domain you own and can receive
-mail on, then update every line below together.
+Decided on 4 October 2026. The owner owns `pebbleroutines.com`, so every contact
+address in the app, website, store listings and docs now uses
+`support@pebbleroutines.com` and `privacy@pebbleroutines.com`. Changing the
+in-app addresses (`lib/core/config/legal_links.dart`) needs a new build.
 
-| File | Line | Address |
-| --- | --- | --- |
-| `web/privacy.html` | 53, 201, 418 | privacy@pebbleroutines.app |
-| `web/privacy.html` | 420 | support@pebbleroutines.app |
-| `web/privacy.html` | 36 | (owner TODO comment that mentions the domain) |
-| `web/terms.html` | 44, 217 | support@pebbleroutines.app |
-| `web/terms.html` | 219 | privacy@pebbleroutines.app |
-| `web/support.html` | 42, 47 | support@pebbleroutines.app |
-| `web/support.html` | 52 | privacy@pebbleroutines.app |
-| `web/delete-account.html` | 20, 21, 44, 93, 150, 193 | support@pebbleroutines.app |
-| `web/delete-account.html` | 148 | privacy@pebbleroutines.app |
-| `web/index.html` | 171 | support@pebbleroutines.app |
-| `lib/features/settings/ui/legal_about_screen.dart` | 91, 134 | privacy@pebbleroutines.app (in-app; needs a new build to change) |
-| `lib/features/settings/ui/legal_about_screen.dart` | 93, 136, 171, 322 | support@pebbleroutines.app (in-app) |
-| `LEGAL_PUBLICATION_CHECKS.md` | 14, 19 | privacy@pebbleroutines.app |
-| `LEGAL_PUBLICATION_CHECKS.md` | 15, 20 | support@pebbleroutines.app |
-| `GOOGLE_PLAY_RELEASE_CHECKLIST.md` | 45 | privacy@ and support@pebbleroutines.app |
-| `LAUNCH_READINESS_AUDIT.md` | 69 | mentions @pebbleroutines.app |
-| `docs/store/GOOGLE_PLAY_LISTING.md` | 142, 169 | support@pebbleroutines.app |
-| `docs/store/APP_STORE_LISTING.md` | 240 | support@pebbleroutines.app (App Review notes) |
+Still to do (owner):
 
-Not in the repo, but they must use a domain you own and have verified with
-Resend:
-
-- Supabase secret `SHARED_ALERT_FROM_EMAIL` (and optional
-  `SHARED_ALERT_REPLY_TO_EMAIL`): the sender of completion emails.
-- The Supabase Auth sender address, if you set up custom SMTP for sign-in
-  codes.
-- The Play Console and App Store Connect support email fields.
-
-To find the lines again: `grep -rn "pebbleroutines\.app" --exclude-dir=.git .`
+- Set up free email forwarding so `support@` and `privacy@pebbleroutines.com`
+  arrive in the Pebble Gmail (for example ImprovMX, or Cloudflare Email
+  Routing if the domain's DNS is on Cloudflare). Send a test email to each.
+- Use the same addresses in the Play Console and App Store Connect support
+  fields.
+- Set the Supabase secret `SHARED_ALERT_FROM_EMAIL` (for example
+  `Pebble Routines <alerts@pebbleroutines.com>`) and verify the domain in
+  Resend (SPF, DKIM, DMARC). See `COMPLETION_EMAIL_REVIEW.md`.
+- If you set up custom SMTP for sign-in codes, use the same domain.
 
 ## 2. Legal details to fill in
 

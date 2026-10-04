@@ -52,7 +52,7 @@ All of this work is on the branch `claude/sharp-keller-f6iiu2`.
 ## Your to-do list, in order
 
 ### Now (no money needed)
-1. **Pick your email domain.** The site is `.com` but every inbox is `@pebbleroutines.app`. See `docs/store/OWNER_NOTES.md` §1, then tell Claude which one, and it will update everything.
+1. **Set up email forwarding.** Every address now uses `@pebbleroutines.com`. Forward `support@` and `privacy@` to your Pebble Gmail; the steps are in `docs/store/OWNER_NOTES.md` §1.
 2. **Fill in the legal details** (`docs/store/OWNER_NOTES.md` §2): a postal address if one is needed, ICO registration, and the providers' data processing terms.
 3. **Confirm one Supabase secret.** `CLEANUP_PROOF_RETENTION_SECRET` must exist (Dashboard → Edge Functions → Secrets) before Claude deploys the backend fixes.
 4. **Turn off anonymous sign-ins** in Supabase (Authentication → Sign In / Providers).
