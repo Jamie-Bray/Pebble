@@ -158,7 +158,6 @@ class _CapturingRunDataSource extends RemoteRoutineRunDataSource {
 
 class _AccountTestPurchaseRepository extends ChangeNotifier
     implements PurchaseRepository {
-
   @override
   bool get isLoadingProducts => false;
 
@@ -1568,10 +1567,7 @@ void main() {
           find.text('Local routines on this device stay here.'),
           findsOneWidget,
         );
-        expect(
-          find.textContaining('this does not cancel it'),
-          findsOneWidget,
-        );
+        expect(find.textContaining('this does not cancel it'), findsOneWidget);
       },
     );
 
@@ -2264,7 +2260,8 @@ void main() {
       'manual sync catches up local routines that were never queued',
       () async {
         const ownerUserId = '11111111-1111-1111-1111-111111111111';
-        final expectedRoutineCloudId = const Uuid().v5(
+        // The id two devices would both have derived for "routine 1".
+        final rowNumberDerivedId = const Uuid().v5(
           Namespace.url.value,
           'vix.pebble/$ownerUserId/routine/1',
         );
@@ -2343,10 +2340,12 @@ void main() {
         final syncedRoutine = await database.routineDao.getRoutineById(1);
         expect(result.type, ManualSyncResultType.synced);
         expect(routineDataSource.upserts, hasLength(1));
-        expect(routineDataSource.upserts.single['id'], expectedRoutineCloudId);
+        final uploadedId = routineDataSource.upserts.single['id'] as String;
+        expect(Uuid.isValidUUID(fromString: uploadedId), isTrue);
+        expect(uploadedId, isNot(rowNumberDerivedId));
         expect(routineDataSource.upserts.single['owner_user_id'], ownerUserId);
         expect(syncedRoutine?.syncStatus, 'synced');
-        expect(syncedRoutine?.cloudId, expectedRoutineCloudId);
+        expect(syncedRoutine?.cloudId, uploadedId);
         expect(await outbox.pendingItems(), isEmpty);
       },
     );
@@ -2900,10 +2899,6 @@ void main() {
       'manual sync uploads runs even if the routine was deleted locally',
       () async {
         const ownerUserId = '11111111-1111-1111-1111-111111111111';
-        final expectedRoutineCloudId = const Uuid().v5(
-          Namespace.url.value,
-          'vix.pebble/$ownerUserId/routine/1',
-        );
 
         await database.routineRunDao.insertOrUpdateRun(
           RoutineRun(
@@ -3004,9 +2999,12 @@ void main() {
 
         expect(result.type, ManualSyncResultType.synced);
         expect(runDataSource.upserts, hasLength(1));
+        // A local row number means nothing once the routine is gone, so the
+        // run keeps its title and no routine link.
+        expect(runDataSource.upserts.single['routine_id'], isNull);
         expect(
-          runDataSource.upserts.single['routine_id'],
-          expectedRoutineCloudId,
+          runDataSource.upserts.single['routine_title'],
+          'Morning startup',
         );
         expect(await outbox.pendingItems(), isEmpty);
       },

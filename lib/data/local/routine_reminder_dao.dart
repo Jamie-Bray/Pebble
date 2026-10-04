@@ -119,6 +119,18 @@ class RoutineReminderDao extends DatabaseAccessor<LocalDb>
         .get();
   }
 
+  /// Saves a cloud id on a reminder that has none yet, without marking it
+  /// synced. Returns the id the reminder now carries.
+  Future<String?> assignCloudIdIfMissing(int reminderId, String cloudId) async {
+    await (update(routineReminders)..where(
+          (r) =>
+              r.id.equals(reminderId) &
+              (r.cloudId.isNull() | r.cloudId.equals('')),
+        ))
+        .write(RoutineRemindersCompanion(cloudId: Value(cloudId)));
+    return (await getReminderById(reminderId))?.cloudId;
+  }
+
   Future<void> markReminderSynced({
     required int reminderId,
     required String cloudId,

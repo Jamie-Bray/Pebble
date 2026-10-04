@@ -5,6 +5,7 @@
 // supabase/migrations/001 and 014: a row id is unique across ALL accounts, and
 // an account can only write rows it owns. It is a model, not the live server.
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:drift/drift.dart' as drift;
 import 'package:drift/native.dart';
@@ -35,20 +36,21 @@ const _userA = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const _userB = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const _runId = '11111111-1111-4111-8111-111111111111';
 const _sessionId = '22222222-2222-4222-8222-222222222222';
-const _rejection =
-    'Supabase rejected the backup write. Check cloud consent and the server '
-    'entitlement for this account.';
 
 class _FakeCloud {
   final runs = <String, Map<String, dynamic>>{};
   final sessions = <String, Map<String, dynamic>>{};
   final routines = <String, Map<String, dynamic>>{};
 
+  /// Set to make every write fail as if the connection dropped.
+  bool offline = false;
+
   void upsert(
     String table,
     Map<String, Map<String, dynamic>> rows,
     Map<String, dynamic> payload,
   ) {
+    if (offline) throw const SocketException('offline');
     final existing = rows[payload['id']];
     if (existing != null &&
         existing['owner_user_id'] != payload['owner_user_id']) {
@@ -451,9 +453,8 @@ void main() {
       final result = await b.backUp();
 
       expect(result.type, ManualSyncResultType.failed);
-      expect(result.message, _rejection);
       expect(b.account.bootstrapStatus, BootstrapStatus.error);
-      expect(b.account.lastSyncError, _rejection);
+      expect(b.account.lastSyncError, result.message);
       expect(cloud.runs[_runId]!['owner_user_id'], _userA);
 
       final local = (await database.routineRunDao.getAllRuns()).single;
@@ -468,8 +469,155 @@ void main() {
     });
   });
 
+  group('what a taken-over run leaves behind', () {
+    test('it still shows in history with its routine and title', () async {
+      await database.routineDao.insertOrUpdateRoutine(
+        _routine(id: 1, title: 'Close down', owner: _userA),
+      );
+      await accountABacksUpHistory();
+
+      await signIn(_userB).useThisAccount();
+
+      // What the History screen reads.
+      final run = (await database.routineRunDao.watchAllRuns().first).single;
+      expect(run.routineTitle, 'Close down');
+      expect(run.routineId, '1');
+      expect(run.finishedAt, DateTime(2026, 1, 1, 20));
+      final latest = await database.routineRunDao
+          .watchLatestRunForRoutine(1)
+          .first;
+      expect(latest?.id, run.id);
+    });
+
+    test('a queued upload under the old id is dropped, then the run '
+        'uploads under its new id', () async {
+      await accountABacksUpHistory();
+      final b = signIn(_userB);
+      await b.outbox.enqueue(
+        entityType: SyncEntityType.run,
+        entityId: _runId,
+        operation: SyncOperation.upsert,
+      );
+      await LocalDataOwnershipGuard.useCurrentAccountForLocalData(
+        database: database,
+        signedInUserId: _userB,
+      );
+
+      // First pass clears the stale item; it points at no run any more.
+      final first = await b.backUp();
+      expect(first.type, ManualSyncResultType.synced);
+      expect(await b.outbox.pendingItems(), isEmpty);
+      expect(cloud.ownedBy(cloud.runs, _userB), isEmpty);
+
+      // The run is still marked as waiting, so the next pass picks it up.
+      await b.backUp();
+      expect(cloud.ownedBy(cloud.runs, _userB), hasLength(1));
+      expect(cloud.runs[_runId]!['owner_user_id'], _userA);
+    });
+
+    test('the session keeps pointing at the run it completed', () async {
+      await database.routineRunDao.insertOrUpdateRun(_run(owner: _userA));
+      await database.routineSessionDao.insertOrUpdateSession(
+        _session(owner: _userA).copyWith(
+          syncMetadataJson: drift.Value(
+            jsonEncode({'needsSync': false, 'completedRunId': _runId}),
+          ),
+        ),
+      );
+
+      await LocalDataOwnershipGuard.useCurrentAccountForLocalData(
+        database: database,
+        signedInUserId: _userB,
+      );
+
+      final run = (await database.routineRunDao.getAllRuns()).single;
+      final session =
+          (await database.routineSessionDao.getAllSessions()).single;
+      final metadata = RoutineSessionSyncMetadata.fromJson(
+        Map<String, dynamic>.from(jsonDecode(session.syncMetadataJson!) as Map),
+      );
+      expect(run.id, isNot(_runId));
+      expect(metadata.completedRunId, run.id);
+    });
+  });
+
+  group('routine cloud ids', () {
+    test('two devices keep their own routines in the backup', () async {
+      final otherDevice = LocalDb.forTesting(NativeDatabase.memory());
+      addTearDown(otherDevice.close);
+      // Both are "routine 1" on their own device.
+      await database.routineDao.insertOrUpdateRoutine(
+        _routine(id: 1, title: 'Morning', owner: _userA),
+      );
+      await otherDevice.routineDao.insertOrUpdateRoutine(
+        _routine(id: 1, title: 'Lock up', owner: _userA),
+      );
+
+      await signIn(_userA).backUp();
+      await signIn(_userA, on: otherDevice).backUp();
+
+      expect(cloud.routines.values.map((row) => row['title']).toSet(), {
+        'Morning',
+        'Lock up',
+      });
+    });
+
+    test('a failed upload and its retry use the same id', () async {
+      await database.routineDao.insertOrUpdateRoutine(
+        _routine(id: 1, title: 'Morning', owner: _userA),
+      );
+      final a = signIn(_userA);
+
+      cloud.offline = true;
+      final failed = await a.backUp();
+      expect(failed.type, ManualSyncResultType.blockedOffline);
+      final afterFailure = await database.routineDao.getRoutineById(1);
+      expect(afterFailure!.cloudId, isNotNull);
+      expect(afterFailure.syncStatus, 'pendingUpload');
+      expect(cloud.routines, isEmpty);
+
+      cloud.offline = false;
+      final retried = await a.backUp();
+      expect(retried.type, ManualSyncResultType.synced);
+      await a.backUp();
+
+      expect(cloud.routines.keys.single, afterFailure.cloudId);
+      final synced = await database.routineDao.getRoutineById(1);
+      expect(synced!.cloudId, afterFailure.cloudId);
+      expect(synced.syncStatus, 'synced');
+    });
+
+    test('a routine that already has a cloud id keeps it', () async {
+      const existing = '33333333-3333-4333-8333-333333333333';
+      await database.routineDao.insertOrUpdateRoutine(
+        _routine(
+          id: 1,
+          title: 'Morning',
+          owner: _userA,
+        ).copyWith(cloudId: const drift.Value(existing)),
+      );
+
+      await signIn(_userA).backUp();
+
+      expect(cloud.routines.keys.single, existing);
+    });
+
+    test('a run points at the id its routine is backed up under', () async {
+      await database.routineDao.insertOrUpdateRoutine(
+        _routine(id: 1, title: 'Close down', owner: _userA),
+      );
+      await database.routineRunDao.insertOrUpdateRun(_run(owner: _userA));
+      final a = signIn(_userA);
+
+      await a.backUp();
+      await a.backUp();
+
+      expect(cloud.runs[_runId]!['routine_id'], cloud.routines.keys.single);
+    });
+  });
+
   group('KNOWN ISSUE, not fixed here (see docs/review/AUTH_SYNC_AUDIT.md)', () {
-    // These pin today's behaviour so a future fix has to change them.
+    // This pins today's behaviour so a future fix has to change it.
 
     test('routines double up when an account takes a device back', () async {
       await database.routineDao.insertOrUpdateRoutine(
@@ -489,25 +637,8 @@ void main() {
         (routine) => routine.title,
       );
       expect(titles, ['Close down', 'Close down']);
-      // The cloud copy is not doubled, only the device.
-      expect(cloud.ownedBy(cloud.routines, _userA), hasLength(1));
-    });
-
-    test('two devices give different routines the same cloud id', () async {
-      final otherDevice = LocalDb.forTesting(NativeDatabase.memory());
-      addTearDown(otherDevice.close);
-      await database.routineDao.insertOrUpdateRoutine(
-        _routine(id: 1, title: 'Morning', owner: _userA),
-      );
-      await otherDevice.routineDao.insertOrUpdateRoutine(
-        _routine(id: 1, title: 'Lock up', owner: _userA),
-      );
-
-      await signIn(_userA).backUp();
-      await signIn(_userA, on: otherDevice).backUp();
-
-      // The second device's routine replaced the first one in the backup.
-      expect(cloud.routines.values.single['title'], 'Lock up');
+      // Each copy on the device has its own copy in the backup.
+      expect(cloud.ownedBy(cloud.routines, _userA), hasLength(2));
     });
   });
 }

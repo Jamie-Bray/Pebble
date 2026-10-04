@@ -44,6 +44,18 @@ class RoutineDao extends DatabaseAccessor<LocalDb> with _$RoutineDaoMixin {
     );
   }
 
+  /// Saves a cloud id on a routine that has none yet, without marking it
+  /// synced. Returns the id the routine now carries.
+  Future<String?> assignCloudIdIfMissing(int id, String cloudId) async {
+    await (update(routines)..where(
+          (tbl) =>
+              tbl.id.equals(id) &
+              (tbl.cloudId.isNull() | tbl.cloudId.equals('')),
+        ))
+        .write(RoutinesCompanion(cloudId: Value(cloudId)));
+    return (await getRoutineById(id))?.cloudId;
+  }
+
   Future<void> markRoutineSynced({
     required int id,
     required String cloudId,

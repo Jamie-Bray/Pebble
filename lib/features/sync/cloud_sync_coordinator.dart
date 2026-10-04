@@ -498,22 +498,34 @@ class CloudSyncCoordinator {
     return value.toUnsigned(32).toSigned(32);
   }
 
-  String _stableRemoteId({
-    required String entityKind,
-    required String localEntityId,
-    required String? ownerUserId,
-    String? existingRemoteId,
-  }) {
-    final candidate = existingRemoteId?.trim();
-    if (candidate != null && candidate.isNotEmpty) {
-      return _toSupabaseUuid(candidate);
+  /// The routine's cloud id. A routine without one gets a random id that is
+  /// saved on the device before anything is uploaded, so a retry reuses it.
+  /// It must not be derived from the local row number: those start at 1 on
+  /// every device, so two devices would claim the same cloud row.
+  Future<String> _routineCloudId(Routine routine) async {
+    final existing = routine.cloudId?.trim();
+    if (existing != null && existing.isNotEmpty) {
+      return _toSupabaseUuid(existing);
     }
-    final ownerScope = ownerUserId?.trim();
-    return _toSupabaseUuid(
-      ownerScope == null || ownerScope.isEmpty
-          ? '$entityKind/$localEntityId'
-          : '$ownerScope/$entityKind/$localEntityId',
+    final fresh = _uuid.v4();
+    final saved = await _database.routineDao.assignCloudIdIfMissing(
+      routine.id,
+      fresh,
     );
+    return _toSupabaseUuid(saved == null || saved.isEmpty ? fresh : saved);
+  }
+
+  Future<String> _reminderCloudId(RoutineReminder reminder) async {
+    final existing = reminder.cloudId?.trim();
+    if (existing != null && existing.isNotEmpty) {
+      return _toSupabaseUuid(existing);
+    }
+    final fresh = _uuid.v4();
+    final saved = await _database.routineReminderDao.assignCloudIdIfMissing(
+      reminder.id,
+      fresh,
+    );
+    return _toSupabaseUuid(saved == null || saved.isEmpty ? fresh : saved);
   }
 
   Future<Routine?> _resolveRoutineForRun(String routineReference) async {
@@ -577,12 +589,7 @@ class CloudSyncCoordinator {
   }
 
   Future<void> _upsertRoutine(Routine routine, String ownerUserId) async {
-    final cloudId = _stableRemoteId(
-      entityKind: 'routine',
-      localEntityId: routine.id.toString(),
-      ownerUserId: ownerUserId,
-      existingRemoteId: routine.cloudId,
-    );
+    final cloudId = await _routineCloudId(routine);
     final payload = {
       'id': cloudId,
       'owner_user_id': ownerUserId,
@@ -643,7 +650,7 @@ class CloudSyncCoordinator {
     final result = await _guidanceAudioBackup.uploadPending(
       stepsJson: routine.stepsJson,
       ownerUserId: ownerUserId,
-      entityId: routine.cloudId ?? routine.id.toString(),
+      entityId: await _routineCloudId(routine),
     );
     if (result.uploadedKeys.isEmpty) {
       return (routine: routine, failure: result.failure);
@@ -690,21 +697,8 @@ class CloudSyncCoordinator {
       await _database.routineReminderDao.deleteReminder(reminder.id);
       return;
     }
-    final routineCloudId = _stableRemoteId(
-      entityKind: 'routine',
-      localEntityId: routine.id.toString(),
-      ownerUserId: ownerUserId,
-      existingRemoteId: routine.cloudId,
-    );
-    if (routineCloudId.isEmpty) {
-      throw StateError('Routine must sync before its reminders.');
-    }
-    final cloudId = _stableRemoteId(
-      entityKind: 'reminder',
-      localEntityId: reminder.id.toString(),
-      ownerUserId: ownerUserId,
-      existingRemoteId: reminder.cloudId,
-    );
+    final routineCloudId = await _routineCloudId(routine);
+    final cloudId = await _reminderCloudId(reminder);
     await _remoteReminderDataSource.upsert({
       'id': cloudId,
       'owner_user_id': ownerUserId,
@@ -733,11 +727,7 @@ class CloudSyncCoordinator {
     if (run == null) return;
 
     final routine = await _resolveRoutineForRun(run.routineId);
-    final routineCloudId = _routineCloudIdForRun(
-      run.routineId,
-      routine,
-      ownerUserId,
-    );
+    final routineCloudId = await _routineCloudIdForRun(run.routineId, routine);
 
     final syncedRun = await _uploadRunProofs(run, ownerUserId);
     final payload = {
@@ -760,33 +750,17 @@ class CloudSyncCoordinator {
     );
   }
 
-  String? _routineCloudIdForRun(
+  Future<String?> _routineCloudIdForRun(
     String routineReference,
     Routine? routine,
-    String ownerUserId,
-  ) {
-    final trimmed = routineReference.trim();
+  ) async {
     if (routine != null) {
-      return _stableRemoteId(
-        entityKind: 'routine',
-        localEntityId: routine.id.toString(),
-        ownerUserId: ownerUserId,
-        existingRemoteId: routine.cloudId,
-      );
+      return _routineCloudId(routine);
     }
-    if (trimmed.isEmpty) {
-      return null;
-    }
-    if (_looksLikeUuid(trimmed)) {
-      return _toSupabaseUuid(trimmed);
-    }
-    final parsedLocalId = int.tryParse(trimmed);
-    return _stableRemoteId(
-      entityKind: 'routine',
-      localEntityId: (parsedLocalId ?? trimmed).toString(),
-      ownerUserId: ownerUserId,
-      existingRemoteId: null,
-    );
+    final trimmed = routineReference.trim();
+    // The routine is gone from this device. A cloud id is still a valid
+    // reference; a local row number is not, so the run keeps only its title.
+    return _looksLikeUuid(trimmed) ? _toSupabaseUuid(trimmed) : null;
   }
 
   Future<void> _syncSessionItem(SyncOutboxItem item, String ownerUserId) async {

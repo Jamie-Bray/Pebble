@@ -292,6 +292,7 @@ class LocalDataOwnershipGuard {
       // previous account backed up cannot be uploaded again under the same
       // id: the server rejects it. Give each moved row an id scoped to the
       // new owner. Routines and reminders get theirs when cloudId is cleared.
+      final newRunIds = <String, String>{};
       for (final run in movedRuns) {
         final metadata = _decodeMap(run.syncMetadataJson);
         final originId = metadata[_originRunIdKey]?.toString() ?? run.id;
@@ -327,11 +328,17 @@ class LocalDataOwnershipGuard {
             ),
           ),
         );
+        newRunIds[run.id] = newId;
       }
 
       // Session ids name the photo folder on disk, so the local id stays and
       // only the cloud id changes.
       for (final session in movedSessions) {
+        // Keep the link to the run this session completed, under the run's
+        // new id, so completing it again finds that run instead of adding one.
+        final completedRunId = _decodeMap(
+          session.syncMetadataJson,
+        )['completedRunId']?.toString();
         await (database.update(
           database.routineSessions,
         )..where((tbl) => tbl.sessionId.equals(session.sessionId))).write(
@@ -341,6 +348,8 @@ class LocalDataOwnershipGuard {
                 'needsSync': true,
                 'ownershipLinkedAt': now.toUtc().toIso8601String(),
                 'ownershipChoice': 'useCurrentAccount',
+                'completedRunId':
+                    ?(newRunIds[completedRunId] ?? completedRunId),
                 'remoteSessionId': _ownerScopedId(
                   normalizedUserId,
                   'session',
