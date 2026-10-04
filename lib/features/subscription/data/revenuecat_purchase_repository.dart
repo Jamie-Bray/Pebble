@@ -7,6 +7,7 @@ import 'package:purchases_flutter/purchases_flutter.dart' as rc;
 
 import 'package:pebble_routines/data/remote/supabase_client_provider.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
+import 'package:pebble_routines/features/subscription/data/entitlement_flow_messages.dart';
 import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
 import 'package:pebble_routines/features/subscription/data/purchase_repository.dart';
 import 'package:pebble_routines/features/subscription/data/revenuecat_runtime_config.dart';
@@ -20,7 +21,7 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
   }
 
   static const _backupVerificationFailedMessage =
-      'Premium is active, but backup could not be set up yet. Try again.';
+      EntitlementFlowMessages.backupSetupFailed;
 
   final Ref _ref;
 
@@ -179,6 +180,11 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
       final errorCode = rc.PurchasesErrorHelper.getErrorCode(error);
       if (errorCode == rc.PurchasesErrorCode.purchaseCancelledError) {
         throw const PurchaseCancelledException();
+      }
+      if (errorCode == rc.PurchasesErrorCode.paymentPendingError) {
+        throw PurchasePendingException(
+          revenueCatMessageForPurchasesError(errorCode),
+        );
       }
       if (errorCode == rc.PurchasesErrorCode.productAlreadyPurchasedError) {
         final restored = await restorePurchases();
@@ -552,8 +558,7 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     if (!hasActiveStoreEntitlement(account)) {
       return false;
     }
-    const message =
-        'Premium is active locally. Pebble is waiting for secure purchase verification for this account.';
+    const message = EntitlementFlowMessages.awaitingServerVerification;
     debugPrint(
       '[PremiumEntitlement] No active RevenueCat entitlement during $context; '
       'preserving active local store entitlement.',
@@ -589,15 +594,8 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     );
   }
 
-  bool _looksBackupVerificationError(String? message) {
-    if (message == null || message.isEmpty) {
-      return false;
-    }
-    final normalized = message.toLowerCase();
-    return normalized.contains('backup could not be set up') ||
-        normalized.contains('could not finish backup setup') ||
-        normalized.contains('purchase verification');
-  }
+  bool _looksBackupVerificationError(String? message) =>
+      EntitlementFlowMessages.looksPurchaseVerificationFailed(message);
 
   String? get _currentUserId {
     final authUserId = _ref.read(authSessionProvider).userId;

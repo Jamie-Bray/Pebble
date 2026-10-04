@@ -22,6 +22,12 @@ class AuthIdentity {
   });
 }
 
+/// The user backed out of a sign-in prompt. Not an error: callers should
+/// return to the previous state without surfacing any message.
+class AuthCancelledException implements Exception {
+  const AuthCancelledException();
+}
+
 abstract class AuthRepository {
   bool get isConfigured;
   Future<AuthIdentity?> currentIdentity();
@@ -130,7 +136,7 @@ class SupabaseAuthRepository implements AuthRepository {
     await google.signOut();
     final account = await google.signIn();
     if (account == null) {
-      throw StateError('Google sign-in was canceled.');
+      throw const AuthCancelledException();
     }
     final auth = await account.authentication;
     final idToken = auth.idToken;
@@ -174,7 +180,7 @@ class SupabaseAuthRepository implements AuthRepository {
       );
     } on SignInWithAppleAuthorizationException catch (error) {
       if (error.code == AuthorizationErrorCode.canceled) {
-        throw StateError('Apple sign-in was canceled.');
+        throw const AuthCancelledException();
       }
       throw StateError(
         'Apple sign-in could not be completed. Please try again.',

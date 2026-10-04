@@ -1970,13 +1970,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
     }
     final management = ref.read(routineManagementProvider);
     management.duplicateRoutine(routine.id);
-
-    // Show beautiful zen notification
-    ZenNotifications.showSuccess(
-      context,
-      message: 'Routine duplicated successfully',
-      title: 'Duplicated',
-    );
+    // The copy appearing in the list is its own confirmation.
   }
 
   int _stepCountForRoutine(Routine routine) {

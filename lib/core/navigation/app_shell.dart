@@ -202,38 +202,42 @@ class _AppShellState extends ConsumerState<AppShell> {
     // The warm action accent: terracotta on Sandstone, and identical to the
     // structural primary on every other theme.
     final action = context.actionAccent;
-    return ZenBounceButton(
-      onTap: () {
-        openRoutineCreationChoice(context, ref);
-      },
-      child: SizedBox(
-        width: 68,
-        child: Center(
-          child: Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  action,
-                  Color.lerp(action, Colors.black, 0.12) ?? action,
+    return Semantics(
+      button: true,
+      label: 'Create routine',
+      child: ZenBounceButton(
+        onTap: () {
+          openRoutineCreationChoice(context, ref);
+        },
+        child: SizedBox(
+          width: 68,
+          child: Center(
+            child: Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    action,
+                    Color.lerp(action, Colors.black, 0.12) ?? action,
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: [
+                  BoxShadow(
+                    color: action.withValues(alpha: 0.28),
+                    blurRadius: 18,
+                    offset: const Offset(0, 7),
+                  ),
                 ],
               ),
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: [
-                BoxShadow(
-                  color: action.withValues(alpha: 0.28),
-                  blurRadius: 18,
-                  offset: const Offset(0, 7),
-                ),
-              ],
-            ),
-            child: Icon(
-              LucideIcons.plus,
-              color: context.onActionAccent,
-              size: 26,
+              child: Icon(
+                LucideIcons.plus,
+                color: context.onActionAccent,
+                size: 26,
+              ),
             ),
           ),
         ),

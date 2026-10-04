@@ -12,6 +12,7 @@ import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
+import 'package:pebble_routines/core/ui/pebble_buttons.dart';
 import 'package:pebble_routines/core/ui/pebble_photo_gallery_viewer.dart';
 import 'package:pebble_routines/features/routines/composer/data/guidance_audio_storage.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
@@ -79,16 +80,13 @@ void main() {
       ProviderScope(
         overrides: overrides,
         child: MaterialApp(
-          home: textScale == 1
-              ? const RoutinePlayerScreen(sessionId: 'session-1')
-              : Builder(
-                  builder: (context) => MediaQuery(
-                    data: MediaQuery.of(
-                      context,
-                    ).copyWith(textScaler: TextScaler.linear(textScale)),
-                    child: const RoutinePlayerScreen(sessionId: 'session-1'),
-                  ),
-                ),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(textScale)),
+            child: child!,
+          ),
+          home: const RoutinePlayerScreen(sessionId: 'session-1'),
         ),
       ),
     );
@@ -304,14 +302,14 @@ void main() {
     );
 
     expect(tester.takeException(), isNull);
-    final instruction = find.text('Required to complete this step');
+    final instruction = find.text('Add one photo to complete this step');
     expect(instruction, findsOneWidget);
     // It wraps onto more lines rather than being sliced by a fixed box.
     expect(tester.getSize(instruction).height, greaterThan(17 * 2.0));
-    expect(find.text('Add'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Take photo'), findsOneWidget);
   });
 
-  testWidgets('add tile opens camera directly without the source sheet', (
+  testWidgets('primary button opens the camera directly on a photo step', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({'has_seen_camera_rationale': true});
@@ -328,7 +326,7 @@ void main() {
       photoPicker: photoPicker,
     );
 
-    await tester.tap(find.text('Add'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Take photo'));
     await tester.pumpAndSettle();
 
     expect(photoPicker.sources, [ImageSource.camera]);
@@ -336,7 +334,7 @@ void main() {
   });
 
   testWidgets(
-    'photo step shows the proof card, gated complete, and no anchor',
+    'photo step turns the primary button into the camera, with no anchor',
     (tester) async {
       final repository = _FakeRoutineSessionRepository();
       const photoStep = RoutineStep.check(
@@ -348,8 +346,8 @@ void main() {
         tester,
         photoStep,
         repository,
-        // A following step keeps this off the final step so the primary button
-        // reads "Complete step" (the mockup's step-1-of-many scenario).
+        // A following step keeps this off the final step, so any completion
+        // verb here would read "Complete step" rather than "Finish routine".
         session: _sessionForSteps(const [
           photoStep,
           RoutineStep.check(label: 'Next step'),
@@ -358,15 +356,22 @@ void main() {
 
       expect(find.byType(AnimatedVisualAnchor), findsNothing);
       expect(find.text('Proof photo'), findsOneWidget);
-      expect(find.text('Required to complete this step'), findsOneWidget);
-      expect(find.text('Add'), findsOneWidget);
-      expect(find.text('Choose from library'), findsOneWidget);
+      expect(find.text('Add one photo to complete this step'), findsOneWidget);
+      expect(find.text('Add more'), findsNothing);
+      expect(find.text('Add photo'), findsNothing);
 
-      // Complete stays disabled until a photo exists.
-      final complete = tester.widget<FilledButton>(
-        find.widgetWithText(FilledButton, 'Complete step'),
+      // The thumb never leaves the footer: capture is the primary button and
+      // the gallery route sits beside it, so the card offers no Add tile.
+      expect(find.text('Add'), findsNothing);
+      expect(find.text('Choose from library'), findsNothing);
+      expect(find.text('From library'), findsOneWidget);
+
+      // Capture is offered instead of a dead "Complete step".
+      expect(find.widgetWithText(FilledButton, 'Complete step'), findsNothing);
+      final primary = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Take photo'),
       );
-      expect(complete.onPressed, isNull);
+      expect(primary.onPressed, isNotNull);
     },
   );
 
@@ -384,8 +389,9 @@ void main() {
       repository,
     );
 
-    expect(find.text('Choose from library'), findsNothing);
-    expect(find.text('Add'), findsOneWidget);
+    expect(find.text('From library'), findsNothing);
+    expect(find.text('Add'), findsNothing);
+    expect(find.widgetWithText(FilledButton, 'Take photo'), findsOneWidget);
   });
 
   testWidgets('gallery link opens the gallery picker', (tester) async {
@@ -405,11 +411,46 @@ void main() {
       photoPicker: photoPicker,
     );
 
-    await tester.tap(find.text('Choose from library'));
+    await tester.tap(find.text('From library'));
     await tester.pumpAndSettle();
 
     expect(photoPicker.sources, [ImageSource.gallery]);
     expect(repository.session?.stepStates.single.proofAssets, hasLength(1));
+  });
+
+  testWidgets('completing is offered once the required photo exists', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({'has_seen_camera_rationale': true});
+    final repository = _FakeRoutineSessionRepository();
+    final photoPicker = _FakePhotoPicker(returnedPath: '/tmp/camera.jpg');
+    const photoStep = RoutineStep.check(
+      label: 'Photo proof',
+      requiresPhoto: true,
+      allowGallery: true,
+    );
+    await pumpPlayer(
+      tester,
+      photoStep,
+      repository,
+      photoPicker: photoPicker,
+      session: _sessionForSteps(const [
+        photoStep,
+        RoutineStep.check(label: 'Next step'),
+      ]),
+    );
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Take photo'));
+    await tester.pumpAndSettle();
+
+    // With the one-photo requirement met, completion becomes primary and the
+    // optional Premium capture remains a compact action inside the card.
+    final complete = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Complete step'),
+    );
+    expect(complete.onPressed, isNotNull);
+    expect(find.widgetWithText(TextButton, 'Add photo'), findsOneWidget);
+    expect(find.byType(OutlinedButton), findsNothing);
   });
 
   testWidgets('primary action saves the check before any motion plays', (
@@ -507,7 +548,7 @@ void main() {
       photoPicker: photoPicker,
     );
 
-    await tester.tap(find.text('Add'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Take photo'));
     await tester.pumpAndSettle();
 
     expect(
@@ -518,7 +559,10 @@ void main() {
     expect(repository.session?.stepStates.single.proofAssets, isEmpty);
 
     // The capture gate must be released so the user can try again.
-    expect(find.text('Add'), findsOneWidget);
+    final retry = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Take photo'),
+    );
+    expect(retry.onPressed, isNotNull);
 
     // Let the notification auto-dismiss so no timers are left pending.
     await tester.pump(const Duration(seconds: 5));
@@ -614,7 +658,7 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('free tier shows a quiet locked Premium tile at the cap', (
+  testWidgets('free tier reveals add-more upgrade only after its first photo', (
     tester,
   ) async {
     final repository = _FakeRoutineSessionRepository();
@@ -631,12 +675,141 @@ void main() {
       session: _sessionForStepWithProofs(step, [_proofAsset('free-proof')]),
     );
 
-    // At the free cap: locked signpost present, Add tile gone, and a quiet
-    // subtitle names the gate.
-    expect(find.text('Add more'), findsOneWidget);
-    expect(find.text('More photos with Premium'), findsOneWidget);
-    expect(find.text('Add'), findsNothing);
-    expect(find.text('Choose from library'), findsNothing);
+    // The single photo stands alone. Only now does a compact, locked route to
+    // more photos appear; no empty Premium cells imply unfinished work.
+    expect(find.text('1 photo added'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, 'Add more'), findsOneWidget);
+    expect(find.text('Add photo'), findsNothing);
+    expect(find.byType(OutlinedButton), findsNothing);
+  });
+
+  testWidgets('free tier has no Premium prompt before the first photo', (
+    tester,
+  ) async {
+    final repository = _FakeRoutineSessionRepository();
+    await pumpPlayer(
+      tester,
+      const RoutineStep.check(
+        label: 'Photo proof',
+        requiresPhoto: true,
+        allowGallery: true,
+      ),
+      repository,
+      tier: UserTier.personalFree,
+    );
+
+    expect(find.widgetWithText(FilledButton, 'Take photo'), findsOneWidget);
+    expect(find.text('Add more'), findsNothing);
+    expect(find.textContaining('Premium'), findsNothing);
+  });
+
+  testWidgets('premium can keep adding optional photos after completion gate', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({'has_seen_camera_rationale': true});
+    final repository = _FakeRoutineSessionRepository();
+    final photoPicker = _FakePhotoPicker(returnedPath: '/tmp/second.jpg');
+    const step = RoutineStep.check(
+      label: 'Photo proof',
+      requiresPhoto: true,
+      allowGallery: true,
+    );
+    await pumpPlayer(
+      tester,
+      step,
+      repository,
+      photoPicker: photoPicker,
+      session: _sessionForStepWithProofs(step, [_proofAsset('first')]),
+    );
+
+    await tester.tap(find.widgetWithText(TextButton, 'Add photo'));
+    await tester.pumpAndSettle();
+
+    expect(photoPicker.sources, [ImageSource.camera]);
+    expect(repository.session?.stepStates.single.proofAssets, hasLength(2));
+    expect(find.text('2 photos added'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Finish routine'), findsOneWidget);
+  });
+
+  testWidgets('crowded premium photo state fits a narrow scaled screen', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repository = _FakeRoutineSessionRepository();
+    const photoStep = RoutineStep.check(
+      label: 'Photograph the finished setup',
+      requiresPhoto: true,
+      allowGallery: true,
+      allowSkip: true,
+      guidanceAudio: StepGuidanceAudio(
+        localPath: 'routine_guidance_audio/setup.m4a',
+        durationMs: 3000,
+      ),
+    );
+    final session =
+        _sessionForSteps(const [
+          RoutineStep.check(label: 'Previous step'),
+          photoStep,
+          RoutineStep.check(label: 'Next step'),
+        ]).copyWith(
+          currentStepIndex: 1,
+          stepStates: [
+            RoutineSessionStepState.initial(
+              0,
+            ).copyWith(status: SessionStepStatus.completed),
+            RoutineSessionStepState.initial(1).copyWith(
+              proofAssets: [
+                _proofAsset('proof-1'),
+                _proofAsset('proof-2'),
+                _proofAsset('proof-3'),
+              ],
+            ),
+            RoutineSessionStepState.initial(2),
+          ],
+        );
+
+    await pumpPlayer(
+      tester,
+      photoStep,
+      repository,
+      session: session,
+      textScale: 1.3,
+    );
+
+    expect(find.text('Voice tip'), findsOneWidget);
+    expect(find.text('3 photos added'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, 'Add photo'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Complete step'), findsOneWidget);
+    expect(find.text('Previous'), findsOneWidget);
+    expect(find.text('From library'), findsOneWidget);
+    expect(find.text('Skip step'), findsOneWidget);
+  });
+
+  testWidgets('proof photo controls expose useful semantic labels', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final repository = _FakeRoutineSessionRepository();
+    const step = RoutineStep.check(
+      label: 'Photo proof',
+      requiresPhoto: true,
+      allowGallery: true,
+    );
+    await pumpPlayer(
+      tester,
+      step,
+      repository,
+      session: _sessionForStepWithProofs(step, [_proofAsset('proof-1')]),
+    );
+
+    expect(find.bySemanticsLabel('Open proof photo 1 of 1'), findsOneWidget);
+    expect(find.bySemanticsLabel('Remove proof photo 1'), findsOneWidget);
+    expect(find.bySemanticsLabel('Add another proof photo'), findsOneWidget);
+    semantics.dispose();
   });
 
   testWidgets('tapping a proof thumbnail opens the step photo viewer', (
@@ -662,7 +835,7 @@ void main() {
     expect(find.text('Photo proof - Step 1 of 1'), findsOneWidget);
   });
 
-  testWidgets('multi-photo requirements explain the remaining gate', (
+  testWidgets('authored multi-photo counts never become completion gates', (
     tester,
   ) async {
     final repository = _FakeRoutineSessionRepository();
@@ -679,11 +852,16 @@ void main() {
       session: _sessionForStepWithProofs(step, [_proofAsset('proof-1')]),
     );
 
-    expect(find.text('1 more photo required'), findsOneWidget);
-    final complete = tester.widget<FilledButton>(
+    // One photo satisfies the step regardless of the legacy authored count;
+    // Premium capacity is optional and never presented as an owed total.
+    expect(find.text('1 photo added'), findsOneWidget);
+    expect(find.textContaining('required'), findsNothing);
+    expect(find.textContaining('of 4'), findsNothing);
+    final primary = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Finish routine'),
     );
-    expect(complete.onPressed, isNull);
+    expect(primary.onPressed, isNotNull);
+    expect(find.widgetWithText(TextButton, 'Add photo'), findsOneWidget);
   });
 
   testWidgets('premium at the cap shows a calm full subtitle, no upsell', (
@@ -705,9 +883,9 @@ void main() {
       ),
     );
 
-    expect(find.text('All 4 added'), findsOneWidget);
+    expect(find.text('4 photos added'), findsOneWidget);
     expect(find.text('Add more'), findsNothing);
-    expect(find.text('Add'), findsNothing);
+    expect(find.text('Add photo'), findsNothing);
     expect(find.text('Choose from library'), findsNothing);
   });
 
@@ -954,6 +1132,134 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Previous'), findsOneWidget);
       expect(tester.getTopLeft(find.byType(FilledButton)).dy, before);
+    });
+
+    const photoSteps = [
+      RoutineStep.check(
+        label: 'Photo proof',
+        requiresPhoto: true,
+        allowGallery: true,
+      ),
+      RoutineStep.check(label: 'Next step'),
+    ];
+
+    testWidgets('a missing required photo: primary takes it, no check-off', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({
+        'has_seen_camera_rationale': true,
+        'stepCompleteHaptic': true,
+      });
+      final calls = recordPlatformCalls(tester);
+      final repository = _FakeRoutineSessionRepository();
+      final photoPicker = _FakePhotoPicker(returnedPath: '/tmp/camera.jpg');
+      await pumpPlayer(
+        tester,
+        photoSteps.first,
+        repository,
+        photoPicker: photoPicker,
+        session: _sessionForSteps(photoSteps),
+      );
+      calls.clear();
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Take photo'));
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(photoPicker.sources, [ImageSource.camera]);
+      final session = repository.session!;
+      expect(session.currentStepIndex, 0);
+      expect(session.stepStates[0].status, SessionStepStatus.pending);
+      expect(session.stepStates[0].completedAt, isNull);
+      expect(session.stepStates[0].proofAssets, hasLength(1));
+      // No stroke, no time chip, no buzz: the step isn't done yet.
+      expect(find.byType(CheckTimeChip), findsNothing);
+      expect(hapticsIn(calls), isEmpty);
+
+      await tester.pumpAndSettle();
+      expect(find.text('Photo proof'), findsOneWidget);
+      expect(find.text('Next step'), findsNothing);
+      expect(find.widgetWithText(FilledButton, 'Take photo'), findsNothing);
+      expect(find.widgetWithText(FilledButton, 'Complete step'), findsOneWidget);
+    });
+
+    testWidgets('after the photo, primary checks off with the tap time', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({'has_seen_camera_rationale': true});
+      final repository = _FakeRoutineSessionRepository();
+      final photoPicker = _FakePhotoPicker(returnedPath: '/tmp/camera.jpg');
+      await pumpPlayer(
+        tester,
+        photoSteps.first,
+        repository,
+        photoPicker: photoPicker,
+        session: _sessionForSteps(photoSteps),
+      );
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Take photo'));
+      await tester.pumpAndSettle();
+      // Past the input guard: this is a separate, deliberate tap.
+      await tester.tap(find.widgetWithText(FilledButton, 'Complete step'));
+      await tester.pump();
+
+      // Commit first: saved on the tap, with its proof.
+      final saved = repository.session!.stepStates[0];
+      expect(saved.status, SessionStepStatus.completed);
+      expect(saved.completedAt, isNotNull);
+      expect(saved.proofAssets, hasLength(1));
+      expect(photoPicker.sources, [ImageSource.camera]);
+
+      // The chip shows exactly the saved time.
+      await tester.pump(const Duration(milliseconds: 200));
+      final context = tester.element(find.byType(CheckTimeChip));
+      final chip = tester.widget<CheckTimeChip>(find.byType(CheckTimeChip));
+      expect(chip.label, formatCheckTime(context, saved.completedAt!));
+
+      // Settled: the photo step sits in the trail with its time.
+      await tester.pumpAndSettle();
+      expect(find.byType(CheckTimeChip), findsNothing);
+      final trail = find.byType(StepTrail);
+      expect(
+        find.descendant(of: trail, matching: find.text('Photo proof')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: trail, matching: find.text(chip.label)),
+        findsOneWidget,
+      );
+      expect(find.text('Next step'), findsOneWidget);
+      expect(repository.session!.currentStepIndex, 1);
+    });
+
+    testWidgets('gallery pick sits in the footer, under the primary', (
+      tester,
+    ) async {
+      final repository = _FakeRoutineSessionRepository();
+      await pumpPlayer(
+        tester,
+        photoSteps.first,
+        repository,
+        tier: UserTier.personalFree,
+        session: _sessionForSteps(photoSteps),
+      );
+
+      final gallery = find.text('From library');
+      expect(gallery, findsOneWidget);
+      expect(
+        find.ancestor(of: gallery, matching: find.byType(PebbleButton)),
+        findsOneWidget,
+      );
+      final primary = find.widgetWithText(FilledButton, 'Take photo');
+      expect(
+        tester.getTopLeft(gallery).dy,
+        greaterThan(tester.getBottomLeft(primary).dy),
+      );
+      // Not inside the proof card.
+      expect(
+        tester.getTopLeft(gallery).dy,
+        greaterThan(tester.getBottomLeft(find.text('Proof photo')).dy),
+      );
+      expect(find.text('Choose from library'), findsNothing);
     });
 
     test('new installs get the check buzz; existing choices are kept', () async {

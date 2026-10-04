@@ -36,29 +36,9 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
           next.status == AuthStatus.signedIn &&
           !_isBlockingBackupSetup(accountState);
       if (isReady) {
-        final isPremium = ref.read(entitlementStateProvider).isPersonalPaid;
-        // The consent provider is rebuilt only after auth flips to signed in,
-        // so it can briefly report "checking" even when the awaited bootstrap
-        // above already completed. The persisted account state is the accurate
-        // result for this one-time confirmation message.
-        final backupIsOn =
-            isPremium &&
-            accountState.entitlementSource ==
-                EntitlementSource.serverVerified &&
-            accountState.bootstrapStatus == BootstrapStatus.ready;
-        final backupNeedsAttention =
-            isPremium && accountState.bootstrapStatus == BootstrapStatus.error;
-        ZenNotifications.showSuccess(
-          context,
-          title: 'Signed in',
-          message: backupIsOn
-              ? 'Backup is on for this account.'
-              : backupNeedsAttention
-              ? 'Premium is on. Backup needs another try in Your Account.'
-              : isPremium
-              ? 'Premium is on. Backup will finish when Pebble can verify this account.'
-              : 'Your routines are saved on this phone. Backup comes with Premium.',
-        );
+        // No success toast: the account hub we land on already shows the
+        // signed-in identity and live backup status, so a banner on top of
+        // it would just repeat the screen underneath.
         context.go('/account-hub');
         return;
       }

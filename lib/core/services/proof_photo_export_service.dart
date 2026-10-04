@@ -57,7 +57,7 @@ class GalProofPhotoExportService implements ProofPhotoExportService {
       await Gal.putImage(proofFile.path);
       return const ProofPhotoExportResult(
         saved: true,
-        message: 'Saved a copy to Photos.',
+        message: 'Saved a photo to your phone.',
       );
     } on GalException catch (error) {
       final message = switch (error.type) {

@@ -4,6 +4,8 @@
 **Date:** 10 May 2026  
 **Status:** Implemented for internal testing readiness, pending external Play Console and Supabase secret configuration
 
+> **Superseded in part (4 Oct 2026):** billing moved to RevenueCat. The app now unlocks local Premium from RevenueCat `CustomerInfo`; only cloud features need the Supabase server-verified entitlement. `REVENUECAT_BILLING_SETUP.md` is the current rule. Statements below that the app "cannot unlock Premium locally" describe the earlier Google Play design.
+
 ## 1. Summary
 
 Pebble was prepared for a production-safe Google Play internal testing build by removing local Premium bypass paths, making entitlement depend on real Google Play purchase verification, and renaming the paid personal tier to **Personal Premium**.

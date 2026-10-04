@@ -53,13 +53,14 @@ final routineListProvider = StreamProvider<List<Routine>>((ref) {
     // this same stream, churning the routines table and (through
     // routineSessionEntryProvider) resetting live player sessions mid-routine.
     // See risk_areas memory #9.
-    final sorted = [...routines]..sort((a, b) {
-      // Pinned first, then by creation date (newest first).
-      if (a.isPinned != b.isPinned) {
-        return a.isPinned ? -1 : 1;
-      }
-      return b.createdAt.compareTo(a.createdAt);
-    });
+    final sorted = [...routines]
+      ..sort((a, b) {
+        // Pinned first, then by creation date (newest first).
+        if (a.isPinned != b.isPinned) {
+          return a.isPinned ? -1 : 1;
+        }
+        return b.createdAt.compareTo(a.createdAt);
+      });
     return sorted;
   });
 });

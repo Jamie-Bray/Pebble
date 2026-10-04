@@ -16,6 +16,7 @@ import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart
 import 'package:pebble_routines/features/routines/composer/data/guidance_audio_storage.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
+import 'package:pebble_routines/features/subscription/data/entitlement_flow_messages.dart';
 import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
 import 'package:pebble_routines/features/subscription/providers/cloud_access_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
@@ -230,8 +231,7 @@ class CloudSyncCoordinator {
       if (access.status == PersonalCloudAccessStatus.verificationFailed) {
         return const ManualSyncResult(
           type: ManualSyncResultType.failed,
-          message:
-              'Premium is active, but backup could not be set up yet. Try again from Account.',
+          message: EntitlementFlowMessages.backupSetupFailedFromAccount,
         );
       }
       if (access.status == PersonalCloudAccessStatus.offFree ||

@@ -29,6 +29,10 @@ class LocalDataOwnershipReport {
       state == LocalDataOwnershipState.differentOwner ||
       state == LocalDataOwnershipState.mixed;
 
+  // LOAD-BEARING COPY: downstream providers re-derive state from these
+  // phrases via EntitlementFlowMessages matchers ("local data", "another
+  // account", "linked to this account", "without your choice", "not linked
+  // to this account"). Reword only together with that file.
   String get userFacingMessage {
     switch (state) {
       case LocalDataOwnershipState.empty:

@@ -58,12 +58,16 @@ class BackupDataItem {
     required this.label,
     required this.detail,
     required this.state,
+    this.opensPhotoVault = false,
   });
 
   final IconData icon;
   final String label;
   final String detail;
   final BackupDataItemState state;
+
+  /// When true (and backup is live) the row links through to the Photo Vault.
+  final bool opensPhotoVault;
 }
 
 class BackupDashboardPresentation {
@@ -572,20 +576,24 @@ List<BackupDataItem> _dataItemsFor({
         : '$runSynced completed run${runSynced == 1 ? '' : 's'} backed up';
   }
 
+  // The fair-use counter tracks uploads in the current 30-day window, not
+  // total cloud storage — the copy must say so, not pretend to be a gauge.
   final String photoDetail;
   var photoState = offState;
   if (!live) {
     photoDetail = 'Photos you add along the way';
   } else if (fairUse == null) {
-    photoDetail = 'Checking photo storage';
+    photoDetail = 'Checking photo uploads';
   } else if (fairUse.status == ProofMediaFairUseStatus.full) {
-    photoDetail = 'Storage full. Routine backup still works.';
+    photoDetail =
+        'Fair-use upload limit reached for now. Routine backup still works.';
     photoState = BackupDataItemState.attention;
   } else if (fairUse.status == ProofMediaFairUseStatus.warning) {
-    photoDetail = 'Storage nearly full. ${fairUse.storageLabel}.';
+    photoDetail =
+        'Close to the fair-use upload limit. ${fairUse.recentUploadLabel}.';
     photoState = BackupDataItemState.attention;
   } else {
-    photoDetail = fairUse.storageLabel;
+    photoDetail = fairUse.recentUploadLabel;
   }
 
   return [
@@ -606,6 +614,7 @@ List<BackupDataItem> _dataItemsFor({
       label: 'Proof photos',
       detail: photoDetail,
       state: photoState,
+      opensPhotoVault: true,
     ),
   ];
 }

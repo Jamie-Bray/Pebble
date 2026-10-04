@@ -6,8 +6,10 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:pebble_routines/core/theme/pebble_fonts.dart';
+import 'package:pebble_routines/core/navigation/app_shell.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/ui/zen_notifications.dart';
+import 'package:pebble_routines/features/history/ui/styled_history_screen.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/features/account_backup/providers/backup_dashboard_presentation_provider.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
@@ -409,11 +411,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
       await ref
           .read(authControllerProvider.notifier)
           .refreshCloudAccessAfterEntitlementChange(refreshEntitlement: false);
-      _showBackupNotice(
-        'Pebble will back up supported routine data for this account.',
-        title: 'Backup is on',
-        type: NotificationType.success,
-      );
+      // No toast: the hero headline flips to "Backup is on" right here.
     } catch (error) {
       _showBackupNotice(
         _toUserFacingError(error),
@@ -468,11 +466,8 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
       await ref
           .read(authControllerProvider.notifier)
           .refreshCloudAccessAfterEntitlementChange(refreshEntitlement: false);
-      _showBackupNotice(
-        'Local routines remain on this device.',
-        title: 'Backup is paused',
-        type: NotificationType.info,
-      );
+      // No toast: the hero headline flips to the paused state right here,
+      // and the pause sheet already covered what stays on the device.
     } catch (error) {
       _showBackupNotice(
         _toUserFacingError(error),
@@ -525,6 +520,12 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
         presentation.primaryAction != BackupDashboardAction.none &&
         presentation.primaryAction != BackupDashboardAction.useCurrentAccount &&
         presentation.primaryAction != BackupDashboardAction.keepBackupOff;
+  }
+
+  void _openPhotoVault() {
+    ref.read(historyViewModeProvider.notifier).state = HistoryViewMode.vault;
+    ref.read(navIndexProvider.notifier).state = 1;
+    context.go('/');
   }
 
   void _handleBackupSwitch(bool enabled) {
@@ -619,6 +620,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
               items: presentation.dataItems,
               live: presentation.dataItemsLive,
               footer: presentation.dataFooter,
+              onOpenPhotoVault: _openPhotoVault,
             ),
           ],
         ),
@@ -999,11 +1001,13 @@ class _BackupDataSection extends StatelessWidget {
     required this.items,
     required this.live,
     required this.footer,
+    required this.onOpenPhotoVault,
   });
 
   final List<BackupDataItem> items;
   final bool live;
   final String footer;
+  final VoidCallback onOpenPhotoVault;
 
   @override
   Widget build(BuildContext context) {
@@ -1048,7 +1052,12 @@ class _BackupDataSection extends StatelessWidget {
               child: Column(
                 children: [
                   for (var index = 0; index < items.length; index++) ...[
-                    _BackupDataRow(item: items[index]),
+                    _BackupDataRow(
+                      item: items[index],
+                      onTap: items[index].opensPhotoVault
+                          ? onOpenPhotoVault
+                          : null,
+                    ),
                     if (index != items.length - 1)
                       Divider(
                         height: 1,
@@ -1130,9 +1139,10 @@ class _BackupDataToken extends StatelessWidget {
 }
 
 class _BackupDataRow extends StatelessWidget {
-  const _BackupDataRow({required this.item});
+  const _BackupDataRow({required this.item, this.onTap});
 
   final BackupDataItem item;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1153,7 +1163,7 @@ class _BackupDataRow extends StatelessWidget {
     };
     final (stateIcon, stateColor) = trailing;
 
-    return Padding(
+    final row = Padding(
       padding: const EdgeInsets.symmetric(vertical: 13),
       child: Row(
         children: [
@@ -1196,8 +1206,24 @@ class _BackupDataRow extends StatelessWidget {
             const SizedBox(width: 12),
             Icon(stateIcon, size: 18, color: stateColor),
           ],
+          if (onTap != null) ...[
+            const SizedBox(width: 10),
+            Icon(
+              LucideIcons.chevronRight,
+              size: 16,
+              color: colorScheme.onSurface.withValues(alpha: 0.34),
+            ),
+          ],
         ],
       ),
+    );
+
+    if (onTap == null) {
+      return row;
+    }
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(onTap: onTap, child: row),
     );
   }
 }

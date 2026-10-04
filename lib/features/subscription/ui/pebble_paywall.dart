@@ -17,8 +17,10 @@ import 'package:pebble_routines/core/ui/zen_notifications.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
 import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
 import 'package:pebble_routines/features/subscription/data/purchase_repository.dart';
+import 'package:pebble_routines/features/subscription/domain/subscription_lifecycle.dart';
 import 'package:pebble_routines/features/subscription/providers/cloud_access_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/cloud_backup_consent_provider.dart';
+import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
 
 enum PremiumEntrySource {
   general,
@@ -248,6 +250,9 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
       PremiumPaywallCopy.forPlatform(StorePlatformRuntime.current);
 
   void _dismissPaywall() {
+    // While a purchase is being verified, leaving would drop the
+    // confirmation (and first-time backup consent) sheet on the floor.
+    if (_busy) return;
     final navigator = Navigator.of(context);
     if (navigator.canPop()) {
       navigator.pop();
@@ -276,9 +281,13 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
       await _continueAfterPurchase(result);
     } catch (error) {
       if (error is PurchaseCancelledException) return;
-      if (error is PurchaseFlowException && error.isPending) {
+      if (error is PurchasePendingException ||
+          (error is PurchaseFlowException && error.isPending)) {
+        // Payment is in progress with the store: real news, not a failure.
         _showNotice(
-          error.message,
+          error is PurchasePendingException
+              ? error.message
+              : (error as PurchaseFlowException).message,
           title: 'Payment pending',
           type: NotificationType.info,
         );
@@ -335,7 +344,8 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
     }
     if (consent.isAccepted) {
       // Backup was already set up for this account (e.g. a resubscribe), so
-      // there is nothing left to ask.
+      // there is nothing left to ask — but the moment still deserves a real
+      // confirmation, not a toast that vanishes over the account screen.
       try {
         await ref
             .read(authControllerProvider.notifier)
@@ -345,22 +355,18 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
       } catch (_) {
         // Backup catches up on the next app resume; Premium itself is on.
       }
+      if (!mounted) return;
       final backupIsOn =
           ref.read(personalCloudAccessProvider).status ==
           PersonalCloudAccessStatus.available;
-      if (backupIsOn) {
-        _showNotice(
-          'Backup is on for this account.',
-          title: 'Premium is on',
-          type: NotificationType.success,
-        );
-      } else {
-        _showNotice(
-          'Your plan is active. Pebble will finish backup setup automatically.',
-          title: 'Premium is on',
-          type: NotificationType.info,
-        );
-      }
+      await showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.black.withValues(alpha: 0.72),
+        isScrollControlled: true,
+        builder: (dialogContext) =>
+            _PremiumResubscribedSheet(backupIsOn: backupIsOn),
+      );
       if (mounted) {
         context.go('/account-hub');
       }
@@ -370,7 +376,7 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
   }
 
   Future<void> _showPostPurchaseBackupPrompt() async {
-    final turnedOn = await showModalBottomSheet<bool>(
+    await showModalBottomSheet<bool>(
       context: context,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.72),
@@ -379,24 +385,8 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
       builder: (dialogContext) => const _PostPurchaseBackupSheet(),
     );
     if (!mounted) return;
-    if (turnedOn == true) {
-      final backupIsOn =
-          ref.read(personalCloudAccessProvider).status ==
-          PersonalCloudAccessStatus.available;
-      if (backupIsOn) {
-        _showNotice(
-          'Your routines back up to this account from now on.',
-          title: 'Backup is on',
-          type: NotificationType.success,
-        );
-      } else {
-        _showNotice(
-          'Premium is on. Pebble will finish backup setup automatically.',
-          title: 'Backup will keep trying',
-          type: NotificationType.info,
-        );
-      }
-    }
+    // No toast on top of the landing screen: the account hub shows the live
+    // backup status, and the sheet was the confirmation moment.
     context.go('/account-hub');
   }
 
@@ -432,6 +422,19 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
       case NotificationType.error:
         ZenNotifications.showError(context, title: title, message: message);
     }
+  }
+
+  Future<void> _openManageSubscriptions() async {
+    final url = ref.read(purchaseRepositoryProvider).manageSubscriptionsUrl;
+    if (url == null || url.isEmpty) {
+      _showNotice(
+        'Subscription management is not available on this device.',
+        title: 'Not available',
+        type: NotificationType.warning,
+      );
+      return;
+    }
+    await _openLegalUrl(url);
   }
 
   Future<void> _openLegalUrl(String url) async {
@@ -482,6 +485,25 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
         displayColor: foundation.textPrimary,
       ),
     );
+
+    // An active subscriber should never be sold to. During a purchase the
+    // busy flag keeps the normal layout up so the post-purchase sheets play
+    // out over it rather than the screen swapping underneath them.
+    final alreadyPremium =
+        !_busy &&
+        ref.watch(subscriptionLifecycleProvider).phase ==
+            SubscriptionLifecyclePhase.activePremium;
+    if (alreadyPremium) {
+      return Theme(
+        data: paywallTheme,
+        child: Builder(
+          builder: (context) => _AlreadyPremiumScreen(
+            onDone: _dismissPaywall,
+            onManagePlan: _openManageSubscriptions,
+          ),
+        ),
+      );
+    }
 
     return Theme(
       data: paywallTheme,
@@ -536,7 +558,10 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
             onOpenLegalUrl: _openLegalUrl,
           );
 
-          return Scaffold(
+          // No backing out while the store sheet is mid-purchase.
+          return PopScope(
+            canPop: !_busy,
+            child: Scaffold(
             backgroundColor: foundation.bgBase,
             body: SafeArea(
               bottom: false,
@@ -572,6 +597,7 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
                 padding: const EdgeInsets.only(top: 8, left: 4),
                 // Floating glass: scrolled content blurs out behind it.
                 child: PebbleBackButton(onPressed: _dismissPaywall),
+              ),
               ),
             ),
           );
@@ -927,6 +953,321 @@ class _PremiumActivatedSheet extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Replaces the sales layout when the account already has active Premium:
+/// confirmation of what is on, a route to plan management, and a way out.
+class _AlreadyPremiumScreen extends StatelessWidget {
+  const _AlreadyPremiumScreen({
+    required this.onDone,
+    required this.onManagePlan,
+  });
+
+  final VoidCallback onDone;
+  final VoidCallback onManagePlan;
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+    final accent = _premiumGlow(context);
+    return Scaffold(
+      backgroundColor: foundation.bgBase,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(28, 72, 28, 28),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _PremiumActivatedIcon(accent: accent),
+                      const SizedBox(height: 24),
+                      Text(
+                        'Personal Premium',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: accent,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.25,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text.rich(
+                        TextSpan(
+                          style: _serifStyle(
+                            context,
+                            fontSize: 30,
+                            height: 1.12,
+                          ),
+                          children: [
+                            const TextSpan(text: 'You already\nhave '),
+                            TextSpan(
+                              text: 'Premium.',
+                              style: TextStyle(
+                                color: accent,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ],
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        'Everything Premium includes is already unlocked on '
+                        'this device. Billing and plan changes live in your '
+                        'store subscription settings.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: foundation.textSecondary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w300,
+                          height: 1.62,
+                        ),
+                      ),
+                      const SizedBox(height: 22),
+                      const Row(
+                        children: [
+                          Expanded(
+                            child: _PremiumActivatedPill(
+                              value: '21 days',
+                              label: 'History',
+                            ),
+                          ),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: _PremiumActivatedPill(
+                              value: 'Cloud',
+                              label: 'Backup',
+                            ),
+                          ),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: _PremiumActivatedPill(
+                              value: 'Unlimited',
+                              label: 'Routines',
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 28),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: FilledButton(
+                          onPressed: onDone,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: accent,
+                            foregroundColor: Theme.of(
+                              context,
+                            ).colorScheme.onPrimary,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                          ),
+                          child: const Text(
+                            'Done',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: OutlinedButton(
+                          onPressed: onManagePlan,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: foundation.textSecondary,
+                            side: BorderSide(
+                              color: foundation.borderSubtle.withValues(
+                                alpha: 0.86,
+                              ),
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                          ),
+                          child: const Text('Manage plan'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 8,
+              left: 8,
+              child: PebbleBackButton(
+                onPressed: onDone,
+                backgroundColor: foundation.textPrimary.withValues(alpha: 0.12),
+                iconColor: foundation.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Post-purchase sheet for a resubscribe: sign-in and backup consent are
+/// already in place, so this is pure confirmation — what turned on, and one
+/// button out.
+class _PremiumResubscribedSheet extends StatelessWidget {
+  const _PremiumResubscribedSheet({required this.backupIsOn});
+
+  final bool backupIsOn;
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+    final accent = _premiumGlow(context);
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: foundation.surfaceLow,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          border: Border(
+            top: BorderSide(color: accent.withValues(alpha: 0.42), width: 1),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.34),
+              blurRadius: 34,
+              offset: const Offset(0, -12),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(28, 14, 28, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: foundation.surfaceHigh,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 28),
+                _PremiumActivatedIcon(accent: accent),
+                const SizedBox(height: 24),
+                Text(
+                  'Premium activated',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: accent,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.25,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text.rich(
+                  TextSpan(
+                    style: _serifStyle(context, fontSize: 30, height: 1.12),
+                    children: [
+                      const TextSpan(text: 'Welcome back.\nYou\'re '),
+                      TextSpan(
+                        text: 'all set.',
+                        style: TextStyle(
+                          color: accent,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  backupIsOn
+                      ? 'Backup is already on for this account, so your '
+                            'routines, history, and proof photos keep saving '
+                            'from here.'
+                      : 'Backup is set up for this account. Pebble will '
+                            'finish reconnecting it automatically.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: foundation.textSecondary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w300,
+                    height: 1.62,
+                  ),
+                ),
+                const SizedBox(height: 22),
+                const Row(
+                  children: [
+                    Expanded(
+                      child: _PremiumActivatedPill(
+                        value: '21 days',
+                        label: 'History',
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: _PremiumActivatedPill(
+                        value: 'Cloud',
+                        label: 'Backup',
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: _PremiumActivatedPill(
+                        value: 'Unlimited',
+                        label: 'Routines',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Divider(
+                  height: 1,
+                  color: foundation.borderSubtle.withValues(alpha: 0.72),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: FilledButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: accent,
+                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                    ),
+                    child: const Text(
+                      'Done',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),

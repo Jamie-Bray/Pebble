@@ -315,7 +315,8 @@ class RoutineRunDetailScreen extends ConsumerWidget {
                     time: (p['time'] as String?) ?? '',
                     photos: allPhotos,
                     photoIndex: index,
-                    proofStorage: proofStorage,
+                    resolvePhotoFile: (path) =>
+                        _resolveRunPhoto(proofStorage, path),
                   );
                 },
               ),
@@ -700,6 +701,38 @@ class RoutineRunDetailScreen extends ConsumerWidget {
     }
   }
 
+  Map<String, RoutineSessionProofAsset> _proofAssetsByPath() {
+    final stepData = _parseCompletionData()?['steps'] as List<dynamic>? ?? [];
+    final byPath = <String, RoutineSessionProofAsset>{};
+    for (final rawStep in stepData) {
+      if (rawStep is! Map) continue;
+      final proofAssets = rawStep['proofAssets'] as List<dynamic>? ?? const [];
+      for (final rawAsset in proofAssets) {
+        if (rawAsset is! Map) continue;
+        final asset = RoutineSessionProofAsset.fromJson(
+          Map<String, dynamic>.from(rawAsset),
+        );
+        if (asset.localRelativePath.isNotEmpty) {
+          byPath[asset.localRelativePath] = asset;
+        }
+      }
+    }
+    return byPath;
+  }
+
+  /// Resolves through the full proof asset when one exists, so a photo whose
+  /// local file is gone can still be restored from its cloud backup copy.
+  Future<File?> _resolveRunPhoto(
+    RoutineSessionProofStorage proofStorage,
+    String storedPath,
+  ) {
+    final asset = _proofAssetsByPath()[storedPath];
+    if (asset != null) {
+      return proofStorage.resolveProofAssetFile(asset);
+    }
+    return proofStorage.resolveStoredFile(storedPath);
+  }
+
   String _getStepTitle(RoutineStep step) {
     return step.maybeWhen(
       check:
@@ -795,7 +828,7 @@ class RoutineRunDetailScreen extends ConsumerWidget {
               PebbleGalleryPhoto(id: path, storedPath: path, title: stepTitle),
           ],
           initialIndex: photoIndex,
-          resolvePhotoFile: proofStorage.resolveStoredFile,
+          resolvePhotoFile: (path) => _resolveRunPhoto(proofStorage, path),
         ),
         child: Container(
           width: 80,
@@ -807,7 +840,7 @@ class RoutineRunDetailScreen extends ConsumerWidget {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: _StoredPhotoView(
-              proofStorage: proofStorage,
+              resolvePhotoFile: (path) => _resolveRunPhoto(proofStorage, path),
               storedPath: photoPath,
               fit: BoxFit.cover,
               missing: Container(
@@ -985,7 +1018,7 @@ class _RunPhotoItem extends StatelessWidget {
   final String time;
   final List<Map<String, dynamic>> photos;
   final int photoIndex;
-  final RoutineSessionProofStorage proofStorage;
+  final Future<File?> Function(String storedPath) resolvePhotoFile;
 
   const _RunPhotoItem({
     required this.path,
@@ -993,7 +1026,7 @@ class _RunPhotoItem extends StatelessWidget {
     required this.time,
     required this.photos,
     required this.photoIndex,
-    required this.proofStorage,
+    required this.resolvePhotoFile,
   });
 
   @override
@@ -1024,7 +1057,7 @@ class _RunPhotoItem extends StatelessWidget {
             context,
             photos: galleryPhotos,
             initialIndex: photoIndex,
-            resolvePhotoFile: proofStorage.resolveStoredFile,
+            resolvePhotoFile: resolvePhotoFile,
           );
         },
         child: Container(
@@ -1035,7 +1068,7 @@ class _RunPhotoItem extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               _StoredPhotoView(
-                proofStorage: proofStorage,
+                resolvePhotoFile: resolvePhotoFile,
                 storedPath: path,
                 fit: BoxFit.cover,
                 missing: const Icon(LucideIcons.imageOff),
@@ -1095,13 +1128,13 @@ class _RunPhotoItem extends StatelessWidget {
 
 class _StoredPhotoView extends StatelessWidget {
   const _StoredPhotoView({
-    required this.proofStorage,
+    required this.resolvePhotoFile,
     required this.storedPath,
     required this.missing,
     this.fit,
   });
 
-  final RoutineSessionProofStorage proofStorage;
+  final Future<File?> Function(String storedPath) resolvePhotoFile;
   final String storedPath;
   final Widget missing;
   final BoxFit? fit;
@@ -1109,7 +1142,7 @@ class _StoredPhotoView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<File?>(
-      future: proofStorage.resolveStoredFile(storedPath),
+      future: resolvePhotoFile(storedPath),
       builder: (context, snapshot) {
         final file = snapshot.data;
         if (file != null && file.existsSync()) {

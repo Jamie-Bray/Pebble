@@ -16,9 +16,10 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-# Play Console already has build 28 (built on a machine that no longer
-# exists; its 27/28 changes are not in git). The next release must be 29+.
-version: 1.0.0+31
+# Build numbers only go up. A production build 33 was produced on the
+# owner's laptop (its source is merged here from laptop-build-33), so the next
+# upload must be 34 or higher; check Play Console before uploading.
+version: 1.0.0+34
 
 environment:
   sdk: '>=3.8.0 <4.0.0'
