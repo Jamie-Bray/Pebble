@@ -176,7 +176,7 @@ final accountBackupStatusSummaryProvider = Provider<AccountBackupStatusSummary>(
           kind: AccountBackupStatusKind.premiumSetupPending,
           label: 'Premium setup pending',
           detail:
-              'Pebble works on this phone without it. Premium can be started once the store is available in this build.',
+              'Pebble works on this phone without it. Premium isn\'t available in this version yet.',
           historyLabel: 'Saved on this phone',
           showRunSyncState: false,
         );
@@ -618,7 +618,7 @@ String? _backupDetailForState({
     return 'Photo storage full. Routine backup still works.';
   }
   if (fairUseState?.status == ProofMediaFairUseStatus.warning) {
-    return 'Proof photo storage is nearly full. Routine backup still works.';
+    return 'Photo storage is nearly full. Routine backup still works.';
   }
   switch (status) {
     case PersonalCloudAccessStatus.offFree:

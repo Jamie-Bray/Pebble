@@ -182,7 +182,7 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
       title: 'Premium isn\'t available yet',
       body:
           purchase.unavailableReason ??
-          'Premium is not ready in Google Play yet. Pebble still works on this device.',
+          "Premium isn't available from the store yet. Pebble still works on this device.",
       statusLabel: 'Saved on this phone',
       historyLabel: 'Saved on this phone',
       limitChips: planFacts.chips,
@@ -356,18 +356,18 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
           planLabel: planFacts.label,
           title: 'Premium is active',
           body:
-              "Pebble is checking your purchase with Google Play. Backup starts once that's done.",
+              "Pebble is checking your purchase with the store. Backup starts once that's done.",
           statusLabel: 'Checking your purchase',
           historyLabel: 'Backup pending',
           limitChips: planFacts.chips,
           featureHighlights: const [
             AccountFeatureHighlight(
-              emphasis: 'Local Premium',
+              emphasis: 'Premium',
               detail: 'is unlocked on this device.',
             ),
             AccountFeatureHighlight(
               emphasis: 'Backup',
-              detail: 'starts after account verification.',
+              detail: 'starts once your purchase is confirmed.',
             ),
           ],
           primaryAction: AccountStatusAction.restorePurchase,
@@ -416,12 +416,12 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
         limitChips: planFacts.chips,
         featureHighlights: const [
           AccountFeatureHighlight(
-            emphasis: 'Local Premium',
+            emphasis: 'Premium',
             detail: 'stays unlocked on this device.',
           ),
           AccountFeatureHighlight(
             emphasis: 'Backup',
-            detail: 'needs purchase verification.',
+            detail: 'starts once your purchase is confirmed.',
           ),
         ],
         primaryAction: AccountStatusAction.restorePurchase,

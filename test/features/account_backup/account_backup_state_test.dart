@@ -2607,7 +2607,7 @@ void main() {
       expect(result.type, ManualSyncResultType.failed);
       expect(
         result.message,
-        'Supabase rejected the backup write. Check cloud consent and the server entitlement for this account.',
+        "Backup couldn't save your changes. Check backup is turned on for this account, then try again.",
       );
       expect(account.bootstrapStatus, BootstrapStatus.error);
       expect(account.lastSyncError, result.message);

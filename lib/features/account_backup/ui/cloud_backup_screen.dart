@@ -1274,7 +1274,7 @@ class _OwnershipMismatchCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               state.ownershipDetail ??
-                  'Pebble will keep this device local until you choose.',
+                  'Nothing on this device is uploaded until you choose.',
               style: PebbleFonts.sans(
                 color: colorScheme.onSurface.withValues(alpha: 0.68),
                 fontSize: 13,

@@ -230,7 +230,7 @@ class CloudBackupConsentStore {
   Future<CloudBackupConsentRecord> acceptFor(String userId) async {
     final client = _client;
     if (client == null) {
-      throw StateError('Backup is not available in this build.');
+      throw StateError("Backup isn't available in this version of Pebble.");
     }
     final now = DateTime.now().toUtc();
     final record = CloudBackupConsentRecord(
@@ -269,7 +269,7 @@ class CloudBackupConsentStore {
     await clearEnablePending(userId);
     final client = _client;
     if (client == null) {
-      throw StateError('Backup is not available in this build.');
+      throw StateError("Backup isn't available in this version of Pebble.");
     }
     final now = DateTime.now().toUtc();
     final record = CloudBackupConsentRecord(
@@ -386,7 +386,7 @@ class CloudBackupConsentController
         isLoading: false,
         record: localRecord,
         lastError:
-            'Pebble could not check your cloud backup consent yet. Try again.',
+            "Pebble couldn't check your backup setting. Try again.",
         isRemoteConfirmed: false,
       );
     }
@@ -395,7 +395,7 @@ class CloudBackupConsentController
   Future<void> accept() async {
     final userId = _userId;
     if (!_auth.isSignedIn || userId == null || !_hasClient) {
-      throw StateError('Sign in before enabling cloud backup.');
+      throw StateError('Sign in before turning on backup.');
     }
 
     final previous = state;
@@ -429,7 +429,7 @@ class CloudBackupConsentController
   Future<void> withdraw() async {
     final userId = _userId;
     if (!_auth.isSignedIn || userId == null || !_hasClient) {
-      throw StateError('Sign in before changing cloud backup consent.');
+      throw StateError('Sign in before changing your backup setting.');
     }
 
     final previous = state;

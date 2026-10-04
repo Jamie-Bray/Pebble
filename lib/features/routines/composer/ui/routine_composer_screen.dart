@@ -374,7 +374,7 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
               if (_shouldShowAddStepHint(state)) ...[
                 const SizedBox(height: 8),
                 Text(
-                  'Add step creates the next one',
+                  'Tap Add step for the next one',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 12.5,

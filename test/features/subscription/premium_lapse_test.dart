@@ -209,7 +209,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Choose 2 routines to keep'), findsOneWidget);
-      expect(find.text('2 of 2 chosen. Untick one to swap.'), findsOneWidget);
+      expect(find.text('2 of 2 chosen. Uncheck one to swap.'), findsOneWidget);
 
       // Untick the defaults, tick routines 4 and 5.
       await tester.tap(find.text('Routine 1'));
