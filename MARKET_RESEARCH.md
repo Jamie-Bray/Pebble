@@ -1,6 +1,6 @@
 # Pebble Routines: Market, Competitor and Pricing Report
 
-Last updated: 4 October 2026
+Last updated: 4 October 2026 (SWOT added)
 For: the owner. Written in plain English. No code changes come with this report.
 
 ## How to read this report
@@ -52,7 +52,8 @@ photo and never re-asked.** Call the feature **"Photo note"**, not a character
 name. Make it Premium-only, opt-in, and run a two-week accuracy test before
 writing any app code.
 
-The top 5 actions are at the end (section 9).
+A SWOT summary of where Pebble is strong and where it lags is in section
+4.3. The top 5 actions are at the end (section 9).
 
 ---
 
@@ -179,7 +180,7 @@ support email in Settings, and read every reply.
 
 ---
 
-## 4. Feature gap table
+## 4. Feature gap table and SWOT
 
 Value and effort are our estimates. Effort: **S** about a day, **M** a few
 days to a week, **L** more than a week. Ranked by value against effort.
@@ -214,6 +215,48 @@ days to a week, **L** more than a week. Ranked by value against effort.
 | **Accessibility themes, tested at double text size** | None claimed | Matters for older users and the Home Key Reminder audience. |
 | **Copy that promises nothing** | None. Rivals say "undeniable proof", "eliminate all doubt", "everything is safe" | Rivals' copy can feed the doubt it claims to fix. Pebble's honest tone stands out, and is less likely to trip health-claim reviews. |
 | **No ads, data not sold, works without an account** | Several local-only apps say the same | Table stakes. Keep saying it. |
+
+### 4.3 SWOT: where Pebble stands
+
+Strengths and weaknesses are about Pebble itself. Opportunities and threats
+come from outside. Facts behind each point are in sections 2, 3 and 7. The
+judgements are ours.
+
+| | Helpful | Harmful |
+|---|---|---|
+| **Inside Pebble** | **Strengths** | **Weaknesses** |
+| | 1. **Android and iPhone.** Of the checking apps found, only Paximus is also on both. | 1. **Prices are too low** (£0.89 / £6.49). That limits income, and it leaves no room for AI costs (section 7). |
+| | 2. **Backup and account recovery.** Every checking rival found is local-only. | 2. **Zero ratings or reviews on day one.** Rivals have almost none either, but the first 50 reviews will matter a lot. |
+| | 3. **Unique extras:** completion emails, voice prompts in your own voice, a template library, up to 4 photos per step, 21 days of history. | 3. **The free plan may be enough for many people.** Two routines of 10 steps covers "leaving the house" and "bedtime". Premium has to win on history, backup and photos. Test this. |
+| | 4. **Honest copy.** No medical claims or promises, so less store-review risk and more trust from a wary audience. | 4. **Gaps rivals already fill:** no "camera only" option, no app lock, no choice of auto-delete window, and no iPhone widget even though the menu offers one (section 4.1). |
+| | 5. **Private by default:** works without an account, no ads, data not sold, photos kept out of the camera roll. | 5. **The name doesn't say what it does.** "Pebble Routines" needs the store title and subtitle to carry "did I lock the door" and "leaving the house". |
+| | 6. **Quality:** 291 tests passing, 180 screens checked at normal and double text size, plus a clear design direction. | 6. **One person, no budget.** Backend fixes are still undeployed and Supabase is on the free plan. Marketing time competes with build time. |
+| | 7. **A real founder story** that suits TikTok. | 7. **Not yet launched on either store.** Every week a rival can collect reviews first. |
+| **Outside Pebble** | **Opportunities** | **Threats** |
+| | 1. **No category leader.** Most checking apps have 0 to 3 ratings. The first app with a few hundred good reviews can own the searches. | 1. **Free is the default.** The phone camera, plus free apps like SureCheck and DoorCheck. Pebble must clearly beat "just take a photo". |
+| | 2. **Android is underserved.** Pebble launches there first. | 2. **Copying is easy.** These apps are simple to build, and AI coding tools make new ones appear every month. Polish, trust and reviews are the moat, not features. |
+| | 3. **A proven viral format:** straightener videos reach 100k to 1.8M likes, and the photo hack has made UK news. | 3. **Rivals' AI verdicts.** If someone's "AI says your oven is off" goes wrong, stores or the press may crack down on the whole category. Stay clearly on the "describes, never promises" side. |
+| | 4. **Photo notes (AI):** nobody does this properly yet (section 6). | 4. **Harm to vulnerable users.** If any feature becomes part of someone's checking loop, that hurts them and Pebble's reputation. Section 6.4's guardrails are the defence. |
+| | 5. **Bigger nearby audiences:** ADHD (r/ADHD about 2.3M), travellers, parents, older people. | 5. **Smart plugs and smart locks** solve the problem in hardware for people who buy them. |
+| | 6. **Billing trust.** The big habit apps get billing complaints. Honest billing (no weekly plan, trial reminders) can be a selling point. | 6. **Subscription fatigue.** Some rivals charge once ($0.99, $4.99, lifetime unlocks). Some people will refuse any subscription. |
+| | 7. **Shareable completion cards** turn every user into free marketing. | 7. **Store and policy changes:** AI consent rules (Apple 5.1.2(i)), health-claim rules, fee changes. Supplier prices can also rise (Supabase, RevenueCat, Anthropic). |
+
+**What to do about it** (our view):
+
+- **Use strengths to grab opportunities:** launch on Android now. Lead with the
+  founder story and the camera-roll video. Ask happy closed-test users for
+  reviews to win the "no leader yet" race.
+- **Fix weaknesses that block opportunities:** raise prices before launch, and
+  ship "camera only", app lock and the iPhone widget. Tighten the store title
+  around the search phrases.
+- **Use strengths against threats:** honest copy plus the Photo note
+  guardrails make Pebble the trustworthy choice if the category gets
+  scrutiny. Backup and cross-platform support are hard for one-screen free
+  apps to copy.
+- **Watch the worst combination:** low prices, a free plan that's "enough", and
+  free rivals together could leave Pebble with many users and little income.
+  The pricing tests in section 7.6, and testing the free plan's limits,
+  address this directly.
 
 ---
 
