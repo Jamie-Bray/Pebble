@@ -373,7 +373,7 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
               RoutinePlayerScreenPhase.error => _PlayerStatusView(
                 title: 'Could not load routine',
                 message:
-                    playerState.errorMessage ?? 'Please try again in a moment.',
+                    playerState.errorMessage ?? 'Try again in a moment.',
                 icon: LucideIcons.circleAlert,
                 primaryLabel: 'Retry',
                 onPrimary: () => unawaited(controller.refresh()),
@@ -986,8 +986,8 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
         ZenNotifications.showWarning(
           context,
           message:
-              'Camera access is turned off for Pebble. '
-              'Allow camera in your phone settings to take photos.',
+              'Camera access is off. '
+              'Turn it on in device settings to take a photo.',
           actionLabel: 'Open settings',
           onAction: () => unawaited(permissions.openAppSettings()),
         );
@@ -995,8 +995,8 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
         ZenNotifications.showWarning(
           context,
           message:
-              'Photos access is turned off for Pebble. '
-              'Allow photo access in your phone settings to choose a photo.',
+              'Photo access is off. '
+              'Turn it on in device settings to choose a photo.',
           actionLabel: 'Open settings',
           onAction: () => unawaited(permissions.openAppSettings()),
         );
@@ -1004,8 +1004,8 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
         ZenNotifications.showError(
           context,
           message: source == ImageSource.camera
-              ? 'Could not open the camera. Please try again.'
-              : 'Could not open your photos. Please try again.',
+              ? 'Could not open the camera. Try again.'
+              : 'Could not open your photos. Try again.',
         );
     }
   }
@@ -1029,8 +1029,8 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
           title: Text(isCamera ? 'Use camera?' : 'Choose from Photos?'),
           content: Text(
             isCamera
-                ? 'Pebble uses the camera only when you choose to capture a proof photo for this routine step.'
-                : 'Pebble opens Photos only when you choose an existing image as a proof photo.',
+                ? 'Pebble uses the camera only when you choose to take a photo for a step.'
+                : 'Pebble opens Photos only when you choose an existing photo for a step.',
           ),
           actions: [
             TextButton(
@@ -1060,9 +1060,9 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
     ZenNotifications.showWarning(
       context,
       message: isFreeTier
-          ? 'Pebble Free includes one proof photo per step.'
+          ? 'Free includes one photo per step.'
           : 'Maximum photos added for this step.',
-      actionLabel: isFreeTier ? 'Plus' : null,
+      actionLabel: isFreeTier ? 'See Premium' : null,
       onAction: isFreeTier ? _openProofPhotoLimitPaywall : null,
     );
   }
@@ -1836,7 +1836,7 @@ class _ProofPhotoHeaderAction extends StatelessWidget {
       button: true,
       onTap: onTap,
       label: isUpgrade
-          ? 'Add more proof photos with Premium'
+          ? 'Add more photos with Premium'
           : 'Add another proof photo',
       child: ExcludeSemantics(
         child: TextButton.icon(

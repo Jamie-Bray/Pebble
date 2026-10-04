@@ -414,7 +414,7 @@ void main() {
       expect(chip.tone, AccountBackupChipTone.neutral);
       expect(
         ui.backupSummary,
-        'Pebble works without an account. Your routines are saved on this phone.',
+        'Pebble works without an account. Your routines are saved on this device.',
       );
       expect(ui.accountActionLabel, 'Restore Premium');
       expect(ui.planActionLabel, 'Upgrade');
@@ -1407,7 +1407,7 @@ void main() {
         cloudAccess: const PersonalCloudAccessState(
           status: PersonalCloudAccessStatus.offFree,
           label: 'Backup is off',
-          detail: 'Saved on this phone.',
+          detail: 'Saved on this device.',
         ),
         account: const SubscriptionAccountState.initial(),
         pendingCount: 0,
@@ -1595,7 +1595,7 @@ void main() {
         cloudAccess: const PersonalCloudAccessState(
           status: PersonalCloudAccessStatus.offFree,
           label: 'Backup is off',
-          detail: 'Saved on this phone.',
+          detail: 'Saved on this device.',
         ),
         account: const SubscriptionAccountState.initial(),
         pendingCount: 0,
@@ -1831,7 +1831,7 @@ void main() {
 
       await _pumpAccountWidget(tester, harness, const CloudBackupScreen());
 
-      expect(find.text('Which account should this phone use?'), findsOneWidget);
+      expect(find.text('Which account should this device use?'), findsOneWidget);
       expect(find.text('Use this account'), findsWidgets);
       expect(find.text('Keep backup off'), findsWidgets);
     });

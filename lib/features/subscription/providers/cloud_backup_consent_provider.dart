@@ -386,7 +386,7 @@ class CloudBackupConsentController
         isLoading: false,
         record: localRecord,
         lastError:
-            'Pebble could not check your cloud backup consent yet. Try again.',
+            'Pebble could not check your backup setting yet. Try again.',
         isRemoteConfirmed: false,
       );
     }
@@ -395,7 +395,7 @@ class CloudBackupConsentController
   Future<void> accept() async {
     final userId = _userId;
     if (!_auth.isSignedIn || userId == null || !_hasClient) {
-      throw StateError('Sign in before enabling cloud backup.');
+      throw StateError('Sign in before turning on backup.');
     }
 
     final previous = state;
@@ -429,7 +429,7 @@ class CloudBackupConsentController
   Future<void> withdraw() async {
     final userId = _userId;
     if (!_auth.isSignedIn || userId == null || !_hasClient) {
-      throw StateError('Sign in before changing cloud backup consent.');
+      throw StateError('Sign in before changing your backup setting.');
     }
 
     final previous = state;
@@ -448,7 +448,7 @@ class CloudBackupConsentController
       state = CloudBackupConsentState(
         isLoading: false,
         record: previous.record,
-        lastError: 'Backup could not be paused. Please try again.',
+        lastError: 'Backup could not be paused. Try again.',
         isRemoteConfirmed: previous.isRemoteConfirmed,
       );
       rethrow;

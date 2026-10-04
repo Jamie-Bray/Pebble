@@ -36,12 +36,12 @@ class TemplateDetailScreen extends ConsumerWidget {
         child: templateAsync.when(
           loading: () => const _DetailStatusView(
             title: 'Loading template',
-            message: 'Getting the checklist ready.',
+            message: 'Getting the template ready.',
           ),
           error: (Object error, StackTrace stackTrace) =>
               const _DetailStatusView(
                 title: 'Template unavailable',
-                message: 'Please try again in a moment.',
+                message: 'Try again in a moment.',
               ),
           data: (Template? template) {
             if (template == null) {

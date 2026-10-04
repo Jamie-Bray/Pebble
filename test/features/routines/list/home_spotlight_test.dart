@@ -731,12 +731,12 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('Pin to Widget'), findsOneWidget);
+    expect(find.text('Pin to widget'), findsOneWidget);
     expect(find.text('Show this routine on your home widget'), findsOneWidget);
 
-    await tester.ensureVisible(find.text('Pin to Widget'));
+    await tester.ensureVisible(find.text('Pin to widget'));
     await tester.pump();
-    await tester.tap(find.text('Pin to Widget'));
+    await tester.tap(find.text('Pin to widget'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
@@ -808,8 +808,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(find.text('Edit'), findsOneWidget);
-      expect(find.text('Pin to Widget'), findsNothing);
-      expect(find.text('Unpin from Widget'), findsNothing);
+      expect(find.text('Pin to widget'), findsNothing);
+      expect(find.text('Unpin from widget'), findsNothing);
       expect(find.textContaining('home widget'), findsNothing);
       expect(find.textContaining('Pinned'), findsNothing);
     } finally {

@@ -258,9 +258,9 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
 
   String _composerTitle(RoutineComposerState state) {
     if (state.mode == RoutineComposerMode.edit) {
-      return 'Edit Routine';
+      return 'Edit routine';
     }
-    return 'New Routine';
+    return 'New routine';
   }
 
   Widget _buildTitleField(BuildContext context) {
@@ -374,7 +374,7 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
               if (_shouldShowAddStepHint(state)) ...[
                 const SizedBox(height: 8),
                 Text(
-                  'Add step creates the next one',
+                  'Tap Add step for the next one',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 12.5,
@@ -855,7 +855,7 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
         await _disposeGuidanceRecorder(recorder);
         if (!mounted) return;
         _resetGuidanceRecordingState();
-        _showGuidanceAudioError('Microphone access is needed to record audio.');
+        _showGuidanceAudioError('Microphone access is off. Turn it on in device settings to record a voice tip.');
         return;
       }
 
@@ -918,7 +918,7 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
       await _cancelAndDisposeGuidanceRecorder(recorder);
       if (!mounted) return;
       _resetGuidanceRecordingState();
-      _showGuidanceAudioError('Failed to start recording.');
+      _showGuidanceAudioError('Could not start recording. Try again.');
     }
   }
 
@@ -998,7 +998,7 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
       await _cancelAndDisposeGuidanceRecorder(recorder);
       if (!mounted) return;
       _resetGuidanceRecordingState();
-      _showGuidanceAudioError('Failed to save recording.');
+      _showGuidanceAudioError('Could not save the recording. Try again.');
     }
   }
 
@@ -1390,7 +1390,7 @@ class _GuidanceAudioSheet extends StatelessWidget {
             else ...[
               Text(
                 step.guidanceAudio == null
-                    ? 'Record up to 10 seconds of step guidance for this checklist item.'
+                    ? 'Record a voice tip of up to 10 seconds for this step.'
                     : 'A voice tip is saved. Play it, replace it, or remove it.',
                 style: TextStyle(
                   fontSize: 14,

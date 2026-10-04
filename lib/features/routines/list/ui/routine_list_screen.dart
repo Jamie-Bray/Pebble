@@ -195,7 +195,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Icons, colors and routine personality are included with Personal Premium.',
+                  'Routine icons and colours are included with Personal Premium.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 15,
@@ -271,7 +271,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
 
     return Container(
       decoration: BoxDecoration(color: foundation.bgBase),
-      child: ZenErrorView(message: 'Error loading routines: $error'),
+      child: ZenErrorView(message: 'Pebble could not load your routines. Try again.'),
     );
   }
 
@@ -1575,8 +1575,8 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                             icon: LucideIcons.palette,
                             label: 'Style',
                             subtitle: hasPremiumStyleAccess
-                                ? 'Change icon and accent color'
-                                : 'Premium icon and color studio',
+                                ? 'Change icon and accent colour'
+                                : 'Icons and colours with Premium',
                             accent: accent,
                             premiumLocked: !hasPremiumStyleAccess,
                             onTap: () async {
@@ -1593,8 +1593,8 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                                   ? LucideIcons.pinOff
                                   : LucideIcons.pin,
                               label: routine.isPinned
-                                  ? 'Unpin from Widget'
-                                  : 'Pin to Widget',
+                                  ? 'Unpin from widget'
+                                  : 'Pin to widget',
                               subtitle: routine.isPinned
                                   ? 'Remove this routine from your home widget'
                                   : 'Show this routine on your home widget',

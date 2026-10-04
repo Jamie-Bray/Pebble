@@ -166,7 +166,7 @@ class _KeepRoutinesSheetState extends ConsumerState<KeepRoutinesSheet> {
           const SizedBox(height: 8),
           Text(
             full && routines.length > limit
-                ? '${selected.length} of $limit chosen. Untick one to swap.'
+                ? '${selected.length} of $limit chosen. Uncheck one to swap.'
                 : '${selected.length} of $limit chosen',
             textAlign: TextAlign.center,
             style: theme.textTheme.bodySmall?.copyWith(
@@ -187,7 +187,7 @@ class _KeepRoutinesSheetState extends ConsumerState<KeepRoutinesSheet> {
                     ZenNotifications.showSuccess(
                       context,
                       title: 'Routines updated',
-                      message: 'Your choice is saved on this phone.',
+                      message: 'Your choice is saved on this device.',
                     );
                   },
           ),
@@ -349,7 +349,7 @@ String premiumLapseHeadline(PremiumLapseSummary summary) {
     if (summary.hasHistoryAtRisk) {
       final count = summary.olderHistoryRunCount;
       return '$count completed ${count == 1 ? 'routine' : 'routines'} older '
-          'than 48 hours will be removed from this phone on $date. '
+          'than 48 hours will be removed from this device on $date. '
           'Renew to keep them.';
     }
     return 'From $date, Free limits apply: ${summary.freeRoutineLimit} '

@@ -33,7 +33,7 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
 
       expect(
-        find.text('Step out the door with total confidence.'),
+        find.text('Step out the door knowing what you checked.'),
         findsOneWidget,
       );
       expect(prefs.getBool('has_completed_onboarding'), isFalse);

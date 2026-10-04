@@ -545,10 +545,10 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
       return raw.replaceFirst('StateError: ', '');
     }
     if (raw.startsWith('PlatformException')) {
-      return 'The store could not complete that request. Please try again.';
+      return 'The store could not complete that request. Try again.';
     }
     if (raw.startsWith('FunctionException')) {
-      return 'Pebble could not complete that request. Please try again.';
+      return 'Pebble could not complete that request. Try again.';
     }
     return raw;
   }
@@ -1018,7 +1018,7 @@ class _BackupDataSection extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 10),
           child: Text(
-            live ? "What's backed up" : 'What backup keeps safe for 21 days',
+            live ? "What's backed up" : 'What backup keeps for 21 days',
             style: PebbleFonts.sans(
               color: colorScheme.onSurface.withValues(alpha: 0.56),
               fontSize: 12,
@@ -1274,7 +1274,7 @@ class _OwnershipMismatchCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               state.ownershipDetail ??
-                  'Pebble will keep this device local until you choose.',
+                  'Nothing on this device is uploaded until you choose.',
               style: PebbleFonts.sans(
                 color: colorScheme.onSurface.withValues(alpha: 0.68),
                 fontSize: 13,

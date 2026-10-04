@@ -122,7 +122,7 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
       _billingAvailable = false;
       _loadingProducts = false;
       _unavailableReason =
-          'Purchases are not configured for this platform yet.';
+          'Purchases are not available on this device yet.';
       notifyListeners();
       return;
     }
@@ -373,7 +373,7 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     final config = _ref.read(revenueCatRuntimeConfigProvider);
     final apiKey = config.apiKeyForCurrentPlatform;
     if (apiKey == null) {
-      throw StateError('Purchases are not configured for this platform yet.');
+      throw StateError('Purchases are not available on this device yet.');
     }
     final purchasesConfig = rc.PurchasesConfiguration(apiKey);
     if (normalizedUserId != null) {
@@ -657,13 +657,13 @@ String revenueCatMessageForPurchasesError(rc.PurchasesErrorCode code) {
       return 'Purchases are not allowed on this store account.';
     case rc.PurchasesErrorCode.configurationError:
     case rc.PurchasesErrorCode.invalidCredentialsError:
-      return 'Premium is not configured correctly yet. Please try again later.';
+      return 'Premium is not available right now. Try again later.';
     case rc.PurchasesErrorCode.operationAlreadyInProgressError:
       return 'A store request is already in progress.';
     case rc.PurchasesErrorCode.storeProblemError:
-      return 'The store could not complete that request. Please try again.';
+      return 'The store could not complete that request. Try again.';
     default:
-      return 'The store could not complete that request. Please try again.';
+      return 'The store could not complete that request. Try again.';
   }
 }
 

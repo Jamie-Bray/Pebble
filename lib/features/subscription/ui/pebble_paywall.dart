@@ -130,7 +130,7 @@ class PremiumPaywallCopy {
         renewalLine:
             'Renews automatically unless cancelled at least 24 hours before the end of the current period. Payment is charged to your Apple ID when you confirm. Cancel anytime in the App Store subscription settings. Pebble also works free without Premium.',
         purchaseErrorLine:
-            'The App Store could not complete that request. Please try again.',
+            'The App Store could not complete that request. Try again.',
         consoleName: 'App Store Connect',
       ),
       StorePlatform.googlePlay => const PremiumPaywallCopy._(
@@ -139,7 +139,7 @@ class PremiumPaywallCopy {
         renewalLine:
             'Renews automatically until cancelled. Cancel anytime in Google Play subscription settings. Pebble also works free without Premium.',
         purchaseErrorLine:
-            'Google Play could not complete that request. Please try again.',
+            'Google Play could not complete that request. Try again.',
         consoleName: 'Play Console',
       ),
       StorePlatform.other => const PremiumPaywallCopy._(
@@ -148,7 +148,7 @@ class PremiumPaywallCopy {
         renewalLine:
             'Renews automatically until cancelled. Cancel anytime through your app store subscription settings. Pebble also works free without Premium.',
         purchaseErrorLine:
-            'The store could not complete that request. Please try again.',
+            'The store could not complete that request. Try again.',
         consoleName: 'store console',
       ),
     };
@@ -712,7 +712,7 @@ class _PostPurchaseBackupSheetState
                 Text(
                   'Pebble backs up routines, history, and proof photos, '
                   'which can include personal details. You can pause backup '
-                  'any time in Your Account.',
+                  'any time in Your account.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: foundation.textSecondary,
@@ -857,7 +857,7 @@ class _PremiumActivatedSheet extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    'Sign in to back up your history, routines, and photos, and keep them ready across devices. Totally optional; Premium works right now without it.',
+                    'Sign in to back up your history, routines, and photos, so you can restore them on another device. This is optional; Premium works now without it.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: foundation.textSecondary,
@@ -942,7 +942,7 @@ class _PremiumActivatedSheet extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    'You can always sign in later from Your Account.',
+                    'You can sign in later from Your account.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: foundation.textMuted,
@@ -1369,15 +1369,15 @@ class _PaywallHeader extends StatelessWidget {
         'Say it once,\nhear it ',
         'every time.',
       ),
-      _ => ('Never wonder\n', 'twice.'),
+      _ => ('Keep more,\n', 'for longer.'),
     };
     final body = switch (entrySource) {
       PremiumEntrySource.backup =>
         'Free keeps recent history on this device for 48 hours. Premium keeps recent checks for up to 21 days, with backup when you choose to turn it on.',
       PremiumEntrySource.proofPhotoLimit =>
-        'Free includes one photo per step. Premium gives you more proof when one picture does not capture the full check.',
+        'Free includes one photo per step. Premium lets you add up to four when one picture does not capture the full check.',
       PremiumEntrySource.guidanceAudio =>
-        'Add a short voice prompt to a step, so future-you knows exactly what to check.',
+        'Add a short voice tip to a step, so you know what to check next time.',
       _ =>
         'Free includes 2 routines and 10 steps each. Premium gives you unlimited routines, longer recent history, and backup when you choose to turn it on.',
     };
@@ -1502,14 +1502,14 @@ const _premiumFeatures = [
     icon: LucideIcons.cloud,
     title: 'Longer history and backup',
     description:
-        'Three weeks of answers, safe if you reinstall or change phone.',
+        'Three weeks of history, with a backup to restore if you reinstall or change phone.',
     freeLabel: '48 hours',
     premiumLabel: '21 days + backup',
   ),
   _PremiumFeature(
     icon: LucideIcons.camera,
     title: 'More photos per step',
-    description: 'Four angles when one picture cannot prove the whole check.',
+    description: 'Up to four photos when one picture cannot show the whole check.',
     freeLabel: '1 photo',
     premiumLabel: 'Up to 4',
   ),
@@ -1517,7 +1517,7 @@ const _premiumFeatures = [
     icon: LucideIcons.mic,
     title: 'Voice tips',
     description:
-        'Record a prompt on any step, so future-you hears exactly '
+        'Record a voice tip on any step, so you hear '
         'what to look for.',
     freeLabel: 'Not available',
     premiumLabel: 'Included',

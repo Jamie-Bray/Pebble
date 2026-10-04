@@ -150,11 +150,11 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
     return AccountStatusPresentation(
       planLabel: planFacts.label,
       title: unownedOnly
-          ? 'Choose what happens to this phone\'s routines'
+          ? 'Choose what happens to this device\'s routines'
           : 'Choose how to back up',
       body: unownedOnly
-          ? 'This phone already has Pebble routines. You can add them to your account, or keep them only on this phone.'
-          : 'Some routines on this phone belong to a different account. Pebble keeps them here until you choose what to do.',
+          ? 'This device already has Pebble routines. You can add them to your account, or keep them only on this device.'
+          : 'Some routines on this device belong to a different account. Pebble keeps them here until you choose what to do.',
       statusLabel: 'Choose an account',
       historyLabel: 'Choose an account',
       limitChips: planFacts.chips,
@@ -182,9 +182,9 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
       title: 'Premium isn\'t available yet',
       body:
           purchase.unavailableReason ??
-          'Premium is not ready in Google Play yet. Pebble still works on this device.',
-      statusLabel: 'Saved on this phone',
-      historyLabel: 'Saved on this phone',
+          'Premium is not available from the store yet. Pebble still works on this device.',
+      statusLabel: 'Saved on this device',
+      historyLabel: 'Saved on this device',
       limitChips: planFacts.chips,
       featureHighlights: const [],
       primaryAction: AccountStatusAction.none,
@@ -193,7 +193,7 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
       secondaryActionLabel: restoreLabel,
       supportingDetail: purchase.unavailableReason != null
           ? 'Check your connection or try again later.'
-          : 'You have not done anything wrong. This build is waiting for store setup.',
+          : 'Nothing is wrong on your side. Premium is not available in this version yet.',
       tone: AccountStatusTone.neutral,
       icon: LucideIcons.clock3,
       isSyncRunning: false,
@@ -207,7 +207,7 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
       planLabel: planFacts.label,
       title: 'Premium ended',
       body:
-          'Backup stopped with Premium, and everything is still saved on this phone. Your longer history stays visible for 7 days.',
+          'Backup stopped with Premium, and everything is still saved on this device. Your longer history stays visible for 7 days.',
       statusLabel: 'Backup is off',
       historyLabel: 'Backup is off',
       limitChips: planFacts.chips,
@@ -230,11 +230,11 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
   if (lifecycle.phase == SubscriptionLifecyclePhase.expired) {
     return AccountStatusPresentation(
       planLabel: planFacts.label,
-      title: 'Saved on this phone',
+      title: 'Saved on this device',
       body:
-          'Your routines are saved on this phone, with the free history window.',
-      statusLabel: 'Saved on this phone',
-      historyLabel: 'Saved on this phone',
+          'Your routines are saved on this device, with the free history window.',
+      statusLabel: 'Saved on this device',
+      historyLabel: 'Saved on this device',
       limitChips: planFacts.chips,
       featureHighlights: const [],
       primaryAction: purchase.isPurchaseAvailable
@@ -257,11 +257,11 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
     case PersonalCloudAccessStatus.offSignedInNoEntitlement:
       return AccountStatusPresentation(
         planLabel: planFacts.label,
-        title: 'Saved on this phone',
+        title: 'Saved on this device',
         body:
-            'Your routines are saved on this phone. Everything works, no account needed.',
-        statusLabel: 'Saved on this phone',
-        historyLabel: 'Saved on this phone',
+            'Your routines are saved on this device. Everything works, no account needed.',
+        statusLabel: 'Saved on this device',
+        historyLabel: 'Saved on this device',
         limitChips: planFacts.chips,
         featureHighlights: const [
           AccountFeatureHighlight(
@@ -356,18 +356,18 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
           planLabel: planFacts.label,
           title: 'Premium is active',
           body:
-              'Pebble is double-checking your purchase with Google Play. Backup starts right after.',
+              'Pebble is checking your purchase with the store. Backup starts right after.',
           statusLabel: 'Checking your purchase',
           historyLabel: 'Backup pending',
           limitChips: planFacts.chips,
           featureHighlights: const [
             AccountFeatureHighlight(
-              emphasis: 'Local Premium',
+              emphasis: 'Premium',
               detail: 'is unlocked on this device.',
             ),
             AccountFeatureHighlight(
               emphasis: 'Backup',
-              detail: 'starts after account verification.',
+              detail: 'starts once your purchase is confirmed.',
             ),
           ],
           primaryAction: AccountStatusAction.restorePurchase,
@@ -386,7 +386,7 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
         planLabel: planFacts.label,
         title: 'Backup is on',
         body:
-            'Your routines and history are backed up. If you lose or change your phone, they come back with you.',
+            'Your routines and history are backed up. If you lose or change your phone, you can restore them.',
         statusLabel: 'Backup is on',
         historyLabel: 'Backup is on',
         limitChips: planFacts.chips,
@@ -416,12 +416,12 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
         limitChips: planFacts.chips,
         featureHighlights: const [
           AccountFeatureHighlight(
-            emphasis: 'Local Premium',
+            emphasis: 'Premium',
             detail: 'stays unlocked on this device.',
           ),
           AccountFeatureHighlight(
             emphasis: 'Backup',
-            detail: 'needs purchase verification.',
+            detail: 'starts once your purchase is confirmed.',
           ),
         ],
         primaryAction: AccountStatusAction.restorePurchase,
@@ -462,7 +462,7 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
         planLabel: planFacts.label,
         title: 'Backup needs attention',
         body:
-            'The last backup didn\'t finish. Your changes are still saved on this phone.',
+            'The last backup didn\'t finish. Your changes are still saved on this device.',
         statusLabel: 'Backup needs attention',
         historyLabel: 'Backup needs attention',
         limitChips: planFacts.chips,

@@ -73,7 +73,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
         child: Center(child: CircularProgressIndicator.adaptive()),
       ),
       error: (e, _) => _ThemeScaffold(
-        child: ZenErrorView(message: 'Could not load history: $e'),
+        child: ZenErrorView(message: 'Pebble could not load your history. Try again.'),
       ),
       data: (runs) {
         return routinesAsync.when(
@@ -81,7 +81,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
             child: Center(child: CircularProgressIndicator.adaptive()),
           ),
           error: (e, _) => _ThemeScaffold(
-            child: ZenErrorView(message: 'Could not load routines: $e'),
+            child: ZenErrorView(message: 'Pebble could not load your routines. Try again.'),
           ),
           data: (routines) {
             final byId = <String, Routine>{
@@ -201,7 +201,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
             },
           ),
           _ToggleItem(
-            label: 'Photo Vault',
+            label: 'Photos',
             isSelected: mode == HistoryViewMode.vault,
             onTap: () {
               ref.read(historyViewModeProvider.notifier).state =
@@ -426,7 +426,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'No proof photos yet',
+            'No photos yet',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w500,
@@ -1459,7 +1459,7 @@ class _HistoryBackupFooter extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              'History is only kept for 2 days',
+              'Free keeps the last 48 hours of history',
               style: TextStyle(
                 fontSize: 11,
                 height: 1.2,
@@ -1688,7 +1688,7 @@ class _VaultGridItem extends StatelessWidget {
               );
             },
             icon: const Icon(LucideIcons.history, size: 18),
-            label: const Text('View Routine Run'),
+            label: const Text('View routine run'),
           ),
         );
       },
@@ -1771,7 +1771,7 @@ class _HeroPhotoView extends StatelessWidget {
                         );
                       },
                       icon: const Icon(LucideIcons.history, size: 18),
-                      label: const Text('View Routine Run'),
+                      label: const Text('View routine run'),
                       style: FilledButton.styleFrom(
                         backgroundColor: Colors.white.withValues(alpha: 0.1),
                         foregroundColor: Colors.white,

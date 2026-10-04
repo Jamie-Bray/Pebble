@@ -92,7 +92,7 @@ class _GuidanceAudioRecorderSheetState
             ),
             const SizedBox(height: 32),
             Text(
-              _isRecording ? 'Recording guidance' : 'Guidance audio',
+              _isRecording ? 'Recording voice tip' : 'Voice tip',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.w700,
@@ -207,7 +207,7 @@ class _GuidanceAudioRecorderSheetState
       setState(() {
         _isStarting = false;
         _isPointerDown = false;
-        _error = 'Microphone access is needed to record audio.';
+        _error = 'Microphone access is off. Turn it on in device settings to record a voice tip.';
       });
       return;
     }
@@ -228,7 +228,7 @@ class _GuidanceAudioRecorderSheetState
       setState(() {
         _isStarting = false;
         _isPointerDown = false;
-        _error = 'Failed to start recording.';
+        _error = 'Could not start recording. Try again.';
       });
       return;
     }
@@ -320,7 +320,7 @@ class _GuidanceAudioRecorderSheetState
       }
     } catch (_) {
       if (!mounted) return;
-      _resetState('Failed to save recording.');
+      _resetState('Could not save the recording. Try again.');
     }
   }
 

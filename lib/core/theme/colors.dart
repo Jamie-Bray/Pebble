@@ -1166,7 +1166,7 @@ class ThemeMetadata {
       icon: LucideIcons.circle,
       subtitle: 'Light sensitivity',
       description:
-          'Amber-tinted contrast for migraines, Irlen, and visual stress.',
+          'A warm amber tint that softens bright whites.',
       category: ThemePickerCategory.accessibility,
       sortOrder: 80,
       accessibilityNote: 'Warm tone for light sensitivity.',
@@ -1177,13 +1177,13 @@ class ThemeMetadata {
       icon: LucideIcons.moon,
       subtitle: 'Cognitive load',
       description:
-          'A quieter low-contrast surface for overwhelm and sensory load.',
+          'A quieter, low-contrast surface with less visual noise.',
       category: ThemePickerCategory.accessibility,
       sortOrder: 110,
       isVisibleOnMainPicker: false,
       showInMoreOptionsOnly: true,
       accessibilityNote:
-          'Reduced contrast for overwhelm and sensory sensitivity.',
+          'Reduced contrast with less visual noise.',
     ),
     ThemeId.colourBlindSafe: ThemeMetadata(
       id: ThemeId.colourBlindSafe,

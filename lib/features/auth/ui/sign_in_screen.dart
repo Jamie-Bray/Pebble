@@ -206,7 +206,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         return 'Getting everything ready...';
       case PersonalCloudAccessStatus.error:
       case PersonalCloudAccessStatus.verificationFailed:
-        return 'Finalizing your setup...';
+        return 'Finishing setup...';
       case PersonalCloudAccessStatus.offFree:
       case PersonalCloudAccessStatus.offSignedInNoEntitlement:
       case PersonalCloudAccessStatus.pausedSignedOut:
@@ -324,7 +324,7 @@ class _SignInPerks extends StatelessWidget {
         ? const [
             (
               'Keep your recent history',
-              'Back up up to 21 days of completed routines.',
+              'Back up the last 21 days of completed routines.',
             ),
             (
               'Photos included',
@@ -428,7 +428,7 @@ class _BackupOnSignInNote extends StatelessWidget {
           child: Text(
             'Signing in turns on backup for this account. Pebble backs up '
             'routines, history, and proof photos, which can include personal '
-            'details. You can pause backup any time in Your Account.',
+            'details. You can pause backup any time in Your account.',
             style: PebbleFonts.sans(
               fontSize: 12,
               fontWeight: FontWeight.w300,

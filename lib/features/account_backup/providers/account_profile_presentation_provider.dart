@@ -158,14 +158,14 @@ String _planDetail({
     return purchase.unavailableReason ?? 'Premium is not available yet.';
   }
   if (policy.localPremiumAccess == LocalPremiumAccess.historyGrace) {
-    return 'Your longer history is still available during grace.';
+    return 'Your longer history is still available for now.';
   }
   if (policy.localPremiumAccess == LocalPremiumAccess.expired) {
     return 'Pebble is using Free limits again.';
   }
   if (policy.hasActiveLocalPremium) {
     if (policy.serverFeatureStatus == ServerFeatureStatus.verificationFailed) {
-      return accountError ?? 'Backup verification needs another check.';
+      return accountError ?? 'Backup needs another check.';
     }
     return 'Unlimited routines, unlimited steps, and longer history are active.';
   }

@@ -120,7 +120,7 @@ void main() {
         revenueCatMessageForPurchasesError(
           rc.PurchasesErrorCode.configurationError,
         ),
-        contains('not configured'),
+        contains('not available right now'),
       );
     });
   });

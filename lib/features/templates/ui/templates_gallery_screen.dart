@@ -32,7 +32,7 @@ class TemplatesGalleryScreen extends ConsumerWidget {
           error: (Object error, StackTrace stackTrace) =>
               const _TemplatesStatusView(
                 title: 'Templates are unavailable',
-                message: 'Please try again in a moment.',
+                message: 'Try again in a moment.',
                 icon: LucideIcons.circleAlert,
               ),
           data: (List<Template> templates) {
@@ -108,7 +108,7 @@ class _TemplatesHeader extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Add a ready-made checklist, then personalise the steps any way you want.',
+            'Add a ready-made routine, then personalise the steps any way you want.',
             style: theme.textTheme.titleMedium?.copyWith(
               color: tokens.templatesTextSecondary,
               height: 1.36,

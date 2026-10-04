@@ -8,7 +8,7 @@ class ZenErrorView extends StatelessWidget {
 
   const ZenErrorView({
     super.key,
-    this.title = 'A momentary pause',
+    this.title = 'Something went wrong',
     this.message,
     this.onRetry,
   });
@@ -53,7 +53,7 @@ class ZenErrorView extends StatelessWidget {
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh),
                 label: const Text(
-                  'Restore Connection',
+                  'Try again',
                   style: PebbleTypography.label,
                 ),
                 style: TextButton.styleFrom(

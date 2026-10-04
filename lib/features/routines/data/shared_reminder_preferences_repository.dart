@@ -390,7 +390,7 @@ class SharedReminderPreferencesRepository {
     final client = _client;
     if (client == null) {
       throw SharedReminderRepositoryException(
-        "Completion emails aren't available in this build.",
+        "Completion emails aren't available in this version.",
       );
     }
     await _ensureSession(client);

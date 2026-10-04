@@ -87,7 +87,7 @@ class _RoutineCreationChoiceSheet extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Start from a ready-made checklist or build your own from scratch.',
+                'Start from a ready-made routine or build your own from scratch.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: foundation.textSecondary,
                   height: 1.4,
@@ -97,7 +97,7 @@ class _RoutineCreationChoiceSheet extends StatelessWidget {
               _CreationChoiceTile(
                 icon: LucideIcons.layoutTemplate,
                 title: 'Start from a template',
-                subtitle: 'Pick a ready-made checklist and edit it later.',
+                subtitle: 'Pick a ready-made routine and edit it later.',
                 accent: cs.primary,
                 onTap: () =>
                     Navigator.of(context).pop(RoutineCreationChoice.template),

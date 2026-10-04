@@ -409,7 +409,7 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
     } catch (_) {
       if (version == _mutationVersion && !state.isForegroundBusy) {
         state = state.copyWith(
-          errorMessage: 'Could not save progress. Please try again.',
+          errorMessage: 'Could not save progress. Try again.',
         );
       }
     }
@@ -528,7 +528,7 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
         screenPhase: RoutinePlayerScreenPhase.ready,
         session: updatedSession,
         activeOperation: RoutinePlayerOperation.none,
-        errorMessage: 'Could not finish routine. Please try again.',
+        errorMessage: 'Could not finish routine. Try again.',
       );
       return null;
     }
@@ -609,7 +609,7 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
         screenPhase: RoutinePlayerScreenPhase.ready,
         session: updatedSession,
         activeOperation: RoutinePlayerOperation.none,
-        errorMessage: 'Could not finish routine. Please try again.',
+        errorMessage: 'Could not finish routine. Try again.',
       );
       return null;
     }
@@ -654,7 +654,7 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
       return RoutinePlayerProofAttachResult.attached;
     } catch (_) {
       state = state.copyWith(
-        errorMessage: 'Could not save photo. Please try again.',
+        errorMessage: 'Could not save photo. Try again.',
       );
       return RoutinePlayerProofAttachResult.notAttached;
     }
@@ -700,7 +700,7 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
       await _persistSession(session.copyWith(stepStates: updatedStates));
     } catch (_) {
       state = state.copyWith(
-        errorMessage: 'Could not remove photo. Please try again.',
+        errorMessage: 'Could not remove photo. Try again.',
       );
     }
   }
@@ -798,7 +798,7 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
     } catch (_) {
       state = state.copyWith(
         screenPhase: RoutinePlayerScreenPhase.ready,
-        errorMessage: 'Could not save progress. Please try again.',
+        errorMessage: 'Could not save progress. Try again.',
       );
       rethrow;
     }

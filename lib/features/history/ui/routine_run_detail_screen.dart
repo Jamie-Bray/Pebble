@@ -217,7 +217,7 @@ class RoutineRunDetailScreen extends ConsumerWidget {
             Icon(LucideIcons.camera, size: 16, color: accentColor),
             SizedBox(width: 8),
             Text(
-              'View Photos',
+              'View photos',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
@@ -283,7 +283,7 @@ class RoutineRunDetailScreen extends ConsumerWidget {
               child: Row(
                 children: [
                   Text(
-                    'Run Photos',
+                    'Run photos',
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w800,

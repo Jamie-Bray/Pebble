@@ -210,5 +210,5 @@ bool _looksLikeEmail(String value) {
 
 String _authError(WidgetRef ref) {
   return ref.read(authControllerProvider).errorMessage ??
-      'We could not complete sign-in. Please try again.';
+      'We could not complete sign-in. Try again.';
 }

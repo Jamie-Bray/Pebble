@@ -25,7 +25,7 @@ void main() {
 
     expect(find.byType(PageView), findsNothing);
     expect(find.text('Personal Premium'), findsOneWidget);
-    expect(find.text('Never wonder\ntwice.'), findsOneWidget);
+    expect(find.text('Keep more,\nfor longer.'), findsOneWidget);
 
     await _scrollUntilVisible(tester, find.text('WHAT PREMIUM GIVES YOU'));
     expect(find.text('WHAT PREMIUM GIVES YOU'), findsOneWidget);

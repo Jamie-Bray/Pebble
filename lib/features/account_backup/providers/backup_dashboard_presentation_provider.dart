@@ -203,11 +203,11 @@ final backupDashboardPresentationProvider = Provider<BackupDashboardPresentation
     showOwnershipMismatch:
         status == PersonalCloudAccessStatus.accountSwitchBlocked,
     ownershipTitle: status == PersonalCloudAccessStatus.accountSwitchBlocked
-        ? 'Which account should this phone use?'
+        ? 'Which account should this device use?'
         : null,
     ownershipDetail: status == PersonalCloudAccessStatus.accountSwitchBlocked
         ? account.lastSyncError ??
-              'Pebble found routines on this phone that are not part of the signed-in account.'
+              'Pebble found routines on this device that are not part of the signed-in account.'
         : null,
   );
 });
@@ -281,7 +281,7 @@ List<BackupSetupStep> _setupStepsFor({
       'Turn on backup when you are ready.',
     PersonalCloudAccessStatus.verificationFailed => 'Pebble needs another try.',
     PersonalCloudAccessStatus.accountSwitchBlocked =>
-      'Choose which account this phone should use.',
+      'Choose which account this device should use.',
     PersonalCloudAccessStatus.offlinePending =>
       'Waiting for internet to come back.',
     PersonalCloudAccessStatus.error => 'The last backup did not finish.',
@@ -355,7 +355,7 @@ _BackupDashboardBase _baseForStatus({
       return _BackupDashboardBase(
         statusLabel: 'Backup is off',
         detail:
-            'Your routines are saved on this phone only. Backup comes with '
+            'Your routines are saved on this device only. Backup comes with '
             'Premium and keeps 21 days of history.',
         icon: LucideIcons.cloud,
         tone: BackupDashboardTone.neutral,
@@ -385,7 +385,7 @@ _BackupDashboardBase _baseForStatus({
       return const _BackupDashboardBase(
         statusLabel: 'Ready to turn on',
         detail:
-            'One tap and Pebble starts keeping a safe copy of your routines.',
+            'One tap and Pebble starts backing up your routines.',
         icon: LucideIcons.fileCheck,
         tone: BackupDashboardTone.attention,
         needsAttention: true,
@@ -438,7 +438,7 @@ _BackupDashboardBase _baseForStatus({
       return const _BackupDashboardBase(
         statusLabel: 'Backup is off',
         detail:
-            'Backup stopped when Premium ended. Everything is still saved on this phone.',
+            'Backup stopped when Premium ended. Everything is still saved on this device.',
         icon: LucideIcons.cloud,
         tone: BackupDashboardTone.neutral,
         needsAttention: false,
@@ -451,7 +451,7 @@ _BackupDashboardBase _baseForStatus({
       return const _BackupDashboardBase(
         statusLabel: 'Choose an account',
         detail:
-            'This phone has routines from a different account. Choose what to do and backup can carry on.',
+            'This device has routines from a different account. Choose what to do and backup can carry on.',
         icon: LucideIcons.shieldAlert,
         tone: BackupDashboardTone.attention,
         needsAttention: true,
@@ -464,7 +464,7 @@ _BackupDashboardBase _baseForStatus({
       return const _BackupDashboardBase(
         statusLabel: 'Waiting for internet',
         detail:
-            'Changes are saved on this phone and will back up when you\'re online.',
+            'Changes are saved on this device and will back up when you\'re online.',
         icon: LucideIcons.wifiOff,
         tone: BackupDashboardTone.paused,
         needsAttention: true,
@@ -478,7 +478,7 @@ _BackupDashboardBase _baseForStatus({
         statusLabel: 'Backup needs attention',
         detail:
             lastSyncError ??
-            'The last backup didn\'t finish. Your changes are still saved on this phone.',
+            'The last backup didn\'t finish. Your changes are still saved on this device.',
         icon: LucideIcons.cloudAlert,
         tone: BackupDashboardTone.attention,
         needsAttention: true,

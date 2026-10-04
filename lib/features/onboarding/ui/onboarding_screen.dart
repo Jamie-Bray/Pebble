@@ -832,7 +832,7 @@ class _PebblePossibilitiesScreenState extends State<_PebblePossibilitiesScreen>
                                   ),
                                   const SizedBox(height: 16),
                                   Text(
-                                    'Step out the door with total confidence.',
+                                    'Step out the door knowing what you checked.',
                                     style: PebbleFonts.serif(
                                       color: foundation.textPrimary,
                                       fontSize: 33,
@@ -967,7 +967,7 @@ const _explainerMoments = [
     icon: LucideIcons.power,
     title: '"Did I unplug the straighteners?"',
     description:
-        'The doubt hits halfway down the street. Open Pebble: you ticked '
+        'The doubt hits halfway down the street. Open Pebble: you checked '
         'it off two minutes ago, with a photo. No going back to check.',
   ),
   _ExplainerMoment(
@@ -982,7 +982,7 @@ const _explainerMoments = [
     title: '"Where\'s my work pass?"',
     description:
         "You're at the barrier with your bag half-open. No digging: you "
-        'ticked it off on the way out the door.',
+        'checked it off on the way out the door.',
   ),
   _ExplainerMoment(
     icon: LucideIcons.timer,
@@ -1093,7 +1093,7 @@ class _ExplainerRoutineCard extends StatelessWidget {
                     status: _StepStatus.done,
                     label: 'Windows shut',
                     drawProgress: thirdTick,
-                    photoChipLabel: 'photo to be sure',
+                    photoChipLabel: 'photo taken',
                   ),
                   _ExplainerStep(
                     status: _StepStatus.now,

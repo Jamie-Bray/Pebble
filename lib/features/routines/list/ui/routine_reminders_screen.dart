@@ -131,7 +131,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
                   ? widget.emailOnly
                         ? 'Completion emails for this routine'
                         : 'Reminders for this routine'
-                  : 'Routine reminders and shared notifications',
+                  : 'Routine reminders and completion emails',
               actions: [
                 if (_allReminders.isNotEmpty && !widget.emailOnly)
                   IconButton(
@@ -156,7 +156,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
                           ),
                           indicatorColor: cs.primary,
                           tabs: const [
-                            Tab(text: 'By Day'),
+                            Tab(text: 'By day'),
                             Tab(text: 'All'),
                           ],
                         ),
@@ -223,7 +223,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
         ] else ...[
           _buildReminderOverviewStrip(cs, reminders),
           const SizedBox(height: 24),
-          _buildSectionTitle(cs, 'Scheduled Nudges', LucideIcons.calendarClock),
+          _buildSectionTitle(cs, 'Scheduled reminders', LucideIcons.calendarClock),
           const SizedBox(height: 12),
           ...reminders.map(
             (reminder) => _buildRoutineReminderCard(reminder, cs),
@@ -253,7 +253,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
         ),
         const SizedBox(height: 20),
         Text(
-          hasReminders ? 'Reminder rhythm.' : 'Stay on track.',
+          hasReminders ? 'Your reminders.' : 'Set a reminder.',
           style: TextStyle(
             fontSize: 28,
             height: 1.15,
@@ -264,8 +264,8 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
         const SizedBox(height: 12),
         Text(
           hasReminders
-              ? 'Your local prompts for "${widget.routine?.title ?? 'this routine'}" are ready to keep the habit visible.'
-              : 'Set up local, secure nudges to ensure your essential routines never slip your mind.',
+              ? 'Reminders for "${widget.routine?.title ?? 'this routine'}" are set on this device.'
+              : 'Pebble can remind you when it is time to run a routine. Reminders are set on this device.',
           style: TextStyle(
             fontSize: 15,
             height: 1.5,
@@ -282,16 +282,16 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
         _buildReminderFeatureItem(
           cs,
           icon: LucideIcons.clock,
-          title: 'Pinpoint timing',
-          body: 'Choose the exact hour and minute you want to be prompted.',
+          title: 'Pick the time',
+          body: 'Choose the hour and minute you want to be reminded.',
         ),
         const SizedBox(height: 18),
         _buildReminderFeatureItem(
           cs,
           icon: LucideIcons.calendarDays,
-          title: 'Flexible scheduling',
+          title: 'Pick the days',
           body:
-              'Repeat your reminders daily, on weekdays, or select specific days of the week.',
+              'Repeat every day, on weekdays, or on the days you choose.',
         ),
       ],
     );
@@ -2306,8 +2306,8 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
         ZenNotifications.showWarning(
           context,
           message: requiresPermission
-              ? 'Notification permission is required to enable reminders.'
-              : 'Could not update reminder. Please try again.',
+              ? 'Notifications are off. Turn them on in device settings to get reminders.'
+              : 'Could not update reminder. Try again.',
           actionLabel: requiresPermission ? 'Settings' : null,
           onAction: requiresPermission ? () => openAppSettings() : null,
         );
@@ -2357,8 +2357,8 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
               const SizedBox(height: 10),
               Text(
                 isRoutineSpecific
-                    ? 'This will remove all personal reminders for "${widget.routine!.title}".'
-                    : 'This will remove all personal reminders across all routines.',
+                    ? 'This will remove all reminders for "${widget.routine!.title}".'
+                    : 'This will remove all reminders across all routines.',
                 style: TextStyle(
                   fontSize: 15,
                   height: 1.4,

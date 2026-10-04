@@ -164,7 +164,7 @@ void main() {
       expect(find.text('Templates'), findsOneWidget);
       expect(
         find.text(
-          'Add a ready-made checklist, then personalise the steps any way you want.',
+          'Add a ready-made routine, then personalise the steps any way you want.',
         ),
         findsOneWidget,
       );

@@ -180,7 +180,7 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
         title: 'Sign out?',
         body: backupIsOn
             ? 'Backup pauses until you sign in again. Everything already '
-                  'backed up stays safe, and local routines stay on this '
+                  'backed up is kept, and local routines stay on this '
                   'device.'
             : 'Local routines stay on this device. Sign back in any time'
                   '${email == null ? '' : ' with $email'}.',
@@ -274,10 +274,10 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
       return raw.replaceFirst('StateError: ', '');
     }
     if (raw.startsWith('PlatformException')) {
-      return 'The store could not complete that request. Please try again.';
+      return 'The store could not complete that request. Try again.';
     }
     if (raw.startsWith('FunctionException')) {
-      return 'Pebble could not complete that request. Please try again.';
+      return 'Pebble could not complete that request. Try again.';
     }
     return raw;
   }
@@ -578,7 +578,7 @@ class _AccountSignInCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final title = hasPremium ? 'Sign in to back up' : 'Already have Premium?';
     final body = hasPremium
-        ? 'Premium is active on this phone. Sign in so Pebble can back up '
+        ? 'Premium is active on this device. Sign in so Pebble can back up '
               'your routines and restore them on a new phone.'
         : 'Sign in with the account you used before. Pebble brings back '
               'your Premium and your backup. If Premium does not appear, use '
@@ -1073,15 +1073,15 @@ class _LapsedPremiumSection extends StatelessWidget {
       final date = summary.graceEndDateLabel;
       if (summary.olderHistoryRunCount == 0) {
         return 'Your history is still here. From $date, Free keeps the last '
-            '48 hours on this phone.$backupLine';
+            '48 hours on this device.$backupLine';
       }
       final count = summary.olderHistoryRunCount;
       return '$count completed ${count == 1 ? 'routine' : 'routines'} older '
-          'than 48 hours stay on this phone until $date. After that they are '
-          'removed from this phone, because Free keeps 48 hours. Renew before '
+          'than 48 hours stay on this device until $date. After that they are '
+          'removed from this device, because Free keeps 48 hours. Renew before '
           'then to keep them.$backupLine';
     }
-    return 'Free keeps the last 48 hours of history on this phone.$backupLine';
+    return 'Free keeps the last 48 hours of history on this device.$backupLine';
   }
 
   static String _routinesBody(PremiumLapseSummary summary) {

@@ -41,7 +41,7 @@ class GalProofPhotoExportService implements ProofPhotoExportService {
     if (!await proofFile.exists()) {
       return const ProofPhotoExportResult(
         saved: false,
-        message: 'This proof photo is no longer available.',
+        message: 'This photo is no longer available.',
       );
     }
     try {
@@ -57,7 +57,7 @@ class GalProofPhotoExportService implements ProofPhotoExportService {
       await Gal.putImage(proofFile.path);
       return const ProofPhotoExportResult(
         saved: true,
-        message: 'Saved a photo to your phone.',
+        message: 'Saved a copy to Photos.',
       );
     } on GalException catch (error) {
       final message = switch (error.type) {
@@ -68,7 +68,7 @@ class GalProofPhotoExportService implements ProofPhotoExportService {
         GalExceptionType.notSupportedFormat =>
           'This photo is in a format that cannot be saved to Photos.',
         GalExceptionType.unexpected =>
-          'Something went wrong while saving to Photos. Please try again.',
+          'Could not save to Photos. Try again.',
       };
       return ProofPhotoExportResult(saved: false, message: message);
     }

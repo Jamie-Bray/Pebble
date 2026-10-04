@@ -67,7 +67,7 @@ final personalCloudAccessProvider = Provider<PersonalCloudAccessState>((ref) {
         ? const PersonalCloudAccessState(
             status: PersonalCloudAccessStatus.offSignedInNoEntitlement,
             label: 'Backup is off',
-            detail: 'Your routines are saved on this phone only.',
+            detail: 'Your routines are saved on this device only.',
           )
         : const PersonalCloudAccessState(
             status: PersonalCloudAccessStatus.offFree,
@@ -143,7 +143,7 @@ final personalCloudAccessProvider = Provider<PersonalCloudAccessState>((ref) {
       label: 'Choose an account',
       detail:
           account.lastSyncError ??
-          'Pebble keeps this phone\'s routines here until you choose how to handle this account.',
+          'Pebble keeps this device\'s routines here until you choose how to handle this account.',
     );
   }
 
@@ -153,7 +153,7 @@ final personalCloudAccessProvider = Provider<PersonalCloudAccessState>((ref) {
       return const PersonalCloudAccessState(
         status: PersonalCloudAccessStatus.syncing,
         label: 'Turning on backup',
-        detail: 'Almost there. Your routines stay on this phone too.',
+        detail: 'Almost there. Your routines stay on this device too.',
       );
     case BootstrapStatus.error:
       return PersonalCloudAccessState(

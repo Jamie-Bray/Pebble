@@ -533,7 +533,7 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
                     },
                   ),
                   Text(
-                    'Set Time',
+                    'Set time',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
@@ -843,8 +843,8 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
       setState(() => _isSaving = false);
       if (mounted) {
         final errorText = e.toString().toLowerCase().contains('permission')
-            ? 'Enable notifications in settings to receive reminders'
-            : 'Could not save this reminder. Please try again.';
+            ? 'Notifications are off. Turn them on in device settings to get reminders.'
+            : 'Could not save this reminder. Try again.';
         ZenNotifications.showWarning(
           context,
           title: 'Permission needed',
@@ -944,7 +944,7 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
         setState(() => _isSaving = false);
         ZenNotifications.showError(
           context,
-          message: 'Could not remove reminders. Please try again.',
+          message: 'Could not remove reminders. Try again.',
         );
       }
     }
