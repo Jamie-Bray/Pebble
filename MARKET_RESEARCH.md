@@ -66,6 +66,24 @@ month / £19.99 a year** in the UK and **$2.99 / $19.99** in the US, with a
 £2.99 / £19.99, 2,000 subscribers come to roughly **£34,000 a year** after all
 costs and before tax.
 
+**Owner's decision (4 October 2026): £1.99 a month.** Jamie's reasoning: £1.99
+is a price people do not stop to think about, and more subscribers at a lower
+price is the easier target. It matches the most common monthly price among
+direct rivals. After VAT and the store fee Pebble keeps about **£1.41 a month**
+per monthly subscriber. The yearly price is not yet decided; rivals who charge
+£1.99 a month mostly charge £14.99 a year, which would keep about **£10.60 a
+year**. So 2,000 subscribers come to roughly **£21,000 a year if all pay
+yearly and £34,000 if all pay monthly**, before running costs and tax. The
+prices are set in Play Console and App Store Connect, not in the app; the
+current store prices (£0.89 / £6.49) still need changing there. Raising a price
+later is harder than lowering one, so this is worth one more look before the
+store listing goes live.
+
+**AI photo steps: agreed shape.** Personal Premium only, one routine with up
+to five AI photo steps, one plain opt-in question. See
+`docs/research/AI_PHOTO_STEPS_PROPOSAL.md` on the `research/ai-photo-description`
+branch.
+
 **AI photo labels ("Jev").** Our view: **build it, carefully, after launch.**
 It is cheap to run (about **$0.0018 per photo** with Claude Haiku 4.5) and no
 rival does it. But for people who check, an AI that answers "is it off?" on
