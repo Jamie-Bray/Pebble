@@ -179,6 +179,9 @@ class _TemplateDetailContent extends ConsumerWidget {
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(56),
+                    ),
                     onPressed: () async {
                       final currentRoutineCount =
                           ref.read(routineListProvider).valueOrNull?.length ??

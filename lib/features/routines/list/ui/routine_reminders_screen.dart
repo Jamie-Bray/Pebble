@@ -1599,6 +1599,9 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
                         SizedBox(
                           width: double.infinity,
                           child: FilledButton.icon(
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size.fromHeight(56),
+                            ),
                             onPressed: isSaving
                                 ? null
                                 : () => _submitTrustedContactSheet(
@@ -2101,7 +2104,13 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
         ),
       ),
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        contentPadding: const EdgeInsets.fromLTRB(
+          PebbleSpacing.sm,
+          PebbleSpacing.xs,
+          PebbleSpacing.xs,
+          PebbleSpacing.xs,
+        ),
+        horizontalTitleGap: PebbleSpacing.sm,
         leading: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(

@@ -97,6 +97,9 @@ Future<void> showEmailOtpSheet(BuildContext context, WidgetRef ref) {
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size.fromHeight(56),
+                        ),
                         onPressed: isBusy
                             ? null
                             : () async {
