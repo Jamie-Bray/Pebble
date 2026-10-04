@@ -840,12 +840,13 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
     } catch (e) {
       setState(() => _isSaving = false);
       if (mounted) {
-        final errorText = e.toString().toLowerCase().contains('permission')
+        final isPermission = e.toString().toLowerCase().contains('permission');
+        final errorText = isPermission
             ? 'Turn on notifications for Pebble in Settings to get reminders.'
             : "Couldn't save this reminder. Try again.";
         ZenNotifications.showWarning(
           context,
-          title: 'Permission needed',
+          title: isPermission ? 'Notifications are off' : 'Reminder not saved',
           message: errorText,
           actionLabel: 'Settings',
           onAction: () => openAppSettings(),
