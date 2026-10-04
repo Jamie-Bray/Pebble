@@ -1,6 +1,6 @@
 # Start Here: Pebble Launch Status
 
-**Last updated:** 3 October 2026
+**Last updated:** 5 October 2026
 All of this work is on the branch `claude/sharp-keller-f6iiu2`.
 
 ## Where things stand
@@ -48,6 +48,27 @@ All of this work is on the branch `claude/sharp-keller-f6iiu2`.
   - The photo storage bucket has size and file-type limits.
   - Anonymous sign-in is off.
 - **Live production fix:** the server could not check Premium status, so completion emails and contact invites had failed for every Premium user since migration 012. A single permission grant fixed it (see `supabase/DEPLOY_PLAN.md`).
+
+## Decisions made on 5 October
+
+Jamie's answers, recorded so they are not lost between sessions.
+
+| Topic | Decision |
+|---|---|
+| "This phone" or "this device" | **"This phone"** everywhere users read it, including on tablets. It reads softer. |
+| Paywall headline | Keep the new **"Keep three weeks of checks."** The old "Never wonder twice." read as marketing spin. |
+| Tagline | Back to **"Small steps, big ripples"**. It is the reason the app is called Pebble and is not to be rewritten. |
+| Art direction | Apply all three mock-ups: completion screen with the large serif time, player step in the serif, onboarding with the cairn and "pebble." wordmark. |
+| Price | **£1.99 a month, £14.99 a year.** Store prices are still £0.89 / £6.49 and are changed in Play Console and App Store Connect (Jamie). |
+| Large text | Keep the 1.6x cap for launch. Idea for after launch: an in-app text size control with three sizes (normal, 1.6x, 2.0x), like the "A" sizes on a Kindle, accepting that long names get cut off at the largest size. |
+| Account-switch wording | Approved as written. It is a rare case but must be covered. |
+| AI photo steps | **Build before launch.** Personal Premium only, one routine, up to five AI photo steps. Switching it on shows a tick box confirming the user is happy for those photos to be processed by the named provider. The description is included in completion emails by default, with the choice offered when AI is switched on. Provider to be chosen from real-world evidence, then a test on Jamie's own photos. |
+| Supabase plan | Stay on the free plan for launch. Upgrade a week to a month after launch (the free plan can pause the project and has no backups). |
+| Test devices | Jamie has an Android phone and a tablet for the two-device backup test. |
+| Closed test | The £20 tester service, once the app is ready. |
+
+Not yet decided: whether to keep the old local branch `laptop-build-33` (it holds a
+75 MB build-33 file that is not on GitHub).
 
 ## Your to-do list, in order
 
