@@ -758,9 +758,14 @@ class _FakePhotoPicker implements RoutinePlayerPhotoPicker {
     int? imageQuality,
     double? maxWidth,
   }) async {
-    final sample = File('$_supportDir/sample_photo_${_count % 2 + 1}.jpg');
-    if (!sample.existsSync()) return null;
-    final copy = sample.copySync('$_supportDir/picked_${_count++}.jpg');
+    // The sample photos are not in git. Without them, fall back to a tracked
+    // image so a fresh checkout still completes the photo scenarios.
+    var sample = File('$_supportDir/sample_photo_${_count % 2 + 1}.jpg');
+    if (!sample.existsSync()) {
+      sample = File('assets/icon/feature-graphic-1024x500.png');
+    }
+    final ext = sample.path.split('.').last;
+    final copy = sample.copySync('$_supportDir/picked_${_count++}.$ext');
     return XFile(copy.path);
   }
 
@@ -1072,7 +1077,8 @@ Future<void> _runLeavingHouseToHome(_Env env) async {
     await _tapPrimary(env);
     await env.realWait(2);
   }
-  await env.tapText('Add');
+  // First photo: the primary button is "Take photo" until one is captured.
+  await _tapPrimary(env);
   await env.realWait(12);
   await _tapPrimary(env);
   await env.realWait(2);
@@ -1366,10 +1372,11 @@ void main() {
         await env.realWait(2);
         await _tapPrimary(env);
         await env.realWait(2);
-        for (var i = 0; i < 2; i++) {
-          await env.tapText('Add');
-          await env.realWait(12);
-        }
+        // "Take photo" for the first; "Add photo" only appears after it.
+        await _tapPrimary(env);
+        await env.realWait(12);
+        await env.tapText('Add photo');
+        await env.realWait(12);
         await _tapPrimary(env);
         await env.realWait(3);
         await env.tapText('Skip step');
