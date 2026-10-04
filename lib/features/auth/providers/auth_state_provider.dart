@@ -99,6 +99,10 @@ class AuthController extends StateNotifier<AuthState> {
   final Ref _ref;
   final AuthRepository _repository;
 
+  static const _backupSetupNotReady =
+      'Backup setup is not ready yet. Your routines are still available on '
+      'this device.';
+
   bool get isConfigured => _repository.isConfigured;
 
   Future<void> beginPremiumUpgrade() async {
@@ -290,9 +294,7 @@ class AuthController extends StateNotifier<AuthState> {
       debugPrint('Backup setup after sign-in failed: $error');
       await _ref
           .read(subscriptionAccountControllerProvider.notifier)
-          .noteSyncFailure(
-            'Backup setup is not ready yet. Your routines are still available on this device.',
-          );
+          .noteSyncFailure(_backupSetupNotReady);
     }
     state = state.copyWith(status: AuthStatus.signedIn, clearError: true);
     return true;
@@ -376,7 +378,13 @@ class AuthController extends StateNotifier<AuthState> {
       return;
     }
 
-    await _repository.upsertProfile(identity: identity);
+    try {
+      await _repository.upsertProfile(identity: identity);
+    } catch (error) {
+      // Offline at launch: the stored session is still valid, so the profile
+      // touch must not leave the app looking signed out.
+      debugPrint('Profile refresh after session restore failed: $error');
+    }
     await _ref
         .read(subscriptionAccountControllerProvider.notifier)
         .cacheAuthenticatedIdentity(
@@ -415,9 +423,7 @@ class AuthController extends StateNotifier<AuthState> {
         debugPrint('Backup setup after session restore failed: $error');
         await _ref
             .read(subscriptionAccountControllerProvider.notifier)
-            .noteSyncFailure(
-              'Backup setup is not ready yet. Your routines are still available on this device.',
-            );
+            .noteSyncFailure(_backupSetupNotReady);
         // The stored auth session is valid. A cloud problem must not turn it
         // into a misleading "Could not sign in" state on app launch.
         state = state.copyWith(status: AuthStatus.signedIn, clearError: true);
@@ -497,7 +503,18 @@ class AuthController extends StateNotifier<AuthState> {
     await _ref
         .read(subscriptionAccountControllerProvider.notifier)
         .updateBootstrapStatus(BootstrapStatus.preparing, clearError: true);
-    await _ref.read(cloudRestoreCoordinatorProvider).bootstrapAndMerge(userId);
+    try {
+      await _ref
+          .read(cloudRestoreCoordinatorProvider)
+          .bootstrapAndMerge(userId);
+    } catch (_) {
+      // Every caller either swallows or reports this, so leave a retryable
+      // error here rather than a "preparing" state that never ends.
+      await _ref
+          .read(subscriptionAccountControllerProvider.notifier)
+          .noteSyncFailure(_backupSetupNotReady);
+      rethrow;
+    }
     await _ref
         .read(subscriptionAccountControllerProvider.notifier)
         .updateBootstrapStatus(BootstrapStatus.ready, clearError: true);

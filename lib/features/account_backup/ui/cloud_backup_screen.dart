@@ -143,7 +143,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
         eyebrow: 'Backup',
         title: 'Use this account for this device?',
         body:
-            'This device has Pebble data from another sign-in. Use ${email ?? 'this account'} from now on so backup can continue.',
+            'This device has routines, history and photos from another sign-in. If you continue, they are copied into the backup for ${email ?? 'this account'} and stay on this device.',
         accentColor: Theme.of(sheetContext).colorScheme.primary,
         details: [
           _BackupSheetPillRow(
@@ -159,7 +159,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
         secondaryLabel: 'Keep backup off',
         onSecondaryPressed: () => Navigator.of(sheetContext).pop(false),
         footer:
-            'Pebble will only upload this device\'s routines after you choose.',
+            'Nothing is uploaded until you choose. The other sign-in\'s backup is not changed.',
       ),
     );
   }
