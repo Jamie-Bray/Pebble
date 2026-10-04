@@ -112,3 +112,14 @@ Migration rollback SQL is in `MIGRATION_REPAIR_PLAN.md`.
 ```bash
 cd supabase/functions && deno test --allow-env --allow-net=127.0.0.1
 ```
+
+## Proposed (backend live audit, 4 Oct 2026; not yet agreed or done)
+
+Added by the read-only audit in `docs/review/BACKEND_LIVE_AUDIT.md`. Nothing here has been run. The sections above are unchanged.
+
+- **Proposed correction to the record.** Section 1 of migration 020 (the `revoke` statements on the four `shared_alert_*` tables) is already in effect on production. The Postgres log shows it run on 3 Oct 2026 at 10:08 UTC, and the grants confirm it. Sections 2 to 6 are not applied. Line 3 above ("Nothing on this branch has been deployed") and Order step 3.2 should be updated by whoever made that change. Running the whole of 020 is still correct: every statement is safe to repeat.
+- **Proposed step 0, before Order step 3:** the confirm page is not published. `https://pebbleroutines.com/shared-alert/confirm/` returned 404 on 4 Oct. Do not deploy the three link functions until it returns 200.
+- **Proposed order within Order step 4:** deploy `cleanup-proof-retention` first, on its own, once the secret is confirmed. It is the only function whose live version destroys data (voice prompts after 21 days).
+- **Proposed addition to Order step 5:** record both 016 and 020 as applied (`supabase migration repair --status applied 016 020 --linked`) after 020 has been run in full.
+- **Proposed smoke check for Order step 6:** `select jobname, schedule, active from cron.job;` should list three jobs: `cleanup-proof-retention-daily`, `reconcile-profile-tiers-daily`, `prune-shared-alert-data-daily`. Today only the first exists.
+- **Proposed test before launch:** one real billing-retry (grace period) case, to confirm the webhook keeps Premium on while the store is retrying payment. See risk 6 in the audit.
