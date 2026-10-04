@@ -800,7 +800,7 @@ class _SlimSearchField extends StatelessWidget {
             color: foundation.textMuted,
           ),
           hintText: 'Search routines...',
-          hintStyle: TextStyle(color: foundation.textMuted),
+          hintStyle: TextStyle(color: context.readableSecondaryText),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: 12),
         ),

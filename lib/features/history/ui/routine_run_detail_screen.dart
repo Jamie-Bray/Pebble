@@ -421,7 +421,7 @@ class RoutineRunDetailScreen extends ConsumerWidget {
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w800,
-          color: foundation.textMuted,
+          color: context.readableSecondaryText,
         ),
       );
     }
