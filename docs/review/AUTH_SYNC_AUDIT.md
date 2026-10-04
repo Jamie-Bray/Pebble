@@ -24,7 +24,7 @@ audit was run on a real device or written to a live backend.
 | 4 | Failed restore leaves backup stuck on "preparing" | Demonstrated by test | Fixed |
 | 5 | Next account inherits "last backed up" time after a sign-out | Demonstrated by test | Fixed |
 | 6 | Routines double up when an account takes a device back | Demonstrated by test | Not fixed, needs a database change |
-| 7 | Two devices can overwrite each other's routines in the backup | Id clash demonstrated by test; effects are hypothesis | Not fixed, needs an owner decision |
+| 7 | Two devices can overwrite each other's routines in the backup | Demonstrated by test before the fix; effects were hypothesis | Fixed |
 | 8 | Smaller points | Hypothesis from source | Not fixed |
 
 ## 1. The run and session id hypothesis: holds, fixed
@@ -149,31 +149,60 @@ from, which means new columns in the on-device database. Recommended: add
 origin columns to routines and reminders, as this branch does for runs inside
 their existing metadata, and match on them in restore.
 
-## 7. Two devices can overwrite each other's routines: not fixed
+## 7. Two devices could overwrite each other's routines: fixed
 
-**Demonstrated by test** for the id clash (`two devices give different
-routines the same cloud id`). The effects below are **Hypothesis from
-source**.
+**What was wrong.** A new routine's cloud id was built from the account and
+the routine's number on the device. Numbers start at 1 on every device, so two
+devices on one account could give different routines the same cloud id, and
+the later upload replaced the earlier one in the backup. Reminders used the
+same scheme. Before the fix a test showed the second device's routine
+replacing the first in the stand-in backup. The follow-on effect (a later
+restore replacing the routine on the first device) was read from source, not
+run.
 
-A new routine's cloud id is built from the account and the routine's number
-on the device (`_stableRemoteId`, `cloud_sync_coordinator.dart`). Numbers
-start at 1 on every device. So two devices on one account can give different
-routines the same cloud id, and the later upload replaces the earlier one in
-the backup. A later restore on the first device could then replace its
-routine with the other one. Reminders use the same scheme. The likely trigger
-is a second phone or tablet where a routine is made before signing in
-(onboarding makes one), or two devices both adding routines.
+**Fix** (Demonstrated by test, group `routine cloud ids`):
+`cloud_sync_coordinator.dart` (`_routineCloudId`, `_reminderCloudId`). A
+routine or reminder with no cloud id gets a random one. It is saved on the
+device before anything is uploaded (`assignCloudIdIfMissing` in
+`routine_dao.dart` and `routine_reminder_dao.dart`), so a retry after a failed
+or interrupted upload uses the same id. Anything that already has a cloud id
+keeps it, so existing backups are untouched.
 
-Not fixed because existing tests pin the current scheme
-(`account_backup_state_test.dart:2267` and `:2903`), so it is a design choice
-that needs an owner decision, and it should be tried on two real devices.
-Options:
+Tests:
 
-1. Give each new routine and reminder a random id, saved on the device before
-   the first upload. Recommended. Small, and existing backed-up routines keep
-   their ids.
-2. Add a per-install id into the existing formula. Also small, but needs a
-   new stored value.
+- `two devices keep their own routines in the backup`.
+- `a failed upload and its retry use the same id`.
+- `a routine that already has a cloud id keeps it`.
+- `a run points at the id its routine is backed up under`.
+- Two older tests in `account_backup_state_test.dart` that pinned the old
+  scheme were updated.
+
+Every place that worked out a routine's cloud id now goes through the one
+function: the routine upload, the reminder upload (for both the reminder and
+its routine), the run upload, and the voice prompt usage record. Photo and
+voice prompt storage keys never used the routine id.
+
+One behaviour changed on purpose. A run whose routine has been deleted from
+the device used to be uploaded with a routine id invented from the old row
+number. It now goes up with no routine link and keeps its title.
+
+**Not covered.**
+
+- A routine uploaded under the old scheme by a build that was stopped before
+  it could record the id would be uploaded again under a new id, leaving two
+  copies in the backup. Hypothesis from source; needs an interrupted upload
+  on an old build.
+- If two devices had already clashed before this fix, the lost routine is not
+  brought back.
+- Reminders have the same fix but only the routine side has its own
+  two-device test.
+- Not tried on two real devices. **Blocked.**
+
+**Effect on finding 6.** It does not fix the doubling on the device. It
+changes the backup side: when account A takes a device back, each copy on the
+device now has its own copy in A's backup, where before both copies on the
+device pointed at one backup row. The pinned test was updated to show this.
+Still needs the database change described in finding 6.
 
 ## 8. Smaller points (Hypothesis from source, not fixed)
 
@@ -204,9 +233,28 @@ Options:
   setup is not ready yet". Riverpod only checks this in debug builds, so
   release builds should be unaffected. Worth knowing when testing a debug
   build. **Blocked:** needs a release build on a device to confirm.
-- **Takeover drops one session detail.** The takeover and link steps replace
-  a session's sync metadata, dropping the id of the run it completed. Low
-  risk.
+- **Linking never-owned data drops one session detail.** `linkUnownedLocalData`
+  replaces a session's sync metadata, dropping the id of the run it
+  completed. Low risk, and not changed here.
+
+## Follow-up checks on the run id change
+
+- **A session's link to its run** (Demonstrated by test, `the session keeps
+  pointing at the run it completed`). The takeover used to wipe the session's
+  record of which run it completed, before and after this branch. If that
+  session were completed a second time the app would have written a second
+  run. The takeover now keeps the link and points it at the run's new id.
+  The second completion itself was not run in a test.
+- **A queued upload under the old run id** (Demonstrated by test, `a queued
+  upload under the old id is dropped`). The stale item finds no run and is
+  cleared without error. The run is still marked as waiting and uploads on the
+  next backup pass, not the same one. A queued delete under the old id asks
+  the server to delete a row the account does not own; the server ignores it.
+  That part is Hypothesis from source.
+- **History** (Demonstrated by test, `it still shows in history with its
+  routine and title`). After a takeover the run is still returned by the
+  queries the History screen reads, with the same routine, title and time.
+  This checks the data, not the screen itself.
 
 ## Checked and found sound
 
