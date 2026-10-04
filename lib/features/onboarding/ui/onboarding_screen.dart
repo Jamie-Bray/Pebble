@@ -8,6 +8,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:pebble_routines/core/ui/pebble_buttons.dart';
+import 'package:pebble_routines/core/ui/pebble_cairn.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
@@ -417,21 +418,20 @@ class _WelcomePage extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SizedBox(height: 8),
                         _WelcomeWordmark(
                           color: Theme.of(context).colorScheme.primary,
                         ),
-                        const SizedBox(height: 28),
+                        const SizedBox(height: 16),
                         _WelcomeStatement(
                           primaryColor: foundation.textPrimary,
                           mutedColor: foundation.textSecondary,
                           accentColor: Theme.of(context).colorScheme.primary,
                         ),
-                        const SizedBox(height: 22),
+                        const SizedBox(height: 18),
                         _WelcomeRule(
                           color: Theme.of(context).colorScheme.primary,
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 16),
                         Text(
                           'For the checks you\nalready do.',
                           style: PebbleFonts.serif(
@@ -473,7 +473,6 @@ class _WelcomePage extends StatelessWidget {
                             height: 1.72,
                           ),
                         ),
-                        const SizedBox(height: 8),
                       ],
                     ),
                   ),
@@ -513,14 +512,20 @@ class _WelcomeWordmark extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 10),
+        // The brand mark, not a record of steps: hide the cairn's own label.
+        const ExcludeSemantics(
+          child: PebbleCairn(total: 3, size: 44, showCount: false),
+        ),
+        const SizedBox(width: PebbleSpacing.xs),
         Text(
-          'Pebble',
-          style: PebbleFonts.sans(
+          'pebble.',
+          semanticsLabel: 'Pebble',
+          style: PebbleFonts.serif(
             color: color,
-            fontSize: 11,
-            fontWeight: FontWeight.w400,
-            letterSpacing: 2.4,
+            fontSize: 26,
+            fontStyle: FontStyle.italic,
             height: 1,
+            letterSpacing: -0.3,
           ),
         ),
         const SizedBox(width: 10),
