@@ -41,8 +41,8 @@ enum CompletionStorage {
       };
 
   String get label => switch (this) {
-    CompletionStorage.device => 'Saved on this device',
-    CompletionStorage.deviceBackupOn => 'Saved on this device · Backup is on',
+    CompletionStorage.device => 'Saved on this phone',
+    CompletionStorage.deviceBackupOn => 'Saved on this phone · Backup is on',
     CompletionStorage.backedUp => 'Backed up',
   };
 }

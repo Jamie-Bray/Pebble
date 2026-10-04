@@ -122,7 +122,7 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
       _billingAvailable = false;
       _loadingProducts = false;
       _unavailableReason =
-          "Purchases aren't available on this device yet.";
+          "Purchases aren't available on this phone yet.";
       notifyListeners();
       return;
     }
@@ -373,7 +373,7 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     final config = _ref.read(revenueCatRuntimeConfigProvider);
     final apiKey = config.apiKeyForCurrentPlatform;
     if (apiKey == null) {
-      throw StateError("Purchases aren't available on this device yet.");
+      throw StateError("Purchases aren't available on this phone yet.");
     }
     final purchasesConfig = rc.PurchasesConfiguration(apiKey);
     if (normalizedUserId != null) {

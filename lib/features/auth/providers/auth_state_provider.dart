@@ -101,7 +101,7 @@ class AuthController extends StateNotifier<AuthState> {
 
   static const _backupSetupNotReady =
       'Backup setup is not ready yet. Your routines are still available on '
-      'this device.';
+      'this phone.';
 
   bool get isConfigured => _repository.isConfigured;
 

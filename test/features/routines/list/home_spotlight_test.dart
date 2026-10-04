@@ -200,7 +200,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('One step at a time'), findsOneWidget);
+    expect(find.text('Small steps, big ripples'), findsOneWidget);
     expect(find.text('Leaving Home is ready'), findsNothing);
     expect(find.text('Leaving Home.'), findsOneWidget);
     expect(find.text('Start'), findsOneWidget);
@@ -276,7 +276,7 @@ void main() {
     );
 
     final headerBottom = tester
-        .getBottomLeft(find.text('One step at a time'))
+        .getBottomLeft(find.text('Small steps, big ripples'))
         .dy;
     final overlineTop = tester
         .getTopLeft(find.byKey(const ValueKey('home_hero_overline')))

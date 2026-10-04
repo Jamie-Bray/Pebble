@@ -548,7 +548,7 @@ void main() {
       );
 
       expect(presentation.planLabel, 'Premium active');
-      expect(presentation.title, 'Premium is on this device');
+      expect(presentation.title, 'Premium is on this phone');
       expect(_chipValues(presentation), ['21 days', 'Unlimited', 'Unlimited']);
       expect(presentation.primaryAction, AccountStatusAction.signIn);
     });
@@ -1564,7 +1564,7 @@ void main() {
         await tester.tap(find.text('Delete account'));
         await tester.pumpAndSettle();
         expect(
-          find.text('Local routines on this device stay here.'),
+          find.text('Local routines on this phone stay here.'),
           findsOneWidget,
         );
         expect(find.textContaining('this does not cancel it'), findsOneWidget);
@@ -1899,7 +1899,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // Confirm in the ownership sheet.
-        expect(find.text('Use this account for this device?'), findsOneWidget);
+        expect(find.text('Use this account for this phone?'), findsOneWidget);
         await tester.tap(
           find.widgetWithText(FilledButton, 'Use this account').last,
         );

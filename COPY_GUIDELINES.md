@@ -1,6 +1,6 @@
 # Pebble Copy Guidelines
 
-Last updated: 4 October 2026
+Last updated: 5 October 2026
 
 This is the working reference for user-facing Pebble copy. Use it when reviewing
 app screens, templates, website text, store copy, emails, and shared-link pages.
@@ -57,6 +57,14 @@ salesy, never soothing.
 - Committee voice: "Your data is securely stored". Say who does what: "Pebble
   keeps your routines on this phone."
 
+### Owner decisions
+
+- **Say "this phone", not "this device",** even on tablets (owner, 5 October
+  2026). "Saved on this phone." The legal pages keep their own wording.
+- **The Home tagline is "Small steps, big ripples".** It is the reason the app
+  is called Pebble and is not to be rewritten (owner, 5 October 2026). It is
+  the one allowed use of "ripple".
+
 ### Before and after (from the app)
 
 | Before | After |
@@ -65,7 +73,7 @@ salesy, never soothing.
 | Step out the door with total confidence. | Every check is saved with the time. |
 | The doubt hits halfway down the street. Open Pebble: you ticked it off two minutes ago, with a photo. No going back to check. | You're halfway down the street when you start to wonder. Open Pebble and you can see you checked them at 08:02, with a photo. |
 | Stay on track. Set up local, secure nudges to ensure your essential routines never slip your mind. | No reminders yet. Pebble can send a notification at the time you usually do "Leaving the house". |
-| Small steps, big ripples / YOUR NEXT RIPPLE | One step at a time / UP NEXT |
+| YOUR NEXT RIPPLE | UP NEXT |
 | Never wonder twice. | Keep three weeks of checks. |
 | Three weeks of answers, safe if you reinstall or change phone. | Three weeks of history, backed up in case you reinstall or change phone. |
 | One tap and Pebble starts keeping a safe copy of your routines. | Turn it on and Pebble starts backing up your routines. |
@@ -106,7 +114,7 @@ Good examples:
 - "Routine ready."
 - "Photo saved."
 - "Backup is off."
-- "Saved on this device."
+- "Saved on this phone."
 
 Avoid:
 
@@ -236,8 +244,8 @@ Be realistic and transparent about how data is stored.
 
 Use:
 
-- "Saved on this device."
-- "Stored on this device."
+- "Saved on this phone."
+- "Stored on this phone."
 - "Recent history."
 - "Retained for 48 hours."
 - "Retained for 21 days."
@@ -294,7 +302,7 @@ fluff.
 | Saved | "Saved." |
 | Failed save | "Couldn't save changes. Try again." |
 | Network issue | "No connection. Check your network and try again." |
-| Backup paused | "Backup is paused. Your routines are still saved on this device." |
+| Backup paused | "Backup is paused. Your routines are still saved on this phone." |
 | Permission needed | "Camera access is off. Turn it on in device settings to take a photo." |
 | Unknown fallback | "Something went wrong. Try again." |
 

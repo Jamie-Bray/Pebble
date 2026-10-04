@@ -1244,7 +1244,7 @@ class _HistorySyncPill extends StatelessWidget {
       _HistorySyncState.synced => 'Backed up',
       _HistorySyncState.pending => 'Backup pending',
       _HistorySyncState.attention => 'Backup needs attention',
-      _HistorySyncState.localOnly => 'Stored on this device',
+      _HistorySyncState.localOnly => 'Stored on this phone',
     };
 
     return Tooltip(

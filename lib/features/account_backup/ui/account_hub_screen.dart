@@ -148,7 +148,7 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
         return;
       }
       _showVaultNotice(
-        'Account deleted. Cloud backup data was removed. Local routines stay on this device.',
+        'Account deleted. Cloud backup data was removed. Local routines stay on this phone.',
         title: 'Account deleted',
         type: NotificationType.success,
       );
@@ -182,7 +182,7 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
             ? 'Backup pauses until you sign in again. Anything already '
                   'backed up stays in your account, and your routines stay '
                   'on this phone.'
-            : 'Local routines stay on this device. Sign back in any time'
+            : 'Local routines stay on this phone. Sign back in any time'
                   '${email == null ? '' : ' with $email'}.',
         accentColor: Theme.of(sheetContext).colorScheme.secondary,
         primaryLabel: 'Sign out',
@@ -209,7 +209,7 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
         eyebrow: "Can't be undone",
         title: 'Delete account',
         body:
-            'This deletes your Pebble account and cloud backup data. Local routines already saved on this device will stay here until you remove them manually.',
+            'This deletes your Pebble account and cloud backup data. Local routines already saved on this phone will stay here until you remove them manually.',
         accentColor: Theme.of(sheetContext).colorScheme.error,
         details: const [
           _AccountSheetWarningRow(
@@ -222,7 +222,7 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
           ),
           _AccountSheetWarningRow(
             icon: LucideIcons.smartphone,
-            text: 'Local routines on this device stay here.',
+            text: 'Local routines on this phone stay here.',
           ),
           // Required by Apple and Google: deleting the account is not the
           // same as cancelling the store subscription.

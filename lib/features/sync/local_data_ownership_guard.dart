@@ -43,7 +43,7 @@ class LocalDataOwnershipReport {
         return 'Existing local data is not linked to this account yet. Pebble will keep it local until you choose what to do.';
       case LocalDataOwnershipState.differentOwner:
       case LocalDataOwnershipState.mixed:
-        return 'This device has local data linked to another account. Pebble will not upload or merge it into the signed-in account without your choice.';
+        return 'This phone has local data linked to another account. Pebble will not upload or merge it into the signed-in account without your choice.';
     }
   }
 }
@@ -134,7 +134,7 @@ class LocalDataOwnershipGuard {
     }
     if (report.differentOwnerCount > 0) {
       throw StateError(
-        'This device has local data linked to another account. Pebble will keep it local until an account-switch choice is available.',
+        'This phone has local data linked to another account. Pebble will keep it local until an account-switch choice is available.',
       );
     }
 

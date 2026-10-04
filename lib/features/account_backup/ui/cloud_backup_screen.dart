@@ -97,7 +97,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
         return;
       }
       _showBackupNotice(
-        'This device is already linked to your account.',
+        'This phone is already linked to your account.',
         title: 'Already linked',
         type: NotificationType.info,
       );
@@ -141,14 +141,14 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
       builder: (sheetContext) => _BackupActionSheet(
         icon: LucideIcons.userCheck,
         eyebrow: 'Backup',
-        title: 'Use this account for this device?',
+        title: 'Use this account for this phone?',
         body:
-            'This device has routines, history and photos from another sign-in. If you carry on, Pebble copies them into the backup for ${email ?? 'this account'}. They stay on this device too.',
+            'This phone has routines, history and photos from another sign-in. If you carry on, Pebble copies them into the backup for ${email ?? 'this account'}. They stay on this phone too.',
         accentColor: Theme.of(sheetContext).colorScheme.primary,
         details: [
           _BackupSheetPillRow(
             pills: [
-              _BackupSheetPill(value: itemLabel, label: 'On this device'),
+              _BackupSheetPill(value: itemLabel, label: 'On this phone'),
               const _BackupSheetPill(value: 'Current', label: 'Account'),
               const _BackupSheetPill(value: 'Backup', label: 'After choice'),
             ],
@@ -174,9 +174,9 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
       builder: (sheetContext) => _BackupActionSheet(
         icon: LucideIcons.link,
         eyebrow: 'Backup',
-        title: 'Link this device\'s data?',
+        title: 'Link this phone\'s data?',
         body:
-            'Pebble found $itemLabel on this device. Link them to ${email ?? 'this account'} so backup can start, or keep them local.',
+            'Pebble found $itemLabel on this phone. Link them to ${email ?? 'this account'} so backup can start, or keep them local.',
         accentColor: Theme.of(sheetContext).colorScheme.primary,
         details: [
           _BackupSheetPillRow(
@@ -191,7 +191,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
         onPrimaryPressed: () => Navigator.of(sheetContext).pop(true),
         secondaryLabel: 'Keep local',
         onSecondaryPressed: () => Navigator.of(sheetContext).pop(false),
-        footer: 'Pebble will not upload this device\'s data unless you choose.',
+        footer: 'Pebble will not upload this phone\'s data unless you choose.',
       ),
     );
   }
@@ -241,7 +241,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
       );
       await _prepareBackupAfterOwnershipChoice(userId);
       _showBackupNotice(
-        'This device now uses your signed-in account for backup.',
+        'This phone now uses your signed-in account for backup.',
         title: 'Backup is on',
         type: NotificationType.success,
       );
@@ -393,7 +393,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
               secondaryEnabled: !_consentInFlight,
               onSecondaryPressed: () => Navigator.of(sheetContext).pop(),
               footer:
-                  'You can pause backup later. Local routines stay on this device either way.',
+                  'You can pause backup later. Local routines stay on this phone either way.',
             );
           },
         );
@@ -433,7 +433,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
         eyebrow: 'Backup',
         title: 'Pause backup?',
         body:
-            'Pebble will stop saving new backup changes for this account. Local routines stay on this device.',
+            'Pebble will stop saving new backup changes for this account. Local routines stay on this phone.',
         accentColor: Theme.of(sheetContext).colorScheme.secondary,
         details: const [
           _BackupSheetPillRow(
@@ -1256,7 +1256,7 @@ class _OwnershipMismatchCard extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    state.ownershipTitle ?? 'Review this device',
+                    state.ownershipTitle ?? 'Review this phone',
                     style: PebbleFonts.sans(
                       color: colorScheme.onSurface,
                       fontSize: 16,
@@ -1270,7 +1270,7 @@ class _OwnershipMismatchCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               state.ownershipDetail ??
-                  'Nothing on this device is uploaded until you choose.',
+                  'Nothing on this phone is uploaded until you choose.',
               style: PebbleFonts.sans(
                 color: colorScheme.onSurface.withValues(alpha: 0.68),
                 fontSize: 13,

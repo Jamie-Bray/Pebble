@@ -182,7 +182,7 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
       title: 'Premium isn\'t available yet',
       body:
           purchase.unavailableReason ??
-          "Premium isn't available from the store yet. Pebble still works on this device.",
+          "Premium isn't available from the store yet. Pebble still works on this phone.",
       statusLabel: 'Saved on this phone',
       historyLabel: 'Saved on this phone',
       limitChips: planFacts.chips,
@@ -287,16 +287,16 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
     case PersonalCloudAccessStatus.pausedSignedOut:
       return AccountStatusPresentation(
         planLabel: planFacts.label,
-        title: 'Premium is on this device',
+        title: 'Premium is on this phone',
         body:
-            'Premium is active on this device. Sign in only if you want backup and account recovery.',
+            'Premium is active on this phone. Sign in only if you want backup and account recovery.',
         statusLabel: 'Sign in to back up',
         historyLabel: 'Waiting for sign-in',
         limitChips: planFacts.chips,
         featureHighlights: const [
           AccountFeatureHighlight(
             emphasis: '21-day history',
-            detail: 'is active on this device.',
+            detail: 'is active on this phone.',
           ),
           AccountFeatureHighlight(
             emphasis: 'Backup',
@@ -304,7 +304,7 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
           ),
           AccountFeatureHighlight(
             emphasis: 'No account needed',
-            detail: 'for extra routines and steps on this device.',
+            detail: 'for extra routines and steps on this phone.',
           ),
         ],
         primaryAction: AccountStatusAction.signIn,
@@ -363,7 +363,7 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
           featureHighlights: const [
             AccountFeatureHighlight(
               emphasis: 'Premium',
-              detail: 'is unlocked on this device.',
+              detail: 'is unlocked on this phone.',
             ),
             AccountFeatureHighlight(
               emphasis: 'Backup',
@@ -417,7 +417,7 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
         featureHighlights: const [
           AccountFeatureHighlight(
             emphasis: 'Premium',
-            detail: 'stays unlocked on this device.',
+            detail: 'stays unlocked on this phone.',
           ),
           AccountFeatureHighlight(
             emphasis: 'Backup',

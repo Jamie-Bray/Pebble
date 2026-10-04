@@ -723,7 +723,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                     : Padding(
                         padding: const EdgeInsets.only(top: 3),
                         child: Text(
-                          'One step at a time',
+                          'Small steps, big ripples',
                           maxLines: 1,
                           softWrap: false,
                           overflow: TextOverflow.fade,

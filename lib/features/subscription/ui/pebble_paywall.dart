@@ -428,7 +428,7 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
     final url = ref.read(purchaseRepositoryProvider).manageSubscriptionsUrl;
     if (url == null || url.isEmpty) {
       _showNotice(
-        'Subscription management is not available on this device.',
+        'Subscription management is not available on this phone.',
         title: 'Not available',
         type: NotificationType.warning,
       );
