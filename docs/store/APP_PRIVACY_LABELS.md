@@ -1,7 +1,7 @@
 # Apple App Privacy Answers
 
-Last updated: 3 October 2026. Based on the code at this commit (build
-1.0.0+31, iOS bundle ID `com.vix.pebbleroutines`).
+Last updated: 5 October 2026. Based on the code at this commit (build
+1.0.0+34, iOS bundle ID `com.vix.pebbleroutines`).
 
 App Store Connect > App Privacy. Apple asks, for each data type: is it
 collected, is it linked to the user, is it used for tracking, and what is it
@@ -12,7 +12,9 @@ Ground rules used:
 
 - **Collected** means sent off the device and kept for longer than it takes to
   handle the request. Data that only stays on the iPhone (local routines,
-  local photos, voice prompt recordings) is not collected.
+  local photos, and voice prompt recordings while backup is off) is not
+  collected. Voice prompt recordings are collected when Premium cloud backup
+  is on.
 - **Linked to you** means it is connected to the user's account or identity.
   Anything stored against the Supabase account ID or the RevenueCat app user ID
   is linked.
@@ -38,6 +40,7 @@ Ground rules used:
 | Contact Info | **Name** | Yes | No | App Functionality | Pebble asks Google for the `email` scope only, but Google's ID token normally includes the name and profile picture link. Supabase Auth stores them in the account's identity data. Pebble does not use them. Sign in with Apple requests email only (`AppleIDAuthorizationScopes.email`), so Apple sends no name. If you confirm Google users have no `full_name` in Supabase, you can remove this. |
 | Contact Info | **Email Address** | Yes | No | App Functionality | Sign-in email (Supabase Auth: Apple, Google or an email code). Also the one completion email contact address a Premium user types in (`shared_alert_contacts`), which is stored against the user's account and sent through Resend. |
 | User Content | **Photos or Videos** | Yes | No | App Functionality | Proof photos, only when Premium cloud backup is on (Premium + signed in + backup consent). Stored in the private `routine-proofs` bucket for a rolling 21 days. Photos are re-encoded before upload, which strips EXIF and GPS data. |
+| User Content | **Audio Data** | Yes | No | App Functionality | Voice prompt recordings the user makes for routine steps, only when Premium cloud backup is on (Premium + signed in + backup consent). Uploaded to `users/<uid>/guidance_audio/` in the private `routine-proofs` bucket (`lib/features/sync/guidance_audio_cloud_backup.dart`, called from `cloud_sync_coordinator.dart`). Kept until the user replaces or removes the recording, deletes the routine or deletes the account; the 21-day clean-up skips them. |
 | User Content | **Other User Content** | Yes | No | App Functionality | With backup on: routine titles and steps, reminder days and times, history runs, routine sessions, proof-photo records, voice prompt metadata (filename, duration, type, size), and the backup consent record. With completion emails on: the routine name, completion time and step counts sent in each email, and the sent-email log. |
 | Identifiers | **User ID** | Yes | No | App Functionality | Supabase account UUID. After sign-in, RevenueCat uses the same ID as its app user ID (`Purchases.logIn`). |
 | Identifiers | **Device ID** | Yes | No | App Functionality | RevenueCat is set up at launch for every user and creates a random anonymous app user ID for the install. That ID is merged with the account ID when the user signs in, so it counts as linked. Sentry's native iOS SDK also attaches a random installation ID to native crash reports. The advertising identifier (IDFA) is **not** used: `collectDeviceIdentifiers()` is never called and there is no ad SDK. |
@@ -64,7 +67,6 @@ Ground rules used:
 | Sensitive Info | Sensitive Info | Pebble does not ask for it. Free text a user chooses to type is Other User Content |
 | Contacts | Contacts | No address book access. The single completion email address is declared under Email Address |
 | User Content | Emails or Text Messages | Pebble sends completion emails but does not access the user's own emails or messages |
-| User Content | Audio Data | Voice prompt recordings stay on the device. **If audio backup is ever added, declare Audio Data before release.** |
 | User Content | Gameplay Content, Customer Support | No gameplay. Support is by email outside the app |
 | Browsing History | Browsing History | |
 | Search History | Search History | |
