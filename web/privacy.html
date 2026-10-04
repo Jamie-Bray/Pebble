@@ -32,25 +32,17 @@
     </header>
 
     <main class="shell">
-      <!--
-        OWNER TODOs for this page (see docs/store/OWNER_NOTES.md):
-        - Confirm the email domain for privacy@ / support@ (site is pebbleroutines.com, inboxes use pebbleroutines.com).
-        - Add a business correspondence address if one is needed for your target markets (do not publish a home address).
-        - Add your ICO registration number once the data protection fee is paid, or remove this note if exempt.
-        - Accept each provider's data processing terms (Supabase, RevenueCat, Sentry, Resend) and confirm the transfer safeguard named below.
-        - Confirm which service sends sign-in code emails (Supabase default sender or custom SMTP) and name it if it is a separate provider.
-        - Confirm the Sentry data region and the Resend sending region.
-      -->
       <header class="page-hero">
         <p class="eyebrow">Privacy Policy</p>
         <h1>What Pebble collects, and why</h1>
         <p class="lede">
-          Pebble Routines is a routine app that keeps your data on your phone
-          by default. Most routine content stays there unless you choose to use
-          an account or cloud backup.
+          Pebble Routines keeps your routines, photos and history on your
+          phone unless you sign in, have Premium and turn on cloud backup. Some
+          technical data, such as subscription checks and crash reports, is
+          sent without an account. This page explains what and why.
         </p>
         <p class="meta">
-          Last updated: <strong>3 October 2026</strong><br />
+          Last updated: <strong>5 October 2026</strong><br />
           Contact: <a href="mailto:privacy@pebbleroutines.com">privacy@pebbleroutines.com</a>
         </p>
       </header>
@@ -89,13 +81,13 @@
               You can use Pebble without an account. In local-only use, Pebble
               stores routine titles, steps, reminders, settings, history,
               optional proof photos, and guidance-audio recordings on your
-              device.
+              phone.
             </p>
             <p>
-              Reminders are scheduled by your device's operating system. Pebble
+              Reminders are scheduled by your phone's operating system. Pebble
               does not use a push-notification server. On Android, the
               home-screen widget shows routine details that Pebble saves on
-              your device for the widget.
+              your phone for the widget.
             </p>
             <p>
               Free local history and Pebble-owned proof-photo copies are kept
@@ -138,9 +130,11 @@
               sign-in, and your explicit choice to turn backup on. If enabled,
               Pebble may back up supported routine data, including routines,
               reminders, recent history, proof-photo files, and proof-photo
-              records. Guidance audio files currently stay on your device,
-              though routine backup may include related details such as
-              filename, duration, MIME type, or byte size.
+              records. If backup is on, Pebble also backs up your voice tip
+              recordings (guidance audio), along with related details such as
+              filename, duration, MIME type, and byte size. They are kept until
+              you replace or remove them, delete the routine or delete your
+              account.
             </p>
             <p>
               Before cloud backup uploads supported routine data, Pebble asks
@@ -219,16 +213,13 @@
               the error and stack trace, device model, operating system version,
               app version and build, and a short trail of recent technical app
               events.
-              <!-- OWNER TODO: Sentry print breadcrumbs can currently capture debug log lines that include the
-                   internal account ID or RevenueCat app user ID. Disable print breadcrumbs (or scrub them in
-                   beforeSend) and then replace the next sentence with: "Crash reports do not include your account ID." -->
-              That trail can include internal technical identifiers.
             </p>
             <p>
-              Crash reporting is set up so it does not send your name, email
-              address, routine content, photos, or audio. Pebble removes user
-              details from app crash reports before they are sent, and does not
-              use screenshots, session replay, or performance tracing.
+              Crash reporting is set up so that reports don't include your
+              account ID, name, email address, routine content, photos, or
+              audio. They do include a random ID for the app installation.
+              Pebble does not use screenshots, session replay, or performance
+              tracing.
             </p>
           </section>
 
@@ -338,12 +329,13 @@
                   <td>Premium recent history in the app and cloud proof-photo copies</td>
                   <td>Rolling 21-day window, unless deleted earlier</td>
                 </tr>
-                <!-- OWNER TODO: cloud routine_runs / routine_sessions rows are not currently pruned at 21 days
-                     (cleanup-proof-retention only removes proof photos). If you add server-side 21-day cleanup
-                     for history records, update this row to match. -->
                 <tr>
                   <td>Backed-up routines, reminders, and text history records in your cloud account</td>
                   <td>Until you delete them or delete your account</td>
+                </tr>
+                <tr>
+                  <td>Backed-up voice tip recordings (guidance audio)</td>
+                  <td>Until you replace or remove the recording, delete the routine, or delete your account</td>
                 </tr>
                 <tr>
                   <td>Completion email contacts and blocks</td>
@@ -423,8 +415,6 @@
               Pebble Routines is currently run by an independent developer in
               Scotland, United Kingdom. For legal and data-protection purposes,
               the controller is Jamie Bray trading as Pebble.
-              <!-- OWNER TODO: add a business correspondence address here if required (PO Box or similar, not a home address),
-                   and the ICO registration number once the data protection fee is paid. -->
             </p>
             <p>
               Privacy:
