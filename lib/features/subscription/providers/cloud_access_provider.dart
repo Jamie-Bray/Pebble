@@ -153,7 +153,7 @@ final personalCloudAccessProvider = Provider<PersonalCloudAccessState>((ref) {
       return const PersonalCloudAccessState(
         status: PersonalCloudAccessStatus.syncing,
         label: 'Turning on backup',
-        detail: 'Almost there. Your routines stay on this phone too.',
+        detail: 'Your routines stay on this phone too.',
       );
     case BootstrapStatus.error:
       return PersonalCloudAccessState(

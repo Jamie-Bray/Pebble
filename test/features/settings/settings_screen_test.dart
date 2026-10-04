@@ -202,7 +202,7 @@ void main() {
     expect(find.text('Matcha'), findsNothing);
     expect(
       find.text(
-        'Choose a look that works for you.\nPreview first, then apply.',
+        'Tap a theme to preview it.\nNothing changes until you apply it.',
       ),
       findsOneWidget,
     );
@@ -266,11 +266,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Unlock Premium'), findsOneWidget);
+    expect(find.text('Get Premium'), findsOneWidget);
     expect(find.text('Use this theme'), findsNothing);
     expect(
       find.text(
-        'Preview available. Applying this theme requires Personal Premium.',
+        'You can preview this theme. Using it needs Personal Premium.',
       ),
       findsOneWidget,
     );
@@ -289,7 +289,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Use this theme'), findsOneWidget);
-    expect(find.text('Unlock Premium'), findsNothing);
-    expect(find.text('Warm tone for light sensitivity.'), findsOneWidget);
+    expect(find.text('Get Premium'), findsNothing);
+    expect(find.text('Warm tint for light sensitivity.'), findsOneWidget);
   });
 }

@@ -33,7 +33,7 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
 
       expect(
-        find.text('Step out the door with total confidence.'),
+        find.text('Every check is saved with the time.'),
         findsOneWidget,
       );
       expect(prefs.getBool('has_completed_onboarding'), isFalse);
@@ -45,7 +45,7 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
       await tester.pumpAndSettle();
 
-      expect(find.text('Choose a look\nthat works for you.'), findsOneWidget);
+      expect(find.text('Choose how\nPebble looks.'), findsOneWidget);
       expect(prefs.getBool('has_completed_onboarding'), isFalse);
     },
   );
@@ -70,10 +70,10 @@ void main() {
 
       expect(find.text('Pick a routine\nto start with.'), findsOneWidget);
 
-      await tester.tap(find.text('Medication Check'));
+      await tester.tap(find.text('Medication check'));
       await tester.pumpAndSettle();
 
-      expect(find.text("Here's how this could work."), findsOneWidget);
+      expect(find.text('How a routine works'), findsOneWidget);
       expect(find.text('Use this starter routine'), findsOneWidget);
       expect(find.text('Pick another starting point'), findsOneWidget);
       expect(prefs.getBool('has_completed_onboarding'), isFalse);

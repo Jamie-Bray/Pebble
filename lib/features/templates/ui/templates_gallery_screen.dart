@@ -26,13 +26,13 @@ class TemplatesGalleryScreen extends ConsumerWidget {
         child: catalogAsync.when(
           loading: () => const _TemplatesStatusView(
             title: 'Loading templates',
-            message: 'Getting the checks ready.',
+            message: 'One moment.',
             icon: LucideIcons.listChecks,
           ),
           error: (Object error, StackTrace stackTrace) =>
               const _TemplatesStatusView(
-                title: 'Templates are unavailable',
-                message: 'Please try again in a moment.',
+                title: "Couldn't load templates",
+                message: 'Go back and try again.',
                 icon: LucideIcons.circleAlert,
               ),
           data: (List<Template> templates) {
@@ -108,7 +108,7 @@ class _TemplatesHeader extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Add a ready-made checklist, then personalise the steps any way you want.',
+            'Start from a ready-made checklist and change it to suit you.',
             style: theme.textTheme.titleMedium?.copyWith(
               color: tokens.templatesTextSecondary,
               height: 1.36,
@@ -472,9 +472,9 @@ PebbleTemplatesTokens _templateTokensFor(BuildContext context) {
 Color _accentForGroup(BuildContext context, String group) {
   final colorScheme = Theme.of(context).colorScheme;
   return switch (group) {
-    'Leaving & Locking Up' => colorScheme.primary,
-    'Daily Care' => colorScheme.secondary,
-    'Work & Away' => colorScheme.tertiary,
+    'Leaving and locking up' => colorScheme.primary,
+    'Daily care' => colorScheme.secondary,
+    'Work and away' => colorScheme.tertiary,
     _ => colorScheme.primary,
   };
 }

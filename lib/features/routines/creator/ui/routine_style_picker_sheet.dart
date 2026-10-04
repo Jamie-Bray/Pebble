@@ -58,8 +58,8 @@ class RoutineStylePickerSheet extends StatefulWidget {
             PebbleSubpageHeader(
               title: title,
               subtitle: hasPremiumIconAccess
-                  ? 'Premium icons and colors for this routine.'
-                  : 'Unlock Premium to personalize routine style.',
+                  ? 'Pick an icon and colour for this routine.'
+                  : 'Icons and colours come with Personal Premium.',
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
@@ -155,7 +155,7 @@ class RoutineStylePickerSheet extends StatefulWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Live style',
+                  'Preview',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
@@ -347,8 +347,8 @@ class _RoutineStylePickerSheetState extends State<RoutineStylePickerSheet> {
         const SizedBox(height: 6),
         Text(
           widget.hasPremiumIconAccess
-              ? 'Pick the signal that makes this routine instantly recognizable.'
-              : 'Unlock Personal Premium to personalize icons and colors.',
+              ? 'Pick one so you can spot this routine at a glance.'
+              : 'Icons and colours come with Personal Premium.',
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w500,
@@ -467,7 +467,7 @@ class _RoutineStylePickerSheetState extends State<RoutineStylePickerSheet> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Accent color',
+          'Colour',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w800,

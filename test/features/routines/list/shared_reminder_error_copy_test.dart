@@ -145,7 +145,7 @@ void main() {
           sent: false,
           reason: 'offline',
         ).completionScreenNote,
-        'Completion email not sent. No connection.',
+        "Completion email not sent because there's no connection.",
       );
     });
   });

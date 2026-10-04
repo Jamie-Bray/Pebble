@@ -533,7 +533,7 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
                     },
                   ),
                   Text(
-                    'Set Time',
+                    'Set time',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
@@ -620,9 +620,7 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
           ),
           const SizedBox(height: 12),
           Text(
-            widget.reminderToEdit == null
-                ? 'Reminder saved. It will repeat on ${_selectedDaysSummary().toLowerCase()}.'
-                : 'Reminder updated. It will repeat on ${_selectedDaysSummary().toLowerCase()}.',
+            '${_selectedDaysSummary()} at ${_formatTime(_time!)}.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 16,
@@ -843,8 +841,8 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
       setState(() => _isSaving = false);
       if (mounted) {
         final errorText = e.toString().toLowerCase().contains('permission')
-            ? 'Enable notifications in settings to receive reminders'
-            : 'Could not save this reminder. Please try again.';
+            ? 'Turn on notifications for Pebble in Settings to get reminders.'
+            : "Couldn't save this reminder. Try again.";
         ZenNotifications.showWarning(
           context,
           title: 'Permission needed',
@@ -863,9 +861,9 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Enable reminders?'),
+          title: const Text('Turn on notifications?'),
           content: const Text(
-            'Pebble uses notifications only for routine reminders you turn on.',
+            'Pebble only sends notifications for reminders you set up.',
           ),
           actions: [
             TextButton(
@@ -944,7 +942,7 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
         setState(() => _isSaving = false);
         ZenNotifications.showError(
           context,
-          message: 'Could not remove reminders. Please try again.',
+          message: "Couldn't delete the reminders. Try again.",
         );
       }
     }

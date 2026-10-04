@@ -169,7 +169,7 @@ String _planDetail({
     }
     return 'Unlimited routines, unlimited steps, and longer history are active.';
   }
-  return 'Upgrade when you want unlimited routines, longer history, and backup.';
+  return 'Premium adds unlimited routines, longer history and backup.';
 }
 
 String _planStatusLabel(PremiumFeaturePolicy policy) {
@@ -193,7 +193,7 @@ String _planStatusLabel(PremiumFeaturePolicy policy) {
 /// renews, ends (after a cancellation), or needs a payment fix.
 String? accountPlanPeriodLine(SubscriptionAccountState account) {
   if (account.entitlementBillingIssueAt != null) {
-    return 'The store could not take the last payment. Update your payment '
+    return "The store couldn't take your last payment. Update your payment "
         'method in your store account to keep Premium.';
   }
   final endsAt = account.entitlementPeriodEndsAt;

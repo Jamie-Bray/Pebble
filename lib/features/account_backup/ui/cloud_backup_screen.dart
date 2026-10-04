@@ -219,7 +219,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
           .noteSyncFailure(message);
       _showBackupNotice(
         message,
-        title: 'Could not link',
+        title: "Couldn't link",
         type: NotificationType.error,
       );
     } finally {
@@ -252,7 +252,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
           .noteSyncFailure(message);
       _showBackupNotice(
         message,
-        title: 'Could not continue',
+        title: "Couldn't continue",
         type: NotificationType.error,
       );
     } finally {
@@ -346,7 +346,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
     } catch (error) {
       _showBackupNotice(
         _toUserFacingError(error),
-        title: 'Could not refresh',
+        title: "Couldn't refresh",
         type: NotificationType.error,
       );
     } finally {
@@ -372,7 +372,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
               eyebrow: 'Backup',
               title: 'Turn on backup?',
               body:
-                  'Pebble will only start backup after you choose. Supported routine data can upload for restore when backup is on.',
+                  "Backup only starts if you turn it on. Once it's on, Pebble uploads your routine data so you can restore it later.",
               accentColor: Theme.of(sheetContext).colorScheme.primary,
               details: [
                 _BackupConsentCheck(
@@ -415,7 +415,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
     } catch (error) {
       _showBackupNotice(
         _toUserFacingError(error),
-        title: 'Could not turn on backup',
+        title: "Couldn't turn on backup",
         type: NotificationType.error,
       );
     } finally {
@@ -471,7 +471,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
     } catch (error) {
       _showBackupNotice(
         _toUserFacingError(error),
-        title: 'Could not pause backup',
+        title: "Couldn't pause backup",
         type: NotificationType.error,
       );
     } finally {
@@ -545,10 +545,10 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
       return raw.replaceFirst('StateError: ', '');
     }
     if (raw.startsWith('PlatformException')) {
-      return 'The store could not complete that request. Please try again.';
+      return "The store couldn't finish that. Try again.";
     }
     if (raw.startsWith('FunctionException')) {
-      return 'Pebble could not complete that request. Please try again.';
+      return "Pebble couldn't finish that. Try again.";
     }
     return raw;
   }
@@ -1018,7 +1018,7 @@ class _BackupDataSection extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 10),
           child: Text(
-            live ? "What's backed up" : 'What backup keeps safe for 21 days',
+            live ? "What's backed up" : 'What backup keeps for 21 days',
             style: PebbleFonts.sans(
               color: colorScheme.onSurface.withValues(alpha: 0.56),
               fontSize: 12,

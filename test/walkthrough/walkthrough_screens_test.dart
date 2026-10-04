@@ -1144,7 +1144,7 @@ void main() {
   // ---- Home --------------------------------------------------------------
   _capture('home populated', (env) async {
     await env.shot('home_populated');
-    await env.tapText('Your Routines');
+    await env.tapText('Your routines');
     await env.settle(10);
     await env.shot('home_routines_sheet_open');
     await env.tapFinder(find.byIcon(LucideIcons.plus).last);
@@ -1152,7 +1152,7 @@ void main() {
   });
   _capture('home premium', account: _Account.signedInPremium, (env) async {
     await env.shot('home_premium');
-    await env.tapText('Your Routines');
+    await env.tapText('Your routines');
     await env.settle(10);
     await env.shot('home_premium_routines_sheet_open');
   });
@@ -1188,7 +1188,7 @@ void main() {
   });
   _capture('home small', device: _small, (env) async {
     await env.shot('home_populated');
-    await env.tapText('Your Routines');
+    await env.tapText('Your routines');
     await env.settle(10);
     await env.shot('home_routines_sheet_open');
   });
@@ -1198,7 +1198,7 @@ void main() {
   for (final scale in [1.6, 2.0]) {
     _capture('home a11y $scale', textScale: scale, (env) async {
       await env.shot('a11y${scale}x_home_populated');
-      await env.tapText('Your Routines');
+      await env.tapText('Your routines');
       await env.settle(10);
       await env.shot('a11y${scale}x_home_routines_sheet_open');
     });
@@ -1779,7 +1779,7 @@ void main() {
   });
   _capture('sign in email', (env) async {
     await env.push('/sign-in');
-    await env.tapText('Continue with Email');
+    await env.tapText('Continue with email');
     await env.realWait(3);
     await env.shot('sign_in_email_sheet');
   });
@@ -1891,7 +1891,7 @@ void main() {
     (env) async {
       await env.realWait(5);
       await env.shot('sub_lapsed_home');
-      await env.tapText('Your Routines');
+      await env.tapText('Your routines');
       await env.settle(10);
       await env.shot('sub_lapsed_routines_sheet');
       await env.tapText('Morning reset', last: true);

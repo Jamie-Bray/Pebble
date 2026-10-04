@@ -161,7 +161,7 @@ class NotificationService {
         : await hasNotificationPermission();
     if (!hasPermission) {
       throw Exception(
-        'Notification permission denied. Please enable notifications in app settings.',
+        'Notification permission is off. Turn on notifications for Pebble in your phone settings.',
       );
     }
 
@@ -193,8 +193,8 @@ class NotificationService {
 
     await _zonedSchedule(
       notificationId: notificationId,
-      title: "Time for your '$title' routine",
-      body: 'Tap to start',
+      title: title,
+      body: 'Tap to start.',
       scheduled: scheduled,
       details: details,
       payload: routineId.toString(),
