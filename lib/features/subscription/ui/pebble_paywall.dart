@@ -937,7 +937,7 @@ class _PremiumActivatedSheet extends StatelessWidget {
                     'You can sign in later from Your account.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: foundation.textMuted,
+                      color: context.readableSecondaryText,
                       fontSize: 12,
                       fontWeight: FontWeight.w300,
                       height: 1.35,
@@ -1447,11 +1447,10 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
     return Text(
       text.toUpperCase(),
       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-        color: foundation.textMuted.withValues(alpha: 0.72),
+        color: context.readableSecondaryText,
         fontSize: 10,
         fontWeight: FontWeight.w600,
         letterSpacing: 1.4,
@@ -1743,7 +1742,7 @@ class _TierPill extends StatelessWidget {
             style: TextStyle(
               color: accented
                   ? _premiumAccentText(context)
-                  : foundation.textMuted,
+                  : context.readableSecondaryText,
               fontSize: 9,
               fontWeight: FontWeight.w700,
               letterSpacing: 1,
@@ -2206,7 +2205,8 @@ class _FooterLinks extends StatelessWidget {
     final foundation = context.darkFoundation;
     final style = TextButton.styleFrom(
       foregroundColor: foundation.textPrimary.withValues(alpha: 0.82),
-      visualDensity: VisualDensity.compact,
+      // 48 high so each link is a full-size tap target.
+      minimumSize: const Size(48, 48),
       padding: const EdgeInsets.symmetric(horizontal: 4),
       textStyle: PebbleFonts.sans(
         fontSize: 12.5,

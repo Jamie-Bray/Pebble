@@ -150,23 +150,21 @@ class RoutineComposerStepRow extends StatelessWidget {
                     ),
                   ),
                 ),
-                Tooltip(
-                  message: 'Delete step',
-                  child: IconButton(
-                    onPressed: onDelete,
-                    style: IconButton.styleFrom(
-                      fixedSize: const Size(36, 36),
-                      minimumSize: const Size(36, 36),
-                      padding: EdgeInsets.zero,
-                      backgroundColor: cs.error.withValues(alpha: 0.08),
-                      foregroundColor: cs.error.withValues(alpha: 0.86),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                IconButton(
+                  tooltip: 'Delete step',
+                  onPressed: onDelete,
+                  style: IconButton.styleFrom(
+                    fixedSize: const Size(36, 36),
+                    minimumSize: const Size(36, 36),
+                    padding: EdgeInsets.zero,
+                    backgroundColor: cs.error.withValues(alpha: 0.08),
+                    foregroundColor: cs.error.withValues(alpha: 0.86),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    icon: const Icon(LucideIcons.trash2, size: 15),
                   ),
+                  icon: const Icon(LucideIcons.trash2, size: 15),
                 ),
               ],
             ),

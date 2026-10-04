@@ -1151,7 +1151,7 @@ class _ExplainerStep extends StatelessWidget {
                     label,
                     style: PebbleFonts.sans(
                       color: isDone
-                          ? foundation.textMuted
+                          ? context.readableSecondaryText
                           : foundation.textPrimary,
                       fontSize: 15,
                       fontWeight: status == _StepStatus.now

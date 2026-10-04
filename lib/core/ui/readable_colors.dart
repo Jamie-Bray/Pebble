@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 
 /// WCAG AA minimum for body-size text.
@@ -63,6 +63,22 @@ extension PebbleReadableColors on BuildContext {
     backgrounds: _textBackgrounds,
     strongest: darkFoundation.textPrimary,
   );
+
+  /// The primary button fill: the theme's action colour, firmed up only as
+  /// far as needed for its label ([ColorScheme.onPrimary]) to reach 4.5:1.
+  /// Reduced Contrast is deliberately soft and keeps its colour.
+  Color get readableActionFill {
+    final theme = Theme.of(this);
+    final cs = theme.colorScheme;
+    if (theme.extension<PebbleThemeX>()?.themeId == ThemeId.reducedContrast) {
+      return cs.primary;
+    }
+    return ensureContrast(
+      cs.primary,
+      backgrounds: [cs.onPrimary],
+      strongest: darkFoundation.textPrimary,
+    );
+  }
 
   /// Accent-coloured small text (overlines, status words) that meets 4.5:1.
   Color readableAccentText(Color accent) => ensureContrast(

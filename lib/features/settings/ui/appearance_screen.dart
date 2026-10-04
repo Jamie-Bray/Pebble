@@ -9,6 +9,7 @@ import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:pebble_routines/core/ui/adaptive_layout.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
+import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 
@@ -289,7 +290,7 @@ class _SectionHeader extends StatelessWidget {
         Text(
           title.toUpperCase(),
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: foundation.textMuted,
+            color: context.readableSecondaryText,
             fontWeight: FontWeight.w900,
             letterSpacing: 1.2,
           ),
@@ -747,7 +748,7 @@ class _StatePill extends StatelessWidget {
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: _isActive ? accent : foundation.textMuted,
+          color: _isActive ? accent : context.readableSecondaryText,
           fontWeight: FontWeight.w900,
         ),
       ),

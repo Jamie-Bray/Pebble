@@ -290,6 +290,7 @@ class RoutineRunDetailScreen extends ConsumerWidget {
                   ),
                   const Spacer(),
                   IconButton(
+                    tooltip: 'Close',
                     onPressed: () => Navigator.pop(context),
                     icon: Icon(LucideIcons.x, color: cs.onSurface),
                   ),
@@ -419,7 +420,7 @@ class RoutineRunDetailScreen extends ConsumerWidget {
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w800,
-          color: foundation.textMuted,
+          color: context.readableSecondaryText,
         ),
       );
     }

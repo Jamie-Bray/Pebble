@@ -146,7 +146,7 @@ class _PebbleButtonState extends State<PebbleButton> {
 
     switch (widget.kind) {
       case PebbleButtonKind.primary:
-        background = action;
+        background = context.readableActionFill;
         foreground = cs.onPrimary;
         minHeight = PebbleButton.primaryHeight;
         textStyle = type.button;

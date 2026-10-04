@@ -1736,7 +1736,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color: foundation.textMuted,
+                  color: context.readableSecondaryText,
                 ),
               ),
             ],
@@ -1747,7 +1747,6 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
   }
 
   Widget _buildSectionHeader(BuildContext context, String title) {
-    final foundation = context.darkFoundation;
     return Align(
       alignment: Alignment.centerLeft,
       child: Text(
@@ -1755,7 +1754,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w800,
-          color: foundation.textMuted.withValues(alpha: 0.72),
+          color: context.readableSecondaryText,
           letterSpacing: 1.1,
         ),
       ),
@@ -1835,7 +1834,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
-                        color: foundation.textMuted,
+                        color: context.readableSecondaryText,
                       ),
                     ),
                   ],
@@ -1891,7 +1890,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
-              color: foundation.textMuted,
+              color: context.readableSecondaryText,
             ),
           ),
           const SizedBox(height: 12),
@@ -2677,7 +2676,7 @@ class _HomeHeroStepRow extends StatelessWidget {
                       style: TextStyle(
                         color: categoryColor != null
                             ? context.onActionAccent
-                            : foundation.textMuted,
+                            : context.readableSecondaryText,
                         fontSize: 10,
                         fontWeight: categoryColor != null
                             ? FontWeight.w700
@@ -2695,7 +2694,7 @@ class _HomeHeroStepRow extends StatelessWidget {
                         fontSize: 13,
                         fontWeight: FontWeight.w400,
                         height: 1.45,
-                        color: foundation.textMuted,
+                        color: context.readableSecondaryText,
                       ),
                     ),
                   ),
