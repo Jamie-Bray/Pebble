@@ -78,7 +78,7 @@
           accept: {
             badge: 'Invitation',
             title: 'Allow completion emails?',
-            body: 'You will get an email when this person completes the routine they chose. Every email has a link to stop them.',
+            body: 'You’ll get an email each time this person finishes the routine they chose. Every email has a link to stop them.',
             button: 'Allow completion emails',
             note: 'Nothing is sent until you press the button.',
             alt: { label: 'Decline instead', action: 'decline' },
@@ -86,7 +86,7 @@
           decline: {
             badge: 'Completion emails',
             title: 'Stop completion emails?',
-            body: 'You will not get completion emails from this person. They will see that the emails are off, and they cannot invite you again for 30 days.',
+            body: 'You won’t get completion emails from this person. They’ll see that the emails are off, and they can’t invite you again for 30 days.',
             button: 'Stop completion emails',
             note: 'You can still block this sender instead.',
             alt: { label: 'Block this sender', action: 'block' },
@@ -94,7 +94,7 @@
           block: {
             badge: 'Block sender',
             title: 'Block this sender?',
-            body: 'You will not get invitations or completion emails from this person again. They will see that this address is not accepting their invitations, but not why.',
+            body: 'You won’t get invitations or completion emails from this person again. They’ll see that this address isn’t accepting their invitations, but they won’t see why.',
             button: 'Block sender',
             note: null,
             alt: null,
@@ -110,7 +110,7 @@
         if (!copy[action] || !/^[A-Za-z0-9._-]{20,128}$/.test(token)) {
           $('card').classList.add('problem');
           $('badge').textContent = 'Link not valid';
-          $('page-title').textContent = 'This link does not work';
+          $('page-title').textContent = 'This link doesn’t work';
           $('body-copy').textContent = 'Open the link straight from the email. If you copied it, make sure the whole link was copied.';
           return;
         }
