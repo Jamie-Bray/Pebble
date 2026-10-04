@@ -823,10 +823,10 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                                 'Your routines',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  letterSpacing: -0.1,
+                                style: PebbleFonts.serif(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w400,
+                                  letterSpacing: -0.2,
                                   color: foundation.textPrimary,
                                 ),
                               ),

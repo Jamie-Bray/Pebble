@@ -730,9 +730,7 @@ class _PostPurchaseBackupSheetState
                     style: FilledButton.styleFrom(
                       backgroundColor: accent,
                       foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
+                      shape: const StadiumBorder(),
                     ),
                     child: _busy
                         ? SizedBox(
@@ -767,9 +765,7 @@ class _PostPurchaseBackupSheetState
                       side: BorderSide(
                         color: foundation.borderSubtle.withValues(alpha: 0.86),
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
+                      shape: const StadiumBorder(),
                     ),
                     child: const Text('Not now'),
                   ),
@@ -907,9 +903,7 @@ class _PremiumActivatedSheet extends StatelessWidget {
                         foregroundColor: Theme.of(
                           context,
                         ).colorScheme.onPrimary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(18),
-                        ),
+                        shape: const StadiumBorder(),
                       ),
                       child: const Text(
                         'Sign in to back up',
@@ -933,9 +927,7 @@ class _PremiumActivatedSheet extends StatelessWidget {
                             alpha: 0.86,
                           ),
                         ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(18),
-                        ),
+                        shape: const StadiumBorder(),
                       ),
                       child: const Text('Continue without sign-in'),
                     ),
@@ -1071,9 +1063,7 @@ class _AlreadyPremiumScreen extends StatelessWidget {
                             foregroundColor: Theme.of(
                               context,
                             ).colorScheme.onPrimary,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
+                            shape: const StadiumBorder(),
                           ),
                           child: const Text(
                             'Done',
@@ -1097,9 +1087,7 @@ class _AlreadyPremiumScreen extends StatelessWidget {
                                 alpha: 0.86,
                               ),
                             ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
+                            shape: const StadiumBorder(),
                           ),
                           child: const Text('Manage plan'),
                         ),
@@ -1254,9 +1242,7 @@ class _PremiumResubscribedSheet extends StatelessWidget {
                     style: FilledButton.styleFrom(
                       backgroundColor: accent,
                       foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
+                      shape: const StadiumBorder(),
                     ),
                     child: const Text(
                       'Done',

@@ -10,6 +10,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
+import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/ui/adaptive_layout.dart';
 import 'package:pebble_routines/core/ui/pebble_photo_gallery_viewer.dart';
@@ -123,12 +124,9 @@ class RoutineRunDetailScreen extends ConsumerWidget {
             _punctuatedTitle(title),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 31,
-              height: 1.02,
-              fontWeight: FontWeight.w800,
-              color: foundation.textPrimary,
-            ),
+            style: PebbleType.of(
+              context,
+            ).title1.copyWith(color: foundation.textPrimary),
           ),
           const SizedBox(height: 7),
           Text(

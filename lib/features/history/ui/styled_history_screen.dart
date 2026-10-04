@@ -1785,9 +1785,7 @@ class _HeroPhotoView extends StatelessWidget {
                           horizontal: 24,
                           vertical: 16,
                         ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
+                        shape: const StadiumBorder(),
                       ),
                     ),
                   ],

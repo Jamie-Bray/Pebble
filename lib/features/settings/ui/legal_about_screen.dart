@@ -3,6 +3,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:pebble_routines/core/config/legal_links.dart';
+import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/ui/zen_notifications.dart';
 
@@ -224,12 +225,7 @@ class _LegalPage extends StatelessWidget {
       children: [
         Text(
           title,
-          style: TextStyle(
-            fontSize: 30,
-            height: 1.05,
-            fontWeight: FontWeight.w800,
-            color: colorScheme.onSurface,
-          ),
+          style: PebbleType.of(context).title2,
         ),
         const SizedBox(height: 10),
         Text(

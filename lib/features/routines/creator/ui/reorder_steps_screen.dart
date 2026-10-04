@@ -91,9 +91,7 @@ class _ReorderStepsScreenState extends ConsumerState<ReorderStepsScreen> {
                       backgroundColor: cs.primary,
                       foregroundColor: cs.onPrimary,
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
+                      shape: const StadiumBorder(),
                     ),
                     onPressed: _saveReorder,
                     child: const Text(

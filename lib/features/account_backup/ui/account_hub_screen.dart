@@ -613,9 +613,7 @@ class _AccountSignInCard extends StatelessWidget {
             onPressed: onSignIn,
             style: OutlinedButton.styleFrom(
               minimumSize: const Size.fromHeight(52),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-              ),
+              shape: const StadiumBorder(),
             ),
             icon: const Icon(LucideIcons.logIn, size: 18),
             label: const Text(
@@ -675,9 +673,7 @@ class _AccountUpgradeCard extends StatelessWidget {
             onPressed: onGetPremium,
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(54),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-              ),
+              shape: const StadiumBorder(),
             ),
             icon: const Icon(LucideIcons.sparkles, size: 18),
             label: const Text(
@@ -1315,9 +1311,7 @@ class _LapsedCtaSection extends StatelessWidget {
           onPressed: onRenew,
           style: FilledButton.styleFrom(
             minimumSize: const Size.fromHeight(52),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
+            shape: const StadiumBorder(),
           ),
           icon: const Icon(LucideIcons.refreshCw, size: 16),
           label: const Text('Renew Premium'),
@@ -1327,9 +1321,7 @@ class _LapsedCtaSection extends StatelessWidget {
           onPressed: onManagePlan,
           style: OutlinedButton.styleFrom(
             minimumSize: const Size.fromHeight(48),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
+            shape: const StadiumBorder(),
           ),
           child: const Text('Manage subscription'),
         ),
