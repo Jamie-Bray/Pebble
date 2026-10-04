@@ -1,6 +1,6 @@
 # Google Play Store Listing: Pebble Routines
 
-Last updated: 3 October 2026
+Last updated: 4 October 2026
 
 Ready-to-paste copy for Play Console > Grow > Store presence > Main store
 listing, plus the policy questionnaires. Every limited field is in a fenced
@@ -86,7 +86,7 @@ Check the door, stove and straighteners, with a photo and the time saved.
 ```text
 Did I lock the door? Did I unplug the hair straighteners? Is the stove off?
 
-Pebble Routines turns the checks you do before leaving the house into a simple, step-by-step checklist. Go through each step, mark it done, and add a photo when you want something to look back on later. Every completed check is saved with the time you did it.
+Pebble Routines turns the checks you do before leaving the house into a step-by-step checklist. Go through each step, mark it done, and add a photo when you want something to look back on later. Every completed check is saved with the time you did it.
 
 Pebble is for anyone who has turned back at the front door to check it again, or taken a photo of the straighteners just in case.
 
@@ -182,7 +182,7 @@ Play Console > Policy > App content > Content ratings.
 | Fear or horror | No | |
 | Sexuality, nudity | No | |
 | Language (profanity, crude humour) | No | |
-| Controlled substances (drugs, alcohol, tobacco) | No | The "Medication Check" template is an ordinary routine. It does not show or promote drugs |
+| Controlled substances (drugs, alcohol, tobacco) | No | The "Medication check" template is an ordinary routine. It does not show or promote drugs |
 | Gambling, simulated gambling | No | |
 | Does the app let users interact or exchange content with other users? | **Yes** | Conservative answer. Completion emails send text the user typed (the routine name) to one email contact who has accepted. It is one-way, opt-in, and has stop and block links. There is no chat, profile, public feed, or in-app messaging. If you want to answer No, the argument is that this is a system notification, not user-to-user messaging. Yes only adds a "Users Interact" note and does not change the age rating. |
 | Does the app share the user's current location with other users? | No | No location permission |
@@ -220,7 +220,7 @@ policy states Pebble is not directed at children under 13.
 | Account deletion URL | `https://pebbleroutines.com/delete-account` | In-app path: Your account > Delete Account |
 | Government app | No | |
 | Financial features | My app does not provide any financial features | Subscriptions are not a financial feature for this form |
-| Health apps | My app does not have any health features | Pebble is a general checklist. It does not use Health Connect, sensors, or health records. The "Medication Check" template is a plain checklist. If Play ever asks again, the honest answer is still "no health features"; do not add a medication-management claim to the listing. |
+| Health apps | My app does not have any health features | Pebble is a general checklist. It does not use Health Connect, sensors, or health records. The "Medication check" template is a plain checklist. If Play ever asks again, the honest answer is still "no health features"; do not add a medication-management claim to the listing. |
 | News app | No | |
 | COVID-19 contact tracing or status | No | |
 | Photo and video permissions | No declaration needed | The app does not request `READ_MEDIA_IMAGES` or `READ_MEDIA_VIDEO`. Choosing a photo uses the system picker. |
@@ -236,7 +236,7 @@ line. Avoid "safe", "proof you", "never forget".
 ```text
 Did I lock the door? Check it here.
 ```
-Screen: routine list with "Everyday Departure Check" at the top.
+Screen: routine list with "Everyday departure check" at the top.
 
 <!-- limit:40 id:play-shot-2 -->
 ```text
@@ -300,7 +300,7 @@ in screenshot photos.
 
 ## Character count results
 
-Output of `python3 docs/store/check_limits.py` on 3 October 2026:
+Output of `python3 docs/store/check_limits.py` on 4 October 2026:
 
 | Field | Chars | Max |
 | --- | --- | --- |
@@ -308,5 +308,5 @@ Output of `python3 docs/store/check_limits.py` on 3 October 2026:
 | App name alt 1 / alt 2 | 30 / 28 | 30 |
 | Short description (recommended) | 79 | 80 |
 | Short description alt 1 / alt 2 | 76 / 73 | 80 |
-| Full description | 2978 | 4000 |
+| Full description | 2970 | 4000 |
 | Screenshot captions 1 to 8 | 26 to 38 | 40 (house style, not a Play limit) |
