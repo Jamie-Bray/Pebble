@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
+import 'package:uuid/uuid.dart';
 
 enum LocalDataOwnershipState {
   empty,
@@ -210,6 +211,25 @@ class LocalDataOwnershipGuard {
     });
 
     await database.transaction(() async {
+      // Rows another account owned may already sit in that account's backup.
+      // Read them before the owner is rewritten below.
+      final movedRuns =
+          await (database.select(database.routineRuns)..where(
+                (tbl) =>
+                    tbl.ownerUserId.isNotNull() &
+                    tbl.ownerUserId.isNotValue('') &
+                    tbl.ownerUserId.isNotValue(normalizedUserId),
+              ))
+              .get();
+      final movedSessions =
+          await (database.select(database.routineSessions)..where(
+                (tbl) =>
+                    tbl.ownerUserId.isNotNull() &
+                    tbl.ownerUserId.isNotValue('') &
+                    tbl.ownerUserId.isNotValue(normalizedUserId),
+              ))
+              .get();
+
       await (database.update(database.routines)..where(
             (tbl) =>
                 tbl.ownerUserId.isNull() |
@@ -267,8 +287,88 @@ class LocalDataOwnershipGuard {
               syncMetadataJson: Value(sessionSyncMetadata),
             ),
           );
+
+      // The server keys runs and sessions across all accounts, so a row the
+      // previous account backed up cannot be uploaded again under the same
+      // id: the server rejects it. Give each moved row an id scoped to the
+      // new owner. Routines and reminders get theirs when cloudId is cleared.
+      for (final run in movedRuns) {
+        final metadata = _decodeMap(run.syncMetadataJson);
+        final originId = metadata[_originRunIdKey]?.toString() ?? run.id;
+        final originOwner =
+            metadata[_originOwnerKey]?.toString() ?? run.ownerUserId!;
+        // Back with the account the run started on: restore its first id so
+        // that account's existing backup row is updated, not duplicated.
+        final returning = originOwner == normalizedUserId;
+        final newId = returning
+            ? originId
+            : _ownerScopedId(normalizedUserId, 'run', originId);
+        if (newId == run.id ||
+            await database.routineRunDao.getRunById(newId) != null) {
+          // ponytail: an id already present on this device is left alone
+          // rather than merged; that run's upload may still be rejected.
+          continue;
+        }
+        if (returning) {
+          metadata
+            ..remove(_originRunIdKey)
+            ..remove(_originOwnerKey);
+        } else {
+          metadata[_originRunIdKey] = originId;
+          metadata[_originOwnerKey] = originOwner;
+        }
+        await (database.update(
+          database.routineRuns,
+        )..where((tbl) => tbl.id.equals(run.id))).write(
+          RoutineRunsCompanion(
+            id: Value(newId),
+            syncMetadataJson: Value(
+              metadata.isEmpty ? null : jsonEncode(metadata),
+            ),
+          ),
+        );
+      }
+
+      // Session ids name the photo folder on disk, so the local id stays and
+      // only the cloud id changes.
+      for (final session in movedSessions) {
+        await (database.update(
+          database.routineSessions,
+        )..where((tbl) => tbl.sessionId.equals(session.sessionId))).write(
+          RoutineSessionsCompanion(
+            syncMetadataJson: Value(
+              jsonEncode({
+                'needsSync': true,
+                'ownershipLinkedAt': now.toUtc().toIso8601String(),
+                'ownershipChoice': 'useCurrentAccount',
+                'remoteSessionId': _ownerScopedId(
+                  normalizedUserId,
+                  'session',
+                  session.sessionId,
+                ),
+              }),
+            ),
+          ),
+        );
+      }
     });
 
     return inspect(database: database, signedInUserId: normalizedUserId);
+  }
+
+  static const _originRunIdKey = 'originRunId';
+  static const _originOwnerKey = 'originOwnerUserId';
+
+  static String _ownerScopedId(String ownerUserId, String kind, String id) =>
+      const Uuid().v5(Namespace.url.value, 'vix.pebble/$ownerUserId/$kind/$id');
+
+  static Map<String, dynamic> _decodeMap(String? json) {
+    if (json == null || json.isEmpty) return {};
+    try {
+      final decoded = jsonDecode(json);
+      return decoded is Map ? Map<String, dynamic>.from(decoded) : {};
+    } catch (_) {
+      return {};
+    }
   }
 }

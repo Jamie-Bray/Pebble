@@ -799,8 +799,13 @@ class CloudSyncCoordinator {
     if (row == null) return;
     final session = _sessionFromRow(row);
     final syncedSession = await _uploadSessionProofs(session, ownerUserId);
+    // A session taken over from another account carries its own cloud id
+    // (see LocalDataOwnershipGuard); every other session uses its local id.
+    final remoteSessionId = _toSupabaseUuid(
+      session.syncMetadata?.remoteSessionId ?? session.sessionId,
+    );
     final remotePayload = {
-      'id': _toSupabaseUuid(syncedSession.sessionId),
+      'id': remoteSessionId,
       'owner_user_id': ownerUserId,
       'payload_json': syncedSession.toJson(),
       'updated_at': syncedSession.updatedAt.toIso8601String(),
@@ -811,7 +816,7 @@ class CloudSyncCoordinator {
                 const RoutineSessionSyncMetadata(needsSync: false))
             .copyWith(
               needsSync: false,
-              remoteSessionId: syncedSession.sessionId,
+              remoteSessionId: remoteSessionId,
               lastSyncedAt: DateTime.now(),
               lastSyncAttemptAt: DateTime.now(),
             );
@@ -872,8 +877,7 @@ class CloudSyncCoordinator {
 
       final updatedAssets = <RoutineSessionProofAsset>[];
       for (final asset in proofAssets) {
-        if (asset.remoteObjectKey != null &&
-            asset.remoteObjectKey!.isNotEmpty) {
+        if (_hasOwnBackup(asset, ownerUserId)) {
           updatedAssets.add(asset);
           continue;
         }
@@ -924,8 +928,7 @@ class CloudSyncCoordinator {
     for (final stepState in session.stepStates) {
       final updatedAssets = <RoutineSessionProofAsset>[];
       for (final asset in stepState.proofAssets) {
-        if (asset.remoteObjectKey != null &&
-            asset.remoteObjectKey!.isNotEmpty) {
+        if (_hasOwnBackup(asset, ownerUserId)) {
           updatedAssets.add(asset);
           continue;
         }
@@ -952,6 +955,13 @@ class CloudSyncCoordinator {
                   const RoutineSessionSyncMetadata(needsSync: true))
               .copyWith(needsSync: true),
     );
+  }
+
+  /// A key under another account's folder is not a backup this account can
+  /// read, so that photo still needs uploading.
+  bool _hasOwnBackup(RoutineSessionProofAsset asset, String ownerUserId) {
+    final key = asset.remoteObjectKey;
+    return key != null && GuidanceAudioCloudBackup.isOwnedBy(key, ownerUserId);
   }
 
   RoutineSession _sessionFromRow(RoutineSessionRow row) {
