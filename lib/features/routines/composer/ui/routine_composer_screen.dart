@@ -258,9 +258,9 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
 
   String _composerTitle(RoutineComposerState state) {
     if (state.mode == RoutineComposerMode.edit) {
-      return 'Edit Routine';
+      return 'Edit routine';
     }
-    return 'New Routine';
+    return 'New routine';
   }
 
   Widget _buildTitleField(BuildContext context) {
@@ -314,7 +314,7 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: Text(
-        'Start with a step and keep the list flowing.',
+        'Add one step at a time, in the order you do them.',
         style: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w400,
@@ -331,7 +331,7 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
         .where((step) => step.text.trim().isNotEmpty)
         .length;
     return Text(
-      'STEPS - $count ADDED',
+      'STEPS · $count',
       style: TextStyle(
         fontSize: 11,
         fontWeight: FontWeight.w700,
@@ -491,7 +491,7 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'You have $nonEmptyStepCount step${nonEmptyStepCount == 1 ? '' : 's'} in progress. Keep it to resume from Create later, or discard it now.',
+                  "You've added $nonEmptyStepCount step${nonEmptyStepCount == 1 ? '' : 's'}. Keep the draft to finish it later, or discard it.",
                   style: TextStyle(
                     fontSize: 15,
                     height: 1.4,
@@ -855,7 +855,9 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
         await _disposeGuidanceRecorder(recorder);
         if (!mounted) return;
         _resetGuidanceRecordingState();
-        _showGuidanceAudioError('Microphone access is needed to record audio.');
+        _showGuidanceAudioError(
+          'Pebble needs microphone access to record. You can allow it in your phone settings.',
+        );
         return;
       }
 
@@ -918,7 +920,7 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
       await _cancelAndDisposeGuidanceRecorder(recorder);
       if (!mounted) return;
       _resetGuidanceRecordingState();
-      _showGuidanceAudioError('Failed to start recording.');
+      _showGuidanceAudioError("Couldn't start recording. Try again.");
     }
   }
 
@@ -998,7 +1000,7 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
       await _cancelAndDisposeGuidanceRecorder(recorder);
       if (!mounted) return;
       _resetGuidanceRecordingState();
-      _showGuidanceAudioError('Failed to save recording.');
+      _showGuidanceAudioError("Couldn't save the recording. Try again.");
     }
   }
 
@@ -1390,7 +1392,7 @@ class _GuidanceAudioSheet extends StatelessWidget {
             else ...[
               Text(
                 step.guidanceAudio == null
-                    ? 'Record up to 10 seconds of step guidance for this checklist item.'
+                    ? 'Record up to 10 seconds saying what to check on this step.'
                     : 'A voice tip is saved. Play it, replace it, or remove it.',
                 style: TextStyle(
                   fontSize: 14,
@@ -1456,7 +1458,7 @@ class _LockedGuidanceAudio extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Voice tips are included with Personal Premium.',
+          'Voice tips come with Personal Premium.',
           style: TextStyle(
             fontSize: 14,
             height: 1.45,
@@ -1519,7 +1521,7 @@ class _GuidanceRecordButton extends StatelessWidget {
     return Semantics(
       button: true,
       label: label,
-      hint: 'Hold to record, release to save. Maximum 10 seconds.',
+      hint: 'Hold to record, release to save. You can record up to 10 seconds.',
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTapDown: (_) => onRecordStart(),

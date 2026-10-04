@@ -71,7 +71,7 @@ class AppearanceScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Choose a look that works for you.\nPreview first, then apply.',
+                          'Tap a theme to preview it.\nNothing changes until you apply it.',
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(
                                 color: foundation.textSecondary,
@@ -767,14 +767,14 @@ class _MiniAppPreview extends StatelessWidget {
     final foundation = themeData.extension<PebbleDarkFoundation>()!;
     final templateTokens = themeData.extension<PebbleTemplatesTokens>()!;
     final rowData = <({String label, String count, Color color})>[
-      (label: 'Leaving Home', count: '5', color: scheme.primary),
+      (label: 'Leaving home', count: '5', color: scheme.primary),
       (
-        label: 'Everyday Departure',
+        label: 'Everyday departure',
         count: '10',
         color: templateTokens.templatesAccentGroup2,
       ),
       (
-        label: 'Evening Wind Down',
+        label: 'Evening wind-down',
         count: '7',
         color: templateTokens.templatesAccentGroup3,
       ),
@@ -1062,7 +1062,7 @@ class _ThemePreviewSheet extends ConsumerWidget {
                       const SizedBox(height: 14),
                       const _SheetNote(
                         text:
-                            'Preview available. Applying this theme requires Personal Premium.',
+                            'You can preview this theme. Using it needs Personal Premium.',
                       ),
                     ],
                     if (meta.accessibilityNote != null) ...<Widget>[
@@ -1073,7 +1073,7 @@ class _ThemePreviewSheet extends ConsumerWidget {
                       const SizedBox(height: 14),
                       const _SheetNote(
                         text:
-                            'This is an older premium palette kept available for people who already know and prefer it.',
+                            'An older theme, kept for people who already use it.',
                       ),
                     ],
                     const SizedBox(height: 18),
@@ -1122,7 +1122,7 @@ class _ThemePreviewSheet extends ConsumerWidget {
                     isCurrent
                         ? 'Currently active'
                         : isLocked
-                        ? 'Unlock Premium'
+                        ? 'Get Premium'
                         : 'Use this theme',
                   ),
                 ),
@@ -1232,7 +1232,7 @@ void _showThemeInfoSheet(BuildContext context) {
             ),
             const SizedBox(height: 8),
             Text(
-              'Nothing changes until you confirm a theme. Accessibility themes are always free, and premium themes stay previewable before you decide.',
+              'Nothing changes until you tap Use this theme. Accessibility themes are always free, and you can preview Premium themes before you buy.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: foundation.textSecondary,
                 height: 1.45,

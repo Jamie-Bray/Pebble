@@ -217,7 +217,7 @@ class RoutineRunDetailScreen extends ConsumerWidget {
             Icon(LucideIcons.camera, size: 16, color: accentColor),
             SizedBox(width: 8),
             Text(
-              'View Photos',
+              'View photos',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
@@ -283,7 +283,7 @@ class RoutineRunDetailScreen extends ConsumerWidget {
               child: Row(
                 children: [
                   Text(
-                    'Run Photos',
+                    'Photos',
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
@@ -778,7 +778,7 @@ class RoutineRunDetailScreen extends ConsumerWidget {
                   ),
                   const SizedBox(width: 5),
                   Text(
-                    'Photo captured',
+                    'Photo taken',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -948,7 +948,7 @@ class _RunBackupLine extends StatelessWidget {
       ),
       _RunSyncState.pending => (
         LucideIcons.cloudUpload,
-        'Queued for backup',
+        'Waiting to back up',
         const Color(0xFFD0A24F),
       ),
       _RunSyncState.failed => (

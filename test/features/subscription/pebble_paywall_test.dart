@@ -25,7 +25,7 @@ void main() {
 
     expect(find.byType(PageView), findsNothing);
     expect(find.text('Personal Premium'), findsOneWidget);
-    expect(find.text('Never wonder\ntwice.'), findsOneWidget);
+    expect(find.text('Keep three weeks\nof checks.'), findsOneWidget);
 
     await _scrollUntilVisible(tester, find.text('WHAT PREMIUM GIVES YOU'));
     expect(find.text('WHAT PREMIUM GIVES YOU'), findsOneWidget);
@@ -323,10 +323,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('Premium activated'), findsOneWidget);
-    expect(find.textContaining('Optional: sign in'), findsOneWidget);
+    expect(find.textContaining('Sign in to\nturn on backup.'), findsOneWidget);
     expect(
       find.text(
-        'Sign in to back up your history, routines, and photos, and keep them ready across devices. Totally optional; Premium works right now without it.',
+        "Signing in lets Pebble back up your history, routines and photos, so you can restore them on another phone. It's optional. Premium already works without it.",
       ),
       findsOneWidget,
     );

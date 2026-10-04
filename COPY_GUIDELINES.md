@@ -1,6 +1,6 @@
 # Pebble Copy Guidelines
 
-Last updated: June 2, 2026
+Last updated: 4 October 2026
 
 This is the working reference for user-facing Pebble copy. Use it when reviewing
 app screens, templates, website text, store copy, emails, and shared-link pages.
@@ -8,17 +8,92 @@ app screens, templates, website text, store copy, emails, and shared-link pages.
 Pebble copy should help users understand what to do next, what is stored where,
 and what the app can and cannot do.
 
+## How Pebble sounds
+
+Pebble should read as if one sensible person wrote every word: someone who
+knows the app well, respects the reader's time, and has met people who go back
+to check the front door. Plain, specific, a little warm. Never flat, never
+salesy, never soothing.
+
+### Voice principles
+
+1. **Say what happens, in the order it happens.** "Pebble sends them an invite.
+   They can accept or decline." Not a promise about how it will feel.
+2. **Use concrete nouns.** The straighteners, the back door, the hob, 08:02.
+   Not "essentials", "items" or "your routine journey".
+3. **Write in full, ordinary sentences.** Use contractions (don't, you'll,
+   can't). Vary the length. A short sentence is fine when it carries
+   information ("Backup is off."), not when it is there for effect.
+4. **Sentence case everywhere,** including titles, buttons and template
+   names. Proper names keep their capitals: Personal Premium, Google Play,
+   theme names such as High Noon.
+5. **Buttons are short verbs:** Start, Take photo, Save reminder, Done.
+6. **Errors say what went wrong, then what to do,** in one or two sentences:
+   "Couldn't save the photo. Try again." Drop "Please" and "We're sorry".
+7. **Don't say the same thing twice.** If the title says it, the subtitle adds
+   something new or isn't there.
+8. **Show the record, not the reassurance.** "Checked at 08:02, with a photo",
+   never "You're safe" or "No need to go back".
+9. **UK English:** colour, personalise, cancelled, no serial comma unless it
+   avoids confusion.
+
+### Avoid
+
+- Em dashes. Use a full stop or a comma.
+- "Not X. Not Y. Just Z." and "It's not X, it's Y".
+- Rule-of-three rhythm and slogan fragments: "Calm. Clear. Confident.",
+  "Small routines. Lasting ripples."
+- Sentences that trail off, and colon reveals ("Here's the thing:").
+- Stacked adjectives: "a warm, grown-up, quietly expressive surface".
+- Buzzwords: seamless, effortless, elevate, empower, unlock your..., journey,
+  peace of mind, delightful, magic, crafted, designed to, simply, ensure,
+  nudge, ripple, "whether you're X or Y", "take the guesswork out",
+  "at your fingertips".
+- "Just" as a softener, exclamation marks, and emoji as decoration.
+- Telling people how they feel ("We know how stressful...", "You've got
+  this", "Let's get started!").
+- Reassurance and certainty claims: total confidence, never wonder, never
+  slip your mind, kept safe, safe copy, no going back to check.
+- Committee voice: "Your data is securely stored". Say who does what: "Pebble
+  keeps your routines on this phone."
+
+### Before and after (from the app)
+
+| Before | After |
+| --- | --- |
+| For routines you repeat. Not goals. Not streaks. | For the checks you already do. |
+| Step out the door with total confidence. | Every check is saved with the time. |
+| The doubt hits halfway down the street. Open Pebble: you ticked it off two minutes ago, with a photo. No going back to check. | You're halfway down the street when you start to wonder. Open Pebble and you can see you checked them at 08:02, with a photo. |
+| Stay on track. Set up local, secure nudges to ensure your essential routines never slip your mind. | No reminders yet. Pebble can send a notification at the time you usually do "Leaving the house". |
+| Small steps, big ripples / YOUR NEXT RIPPLE | One step at a time / UP NEXT |
+| Never wonder twice. | Keep three weeks of checks. |
+| Three weeks of answers, safe if you reinstall or change phone. | Three weeks of history, backed up in case you reinstall or change phone. |
+| One tap and Pebble starts keeping a safe copy of your routines. | Turn it on and Pebble starts backing up your routines. |
+| A deep, lush forest green surface with a natural feel. | Deep forest green. |
+| Could not save photo. Please try again. | Couldn't save the photo. Try again. |
+
+### Strings that must not be reworded casually
+
+Some messages double as markers that code matches on. Change them only with
+the matching code and tests:
+
+- `lib/features/subscription/data/entitlement_flow_messages.dart` and the
+  account-ownership messages in `lib/features/sync/local_data_ownership_guard.dart`.
+- Backup status labels compared in code: "Checking backup", "Turning on
+  backup", "Backup off", "Sign in".
+- Server errors the app matches in `routine_reminders_screen.dart`
+  ("Personal Premium is required", "Shared alert contact was not found" and
+  others).
+- The backup consent sentence in `cloud_backup_consent_provider.dart`, which
+  is a recorded consent text.
+- Photo markers in template steps: "(Take a photo)".
+
 ## Core Voice
 
 Pebble is a grounded, matter-of-fact routine tool. It should feel reliable,
 clear, and useful.
 
-Voice:
-
-- Direct.
-- Practical.
-- Steady.
-- Clear.
+The voice is direct, practical, steady and clear.
 
 Do:
 

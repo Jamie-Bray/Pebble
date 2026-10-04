@@ -179,8 +179,8 @@ class RoutineComposerStepRow extends StatelessWidget {
                 Expanded(
                   child: _StepOptionPill(
                     tooltip: step.requiresPhoto
-                        ? 'Pebble will ask for a photo before this step can be marked complete.'
-                        : 'This step will not ask for a photo when the routine is run.',
+                        ? 'Pebble asks for a photo before you can check off this step.'
+                        : "This step won't ask for a photo.",
                     icon: LucideIcons.camera,
                     label: 'Require photo',
                     tone: _StepOptionTone.amber,
@@ -234,7 +234,7 @@ class RoutineComposerStepRow extends StatelessWidget {
                   const SizedBox(width: 7),
                   Expanded(
                     child: Text(
-                      'Pebble will ask for a photo before this step can be marked complete.',
+                      'Pebble asks for a photo before you can check off this step.',
                       style: TextStyle(
                         fontSize: 12,
                         height: 1.35,

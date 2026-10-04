@@ -17,7 +17,7 @@ class ZenHeader extends StatelessWidget {
     return SliverToBoxAdapter(
       child: ZenScreenHeader(
         title: 'Pebble',
-        subtitle: 'Small routines. Lasting ripples.',
+        subtitle: 'Routines, one step at a time',
         actions: [
           ...extraActions,
           IconButton(

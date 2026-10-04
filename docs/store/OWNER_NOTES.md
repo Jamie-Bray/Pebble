@@ -101,7 +101,7 @@ where the code, the public copy, or both should change before launch.
 10. **The in-app privacy summary** (`legal_about_screen.dart`) does not name
     providers. It links to the full policy, which is fine. Keep it consistent
     when you next change it.
-11. **The starter and template "Everyday Departure Check" differ** (4 steps
+11. **The starter and template "Everyday departure check" differ** (4 steps
     against 10, `VISUAL_WALKTHROUGH.md`). The store copy describes the template
     version (hair tools, stove and oven, toaster, sink, heaters, windows and
     doors).

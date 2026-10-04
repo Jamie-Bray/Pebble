@@ -729,7 +729,7 @@ class _FakeSharedReminders extends SharedReminderPreferencesRepository {
 }
 
 // ---------------------------------------------------------------------------
-// Photos: the "camera" hands back sample images from the support directory
+// Photos: the "camera" hands back sample images from test/walkthrough/fixtures
 // (sample_photo_1.jpg, sample_photo_2.jpg), copied fresh each time because
 // the player deletes the picker's temp file once the photo is saved.
 // ---------------------------------------------------------------------------
@@ -758,11 +758,12 @@ class _FakePhotoPicker implements RoutinePlayerPhotoPicker {
     int? imageQuality,
     double? maxWidth,
   }) async {
-    // Photos in the support directory win; otherwise use the tracked
-    // fixtures so a fresh checkout still completes the photo scenarios.
-    final name = 'sample_photo_${_count % 2 + 1}.jpg';
-    var sample = File('$_supportDir/$name');
-    if (!sample.existsSync()) sample = File('test/walkthrough/fixtures/$name');
+    // Samples ship with the harness so captures work from any output folder.
+    final sample = File(
+      'test/walkthrough/fixtures/sample_photo_${_count % 2 + 1}.jpg',
+    );
+    if (!sample.existsSync()) return null;
+    Directory(_supportDir).createSync(recursive: true);
     final copy = sample.copySync('$_supportDir/picked_${_count++}.jpg');
     return XFile(copy.path);
   }
@@ -1075,7 +1076,7 @@ Future<void> _runLeavingHouseToHome(_Env env) async {
     await _tapPrimary(env);
     await env.realWait(2);
   }
-  // First photo: the primary button is "Take photo" until one is captured.
+  // A required photo is missing, so the primary button is the camera.
   await _tapPrimary(env);
   await env.realWait(12);
   await _tapPrimary(env);
@@ -1148,7 +1149,7 @@ void main() {
   // ---- Home --------------------------------------------------------------
   _capture('home populated', (env) async {
     await env.shot('home_populated');
-    await env.tapText('Your Routines');
+    await env.tapText('Your routines');
     await env.settle(10);
     await env.shot('home_routines_sheet_open');
     await env.tapFinder(find.byIcon(LucideIcons.plus).last);
@@ -1156,7 +1157,7 @@ void main() {
   });
   _capture('home premium', account: _Account.signedInPremium, (env) async {
     await env.shot('home_premium');
-    await env.tapText('Your Routines');
+    await env.tapText('Your routines');
     await env.settle(10);
     await env.shot('home_premium_routines_sheet_open');
   });
@@ -1192,7 +1193,7 @@ void main() {
   });
   _capture('home small', device: _small, (env) async {
     await env.shot('home_populated');
-    await env.tapText('Your Routines');
+    await env.tapText('Your routines');
     await env.settle(10);
     await env.shot('home_routines_sheet_open');
   });
@@ -1202,7 +1203,7 @@ void main() {
   for (final scale in [1.6, 2.0]) {
     _capture('home a11y $scale', textScale: scale, (env) async {
       await env.shot('a11y${scale}x_home_populated');
-      await env.tapText('Your Routines');
+      await env.tapText('Your routines');
       await env.settle(10);
       await env.shot('a11y${scale}x_home_routines_sheet_open');
     });
@@ -1370,7 +1371,8 @@ void main() {
         await env.realWait(2);
         await _tapPrimary(env);
         await env.realWait(2);
-        // "Take photo" for the first; "Add photo" only appears after it.
+        // First photo from the primary (camera) button, the second from the
+        // proof card's "Add photo" action.
         await _tapPrimary(env);
         await env.realWait(12);
         await env.tapText('Add photo');
@@ -1784,7 +1786,7 @@ void main() {
   });
   _capture('sign in email', (env) async {
     await env.push('/sign-in');
-    await env.tapText('Continue with Email');
+    await env.tapText('Continue with email');
     await env.realWait(3);
     await env.shot('sign_in_email_sheet');
   });
@@ -1896,7 +1898,7 @@ void main() {
     (env) async {
       await env.realWait(5);
       await env.shot('sub_lapsed_home');
-      await env.tapText('Your Routines');
+      await env.tapText('Your routines');
       await env.settle(10);
       await env.shot('sub_lapsed_routines_sheet');
       await env.tapText('Morning reset', last: true);

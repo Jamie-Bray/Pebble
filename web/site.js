@@ -134,7 +134,7 @@ document.querySelectorAll(".theme-swatch").forEach((swatch) => {
     if (!demo.phone) return;
 
     demo.phone.dataset.theme = theme;
-    document.querySelector(".theme-name").textContent = `${themeNames[theme]} — plenty more inside`;
+    document.querySelector(".theme-name").textContent = `${themeNames[theme]}, one of several themes`;
     document.querySelectorAll(".theme-swatch").forEach((button) => {
       const active = button === swatch;
       button.classList.toggle("is-active", active);

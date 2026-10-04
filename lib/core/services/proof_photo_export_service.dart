@@ -35,13 +35,13 @@ class GalProofPhotoExportService implements ProofPhotoExportService {
     if (!canSaveCopyToPhotos) {
       return const ProofPhotoExportResult(
         saved: false,
-        message: 'Saving to Photos is not available on this device.',
+        message: "This phone can't save to Photos.",
       );
     }
     if (!await proofFile.exists()) {
       return const ProofPhotoExportResult(
         saved: false,
-        message: 'This proof photo is no longer available.',
+        message: 'This photo has been deleted.',
       );
     }
     try {
@@ -50,25 +50,25 @@ class GalProofPhotoExportService implements ProofPhotoExportService {
         if (!granted) {
           return const ProofPhotoExportResult(
             saved: false,
-            message: 'Pebble needs permission before it can save to Photos.',
+            message: 'Pebble needs permission to save to Photos. You can allow it in your phone settings.',
           );
         }
       }
       await Gal.putImage(proofFile.path);
       return const ProofPhotoExportResult(
         saved: true,
-        message: 'Saved a photo to your phone.',
+        message: 'Saved to Photos.',
       );
     } on GalException catch (error) {
       final message = switch (error.type) {
         GalExceptionType.accessDenied =>
-          'Pebble needs permission before it can save to Photos.',
+          'Pebble needs permission to save to Photos. You can allow it in your phone settings.',
         GalExceptionType.notEnoughSpace =>
-          'There is not enough space on this device to save the photo.',
+          "There isn't enough space on this phone to save the photo.",
         GalExceptionType.notSupportedFormat =>
-          'This photo is in a format that cannot be saved to Photos.',
+          "Photos can't save this file type.",
         GalExceptionType.unexpected =>
-          'Something went wrong while saving to Photos. Please try again.',
+          "Couldn't save to Photos. Try again.",
       };
       return ProofPhotoExportResult(saved: false, message: message);
     }

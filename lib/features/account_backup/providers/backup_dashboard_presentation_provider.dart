@@ -186,7 +186,7 @@ final backupDashboardPresentationProvider = Provider<BackupDashboardPresentation
     dataItems: dataItems,
     dataItemsLive: dataItemsLive,
     dataFooter: dataItemsLive
-        ? 'Pebble backs up new changes by itself. Nothing to press.'
+        ? 'Pebble backs up new changes by itself.'
         : 'Once backup is on, Pebble saves changes by itself.',
     pendingBannerText: pendingBannerText,
     icon: base.icon,
@@ -385,7 +385,7 @@ _BackupDashboardBase _baseForStatus({
       return const _BackupDashboardBase(
         statusLabel: 'Ready to turn on',
         detail:
-            'One tap and Pebble starts keeping a safe copy of your routines.',
+            'Turn it on and Pebble starts backing up your routines.',
         icon: LucideIcons.fileCheck,
         tone: BackupDashboardTone.attention,
         needsAttention: true,
@@ -581,7 +581,7 @@ List<BackupDataItem> _dataItemsFor({
   final String photoDetail;
   var photoState = offState;
   if (!live) {
-    photoDetail = 'Photos you add along the way';
+    photoDetail = 'Photos you take during routines';
   } else if (fairUse == null) {
     photoDetail = 'Checking photo uploads';
   } else if (fairUse.status == ProofMediaFairUseStatus.full) {

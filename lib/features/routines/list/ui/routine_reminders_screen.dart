@@ -131,7 +131,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
                   ? widget.emailOnly
                         ? 'Completion emails for this routine'
                         : 'Reminders for this routine'
-                  : 'Routine reminders and shared notifications',
+                  : 'Reminders for all your routines',
               actions: [
                 if (_allReminders.isNotEmpty && !widget.emailOnly)
                   IconButton(
@@ -156,7 +156,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
                           ),
                           indicatorColor: cs.primary,
                           tabs: const [
-                            Tab(text: 'By Day'),
+                            Tab(text: 'By day'),
                             Tab(text: 'All'),
                           ],
                         ),
@@ -223,7 +223,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
         ] else ...[
           _buildReminderOverviewStrip(cs, reminders),
           const SizedBox(height: 24),
-          _buildSectionTitle(cs, 'Scheduled Nudges', LucideIcons.calendarClock),
+          _buildSectionTitle(cs, 'Reminders', LucideIcons.calendarClock),
           const SizedBox(height: 12),
           ...reminders.map(
             (reminder) => _buildRoutineReminderCard(reminder, cs),
@@ -253,7 +253,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
         ),
         const SizedBox(height: 20),
         Text(
-          hasReminders ? 'Reminder rhythm.' : 'Stay on track.',
+          hasReminders ? 'Reminders set' : 'No reminders yet',
           style: TextStyle(
             fontSize: 28,
             height: 1.15,
@@ -264,8 +264,8 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
         const SizedBox(height: 12),
         Text(
           hasReminders
-              ? 'Your local prompts for "${widget.routine?.title ?? 'this routine'}" are ready to keep the habit visible.'
-              : 'Set up local, secure nudges to ensure your essential routines never slip your mind.',
+              ? 'Pebble sends these from your phone at the times below. You can pause or change them at any time.'
+              : 'Pebble can send a notification at the time you usually do "${widget.routine?.title ?? 'this routine'}".',
           style: TextStyle(
             fontSize: 15,
             height: 1.5,
@@ -282,16 +282,15 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
         _buildReminderFeatureItem(
           cs,
           icon: LucideIcons.clock,
-          title: 'Pinpoint timing',
-          body: 'Choose the exact hour and minute you want to be prompted.',
+          title: 'Pick a time',
+          body: 'Any hour and minute you like.',
         ),
         const SizedBox(height: 18),
         _buildReminderFeatureItem(
           cs,
           icon: LucideIcons.calendarDays,
-          title: 'Flexible scheduling',
-          body:
-              'Repeat your reminders daily, on weekdays, or select specific days of the week.',
+          title: 'Pick the days',
+          body: 'Every day, weekdays only, or the days you choose.',
         ),
       ],
     );
@@ -459,7 +458,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Tap to schedule',
+                        'Choose a time and days',
                         style: TextStyle(
                           fontSize: 13,
                           color: cs.onSurface.withValues(alpha: 0.6),
@@ -640,13 +639,13 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
           icon: LucideIcons.send,
           title: 'Send a completion email',
           body:
-              'Pebble can email one contact when you complete this routine, so you do not have to send a message yourself.',
+              "Pebble can email one person each time you finish this routine, so you don't have to message them yourself.",
         ),
         const SizedBox(height: 16),
         _buildEmailFeatureItem(
           cs,
           icon: LucideIcons.mailCheck,
-          title: 'Their choice',
+          title: 'They choose',
           body:
               'They get an invite first. Nothing is sent unless they accept, and they can stop the emails at any time.',
         ),
@@ -654,7 +653,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
         _buildEmailFeatureItem(
           cs,
           icon: LucideIcons.shieldCheck,
-          title: 'What is included',
+          title: "What's in the email",
           body:
               'The routine name (you can hide it), completion time and step count. Photos and checklist details are not included.',
         ),
@@ -850,7 +849,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
     final previewSentAt = DateTime.now();
     final routineTitle = widget.routine?.title.trim();
     final title = routineTitle == null || routineTitle.isEmpty
-        ? 'Bedtime House Check'
+        ? 'Bedtime house check'
         : routineTitle;
     final showName = contact?.includeRoutineName ?? true;
     final showSteps = contact?.includeStepCount ?? true;
@@ -1478,7 +1477,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
       ZenNotifications.showError(
         context,
         message: message,
-        title: 'Could not check',
+        title: "Couldn't check",
       );
     } finally {
       if (mounted) {
@@ -1721,7 +1720,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'We have emailed ${contact.recipientEmail}. They need to accept before Pebble can send completion emails for this routine.',
+                  "We've emailed ${contact.recipientEmail}. Pebble can send completion emails once they accept.",
                   style: TextStyle(
                     fontSize: 15,
                     height: 1.45,
@@ -1730,7 +1729,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
                 ),
                 const SizedBox(height: 14),
                 Text(
-                  'You can check the status from this screen.',
+                  'You can check their reply on this screen.',
                   style: TextStyle(
                     fontSize: 13,
                     height: 1.4,
@@ -1849,7 +1848,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
       ZenNotifications.showError(
         context,
         message: message,
-        title: 'Could not remove',
+        title: "Couldn't remove",
       );
     } finally {
       if (mounted) {
@@ -1934,13 +1933,13 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
       SharedReminderContactStatus.blocked =>
         "This address isn't accepting invitations from your account. You can use a different email address.",
       SharedReminderContactStatus.disabled =>
-        'Add someone to notify again when you are ready.',
+        'You can add someone again at any time.',
     };
   }
 
   String _sharedReminderContactStatusMessage(SharedReminderContact? contact) {
     if (contact == null) {
-      return 'No one is set up to be notified for this routine.';
+      return 'No one gets completion emails for this routine yet.';
     }
     return switch (contact.status) {
       SharedReminderContactStatus.pending =>
@@ -2181,7 +2180,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              'Add reminders to your routines to get started',
+              'Tap New reminder to add one.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 16,
@@ -2217,7 +2216,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
     if (routines.isEmpty) {
       ZenNotifications.showInfo(
         context,
-        message: 'Create a routine first before adding reminders.',
+        message: 'Create a routine first, then add a reminder to it.',
       );
       return null;
     }
@@ -2281,7 +2280,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
       if (enabled) {
         final time = _parseTime(reminder.time);
         if (time == null) {
-          throw Exception('Invalid reminder time.');
+          throw Exception("Couldn't read this reminder's time.");
         }
         final routine = await db.routineDao.getRoutineById(reminder.routineId);
         await NotificationService().scheduleRoutineReminder(
@@ -2306,8 +2305,8 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
         ZenNotifications.showWarning(
           context,
           message: requiresPermission
-              ? 'Notification permission is required to enable reminders.'
-              : 'Could not update reminder. Please try again.',
+              ? 'Notifications are off for Pebble. Turn them on in Settings to get reminders.'
+              : "Couldn't update the reminder. Try again.",
           actionLabel: requiresPermission ? 'Settings' : null,
           onAction: requiresPermission ? () => openAppSettings() : null,
         );
@@ -2357,8 +2356,8 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
               const SizedBox(height: 10),
               Text(
                 isRoutineSpecific
-                    ? 'This will remove all personal reminders for "${widget.routine!.title}".'
-                    : 'This will remove all personal reminders across all routines.',
+                    ? 'This deletes every reminder for "${widget.routine!.title}".'
+                    : 'This deletes every reminder for all your routines.',
                 style: TextStyle(
                   fontSize: 15,
                   height: 1.4,

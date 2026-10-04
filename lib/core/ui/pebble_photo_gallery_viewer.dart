@@ -80,7 +80,7 @@ class _PebblePhotoGalleryViewerState
       if (file == null || !file.existsSync()) {
         ZenNotifications.showWarning(
           context,
-          message: 'This proof photo is no longer available.',
+          message: 'This photo has been deleted.',
         );
         return;
       }
@@ -227,7 +227,7 @@ class _PebblePhotoGalleryViewerState
                             : const Icon(LucideIcons.imageDown, size: 18),
                         label: Text(
                           _isSavingCopy
-                              ? 'Saving a photo to your phone...'
+                              ? 'Saving to Photos...'
                               : 'Save a copy to Photos',
                         ),
                       ),
