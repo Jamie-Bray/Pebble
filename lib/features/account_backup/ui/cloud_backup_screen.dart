@@ -738,9 +738,7 @@ class _BackupHero extends StatelessWidget {
             onPressed: primaryBusy ? null : onPrimary,
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(54),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-              ),
+              shape: const StadiumBorder(),
             ),
             icon: Icon(_buttonIcon(state.primaryAction), size: 18),
             label: Text(
@@ -755,9 +753,7 @@ class _BackupHero extends StatelessWidget {
             onPressed: onSignIn,
             style: OutlinedButton.styleFrom(
               minimumSize: const Size.fromHeight(50),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-              ),
+              shape: const StadiumBorder(),
             ),
             icon: const Icon(LucideIcons.logIn, size: 17),
             label: Text(
@@ -1288,9 +1284,7 @@ class _OwnershipMismatchCard extends StatelessWidget {
               onPressed: onUseCurrentAccount,
               style: FilledButton.styleFrom(
                 minimumSize: const Size.fromHeight(50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
+                shape: const StadiumBorder(),
               ),
               child: const Text('Use this account'),
             ),
@@ -1299,9 +1293,7 @@ class _OwnershipMismatchCard extends StatelessWidget {
               onPressed: onKeepBackupOff,
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size.fromHeight(48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
+                shape: const StadiumBorder(),
               ),
               child: const Text('Keep backup off'),
             ),

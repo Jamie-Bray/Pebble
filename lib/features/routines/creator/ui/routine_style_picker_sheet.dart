@@ -111,9 +111,7 @@ class RoutineStylePickerSheet extends StatefulWidget {
                         Brightness.dark
                     ? Colors.white
                     : Colors.black,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
+                shape: const StadiumBorder(),
               ),
               child: const Text(
                 'Save style',
@@ -547,9 +545,7 @@ class _RoutineStylePickerSheetState extends State<RoutineStylePickerSheet> {
         style: FilledButton.styleFrom(
           backgroundColor: _color,
           foregroundColor: _getContrastColor(_color),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
+          shape: const StadiumBorder(),
           elevation: 2,
         ),
         child: const Text(

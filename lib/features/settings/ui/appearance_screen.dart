@@ -1092,9 +1092,7 @@ class _ThemePreviewSheet extends ConsumerWidget {
                     backgroundColor: previewTheme.colorScheme.primary,
                     foregroundColor: previewTheme.colorScheme.onPrimary,
                     minimumSize: const Size.fromHeight(52),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                    ),
+                    shape: const StadiumBorder(),
                   ),
                   onPressed: isCurrent
                       ? null

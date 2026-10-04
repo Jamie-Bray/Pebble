@@ -188,9 +188,7 @@ abstract class _BaseThemeFactory {
           backgroundColor: accent,
           foregroundColor: isDark ? bg : Colors.white,
           elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
+          shape: const StadiumBorder(),
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         ),
       ),
@@ -198,9 +196,7 @@ abstract class _BaseThemeFactory {
         style: OutlinedButton.styleFrom(
           foregroundColor: accent,
           side: BorderSide(color: scheme.outline),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
+          shape: const StadiumBorder(),
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         ),
       ),

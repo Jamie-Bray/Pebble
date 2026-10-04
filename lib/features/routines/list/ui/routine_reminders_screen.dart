@@ -15,6 +15,7 @@ import 'package:pebble_routines/features/subscription/providers/premium_feature_
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:pebble_routines/core/ui/adaptive_layout.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/ui/zen_notifications.dart';
@@ -254,12 +255,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
         const SizedBox(height: 20),
         Text(
           hasReminders ? 'Reminder rhythm.' : 'Stay on track.',
-          style: TextStyle(
-            fontSize: 28,
-            height: 1.15,
-            fontWeight: FontWeight.w800,
-            color: cs.onSurface,
-          ),
+          style: PebbleType.of(context).title2,
         ),
         const SizedBox(height: 12),
         Text(
@@ -724,9 +720,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
           label: Text(actionLabel),
           style: FilledButton.styleFrom(
             minimumSize: const Size.fromHeight(52),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
+            shape: const StadiumBorder(),
           ),
         ),
         const SizedBox(height: 12),
@@ -789,9 +783,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
                   label: const Text('Add someone to notify'),
                   style: FilledButton.styleFrom(
                     minimumSize: const Size.fromHeight(50),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+                    shape: const StadiumBorder(),
                   ),
                 ),
               ),
@@ -2031,7 +2023,10 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
 
     return AdaptiveContentWidth(
       child: ListView.builder(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(
+          horizontal: PebbleSpacing.xl,
+          vertical: PebbleSpacing.md,
+        ),
         itemCount: 7, // 7 days of the week
         itemBuilder: (context, index) {
           final day = index + 1;
@@ -2052,7 +2047,10 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
 
     return AdaptiveContentWidth(
       child: ListView.builder(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(
+          horizontal: PebbleSpacing.xl,
+          vertical: PebbleSpacing.md,
+        ),
         itemCount: _allReminders.length,
         itemBuilder: (context, index) {
           final reminder = _allReminders[index];
@@ -2074,11 +2072,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
         children: [
           Text(
             _weekdayLabel(day),
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: cs.onSurface,
-            ),
+            style: PebbleType.of(context).headline,
           ),
           const SizedBox(height: 8),
           ...reminders.map((reminder) => _buildReminderCard(reminder, cs)),
@@ -2088,16 +2082,23 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
   }
 
   Widget _buildReminderCard(RoutineReminder reminder, ColorScheme cs) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: PebbleSpacing.xs),
+      child: _buildReminderTile(reminder, cs),
+    );
+  }
+
+  // A Material (not a decorated Container) so the ListTile's ink shows.
+  Widget _buildReminderTile(RoutineReminder reminder, ColorScheme cs) {
+    return Material(
+      color: cs.surfaceContainerHighest,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: PebbleRadius.mdAll,
+        side: BorderSide(
           color: reminder.isEnabled
               ? cs.primary.withValues(alpha: 0.3)
               : cs.outline.withValues(alpha: 0.2),
-          width: 1,
         ),
       ),
       child: ListTile(

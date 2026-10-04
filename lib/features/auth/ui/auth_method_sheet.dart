@@ -103,9 +103,7 @@ void showAuthMethodSheet(BuildContext context) {
                         child: FilledButton(
                           onPressed: () => Navigator.of(context).pop(),
                           style: FilledButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
+                            shape: const StadiumBorder(),
                           ),
                           child: const Text('Continue'),
                         ),
@@ -125,9 +123,7 @@ void showAuthMethodSheet(BuildContext context) {
                                 alpha: 0.22,
                               ),
                             ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
+                            shape: const StadiumBorder(),
                           ),
                           child: const Text('Not now'),
                         ),

@@ -385,9 +385,7 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
             onPressed: _isSaving || !canSave ? null : _save,
             style: FilledButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
+              shape: const StadiumBorder(),
               backgroundColor: cs.primary,
               disabledBackgroundColor: cs.surfaceContainerHighest,
             ),
@@ -673,9 +671,7 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
               },
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 18),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
+                shape: const StadiumBorder(),
                 backgroundColor: cs.onSurface,
               ),
               child: Text(
