@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
+import 'package:pebble_routines/features/subscription/data/models/subscription_account_state.dart';
 import 'package:pebble_routines/features/subscription/data/purchase_repository.dart';
 import 'package:pebble_routines/features/subscription/domain/subscription_lifecycle.dart';
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
@@ -28,6 +30,8 @@ class AccountProfilePresentation {
     required this.canStartPremium,
     required this.canRestorePurchase,
     required this.canManagePlan,
+    this.hasPremium = false,
+    this.planPeriodLine,
   });
 
   final bool isSignedIn;
@@ -41,6 +45,16 @@ class AccountProfilePresentation {
   final bool canStartPremium;
   final bool canRestorePurchase;
   final bool canManagePlan;
+
+  /// Premium is active (or in its history grace) on this phone.
+  final bool hasPremium;
+
+  /// When the current paid period ends, if the store told us.
+  final String? planPeriodLine;
+
+  /// Signing in is always available while signed out: it is how a returning
+  /// Premium user gets their plan and backup back on a new phone.
+  bool get canSignIn => !isSignedIn;
 }
 
 final accountProfilePresentationProvider = Provider<AccountProfilePresentation>(
@@ -77,8 +91,15 @@ final accountProfilePresentationProvider = Provider<AccountProfilePresentation>(
           !hasLocalPremium &&
           purchase.isPurchaseAvailable &&
           entitlement.personalTier == UserTier.personalFree,
-      canRestorePurchase: purchase.isPurchaseAvailable,
+      // Restore stays visible even while the store is unreachable: it is
+      // how returning buyers get Premium back, and the tap explains any
+      // store problem.
+      canRestorePurchase: true,
       canManagePlan: hasLocalPremium && purchase.manageSubscriptionsUrl != null,
+      hasPremium: hasLocalPremium,
+      planPeriodLine: policy.hasActiveLocalPremium
+          ? accountPlanPeriodLine(account)
+          : null,
     );
   },
 );
@@ -168,10 +189,31 @@ String _planStatusLabel(PremiumFeaturePolicy policy) {
   }
 }
 
+/// One honest line about what happens at the end of the current period:
+/// renews, ends (after a cancellation), or needs a payment fix.
+String? accountPlanPeriodLine(SubscriptionAccountState account) {
+  if (account.entitlementBillingIssueAt != null) {
+    return 'The store could not take the last payment. Update your payment '
+        'method in your store account to keep Premium.';
+  }
+  final endsAt = account.entitlementPeriodEndsAt;
+  if (endsAt == null) return null;
+  final date = DateFormat('d MMMM y').format(endsAt.toLocal());
+  switch (account.entitlementWillRenew) {
+    case false:
+      return 'Cancelled. Premium stays on until $date, then Free limits apply.';
+    case true:
+      return 'Renews on $date. Cancel anytime in your store account.';
+    case null:
+      return 'Current period ends $date. Renews automatically unless cancelled.';
+  }
+}
+
 String? _providerLabel(String? provider) {
   switch (provider) {
     case 'google':
       return 'Google';
+    case 'email':
     case 'emailOtp':
       return 'Email';
     case 'apple':

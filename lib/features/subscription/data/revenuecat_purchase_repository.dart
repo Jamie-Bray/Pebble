@@ -7,6 +7,7 @@ import 'package:purchases_flutter/purchases_flutter.dart' as rc;
 
 import 'package:pebble_routines/data/remote/supabase_client_provider.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
+import 'package:pebble_routines/features/subscription/data/entitlement_flow_messages.dart';
 import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
 import 'package:pebble_routines/features/subscription/data/purchase_repository.dart';
 import 'package:pebble_routines/features/subscription/data/revenuecat_runtime_config.dart';
@@ -20,7 +21,7 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
   }
 
   static const _backupVerificationFailedMessage =
-      'Premium is active, but backup could not be set up yet. Try again.';
+      EntitlementFlowMessages.backupSetupFailed;
 
   final Ref _ref;
 
@@ -29,19 +30,19 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
   String? _configuredUserId;
   String? _unavailableReason = 'Loading store products...';
   DateTime? _lastPurchaseCheckAt;
+  bool _loadingProducts = true;
+  Future<void>? _retryInFlight;
   final Map<BillingPlan, rc.Package> _packagesByPlan = {};
+  String? _storeManagementUrl;
+
+  static const _storeLoadFailedMessage =
+      'Could not load store products. Check your connection and try again.';
 
   @override
-  String? get manageSubscriptionsUrl {
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.android:
-        return 'https://play.google.com/store/account/subscriptions';
-      case TargetPlatform.iOS:
-        return 'https://apps.apple.com/account/subscriptions';
-      default:
-        return null;
-    }
-  }
+  String? get manageSubscriptionsUrl => revenueCatManageSubscriptionsUrl(
+    managementUrl: _storeManagementUrl,
+    platform: defaultTargetPlatform,
+  );
 
   @override
   bool get billingAvailable => _billingAvailable;
@@ -63,6 +64,46 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
       isPurchaseAvailable ? null : _unavailableReason;
 
   @override
+  bool get isLoadingProducts => _loadingProducts;
+
+  @override
+  Future<void> retryLoadProducts() {
+    return _retryInFlight ??= _retryLoadProducts().whenComplete(() {
+      _retryInFlight = null;
+    });
+  }
+
+  Future<void> _retryLoadProducts() async {
+    final config = _ref.read(revenueCatRuntimeConfigProvider);
+    if (!config.supportsCurrentPlatform) {
+      _loadingProducts = false;
+      notifyListeners();
+      return;
+    }
+    _loadingProducts = true;
+    notifyListeners();
+    try {
+      // Configures RevenueCat if start-up failed before it got that far; a
+      // no-op when it is already configured for this user.
+      // Bounded so a hung store call can always be retried again; a late
+      // answer still lands through _loadOfferings and notifies listeners.
+      await () async {
+        await _configureForUser(_currentUserId);
+        await _loadOfferings();
+      }().timeout(const Duration(seconds: 20));
+    } catch (error) {
+      if (_packagesByPlan.isEmpty) {
+        _billingAvailable = false;
+        _unavailableReason = _storeLoadFailedMessage;
+      }
+      debugPrint('Retrying RevenueCat offerings failed: $error');
+    } finally {
+      _loadingProducts = false;
+      notifyListeners();
+    }
+  }
+
+  @override
   List<PremiumProduct> get personalPremiumProducts {
     if (_packagesByPlan.isEmpty) {
       return getPlaceholderPremiumCatalog(isPurchasable: false);
@@ -79,6 +120,7 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     final config = _ref.read(revenueCatRuntimeConfigProvider);
     if (!config.supportsCurrentPlatform) {
       _billingAvailable = false;
+      _loadingProducts = false;
       _unavailableReason =
           'Purchases are not configured for this platform yet.';
       notifyListeners();
@@ -87,16 +129,27 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     final userId = _currentUserId;
     try {
       await _configureForUser(userId);
-      await _loadOfferings();
+      await _loadOfferingsMarkingLoaded();
       await syncPurchasesSilently();
     } catch (error) {
       _billingAvailable = false;
-      _unavailableReason =
-          'Could not load store products. Check your connection and try again.';
+      _loadingProducts = false;
+      _unavailableReason = _storeLoadFailedMessage;
       await _ref
           .read(entitlementStoreProvider)
           .recordEntitlementError(_unavailableReason!);
       debugPrint('Failed to initialise RevenueCat purchases: $error');
+      notifyListeners();
+    }
+  }
+
+  /// Start-up offerings load: products count as loaded (or unavailable) as
+  /// soon as the offerings call returns, before the silent sync finishes.
+  Future<void> _loadOfferingsMarkingLoaded() async {
+    try {
+      await _loadOfferings();
+    } finally {
+      _loadingProducts = false;
       notifyListeners();
     }
   }
@@ -128,6 +181,11 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
       if (errorCode == rc.PurchasesErrorCode.purchaseCancelledError) {
         throw const PurchaseCancelledException();
       }
+      if (errorCode == rc.PurchasesErrorCode.paymentPendingError) {
+        throw PurchasePendingException(
+          revenueCatMessageForPurchasesError(errorCode),
+        );
+      }
       if (errorCode == rc.PurchasesErrorCode.productAlreadyPurchasedError) {
         final restored = await restorePurchases();
         return PurchaseResult(
@@ -139,6 +197,7 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
       }
       throw PurchaseFlowException(
         revenueCatMessageForPurchasesError(errorCode),
+        isPending: errorCode == rc.PurchasesErrorCode.paymentPendingError,
       );
     }
     return _applyCustomerInfo(
@@ -186,9 +245,12 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
         ),
       );
     }
+    _noteManagementUrl(customerInfo);
     var entitlement = _activeEntitlement(customerInfo);
     var restoredAfterLogin = false;
-    if (entitlement == null && userId != null) {
+    if (entitlement == null &&
+        userId != null &&
+        revenueCatAllowsSilentRestore(defaultTargetPlatform)) {
       debugPrint(
         '[PremiumEntitlement] No active RevenueCat entitlement after '
         'logIn; attempting restore for signed-in user=$userId.',
@@ -228,6 +290,10 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
       }
       if (userId != null && _hasVerifiedPaidRevenueCatEntitlement()) {
         await _ref.read(entitlementStoreProvider).applyExpiredEntitlement();
+      } else {
+        // Bookkeeping only: no store call. A lapse inferred from the cached
+        // period end is now confirmed, which starts the grace countdown.
+        await _ref.read(entitlementStoreProvider).confirmLapseIfExpired();
       }
       return;
     }
@@ -266,8 +332,7 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
       await _loadOfferings();
     } catch (error) {
       _billingAvailable = false;
-      _unavailableReason =
-          'Could not load store products. Check your connection and try again.';
+      _unavailableReason = _storeLoadFailedMessage;
       debugPrint('Failed to refresh RevenueCat after sign-out: $error');
       notifyListeners();
     }
@@ -315,6 +380,9 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
       purchasesConfig.appUserID = normalizedUserId;
     }
     await rc.Purchases.configure(purchasesConfig);
+    rc.Purchases.addCustomerInfoUpdateListener((customerInfo) {
+      _storeManagementUrl = customerInfo.managementURL;
+    });
     _configured = true;
     _configuredUserId = normalizedUserId;
     final configuredAppUserId = await _safeRevenueCatAppUserId();
@@ -345,12 +413,22 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     notifyListeners();
   }
 
+  /// The listener only fires on changes, so the store that sold the plan
+  /// (for "Manage subscription") is also read from every fetched result.
+  void _noteManagementUrl(rc.CustomerInfo customerInfo) {
+    final url = customerInfo.managementURL;
+    if (url != null && url.isNotEmpty) {
+      _storeManagementUrl = url;
+    }
+  }
+
   Future<PurchaseResult> _applyCustomerInfo(
     rc.CustomerInfo customerInfo, {
     required BillingPlan plan,
     bool purchased = false,
     bool waitForServerMirror = false,
   }) async {
+    _noteManagementUrl(customerInfo);
     final entitlement = _activeEntitlement(customerInfo);
     if (entitlement == null) {
       final preserved = await _preserveActiveStoreEntitlementWhenMissing(
@@ -388,6 +466,10 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     await entitlementStore.applyRevenueCatEntitlement(
       UserTier.personalPremium,
       periodEndsAt: _expirationDate(entitlement),
+      willRenew: entitlement.willRenew,
+      billingIssueAt: DateTime.tryParse(
+        entitlement.billingIssueDetectedAt ?? '',
+      ),
     );
     final mirrored = await _refreshServerMirror(
       waitForServerMirror: waitForServerMirror,
@@ -476,8 +558,7 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     if (!hasActiveStoreEntitlement(account)) {
       return false;
     }
-    const message =
-        'Premium is active locally. Pebble is waiting for secure purchase verification for this account.';
+    const message = EntitlementFlowMessages.awaitingServerVerification;
     debugPrint(
       '[PremiumEntitlement] No active RevenueCat entitlement during $context; '
       'preserving active local store entitlement.',
@@ -513,15 +594,8 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     );
   }
 
-  bool _looksBackupVerificationError(String? message) {
-    if (message == null || message.isEmpty) {
-      return false;
-    }
-    final normalized = message.toLowerCase();
-    return normalized.contains('backup could not be set up') ||
-        normalized.contains('could not finish backup setup') ||
-        normalized.contains('purchase verification');
-  }
+  bool _looksBackupVerificationError(String? message) =>
+      EntitlementFlowMessages.looksPurchaseVerificationFailed(message);
 
   String? get _currentUserId {
     final authUserId = _ref.read(authSessionProvider).userId;
@@ -535,11 +609,42 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
   }
 }
 
+/// RevenueCat's managementURL points at the store the subscription was bought
+/// from, so a Google Play purchase opened on an iPhone (or the reverse) still
+/// lands on the right store. Without one, use this platform's store.
+String? revenueCatManageSubscriptionsUrl({
+  required String? managementUrl,
+  required TargetPlatform platform,
+}) {
+  if (managementUrl != null && managementUrl.isNotEmpty) {
+    return managementUrl;
+  }
+  switch (platform) {
+    case TargetPlatform.android:
+      return 'https://play.google.com/store/account/subscriptions';
+    case TargetPlatform.iOS:
+      return 'https://apps.apple.com/account/subscriptions';
+    default:
+      return null;
+  }
+}
+
+/// Whether a background sync may call `restorePurchases()` on its own.
+///
+/// On iOS a restore can raise the Apple ID sign-in sheet, which must only
+/// follow an explicit tap (the Restore buttons). StoreKit transactions are
+/// observed by RevenueCat automatically, so `getCustomerInfo()` after
+/// `logIn()` already reflects them. Android keeps its silent restore, which
+/// reattaches Play purchases made before sign-in.
+@visibleForTesting
+bool revenueCatAllowsSilentRestore(TargetPlatform platform) =>
+    platform == TargetPlatform.android;
+
 @visibleForTesting
 String revenueCatMessageForPurchasesError(rc.PurchasesErrorCode code) {
   switch (code) {
     case rc.PurchasesErrorCode.paymentPendingError:
-      return 'Your purchase is pending. Premium will unlock after the store confirms it.';
+      return 'Your payment is pending. Premium unlocks when the store confirms it, so there is no need to buy again.';
     case rc.PurchasesErrorCode.productAlreadyPurchasedError:
       return 'Premium is already active on this store account.';
     case rc.PurchasesErrorCode.networkError:

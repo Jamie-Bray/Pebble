@@ -31,6 +31,12 @@ Policy.
   entitlement state, and purchase webhooks to Supabase.
 - Email/support provider: not hard-coded in the app, but used when users email
   support or privacy inboxes from the legal pages.
+- Resend: delivers completion-email invitations and completion emails from the
+  `request-shared-alert-contact` and `send-routine-completion-alert` Edge
+  Functions (`api.resend.com`, `RESEND_API_KEY`). Receives the contact's email
+  address, the sender's account email (shown in the email so the contact knows
+  who it is from), the routine name unless the sender hides it, completion
+  time and step counts.
 - Sentry: crash reporting only, and only in builds where a `SENTRY_DSN`
   dart-define is supplied. Configured with PII sending off, no screenshots, no
   view hierarchy, no user identity, no tracing, and no session replay. Crash
@@ -80,9 +86,10 @@ Policy.
 - Diagnostics: crash logs (stack traces, device model, OS version, app
   version/build) sent to Sentry when crash reporting is enabled in the build.
   Declare under Play Data safety as "App activity / Diagnostics → Crash logs",
-  collected, not shared for advertising, not linked to user identity. Update
-  `web/privacy.html` to name Sentry as a processor before shipping a
-  crash-reporting build.
+  collected, not shared for advertising, not linked to user identity.
+  `web/privacy.html` names Sentry, RevenueCat and Resend as of 3 October 2026.
+  Field-by-field store answers: `docs/store/DATA_SAFETY_ANSWERS.md` and
+  `docs/store/APP_PRIVACY_LABELS.md`.
 
 ## Launch Checks
 

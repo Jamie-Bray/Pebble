@@ -6,18 +6,21 @@ import 'package:pebble_routines/features/settings/data/player_settings_controlle
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('step-complete feedback is off by default and persists when set', () async {
-    SharedPreferences.setMockInitialValues(const {});
-    final prefs = await SharedPreferences.getInstance();
-    final settings = PlayerSettingsController(prefs);
+  test(
+    'step-complete feedback is off by default and persists when set',
+    () async {
+      SharedPreferences.setMockInitialValues(const {});
+      final prefs = await SharedPreferences.getInstance();
+      final settings = PlayerSettingsController(prefs);
 
-    expect(settings.stepCompleteHaptic, isFalse);
-    expect(settings.stepCompleteSound, isFalse);
+      expect(settings.stepCompleteHaptic, isFalse);
+      expect(settings.stepCompleteSound, isFalse);
 
-    settings.stepCompleteHaptic = true;
-    settings.stepCompleteSound = true;
+      settings.stepCompleteHaptic = true;
+      settings.stepCompleteSound = true;
 
-    expect(PlayerSettingsController(prefs).stepCompleteHaptic, isTrue);
-    expect(PlayerSettingsController(prefs).stepCompleteSound, isTrue);
-  });
+      expect(PlayerSettingsController(prefs).stepCompleteHaptic, isTrue);
+      expect(PlayerSettingsController(prefs).stepCompleteSound, isTrue);
+    },
+  );
 }

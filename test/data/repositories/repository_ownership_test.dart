@@ -95,7 +95,9 @@ void main() {
   group('normalizeLegacyRoutineIcons', () {
     test('rewrites a legacy emoji to its resolved icon key', () async {
       final repo = container.read(routineRepositoryProvider);
-      await repo.saveRoutine(_routine(id: 1, ownerUserId: 'user-2', emoji: '🔒'));
+      await repo.saveRoutine(
+        _routine(id: 1, ownerUserId: 'user-2', emoji: '🔒'),
+      );
 
       await repo.normalizeLegacyRoutineIcons();
 

@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import 'package:pebble_routines/core/theme/pebble_fonts.dart';
+import 'package:pebble_routines/core/navigation/app_shell.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/ui/zen_notifications.dart';
+import 'package:pebble_routines/features/history/ui/styled_history_screen.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/features/account_backup/providers/backup_dashboard_presentation_provider.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
@@ -409,11 +411,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
       await ref
           .read(authControllerProvider.notifier)
           .refreshCloudAccessAfterEntitlementChange(refreshEntitlement: false);
-      _showBackupNotice(
-        'Pebble will back up supported routine data for this account.',
-        title: 'Backup is on',
-        type: NotificationType.success,
-      );
+      // No toast: the hero headline flips to "Backup is on" right here.
     } catch (error) {
       _showBackupNotice(
         _toUserFacingError(error),
@@ -468,11 +466,8 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
       await ref
           .read(authControllerProvider.notifier)
           .refreshCloudAccessAfterEntitlementChange(refreshEntitlement: false);
-      _showBackupNotice(
-        'Local routines remain on this device.',
-        title: 'Backup is paused',
-        type: NotificationType.info,
-      );
+      // No toast: the hero headline flips to the paused state right here,
+      // and the pause sheet already covered what stays on the device.
     } catch (error) {
       _showBackupNotice(
         _toUserFacingError(error),
@@ -525,6 +520,12 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
         presentation.primaryAction != BackupDashboardAction.none &&
         presentation.primaryAction != BackupDashboardAction.useCurrentAccount &&
         presentation.primaryAction != BackupDashboardAction.keepBackupOff;
+  }
+
+  void _openPhotoVault() {
+    ref.read(historyViewModeProvider.notifier).state = HistoryViewMode.vault;
+    ref.read(navIndexProvider.notifier).state = 1;
+    context.go('/');
   }
 
   void _handleBackupSwitch(bool enabled) {
@@ -583,6 +584,10 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
               onPrimary: _showHeroAction(presentation)
                   ? () => _handleAction(presentation.primaryAction)
                   : null,
+              onSignIn:
+                  presentation.secondaryAction == BackupDashboardAction.signIn
+                  ? () => _handleAction(BackupDashboardAction.signIn)
+                  : null,
             ),
             if (presentation.pendingBannerText != null) ...[
               const SizedBox(height: 16),
@@ -615,6 +620,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
               items: presentation.dataItems,
               live: presentation.dataItemsLive,
               footer: presentation.dataFooter,
+              onOpenPhotoVault: _openPhotoVault,
             ),
           ],
         ),
@@ -629,12 +635,16 @@ class _BackupHero extends StatelessWidget {
     required this.onSwitchChanged,
     required this.primaryBusy,
     required this.onPrimary,
+    this.onSignIn,
   });
 
   final BackupDashboardPresentation state;
   final ValueChanged<bool>? onSwitchChanged;
   final bool primaryBusy;
   final VoidCallback? onPrimary;
+
+  /// Secondary sign-in link for returning Premium users.
+  final VoidCallback? onSignIn;
 
   @override
   Widget build(BuildContext context) {
@@ -652,7 +662,7 @@ class _BackupHero extends StatelessWidget {
             Expanded(
               child: Text(
                 state.statusLabel,
-                style: GoogleFonts.dmSerifDisplay(
+                style: PebbleFonts.serif(
                   color: colorScheme.onSurface,
                   fontSize: 36,
                   fontWeight: FontWeight.w400,
@@ -668,6 +678,12 @@ class _BackupHero extends StatelessWidget {
               Switch.adaptive(
                 value: state.backupSwitchValue,
                 onChanged: onSwitchChanged,
+                activeTrackColor: colorScheme.primary,
+                thumbColor: WidgetStateProperty.resolveWith(
+                  (states) => states.contains(WidgetState.selected)
+                      ? colorScheme.onPrimary
+                      : null,
+                ),
               ),
             ],
           ],
@@ -675,7 +691,7 @@ class _BackupHero extends StatelessWidget {
         const SizedBox(height: 10),
         Text(
           state.detail,
-          style: GoogleFonts.outfit(
+          style: PebbleFonts.sans(
             color: colorScheme.onSurface.withValues(alpha: 0.66),
             fontSize: 14.5,
             fontWeight: FontWeight.w300,
@@ -706,7 +722,7 @@ class _BackupHero extends StatelessWidget {
               child: Text(
                 state.lastBackupText,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.outfit(
+                style: PebbleFonts.sans(
                   color: colorScheme.onSurface.withValues(alpha: 0.5),
                   fontSize: 12.5,
                   fontWeight: FontWeight.w500,
@@ -730,6 +746,23 @@ class _BackupHero extends StatelessWidget {
             label: Text(
               primaryBusy ? 'Working...' : state.primaryActionLabel ?? '',
               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+        if (onSignIn != null) ...[
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: onSignIn,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(50),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+            ),
+            icon: const Icon(LucideIcons.logIn, size: 17),
+            label: Text(
+              state.secondaryActionLabel ?? 'Sign in',
+              textAlign: TextAlign.center,
             ),
           ),
         ],
@@ -759,7 +792,7 @@ class _BackupSetupStepper extends StatelessWidget {
               Expanded(
                 child: Text(
                   'How to set it up',
-                  style: GoogleFonts.outfit(
+                  style: PebbleFonts.sans(
                     color: colorScheme.onSurface.withValues(alpha: 0.56),
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -770,7 +803,7 @@ class _BackupSetupStepper extends StatelessWidget {
               if (currentNumber > 0)
                 Text(
                   'Step $currentNumber of ${steps.length}',
-                  style: GoogleFonts.outfit(
+                  style: PebbleFonts.sans(
                     color: colorScheme.primary,
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
@@ -832,7 +865,7 @@ class _BackupStepperRow extends StatelessWidget {
         alignment: Alignment.center,
         child: Text(
           '$number',
-          style: GoogleFonts.outfit(
+          style: PebbleFonts.sans(
             color: colorScheme.onPrimary,
             fontSize: 14,
             fontWeight: FontWeight.w700,
@@ -852,7 +885,7 @@ class _BackupStepperRow extends StatelessWidget {
         alignment: Alignment.center,
         child: Text(
           '$number',
-          style: GoogleFonts.outfit(
+          style: PebbleFonts.sans(
             color: colorScheme.onSurface.withValues(alpha: 0.38),
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -893,7 +926,7 @@ class _BackupStepperRow extends StatelessWidget {
                 children: [
                   Text(
                     step.label,
-                    style: GoogleFonts.outfit(
+                    style: PebbleFonts.sans(
                       color: colorScheme.onSurface.withValues(
                         alpha: isLocked ? 0.45 : 1,
                       ),
@@ -905,7 +938,7 @@ class _BackupStepperRow extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     step.detail,
-                    style: GoogleFonts.outfit(
+                    style: PebbleFonts.sans(
                       color: colorScheme.onSurface.withValues(
                         alpha: isLocked ? 0.38 : 0.62,
                       ),
@@ -948,7 +981,7 @@ class _PendingChangesBanner extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: GoogleFonts.outfit(
+              style: PebbleFonts.sans(
                 color: colorScheme.onSurface.withValues(alpha: 0.78),
                 fontSize: 13,
                 fontWeight: FontWeight.w400,
@@ -968,11 +1001,13 @@ class _BackupDataSection extends StatelessWidget {
     required this.items,
     required this.live,
     required this.footer,
+    required this.onOpenPhotoVault,
   });
 
   final List<BackupDataItem> items;
   final bool live;
   final String footer;
+  final VoidCallback onOpenPhotoVault;
 
   @override
   Widget build(BuildContext context) {
@@ -984,7 +1019,7 @@ class _BackupDataSection extends StatelessWidget {
           padding: const EdgeInsets.only(left: 4, bottom: 10),
           child: Text(
             live ? "What's backed up" : 'What backup keeps safe for 21 days',
-            style: GoogleFonts.outfit(
+            style: PebbleFonts.sans(
               color: colorScheme.onSurface.withValues(alpha: 0.56),
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -1017,7 +1052,12 @@ class _BackupDataSection extends StatelessWidget {
               child: Column(
                 children: [
                   for (var index = 0; index < items.length; index++) ...[
-                    _BackupDataRow(item: items[index]),
+                    _BackupDataRow(
+                      item: items[index],
+                      onTap: items[index].opensPhotoVault
+                          ? onOpenPhotoVault
+                          : null,
+                    ),
                     if (index != items.length - 1)
                       Divider(
                         height: 1,
@@ -1041,7 +1081,7 @@ class _BackupDataSection extends StatelessWidget {
               Expanded(
                 child: Text(
                   footer,
-                  style: GoogleFonts.outfit(
+                  style: PebbleFonts.sans(
                     color: colorScheme.onSurface.withValues(alpha: 0.5),
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
@@ -1085,7 +1125,7 @@ class _BackupDataToken extends StatelessWidget {
             item.label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.outfit(
+            style: PebbleFonts.sans(
               color: colorScheme.onSurface.withValues(alpha: 0.82),
               fontSize: 12.5,
               fontWeight: FontWeight.w600,
@@ -1099,9 +1139,10 @@ class _BackupDataToken extends StatelessWidget {
 }
 
 class _BackupDataRow extends StatelessWidget {
-  const _BackupDataRow({required this.item});
+  const _BackupDataRow({required this.item, this.onTap});
 
   final BackupDataItem item;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1110,6 +1151,10 @@ class _BackupDataRow extends StatelessWidget {
     // something is wrong, when really there is just nothing to report yet.
     final (IconData?, Color?) trailing = switch (item.state) {
       BackupDataItemState.saved => (LucideIcons.check, colorScheme.primary),
+      BackupDataItemState.pending => (
+        LucideIcons.clock3,
+        colorScheme.onSurface.withValues(alpha: 0.5),
+      ),
       BackupDataItemState.attention => (
         LucideIcons.circleAlert,
         colorScheme.error,
@@ -1118,7 +1163,7 @@ class _BackupDataRow extends StatelessWidget {
     };
     final (stateIcon, stateColor) = trailing;
 
-    return Padding(
+    final row = Padding(
       padding: const EdgeInsets.symmetric(vertical: 13),
       child: Row(
         children: [
@@ -1134,7 +1179,7 @@ class _BackupDataRow extends StatelessWidget {
               children: [
                 Text(
                   item.label,
-                  style: GoogleFonts.outfit(
+                  style: PebbleFonts.sans(
                     color: colorScheme.onSurface,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -1146,7 +1191,7 @@ class _BackupDataRow extends StatelessWidget {
                   item.detail,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.outfit(
+                  style: PebbleFonts.sans(
                     color: colorScheme.onSurface.withValues(alpha: 0.58),
                     fontSize: 12.5,
                     fontWeight: FontWeight.w300,
@@ -1161,8 +1206,24 @@ class _BackupDataRow extends StatelessWidget {
             const SizedBox(width: 12),
             Icon(stateIcon, size: 18, color: stateColor),
           ],
+          if (onTap != null) ...[
+            const SizedBox(width: 10),
+            Icon(
+              LucideIcons.chevronRight,
+              size: 16,
+              color: colorScheme.onSurface.withValues(alpha: 0.34),
+            ),
+          ],
         ],
       ),
+    );
+
+    if (onTap == null) {
+      return row;
+    }
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(onTap: onTap, child: row),
     );
   }
 }
@@ -1200,7 +1261,7 @@ class _OwnershipMismatchCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     state.ownershipTitle ?? 'Review this device',
-                    style: GoogleFonts.outfit(
+                    style: PebbleFonts.sans(
                       color: colorScheme.onSurface,
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
@@ -1214,7 +1275,7 @@ class _OwnershipMismatchCard extends StatelessWidget {
             Text(
               state.ownershipDetail ??
                   'Pebble will keep this device local until you choose.',
-              style: GoogleFonts.outfit(
+              style: PebbleFonts.sans(
                 color: colorScheme.onSurface.withValues(alpha: 0.68),
                 fontSize: 13,
                 fontWeight: FontWeight.w300,
@@ -1413,7 +1474,7 @@ class _BackupActionSheet extends StatelessWidget {
                     Text(
                       eyebrow.toUpperCase(),
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.outfit(
+                      style: PebbleFonts.sans(
                         color: accentColor,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
@@ -1424,7 +1485,7 @@ class _BackupActionSheet extends StatelessWidget {
                     Text(
                       title,
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.dmSerifDisplay(
+                      style: PebbleFonts.serif(
                         color: foreground,
                         fontSize: 30,
                         fontWeight: FontWeight.w400,
@@ -1436,7 +1497,7 @@ class _BackupActionSheet extends StatelessWidget {
                     Text(
                       body,
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.outfit(
+                      style: PebbleFonts.sans(
                         color: secondaryText,
                         fontSize: 14,
                         fontWeight: FontWeight.w300,
@@ -1475,7 +1536,7 @@ class _BackupActionSheet extends StatelessWidget {
                       Text(
                         footer!,
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.outfit(
+                        style: PebbleFonts.sans(
                           color: mutedText,
                           fontSize: 12,
                           fontWeight: FontWeight.w300,
@@ -1612,7 +1673,7 @@ class _BackupSheetPill extends StatelessWidget {
               child: Text(
                 value,
                 maxLines: 1,
-                style: GoogleFonts.dmSerifDisplay(
+                style: PebbleFonts.serif(
                   color: colorScheme.onSurface,
                   fontSize: 18,
                   fontWeight: FontWeight.w400,
@@ -1626,7 +1687,7 @@ class _BackupSheetPill extends StatelessWidget {
               label.toUpperCase(),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.outfit(
+              style: PebbleFonts.sans(
                 color: colorScheme.onSurface.withValues(alpha: 0.58),
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
@@ -1688,7 +1749,7 @@ class _BackupConsentCheck extends StatelessWidget {
         onChanged: enabled ? onChanged : null,
         title: Text(
           cloudBackupConsentText,
-          style: GoogleFonts.outfit(
+          style: PebbleFonts.sans(
             color: colorScheme.onSurface.withValues(alpha: 0.74),
             fontSize: 13,
             fontWeight: FontWeight.w400,

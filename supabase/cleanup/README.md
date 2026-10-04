@@ -18,11 +18,20 @@ It is intentionally idempotent. It can be retried safely because it:
 supabase functions deploy cleanup-proof-retention
 ```
 
-Set a scheduler secret if the function should reject unauthenticated invocations:
+The scheduler secret is **required**. The function is deployed with
+`verify_jwt = false`, so it refuses to run (HTTP 503) when
+`CLEANUP_PROOF_RETENTION_SECRET` is unset or blank, and returns 401 unless the
+`x-cleanup-secret` header matches (constant-time compare). The value must equal
+the Vault secret `cleanup-proof-retention-header` that the
+`cleanup-proof-retention-daily` cron job sends:
 
 ```bash
 supabase secrets set CLEANUP_PROOF_RETENTION_SECRET=replace-with-secret
 ```
+
+Step voice prompts (`users/<uid>/guidance_audio/...`, `proof_asset_usage`
+rows with `entity_type = 'guidance_audio'`) share the bucket but are never
+touched by this job.
 
 ## Schedule
 

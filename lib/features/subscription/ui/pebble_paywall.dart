@@ -1,19 +1,26 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:pebble_routines/core/config/legal_links.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
+import 'package:pebble_routines/core/theme/pebble_fonts.dart';
+import 'package:pebble_routines/core/ui/pebble_buttons.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
+import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/core/ui/zen_notifications.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
 import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
 import 'package:pebble_routines/features/subscription/data/purchase_repository.dart';
+import 'package:pebble_routines/features/subscription/domain/subscription_lifecycle.dart';
 import 'package:pebble_routines/features/subscription/providers/cloud_access_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/cloud_backup_consent_provider.dart';
+import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
 
 enum PremiumEntrySource {
   general,
@@ -101,12 +108,16 @@ extension StorePlatformRuntime on StorePlatform {
 class PremiumPaywallCopy {
   const PremiumPaywallCopy._({
     required this.storeName,
+    required this.storeNameInSentence,
     required this.renewalLine,
     required this.purchaseErrorLine,
     required this.consoleName,
   });
 
   final String storeName;
+
+  /// [storeName] as it reads mid-sentence ("from the App Store").
+  final String storeNameInSentence;
   final String renewalLine;
   final String purchaseErrorLine;
   final String consoleName;
@@ -115,30 +126,46 @@ class PremiumPaywallCopy {
     return switch (platform) {
       StorePlatform.appStore => const PremiumPaywallCopy._(
         storeName: 'App Store',
+        storeNameInSentence: 'the App Store',
         renewalLine:
-            'Renews automatically. Cancel anytime in the App Store subscription settings. Pebble also works free without Premium.',
+            'Renews automatically unless cancelled at least 24 hours before the end of the current period. Payment is charged to your Apple ID when you confirm. Cancel anytime in the App Store subscription settings. Pebble also works free without Premium.',
         purchaseErrorLine:
             'The App Store could not complete that request. Please try again.',
         consoleName: 'App Store Connect',
       ),
       StorePlatform.googlePlay => const PremiumPaywallCopy._(
         storeName: 'Google Play',
+        storeNameInSentence: 'Google Play',
         renewalLine:
-            'Renews automatically. Cancel anytime in Google Play subscription settings. Pebble also works free without Premium.',
+            'Renews automatically until cancelled. Cancel anytime in Google Play subscription settings. Pebble also works free without Premium.',
         purchaseErrorLine:
             'Google Play could not complete that request. Please try again.',
         consoleName: 'Play Console',
       ),
       StorePlatform.other => const PremiumPaywallCopy._(
         storeName: 'the store',
+        storeNameInSentence: 'the store',
         renewalLine:
-            'Renews automatically. Cancel anytime through your app store subscription settings. Pebble also works free without Premium.',
+            'Renews automatically until cancelled. Cancel anytime through your app store subscription settings. Pebble also works free without Premium.',
         purchaseErrorLine:
             'The store could not complete that request. Please try again.',
         consoleName: 'store console',
       ),
     };
   }
+}
+
+/// Where the paywall is with the store's product list.
+enum PaywallStoreState {
+  /// Products are still being requested.
+  loading,
+
+  /// At least one plan can be bought.
+  ready,
+
+  /// The store answered without usable products, failed, or is taking too
+  /// long. The paywall says so and offers Try again.
+  unavailable,
 }
 
 class PebblePaywall extends ConsumerStatefulWidget {
@@ -154,19 +181,78 @@ class PebblePaywall extends ConsumerStatefulWidget {
 }
 
 class _PebblePaywallState extends ConsumerState<PebblePaywall> {
+  /// How long the paywall waits on the store before it stops saying
+  /// "Checking" and offers Try again instead. Sandbox stores can stall.
+  static const _slowStoreTimeout = Duration(seconds: 12);
+
   final ScrollController _scrollController = ScrollController();
   bool _busy = false;
+  bool _retryingStore = false;
+  bool _storeIsSlow = false;
+  Timer? _slowStoreTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startSlowStoreTimer();
+  }
 
   @override
   void dispose() {
+    _slowStoreTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _startSlowStoreTimer() {
+    _slowStoreTimer?.cancel();
+    _storeIsSlow = false;
+    _slowStoreTimer = Timer(_slowStoreTimeout, () {
+      if (mounted) setState(() => _storeIsSlow = true);
+    });
+  }
+
+  Future<void> _retryStore() async {
+    if (_retryingStore) return;
+    setState(() {
+      _retryingStore = true;
+      _startSlowStoreTimer();
+    });
+    try {
+      await ref.read(purchaseRepositoryProvider).retryLoadProducts();
+    } catch (error) {
+      debugPrint('Paywall store retry failed: $error');
+    } finally {
+      if (mounted) setState(() => _retryingStore = false);
+    }
+  }
+
+  PaywallStoreState _storeState(PurchaseRepository repository) {
+    if (repository.isPurchaseAvailable) return PaywallStoreState.ready;
+    final loading = repository.isLoadingProducts || _retryingStore;
+    if (loading && !_storeIsSlow) return PaywallStoreState.loading;
+    return PaywallStoreState.unavailable;
+  }
+
+  String _storeUnavailableMessage(PurchaseRepository repository) {
+    if (repository.isLoadingProducts || _retryingStore) {
+      return '${_platformCopy.storeName} is taking longer than usual to '
+          'answer. Check your connection and try again.';
+    }
+    final reason = repository.unavailableReason?.trim();
+    if (reason != null && reason.isNotEmpty) return reason;
+    return 'Prices could not be loaded from '
+        '${_platformCopy.storeNameInSentence}. Check your connection and '
+        'try again.';
   }
 
   PremiumPaywallCopy get _platformCopy =>
       PremiumPaywallCopy.forPlatform(StorePlatformRuntime.current);
 
   void _dismissPaywall() {
+    // While a purchase is being verified, leaving would drop the
+    // confirmation (and first-time backup consent) sheet on the floor.
+    if (_busy) return;
     final navigator = Navigator.of(context);
     if (navigator.canPop()) {
       navigator.pop();
@@ -195,6 +281,18 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
       await _continueAfterPurchase(result);
     } catch (error) {
       if (error is PurchaseCancelledException) return;
+      if (error is PurchasePendingException ||
+          (error is PurchaseFlowException && error.isPending)) {
+        // Payment is in progress with the store: real news, not a failure.
+        _showNotice(
+          error is PurchasePendingException
+              ? error.message
+              : (error as PurchaseFlowException).message,
+          title: 'Payment pending',
+          type: NotificationType.info,
+        );
+        return;
+      }
       _showNotice(
         _purchaseErrorMessage(error),
         title: 'Purchase not completed',
@@ -246,7 +344,8 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
     }
     if (consent.isAccepted) {
       // Backup was already set up for this account (e.g. a resubscribe), so
-      // there is nothing left to ask.
+      // there is nothing left to ask — but the moment still deserves a real
+      // confirmation, not a toast that vanishes over the account screen.
       try {
         await ref
             .read(authControllerProvider.notifier)
@@ -256,22 +355,18 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
       } catch (_) {
         // Backup catches up on the next app resume; Premium itself is on.
       }
+      if (!mounted) return;
       final backupIsOn =
           ref.read(personalCloudAccessProvider).status ==
           PersonalCloudAccessStatus.available;
-      if (backupIsOn) {
-        _showNotice(
-          'Backup is on for this account.',
-          title: 'Premium is on',
-          type: NotificationType.success,
-        );
-      } else {
-        _showNotice(
-          'Your plan is active. Pebble will finish backup setup automatically.',
-          title: 'Premium is on',
-          type: NotificationType.info,
-        );
-      }
+      await showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.black.withValues(alpha: 0.72),
+        isScrollControlled: true,
+        builder: (dialogContext) =>
+            _PremiumResubscribedSheet(backupIsOn: backupIsOn),
+      );
       if (mounted) {
         context.go('/account-hub');
       }
@@ -281,7 +376,7 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
   }
 
   Future<void> _showPostPurchaseBackupPrompt() async {
-    final turnedOn = await showModalBottomSheet<bool>(
+    await showModalBottomSheet<bool>(
       context: context,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.72),
@@ -290,24 +385,8 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
       builder: (dialogContext) => const _PostPurchaseBackupSheet(),
     );
     if (!mounted) return;
-    if (turnedOn == true) {
-      final backupIsOn =
-          ref.read(personalCloudAccessProvider).status ==
-          PersonalCloudAccessStatus.available;
-      if (backupIsOn) {
-        _showNotice(
-          'Your routines back up to this account from now on.',
-          title: 'Backup is on',
-          type: NotificationType.success,
-        );
-      } else {
-        _showNotice(
-          'Premium is on. Pebble will finish backup setup automatically.',
-          title: 'Backup will keep trying',
-          type: NotificationType.info,
-        );
-      }
-    }
+    // No toast on top of the landing screen: the account hub shows the live
+    // backup status, and the sheet was the confirmation moment.
     context.go('/account-hub');
   }
 
@@ -343,6 +422,19 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
       case NotificationType.error:
         ZenNotifications.showError(context, title: title, message: message);
     }
+  }
+
+  Future<void> _openManageSubscriptions() async {
+    final url = ref.read(purchaseRepositoryProvider).manageSubscriptionsUrl;
+    if (url == null || url.isEmpty) {
+      _showNotice(
+        'Subscription management is not available on this device.',
+        title: 'Not available',
+        type: NotificationType.warning,
+      );
+      return;
+    }
+    await _openLegalUrl(url);
   }
 
   Future<void> _openLegalUrl(String url) async {
@@ -388,17 +480,37 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
         surface: foundation.bgBase,
         onSurface: foundation.textPrimary,
       ),
-      textTheme: GoogleFonts.outfitTextTheme(parentTheme.textTheme).apply(
+      textTheme: PebbleFonts.sansTextTheme(parentTheme.textTheme).apply(
         bodyColor: foundation.textPrimary,
         displayColor: foundation.textPrimary,
       ),
     );
+
+    // An active subscriber should never be sold to. During a purchase the
+    // busy flag keeps the normal layout up so the post-purchase sheets play
+    // out over it rather than the screen swapping underneath them.
+    final alreadyPremium =
+        !_busy &&
+        ref.watch(subscriptionLifecycleProvider).phase ==
+            SubscriptionLifecyclePhase.activePremium;
+    if (alreadyPremium) {
+      return Theme(
+        data: paywallTheme,
+        child: Builder(
+          builder: (context) => _AlreadyPremiumScreen(
+            onDone: _dismissPaywall,
+            onManagePlan: _openManageSubscriptions,
+          ),
+        ),
+      );
+    }
 
     return Theme(
       data: paywallTheme,
       child: Builder(
         builder: (context) {
           final purchaseRepository = ref.watch(purchaseRepositoryProvider);
+          final storeState = _storeState(purchaseRepository);
           final products = purchaseRepository.personalPremiumProducts;
           final selectedPlan = _effectiveSelectedPlan(
             products,
@@ -408,15 +520,48 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
           final selectedPlanPurchasable =
               selectedProduct.isPurchasable &&
               selectedProduct.hasValidOfferToken;
-          final selectedPlanUnavailableReason =
-              purchaseRepository.unavailableReason ??
-              (!selectedPlanPurchasable
-                  ? _planUnavailableMessage(selectedProduct.plan, _platformCopy)
-                  : null);
           final purchasesEnabled =
-              purchaseRepository.isPurchaseAvailable && selectedPlanPurchasable;
+              storeState == PaywallStoreState.ready && selectedPlanPurchasable;
+          final String? storeNotice = switch (storeState) {
+            PaywallStoreState.unavailable =>
+              purchaseRepository.unavailableReason == null &&
+                      !selectedPlanPurchasable &&
+                      selectedProduct.priceLabel.trim().isNotEmpty
+                  ? _planUnavailableMessage(selectedProduct.plan, _platformCopy)
+                  : _storeUnavailableMessage(purchaseRepository),
+            PaywallStoreState.ready when !selectedPlanPurchasable =>
+              _planUnavailableMessage(selectedProduct.plan, _platformCopy),
+            _ => null,
+          };
 
-          return Scaffold(
+          // With large text or a short screen a pinned footer would cover
+          // most of the page, so the plans scroll with the content instead.
+          final mediaQuery = MediaQuery.of(context);
+          final inlinePricing =
+              _isLargeText(context) || mediaQuery.size.height < 700;
+
+          final pricing = _PricingFooter(
+            products: products,
+            selectedPlan: selectedPlan,
+            storeState: storeState,
+            storeNotice: storeNotice,
+            retrying: _retryingStore,
+            busy: _busy,
+            purchasesEnabled: purchasesEnabled,
+            platformCopy: _platformCopy,
+            inline: inlinePricing,
+            onStartPremium: _startPremium,
+            onRetryStore: _retryStore,
+            onRestorePurchase: _busy || storeState == PaywallStoreState.loading
+                ? null
+                : _restorePurchase,
+            onOpenLegalUrl: _openLegalUrl,
+          );
+
+          // No backing out while the store sheet is mid-purchase.
+          return PopScope(
+            canPop: !_busy,
+            child: Scaffold(
             backgroundColor: foundation.bgBase,
             body: SafeArea(
               bottom: false,
@@ -427,53 +572,32 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
                   24,
                   52,
                   24,
-                  28 + MediaQuery.paddingOf(context).bottom,
+                  28 + mediaQuery.padding.bottom,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _PaywallHeader(entrySource: widget.entrySource),
+                    if (inlinePricing) ...[const SizedBox(height: 28), pricing],
                     const SizedBox(height: 28),
                     const _SectionLabel('What Premium gives you'),
                     const SizedBox(height: 2),
                     _FeaturesList(entrySource: widget.entrySource),
                     const SizedBox(height: 20),
                     const _TrustCard(),
-                    if (selectedPlanUnavailableReason != null) ...[
-                      const SizedBox(height: 16),
-                      _UnavailableNotice(
-                        message: selectedPlanUnavailableReason,
-                      ),
-                    ],
                   ],
                 ),
               ),
             ),
             extendBody: false,
-            bottomNavigationBar: _PricingFooter(
-              products: products,
-              selectedPlan: selectedPlan,
-              busy: _busy,
-              purchasesEnabled: purchasesEnabled,
-              platformCopy: _platformCopy,
-              onStartPremium: _startPremium,
-              onRestorePurchase:
-                  _busy || !purchaseRepository.isPurchaseAvailable
-                  ? null
-                  : _restorePurchase,
-              onOpenLegalUrl: _openLegalUrl,
-            ),
+            bottomNavigationBar: inlinePricing ? null : pricing,
             floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
             floatingActionButton: SafeArea(
               child: Padding(
                 padding: const EdgeInsets.only(top: 8, left: 4),
-                child: PebbleBackButton(
-                  onPressed: _dismissPaywall,
-                  backgroundColor: foundation.textPrimary.withValues(
-                    alpha: 0.12,
-                  ),
-                  iconColor: foundation.textSecondary,
-                ),
+                // Floating glass: scrolled content blurs out behind it.
+                child: PebbleBackButton(onPressed: _dismissPaywall),
+              ),
               ),
             ),
           );
@@ -482,6 +606,13 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
     );
   }
 }
+
+/// Text scale above which the paywall stops pinning its price footer and
+/// stacks side-by-side comparisons.
+const double _largeTextScale = 1.3;
+
+bool _isLargeText(BuildContext context) =>
+    MediaQuery.textScalerOf(context).scale(10) / 10 > _largeTextScale;
 
 /// Post-purchase sheet for signed-in buyers: Premium is confirmed and backup
 /// turns on with one tap, right here — no trip through account settings and
@@ -554,7 +685,7 @@ class _PostPurchaseBackupSheetState
                   'Premium activated',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: accent,
+                    color: _premiumAccentText(context),
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.25,
@@ -569,7 +700,7 @@ class _PostPurchaseBackupSheetState
                       TextSpan(
                         text: 'this account?',
                         style: TextStyle(
-                          color: accent,
+                          color: _premiumAccentText(context),
                           fontStyle: FontStyle.italic,
                         ),
                       ),
@@ -701,7 +832,7 @@ class _PremiumActivatedSheet extends StatelessWidget {
                     'Premium activated',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: accent,
+                      color: _premiumAccentText(context),
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 1.25,
@@ -712,11 +843,11 @@ class _PremiumActivatedSheet extends StatelessWidget {
                     TextSpan(
                       style: _serifStyle(context, fontSize: 30, height: 1.12),
                       children: [
-                        const TextSpan(text: 'One last thing\nto '),
+                        const TextSpan(text: 'Optional: sign in\nto '),
                         TextSpan(
-                          text: 'unlock it all.',
+                          text: 'back it all up.',
                           style: TextStyle(
-                            color: accent,
+                            color: _premiumAccentText(context),
                             fontStyle: FontStyle.italic,
                           ),
                         ),
@@ -830,6 +961,321 @@ class _PremiumActivatedSheet extends StatelessWidget {
   }
 }
 
+/// Replaces the sales layout when the account already has active Premium:
+/// confirmation of what is on, a route to plan management, and a way out.
+class _AlreadyPremiumScreen extends StatelessWidget {
+  const _AlreadyPremiumScreen({
+    required this.onDone,
+    required this.onManagePlan,
+  });
+
+  final VoidCallback onDone;
+  final VoidCallback onManagePlan;
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+    final accent = _premiumGlow(context);
+    return Scaffold(
+      backgroundColor: foundation.bgBase,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(28, 72, 28, 28),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _PremiumActivatedIcon(accent: accent),
+                      const SizedBox(height: 24),
+                      Text(
+                        'Personal Premium',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: accent,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.25,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text.rich(
+                        TextSpan(
+                          style: _serifStyle(
+                            context,
+                            fontSize: 30,
+                            height: 1.12,
+                          ),
+                          children: [
+                            const TextSpan(text: 'You already\nhave '),
+                            TextSpan(
+                              text: 'Premium.',
+                              style: TextStyle(
+                                color: accent,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ],
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        'Everything Premium includes is already unlocked on '
+                        'this device. Billing and plan changes live in your '
+                        'store subscription settings.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: foundation.textSecondary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w300,
+                          height: 1.62,
+                        ),
+                      ),
+                      const SizedBox(height: 22),
+                      const Row(
+                        children: [
+                          Expanded(
+                            child: _PremiumActivatedPill(
+                              value: '21 days',
+                              label: 'History',
+                            ),
+                          ),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: _PremiumActivatedPill(
+                              value: 'Cloud',
+                              label: 'Backup',
+                            ),
+                          ),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: _PremiumActivatedPill(
+                              value: 'Unlimited',
+                              label: 'Routines',
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 28),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: FilledButton(
+                          onPressed: onDone,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: accent,
+                            foregroundColor: Theme.of(
+                              context,
+                            ).colorScheme.onPrimary,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                          ),
+                          child: const Text(
+                            'Done',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: OutlinedButton(
+                          onPressed: onManagePlan,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: foundation.textSecondary,
+                            side: BorderSide(
+                              color: foundation.borderSubtle.withValues(
+                                alpha: 0.86,
+                              ),
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                          ),
+                          child: const Text('Manage plan'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 8,
+              left: 8,
+              child: PebbleBackButton(
+                onPressed: onDone,
+                backgroundColor: foundation.textPrimary.withValues(alpha: 0.12),
+                iconColor: foundation.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Post-purchase sheet for a resubscribe: sign-in and backup consent are
+/// already in place, so this is pure confirmation — what turned on, and one
+/// button out.
+class _PremiumResubscribedSheet extends StatelessWidget {
+  const _PremiumResubscribedSheet({required this.backupIsOn});
+
+  final bool backupIsOn;
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+    final accent = _premiumGlow(context);
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: foundation.surfaceLow,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          border: Border(
+            top: BorderSide(color: accent.withValues(alpha: 0.42), width: 1),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.34),
+              blurRadius: 34,
+              offset: const Offset(0, -12),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(28, 14, 28, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: foundation.surfaceHigh,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 28),
+                _PremiumActivatedIcon(accent: accent),
+                const SizedBox(height: 24),
+                Text(
+                  'Premium activated',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: accent,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.25,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text.rich(
+                  TextSpan(
+                    style: _serifStyle(context, fontSize: 30, height: 1.12),
+                    children: [
+                      const TextSpan(text: 'Welcome back.\nYou\'re '),
+                      TextSpan(
+                        text: 'all set.',
+                        style: TextStyle(
+                          color: accent,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  backupIsOn
+                      ? 'Backup is already on for this account, so your '
+                            'routines, history, and proof photos keep saving '
+                            'from here.'
+                      : 'Backup is set up for this account. Pebble will '
+                            'finish reconnecting it automatically.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: foundation.textSecondary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w300,
+                    height: 1.62,
+                  ),
+                ),
+                const SizedBox(height: 22),
+                const Row(
+                  children: [
+                    Expanded(
+                      child: _PremiumActivatedPill(
+                        value: '21 days',
+                        label: 'History',
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: _PremiumActivatedPill(
+                        value: 'Cloud',
+                        label: 'Backup',
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: _PremiumActivatedPill(
+                        value: 'Unlimited',
+                        label: 'Routines',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Divider(
+                  height: 1,
+                  color: foundation.borderSubtle.withValues(alpha: 0.72),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: FilledButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: accent,
+                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                    ),
+                    child: const Text(
+                      'Done',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _PremiumActivatedIcon extends StatelessWidget {
   const _PremiumActivatedIcon({required this.accent});
 
@@ -909,7 +1355,6 @@ class _PaywallHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
-    final accent = _premiumGlow(context);
     // The paywall knows what wall the user just hit, so the headline names
     // that moment instead of a generic slogan.
     final (headlineLead, headlineAccent) = switch (entrySource) {
@@ -949,7 +1394,10 @@ class _PaywallHeader extends StatelessWidget {
               TextSpan(text: headlineLead),
               TextSpan(
                 text: headlineAccent,
-                style: TextStyle(color: accent, fontStyle: FontStyle.italic),
+                style: TextStyle(
+                  color: _premiumAccentText(context),
+                  fontStyle: FontStyle.italic,
+                ),
               ),
             ],
           ),
@@ -988,13 +1436,15 @@ class _PremiumBadge extends StatelessWidget {
           children: [
             Icon(LucideIcons.sparkles, color: accent, size: 12),
             const SizedBox(width: 6),
-            Text(
-              'Pebble Premium',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: accent,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.3,
+            Flexible(
+              child: Text(
+                'Personal Premium',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: _premiumAccentText(context),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3,
+                ),
               ),
             ),
           ],
@@ -1229,6 +1679,17 @@ class _TierComparisonRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
+    if (_isLargeText(context)) {
+      // Side by side, large text breaks words mid-way ("Unlimite/d").
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _TierPill(tier: 'Free', value: freeLabel, accented: false),
+          const SizedBox(height: 6),
+          _TierPill(tier: 'Premium', value: premiumLabel, accented: true),
+        ],
+      );
+    }
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1294,7 +1755,9 @@ class _TierPill extends StatelessWidget {
           Text(
             tier.toUpperCase(),
             style: TextStyle(
-              color: accented ? accent : foundation.textMuted,
+              color: accented
+                  ? _premiumAccentText(context)
+                  : foundation.textMuted,
               fontSize: 9,
               fontWeight: FontWeight.w700,
               letterSpacing: 1,
@@ -1305,7 +1768,9 @@ class _TierPill extends StatelessWidget {
           Text(
             value,
             style: TextStyle(
-              color: accented ? accent : foundation.textSecondary,
+              color: accented
+                  ? _premiumAccentText(context)
+                  : foundation.textSecondary,
               fontSize: 12.5,
               fontWeight: accented ? FontWeight.w600 : FontWeight.w400,
               height: 1.2,
@@ -1386,20 +1851,32 @@ class _PricingFooter extends ConsumerWidget {
   const _PricingFooter({
     required this.products,
     required this.selectedPlan,
+    required this.storeState,
+    required this.storeNotice,
+    required this.retrying,
     required this.busy,
     required this.purchasesEnabled,
     required this.platformCopy,
+    required this.inline,
     required this.onStartPremium,
+    required this.onRetryStore,
     required this.onRestorePurchase,
     required this.onOpenLegalUrl,
   });
 
   final List<PremiumProduct> products;
   final BillingPlan selectedPlan;
+  final PaywallStoreState storeState;
+  final String? storeNotice;
+  final bool retrying;
   final bool busy;
   final bool purchasesEnabled;
   final PremiumPaywallCopy platformCopy;
+
+  /// True when the footer scrolls with the page instead of being pinned.
+  final bool inline;
   final VoidCallback onStartPremium;
+  final VoidCallback onRetryStore;
   final VoidCallback? onRestorePurchase;
   final ValueChanged<String> onOpenLegalUrl;
 
@@ -1407,6 +1884,59 @@ class _PricingFooter extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final foundation = context.darkFoundation;
     final selectedProduct = _selectedProduct(products, selectedPlan);
+    final storeUnavailable = storeState == PaywallStoreState.unavailable;
+    final content = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _PlanToggle(
+          products: products,
+          selectedPlan: selectedPlan,
+          storeState: storeState,
+        ),
+        if (storeNotice != null) ...[
+          const SizedBox(height: 12),
+          _UnavailableNotice(
+            title: storeUnavailable ? 'Prices unavailable' : null,
+            message: storeNotice!,
+          ),
+        ],
+        const SizedBox(height: 14),
+        if (storeUnavailable)
+          _PremiumActionButton(
+            key: const ValueKey('paywall-retry-store'),
+            busy: retrying,
+            enabled: true,
+            icon: LucideIcons.refreshCw,
+            label: 'Try again',
+            semanticsLabel: 'Try loading prices again',
+            onPressed: onRetryStore,
+          )
+        else
+          _PremiumActionButton(
+            busy: busy,
+            enabled: purchasesEnabled,
+            showSpinnerLabel: storeState == PaywallStoreState.loading,
+            label: storeState == PaywallStoreState.loading
+                ? 'Checking the store...'
+                : _ctaLabel(selectedProduct),
+            onPressed: onStartPremium,
+          ),
+        const SizedBox(height: 11),
+        _FinePrint(
+          platformCopy: platformCopy,
+          product: storeState == PaywallStoreState.ready
+              ? selectedProduct
+              : null,
+        ),
+        const SizedBox(height: 6),
+        _FooterLinks(
+          onRestorePurchase: onRestorePurchase,
+          onOpenLegalUrl: onOpenLegalUrl,
+        ),
+      ],
+    );
+    if (inline) return content;
     return SafeArea(
       top: false,
       child: DecoratedBox(
@@ -1420,26 +1950,7 @@ class _PricingFooter extends ConsumerWidget {
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 16, 24, 18),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _PlanToggle(products: products, selectedPlan: selectedPlan),
-              const SizedBox(height: 14),
-              _PremiumActionButton(
-                busy: busy,
-                enabled: purchasesEnabled,
-                label: _ctaLabel(selectedProduct),
-                onPressed: onStartPremium,
-              ),
-              const SizedBox(height: 11),
-              _FinePrint(platformCopy: platformCopy),
-              const SizedBox(height: 6),
-              _FooterLinks(
-                onRestorePurchase: onRestorePurchase,
-                onOpenLegalUrl: onOpenLegalUrl,
-              ),
-            ],
-          ),
+          child: content,
         ),
       ),
     );
@@ -1447,30 +1958,39 @@ class _PricingFooter extends ConsumerWidget {
 }
 
 class _PlanToggle extends ConsumerWidget {
-  const _PlanToggle({required this.products, required this.selectedPlan});
+  const _PlanToggle({
+    required this.products,
+    required this.selectedPlan,
+    required this.storeState,
+  });
 
   final List<PremiumProduct> products;
   final BillingPlan selectedPlan;
+  final PaywallStoreState storeState;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sorted = _sortedProducts(products);
-    return Row(
-      children: [
-        for (final product in sorted) ...[
-          Expanded(
-            child: _PlanOption(
-              product: product,
-              selected: product.plan == selectedPlan,
-              onTap: () {
-                ref.read(premiumPaywallPlanProvider.notifier).state =
-                    _planTypeForBillingPlan(product.plan);
-              },
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final product in sorted) ...[
+            Expanded(
+              child: _PlanOption(
+                product: product,
+                storeState: storeState,
+                selected: product.plan == selectedPlan,
+                onTap: () {
+                  ref.read(premiumPaywallPlanProvider.notifier).state =
+                      _planTypeForBillingPlan(product.plan);
+                },
+              ),
             ),
-          ),
-          if (product != sorted.last) const SizedBox(width: 8),
+            if (product != sorted.last) const SizedBox(width: 8),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
@@ -1478,11 +1998,13 @@ class _PlanToggle extends ConsumerWidget {
 class _PlanOption extends StatelessWidget {
   const _PlanOption({
     required this.product,
+    required this.storeState,
     required this.selected,
     required this.onTap,
   });
 
   final PremiumProduct product;
+  final PaywallStoreState storeState;
   final bool selected;
   final VoidCallback onTap;
 
@@ -1491,70 +2013,95 @@ class _PlanOption extends StatelessWidget {
     final foundation = context.darkFoundation;
     final accent = _premiumGlow(context);
     final isAnnual = product.plan == BillingPlan.yearly;
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: selected
-              ? accent.withValues(alpha: 0.13)
-              : foundation.textPrimary.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
+    final largeText = _isLargeText(context);
+    final badge = isAnnual
+        ? _PlanBadge(product.badgeLabel ?? 'Best value')
+        : null;
+    final hasPrice = _hasPrice(product);
+    final String priceText;
+    final String perLine;
+    if (hasPrice) {
+      priceText = product.priceLabel;
+      perLine = isAnnual ? _annualPerLine(product) : 'per month';
+    } else if (storeState == PaywallStoreState.loading) {
+      priceText = '...';
+      perLine = 'Checking price';
+    } else {
+      priceText = '\u2014';
+      perLine = 'Price unavailable';
+    }
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
             color: selected
-                ? accent.withValues(alpha: 0.38)
-                : foundation.borderSubtle.withValues(alpha: 0.68),
-            width: 1.5,
-          ),
-        ),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            if (isAnnual)
-              Positioned(
-                top: -21,
-                right: -4,
-                child: _PlanBadge(product.badgeLabel ?? 'Best value'),
-              ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isAnnual ? 'Annual' : 'Monthly',
-                  style: TextStyle(
-                    color: selected ? accent : foundation.textSecondary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    _displayPrice(product),
-                    style: _serifStyle(context, fontSize: 24, height: 1),
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  isAnnual ? _annualPerLine(product) : 'per month',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: foundation.textSecondary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w300,
-                    height: 1.4,
-                  ),
-                ),
-              ],
+                ? accent.withValues(alpha: 0.13)
+                : foundation.textPrimary.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected
+                  ? accent.withValues(alpha: 0.38)
+                  : foundation.borderSubtle.withValues(alpha: 0.68),
+              width: 1.5,
             ),
-          ],
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // At large text the floating badge would sit on the plan name,
+              // so it joins the card's own column instead.
+              if (badge != null && !largeText)
+                Positioned(top: -21, right: -4, child: badge),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (badge != null && largeText) ...[
+                    badge,
+                    const SizedBox(height: 6),
+                  ],
+                  Text(
+                    isAnnual ? 'Annual' : 'Monthly',
+                    style: TextStyle(
+                      color: selected
+                          ? _premiumAccentText(context)
+                          : foundation.textSecondary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      priceText,
+                      style: _serifStyle(context, fontSize: 24, height: 1),
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    perLine,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: foundation.textSecondary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w300,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1590,106 +2137,69 @@ class _PlanBadge extends StatelessWidget {
   }
 }
 
-class _PremiumActionButton extends StatefulWidget {
+class _PremiumActionButton extends StatelessWidget {
   const _PremiumActionButton({
+    super.key,
     required this.busy,
     required this.enabled,
     required this.label,
     required this.onPressed,
+    this.icon,
+    this.semanticsLabel,
+    this.showSpinnerLabel = false,
   });
 
   final bool busy;
   final bool enabled;
   final String label;
   final VoidCallback onPressed;
+  final IconData? icon;
+  final String? semanticsLabel;
 
-  @override
-  State<_PremiumActionButton> createState() => _PremiumActionButtonState();
-}
-
-class _PremiumActionButtonState extends State<_PremiumActionButton>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 90),
-    lowerBound: 0.99,
-    upperBound: 1,
-    value: 1,
-  );
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  /// Shows a small spinner beside [label] (store still loading).
+  final bool showSpinnerLabel;
 
   @override
   Widget build(BuildContext context) {
-    final accent = _premiumGlow(context);
-    final enabled = widget.enabled && !widget.busy;
-    return GestureDetector(
-      onTapDown: enabled ? (_) => _controller.reverse() : null,
-      onTapCancel: enabled ? () => _controller.forward() : null,
-      onTapUp: enabled
-          ? (_) {
-              _controller.forward();
-              widget.onPressed();
-            }
-          : null,
-      child: ScaleTransition(
-        scale: _controller,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          width: double.infinity,
-          height: 58,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: enabled ? accent : accent.withValues(alpha: 0.38),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: widget.busy
-              ? SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator.adaptive(
-                    strokeWidth: 2.4,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      Theme.of(context).colorScheme.onPrimary,
-                    ),
-                  ),
-                )
-              : Text(
-                  widget.label,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    height: 1,
-                  ),
-                ),
-        ),
-      ),
+    // The app's one primary button: same colour, shape and type as every
+    // other screen's main action.
+    return PebbleButton.primary(
+      label: label,
+      icon: icon,
+      busy: busy || showSpinnerLabel,
+      semanticsLabel: semanticsLabel,
+      onPressed: enabled ? onPressed : null,
     );
   }
 }
 
 class _FinePrint extends StatelessWidget {
-  const _FinePrint({required this.platformCopy});
+  const _FinePrint({required this.platformCopy, required this.product});
 
   final PremiumPaywallCopy platformCopy;
+
+  /// The plan the button buys, when its price is known. Its name, length and
+  /// price lead the disclosure (App Store guideline 3.1.2).
+  final PremiumProduct? product;
 
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
+    final selected = product;
+    final summary = selected == null || !_hasPrice(selected)
+        ? ''
+        : 'Personal Premium ${selected.plan == BillingPlan.yearly ? 'Annual' : 'Monthly'}: '
+              '${selected.priceLabel} per ${_planTypeForBillingPlan(selected.plan).ctaCadence}. ';
     return Text(
-      platformCopy.renewalLine,
+      '$summary${platformCopy.renewalLine}',
       textAlign: TextAlign.center,
       style: TextStyle(
-        color: foundation.textMuted,
-        fontSize: 11,
-        fontWeight: FontWeight.w300,
-        height: 1.6,
+        // textSecondary, not textMuted: the renewal terms must stay clearly
+        // readable in every theme, including the dark ones.
+        color: foundation.textSecondary,
+        fontSize: 11.5,
+        fontWeight: FontWeight.w400,
+        height: 1.55,
         letterSpacing: 0.1,
       ),
     );
@@ -1709,10 +2219,18 @@ class _FooterLinks extends StatelessWidget {
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
     final style = TextButton.styleFrom(
-      foregroundColor: foundation.textSecondary,
+      foregroundColor: foundation.textPrimary.withValues(alpha: 0.82),
       visualDensity: VisualDensity.compact,
       padding: const EdgeInsets.symmetric(horizontal: 4),
-      textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w400),
+      textStyle: PebbleFonts.sans(
+        fontSize: 12.5,
+        fontWeight: FontWeight.w500,
+        decoration: TextDecoration.underline,
+      ),
+    );
+    final divider = Text(
+      '|',
+      style: TextStyle(color: foundation.textMuted, fontSize: 12),
     );
     return Wrap(
       alignment: WrapAlignment.center,
@@ -1724,17 +2242,17 @@ class _FooterLinks extends StatelessWidget {
           style: style,
           child: const Text('Restore purchase'),
         ),
-        Text('|', style: TextStyle(color: foundation.textMuted, fontSize: 11)),
+        divider,
         TextButton(
-          onPressed: () => onOpenLegalUrl('https://pebbleroutines.com/terms'),
+          onPressed: () => onOpenLegalUrl(pebbleTermsUrl),
           style: style,
-          child: const Text('Terms'),
+          child: const Text('Terms of Use'),
         ),
-        Text('|', style: TextStyle(color: foundation.textMuted, fontSize: 11)),
+        divider,
         TextButton(
-          onPressed: () => onOpenLegalUrl('https://pebbleroutines.com/privacy'),
+          onPressed: () => onOpenLegalUrl(pebblePrivacyPolicyUrl),
           style: style,
-          child: const Text('Privacy'),
+          child: const Text('Privacy Policy'),
         ),
       ],
     );
@@ -1742,36 +2260,67 @@ class _FooterLinks extends StatelessWidget {
 }
 
 class _UnavailableNotice extends StatelessWidget {
-  const _UnavailableNotice({required this.message});
+  const _UnavailableNotice({required this.message, this.title});
 
+  final String? title;
   final String message;
 
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: foundation.surfaceLow.withValues(alpha: 0.76),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: foundation.borderSubtle),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(LucideIcons.info, color: foundation.textMuted, size: 16),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                message,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: foundation.textSecondary,
-                  height: 1.45,
+    final accent = _premiumGlow(context);
+    return Semantics(
+      liveRegion: true,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: foundation.surfaceLow.withValues(alpha: 0.9),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: accent.withValues(alpha: 0.32)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 1),
+                child: Icon(
+                  title == null ? LucideIcons.info : LucideIcons.cloudOff,
+                  color: accent,
+                  size: 17,
                 ),
               ),
-            ),
-          ],
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (title != null) ...[
+                      Text(
+                        title!,
+                        style: TextStyle(
+                          color: foundation.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          height: 1.3,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                    ],
+                    Text(
+                      message,
+                      style: TextStyle(
+                        color: foundation.textSecondary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1784,7 +2333,7 @@ TextStyle _serifStyle(
   double height = 1,
 }) {
   final foundation = context.darkFoundation;
-  return GoogleFonts.dmSerifDisplay(
+  return PebbleFonts.serif(
     color: foundation.textPrimary,
     fontSize: fontSize,
     fontWeight: FontWeight.w400,
@@ -1793,19 +2342,15 @@ TextStyle _serifStyle(
   );
 }
 
-Color _premiumGlow(BuildContext context) {
-  final theme = Theme.of(context);
-  return _legibleThemeAccent(theme, theme.colorScheme.primary);
-}
+/// The paywall's accent is the app's own action colour (the theme primary),
+/// not a re-saturated variant, so the CTA matches every other screen.
+Color _premiumGlow(BuildContext context) =>
+    Theme.of(context).colorScheme.primary;
 
-Color _legibleThemeAccent(ThemeData theme, Color color) {
-  final hsl = HSLColor.fromColor(color);
-  final saturation = (hsl.saturation * 1.08).clamp(0.36, 0.88).toDouble();
-  final lightness = theme.brightness == Brightness.dark
-      ? hsl.lightness.clamp(0.58, 0.76).toDouble()
-      : hsl.lightness.clamp(0.34, 0.50).toDouble();
-  return hsl.withSaturation(saturation).withLightness(lightness).toColor();
-}
+/// [_premiumGlow] for small accent text: firmed up toward the text colour
+/// only where the theme's primary is too faint to read (never saturated).
+Color _premiumAccentText(BuildContext context) =>
+    context.readableAccentText(_premiumGlow(context));
 
 List<PremiumProduct> _sortedProducts(List<PremiumProduct> products) {
   return [
@@ -1867,16 +2412,12 @@ PlanType _planTypeForBillingPlan(BillingPlan plan) {
   };
 }
 
-String _displayPrice(PremiumProduct product) {
-  if (product.isPurchasable && product.priceLabel.trim().isNotEmpty) {
-    return product.priceLabel;
-  }
-  return 'Loading';
-}
+bool _hasPrice(PremiumProduct product) =>
+    product.isPurchasable && product.priceLabel.trim().isNotEmpty;
 
 String _ctaLabel(PremiumProduct product) {
-  if (!product.isPurchasable || product.priceLabel.trim().isEmpty) {
-    return 'Loading store price';
+  if (!_hasPrice(product)) {
+    return 'Price unavailable';
   }
   final plan = _planTypeForBillingPlan(product.plan);
   return 'Continue with ${product.priceLabel}/${plan.ctaCadence}';
@@ -1939,7 +2480,13 @@ class _ParsedPrice {
 String _planUnavailableMessage(BillingPlan plan, PremiumPaywallCopy copy) {
   final cadence = plan == BillingPlan.yearly ? 'Annual' : 'Monthly';
   final lowerCadence = plan == BillingPlan.yearly ? 'annual' : 'monthly';
-  return '$cadence Pebble Premium is not available from ${copy.storeName} yet. Check the $lowerCadence base plan offer token in ${copy.consoleName}.';
+  // The cause is a store setup issue; say so in the logs, not to customers.
+  debugPrint(
+    '[Paywall] $cadence plan has no purchasable offer. Check the '
+    '$lowerCadence base plan offer token in ${copy.consoleName}.',
+  );
+  return 'The $lowerCadence plan is not available from '
+      '${copy.storeNameInSentence} right now. Try again in a moment.';
 }
 
 const _fallbackMonthlyProduct = PremiumProduct(

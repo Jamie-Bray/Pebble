@@ -1,4 +1,5 @@
 import 'package:drift/native.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -18,6 +19,127 @@ import 'package:pebble_routines/features/subscription/providers/subscription_pro
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  group('iOS sign-in options', () {
+    Future<void> pumpSignIn(
+      WidgetTester tester, {
+      required SupabaseRuntimeConfig config,
+    }) async {
+      await tester.binding.setSurfaceSize(const Size(800, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final database = LocalDb.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+      final router = GoRouter(
+        initialLocation: '/sign-in',
+        routes: [
+          GoRoute(
+            path: '/sign-in',
+            builder: (context, state) => const SignInScreen(),
+          ),
+          GoRoute(
+            path: '/account-hub',
+            builder: (context, state) => const Scaffold(
+              body: Center(child: Text('Account hub reached')),
+            ),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            localDbProvider.overrideWithValue(database),
+            sharedPreferencesProvider.overrideWithValue(prefs),
+            supabaseRuntimeConfigProvider.overrideWithValue(config),
+            supabaseClientProvider.overrideWithValue(null),
+            authRepositoryProvider.overrideWithValue(_FakeAuthRepository()),
+            purchaseRepositoryProvider.overrideWith(
+              (ref) => _FakePurchaseRepository(),
+            ),
+            subscriptionAccountControllerProvider.overrideWith(
+              (ref) => _TestSubscriptionAccountController(
+                database,
+                const SubscriptionAccountState.initial(),
+              ),
+            ),
+          ],
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('offers Sign in with Apple and completes sign-in', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      await pumpSignIn(
+        tester,
+        config: const SupabaseRuntimeConfig(
+          enabled: false,
+          url: '',
+          anonKey: '',
+          googleWebClientId: 'test-web-client-id',
+          googleIosClientId: 'test-ios-client-id',
+        ),
+      );
+
+      expect(find.text('Continue with Apple'), findsOneWidget);
+      expect(find.text('Continue with Google'), findsOneWidget);
+      // Apple must be at least as prominent as Google (guideline 4.8).
+      expect(
+        tester.getTopLeft(find.text('Continue with Apple')).dy,
+        lessThan(tester.getTopLeft(find.text('Continue with Google')).dy),
+      );
+
+      await tester.tap(find.text('Continue with Apple'));
+      await tester.pumpAndSettle();
+      expect(find.text('Account hub reached'), findsOneWidget);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('hides Google on iOS until the iOS client ID is configured', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      await pumpSignIn(
+        tester,
+        config: const SupabaseRuntimeConfig(
+          enabled: false,
+          url: '',
+          anonKey: '',
+          googleWebClientId: 'test-web-client-id',
+        ),
+      );
+
+      expect(find.text('Continue with Apple'), findsOneWidget);
+      expect(find.text('Continue with Google'), findsNothing);
+      expect(find.text('Continue with Email'), findsOneWidget);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('does not show Sign in with Apple on Android', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      await pumpSignIn(
+        tester,
+        config: const SupabaseRuntimeConfig(
+          enabled: false,
+          url: '',
+          anonKey: '',
+          googleWebClientId: 'test-web-client-id',
+        ),
+      );
+
+      expect(find.text('Continue with Apple'), findsNothing);
+      expect(find.text('Continue with Google'), findsOneWidget);
+      debugDefaultTargetPlatformOverride = null;
+    });
+  });
+
   testWidgets(
     'Google sign-in finishes when Premium server verification is still pending',
     (tester) async {
@@ -220,6 +342,12 @@ class _FakeAuthRepository implements AuthRepository {
 
 class _FakePurchaseRepository extends ChangeNotifier
     implements PurchaseRepository {
+
+  @override
+  bool get isLoadingProducts => false;
+
+  @override
+  Future<void> retryLoadProducts() async {}
   bool waitedForServerMirror = false;
 
   @override

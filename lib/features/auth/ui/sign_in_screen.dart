@@ -1,9 +1,12 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
+import 'package:pebble_routines/core/theme/pebble_fonts.dart';
+import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/ui/zen_notifications.dart';
 import 'package:pebble_routines/data/remote/supabase_client_provider.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
@@ -33,29 +36,9 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
           next.status == AuthStatus.signedIn &&
           !_isBlockingBackupSetup(accountState);
       if (isReady) {
-        final isPremium = ref.read(entitlementStateProvider).isPersonalPaid;
-        // The consent provider is rebuilt only after auth flips to signed in,
-        // so it can briefly report "checking" even when the awaited bootstrap
-        // above already completed. The persisted account state is the accurate
-        // result for this one-time confirmation message.
-        final backupIsOn =
-            isPremium &&
-            accountState.entitlementSource ==
-                EntitlementSource.serverVerified &&
-            accountState.bootstrapStatus == BootstrapStatus.ready;
-        final backupNeedsAttention =
-            isPremium && accountState.bootstrapStatus == BootstrapStatus.error;
-        ZenNotifications.showSuccess(
-          context,
-          title: 'Signed in',
-          message: backupIsOn
-              ? 'Backup is on for this account.'
-              : backupNeedsAttention
-              ? 'Premium is on. Backup needs another try in Your Account.'
-              : isPremium
-              ? 'Premium is on. Backup will finish when Pebble can verify this account.'
-              : 'Your routines stay on this device unless you unlock Personal Premium.',
-        );
+        // No success toast: the account hub we land on already shows the
+        // signed-in identity and live backup status, so a banner on top of
+        // it would just repeat the screen underneath.
         context.go('/account-hub');
         return;
       }
@@ -79,11 +62,16 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     final cloudAccess = ref.watch(personalCloudAccessProvider);
     final supabaseConfig = ref.watch(supabaseRuntimeConfigProvider);
     final authController = ref.read(authControllerProvider.notifier);
-    final canUseGoogleSignIn =
-        supabaseConfig.googleWebClientId?.isNotEmpty == true;
+    final canUseGoogleSignIn = supabaseConfig.supportsGoogleSignIn;
+    // App Store guideline 4.8: an app offering Google sign-in on iOS must
+    // offer Sign in with Apple too, at least as prominently.
+    final canUseAppleSignIn =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
     final isBusy =
         authState.status == AuthStatus.authenticating ||
         _isBlockingBackupSetup(accountState);
+    // Backup is Premium-only, so the promise on this screen depends on it.
+    final hasPremium = ref.watch(entitlementStateProvider).isPersonalPaid;
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -131,10 +119,14 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                         }
                       },
                     ),
-                    const SizedBox(height: 44),
-                    const _SignInHero(),
+                    // Less air on short phones so the sign-in buttons sit
+                    // nearer the fold.
+                    SizedBox(
+                      height: MediaQuery.sizeOf(context).height < 700 ? 24 : 44,
+                    ),
+                    _SignInHero(hasPremium: hasPremium),
                     const SizedBox(height: 28),
-                    const _SignInPerks(),
+                    _SignInPerks(hasPremium: hasPremium),
                     const SizedBox(height: 32),
                     Divider(
                       height: 1,
@@ -147,6 +139,12 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                             'Sign-in is not available in this build yet. Please check app configuration and try again.',
                       )
                     else ...[
+                      if (canUseAppleSignIn) ...[
+                        _AppleSignInButton(
+                          onTap: isBusy ? null : authController.signInWithApple,
+                        ),
+                        const SizedBox(height: 10),
+                      ],
                       if (canUseGoogleSignIn) ...[
                         _SignInButton(
                           leading: const _GoogleGMark(),
@@ -161,7 +159,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       _SignInButton(
                         icon: LucideIcons.mail,
                         label: 'Continue with Email',
-                        filled: !canUseGoogleSignIn,
+                        filled: !canUseGoogleSignIn && !canUseAppleSignIn,
                         onTap: isBusy
                             ? null
                             : () => showEmailOtpSheet(context, ref),
@@ -234,30 +232,11 @@ class _SignInBackRow extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return Row(
       children: [
-        SizedBox(
-          width: 36,
-          height: 36,
-          child: IconButton(
-            tooltip: 'Back',
-            onPressed: onBack,
-            padding: EdgeInsets.zero,
-            style: IconButton.styleFrom(
-              backgroundColor: colorScheme.onSurface.withValues(alpha: 0.08),
-              side: BorderSide(
-                color: colorScheme.onSurface.withValues(alpha: 0.12),
-              ),
-            ),
-            icon: Icon(
-              LucideIcons.chevronLeft,
-              size: 16,
-              color: colorScheme.onSurface,
-            ),
-          ),
-        ),
+        PebbleBackButton(onPressed: onBack),
         const SizedBox(width: 12),
         Text(
           'YOUR ACCOUNT',
-          style: GoogleFonts.outfit(
+          style: PebbleFonts.sans(
             fontSize: 12,
             fontWeight: FontWeight.w500,
             letterSpacing: 1.44,
@@ -270,28 +249,37 @@ class _SignInBackRow extends StatelessWidget {
 }
 
 class _SignInHero extends StatelessWidget {
-  const _SignInHero();
+  const _SignInHero({required this.hasPremium});
+
+  final bool hasPremium;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final (lead, accent) = hasPremium
+        ? ('Your routines,\n', 'backed up.')
+        : ('Your Pebble\n', 'account.');
+    final intro = hasPremium
+        ? 'Sign in to back up your routines and restore them on a new phone. '
+        : 'Sign in to link Pebble to your account. Backup and restore come '
+              'with Premium, so you can add them whenever you like. ';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text.rich(
           TextSpan(
             children: [
-              const TextSpan(text: 'Your routines,\n'),
+              TextSpan(text: lead),
               TextSpan(
-                text: 'secured.',
+                text: accent,
                 style: TextStyle(
-                  color: colorScheme.onSurface.withValues(alpha: 0.45),
+                  color: colorScheme.onSurface.withValues(alpha: 0.55),
                   fontStyle: FontStyle.italic,
                 ),
               ),
             ],
           ),
-          style: GoogleFonts.dmSerifDisplay(
+          style: PebbleFonts.serif(
             fontSize: 38,
             height: 1.08,
             fontWeight: FontWeight.w400,
@@ -302,25 +290,22 @@ class _SignInHero extends StatelessWidget {
         Text.rich(
           TextSpan(
             children: [
-              const TextSpan(text: 'Sign in to back up your data. '),
+              TextSpan(text: intro),
               TextSpan(
-                text: 'Pebble works completely offline',
+                text: 'Pebble works fully offline',
                 style: TextStyle(
-                  color: colorScheme.onSurface.withValues(alpha: 0.75),
+                  color: colorScheme.onSurface.withValues(alpha: 0.8),
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              const TextSpan(
-                text:
-                    ' - creating an account just connects backup and restore when you choose to use them.',
-              ),
+              const TextSpan(text: ' without an account.'),
             ],
           ),
-          style: GoogleFonts.outfit(
+          style: PebbleFonts.sans(
             fontSize: 14,
             fontWeight: FontWeight.w300,
             height: 1.65,
-            color: colorScheme.onSurface.withValues(alpha: 0.45),
+            color: colorScheme.onSurface.withValues(alpha: 0.62),
           ),
         ),
       ],
@@ -329,29 +314,45 @@ class _SignInHero extends StatelessWidget {
 }
 
 class _SignInPerks extends StatelessWidget {
-  const _SignInPerks();
+  const _SignInPerks({required this.hasPremium});
+
+  final bool hasPremium;
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    final perks = hasPremium
+        ? const [
+            (
+              'Keep your recent history',
+              'Back up up to 21 days of completed routines.',
+            ),
+            (
+              'Photos included',
+              'Proof photos back up with the routines they belong to.',
+            ),
+            (
+              'Switch phones',
+              'Sign in on a new phone and restore your backup there.',
+            ),
+          ]
+        : const [
+            (
+              'Already have Premium?',
+              'Sign in with the account you used before to get Premium and '
+                  'your backup back.',
+            ),
+            (
+              'Ready for backup',
+              'If you get Premium later, backup can start straight away.',
+            ),
+            ('Optional', 'Everything else in Pebble works without an account.'),
+          ];
+    return Column(
       children: [
-        _SignInPerk(
-          title: 'Keep Your Recent History',
-          body:
-              'Back up supported routine runs so restore has something ready if you change phone.',
-        ),
-        SizedBox(height: 14),
-        _SignInPerk(
-          title: 'Save Space on Your Phone',
-          body:
-              'Proof photos can be backed up with Premium so local storage stays easier to manage.',
-        ),
-        SizedBox(height: 14),
-        _SignInPerk(
-          title: 'Switch Devices Easily',
-          body:
-              'Sign in on another device and restore your backed-up routines without manual exports.',
-        ),
+        for (var i = 0; i < perks.length; i++) ...[
+          if (i > 0) const SizedBox(height: 14),
+          _SignInPerk(title: perks[i].$1, body: perks[i].$2),
+        ],
       ],
     );
   }
@@ -386,18 +387,18 @@ class _SignInPerk extends StatelessWidget {
                 TextSpan(
                   text: title,
                   style: TextStyle(
-                    color: colorScheme.onSurface.withValues(alpha: 0.72),
+                    color: colorScheme.onSurface.withValues(alpha: 0.82),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                TextSpan(text: ' - $body'),
+                TextSpan(text: ' – $body'),
               ],
             ),
-            style: GoogleFonts.outfit(
+            style: PebbleFonts.sans(
               fontSize: 13,
               fontWeight: FontWeight.w300,
               height: 1.45,
-              color: colorScheme.onSurface.withValues(alpha: 0.45),
+              color: colorScheme.onSurface.withValues(alpha: 0.62),
             ),
           ),
         ),
@@ -428,7 +429,7 @@ class _BackupOnSignInNote extends StatelessWidget {
             'Signing in turns on backup for this account. Pebble backs up '
             'routines, history, and proof photos, which can include personal '
             'details. You can pause backup any time in Your Account.',
-            style: GoogleFonts.outfit(
+            style: PebbleFonts.sans(
               fontSize: 12,
               fontWeight: FontWeight.w300,
               height: 1.5,
@@ -458,7 +459,7 @@ class _SignInUnavailableNotice extends StatelessWidget {
       ),
       child: Text(
         message,
-        style: GoogleFonts.outfit(
+        style: PebbleFonts.sans(
           fontSize: 14,
           height: 1.45,
           color: colorScheme.onSurface.withValues(alpha: 0.76),
@@ -481,18 +482,18 @@ class _NoAccountNote extends StatelessWidget {
         Text(
           'Pebble is fully functional offline.',
           textAlign: TextAlign.center,
-          style: GoogleFonts.outfit(
+          style: PebbleFonts.sans(
             fontSize: 12,
-            fontWeight: FontWeight.w300,
+            fontWeight: FontWeight.w400,
             height: 1.6,
-            color: colorScheme.onSurface.withValues(alpha: 0.28),
+            color: colorScheme.onSurface.withValues(alpha: 0.55),
           ),
         ),
         TextButton(
           onPressed: onTap,
           style: TextButton.styleFrom(
             foregroundColor: colorScheme.primary.withValues(alpha: 0.62),
-            textStyle: GoogleFonts.outfit(
+            textStyle: PebbleFonts.sans(
               fontSize: 12,
               fontWeight: FontWeight.w400,
             ),
@@ -548,7 +549,7 @@ class _SignInButton extends StatelessWidget {
               ).withValues(alpha: onTap == null ? 0.54 : 1),
             ),
             shape: shape,
-            textStyle: const TextStyle(
+            textStyle: PebbleFonts.sans(
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
@@ -566,7 +567,7 @@ class _SignInButton extends StatelessWidget {
           style: FilledButton.styleFrom(
             minimumSize: const Size.fromHeight(52),
             shape: shape,
-            textStyle: GoogleFonts.outfit(
+            textStyle: PebbleFonts.sans(
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
@@ -587,10 +588,38 @@ class _SignInButton extends StatelessWidget {
           ),
           minimumSize: const Size.fromHeight(52),
           shape: shape,
-          textStyle: GoogleFonts.outfit(
+          textStyle: PebbleFonts.sans(
             fontSize: 14,
             fontWeight: FontWeight.w400,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Apple's own button, so it meets the Sign in with Apple design rules. Kept
+/// at the same 52dp height and pill shape as the other sign-in buttons.
+class _AppleSignInButton extends StatelessWidget {
+  const _AppleSignInButton({required this.onTap});
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Opacity(
+      opacity: onTap == null ? 0.38 : 1,
+      child: IgnorePointer(
+        ignoring: onTap == null,
+        child: SignInWithAppleButton(
+          onPressed: onTap ?? () {},
+          text: 'Continue with Apple',
+          height: 52,
+          style: isDark
+              ? SignInWithAppleButtonStyle.white
+              : SignInWithAppleButtonStyle.black,
+          borderRadius: const BorderRadius.all(Radius.circular(100)),
         ),
       ),
     );

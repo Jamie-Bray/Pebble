@@ -62,10 +62,27 @@ class PurchaseCancelledException implements Exception {
   const PurchaseCancelledException();
 }
 
-class PurchaseFlowException implements Exception {
-  const PurchaseFlowException(this.message);
+/// The store accepted the purchase but has not confirmed payment yet (e.g.
+/// Google Play pending transactions). This is progress, not a failure — the
+/// UI must not present it under an error title.
+class PurchasePendingException implements Exception {
+  const PurchasePendingException(this.message);
 
   final String message;
+
+  @override
+  String toString() => message;
+}
+
+class PurchaseFlowException implements Exception {
+  const PurchaseFlowException(this.message, {this.isPending = false});
+
+  final String message;
+
+  /// The store accepted the purchase but is still waiting on payment (a slow
+  /// card on Google Play, Ask to Buy on the App Store). Nothing was charged
+  /// twice; Premium unlocks when the store confirms it.
+  final bool isPending;
 
   @override
   String toString() => message;
@@ -75,8 +92,14 @@ abstract class EntitlementStore {
   Future<void> applyRevenueCatEntitlement(
     UserTier tier, {
     DateTime? periodEndsAt,
+    bool? willRenew,
+    DateTime? billingIssueAt,
   });
   Future<void> applyExpiredEntitlement();
+
+  /// The store found no active Premium: if the plan already reads as expired
+  /// (inferred from a cached period end), mark the lapse as confirmed.
+  Future<void> confirmLapseIfExpired();
   Future<void> recordEntitlementError(String message);
   Future<bool> refreshServerVerifiedEntitlement({
     bool requestServerReconciliation = false,
@@ -92,10 +115,24 @@ class LocalEntitlementStore implements EntitlementStore {
   Future<void> applyRevenueCatEntitlement(
     UserTier tier, {
     DateTime? periodEndsAt,
+    bool? willRenew,
+    DateTime? billingIssueAt,
   }) async {
     await _ref
         .read(subscriptionAccountControllerProvider.notifier)
-        .applyRevenueCatEntitlement(tier, periodEndsAt: periodEndsAt);
+        .applyRevenueCatEntitlement(
+          tier,
+          periodEndsAt: periodEndsAt,
+          willRenew: willRenew,
+          billingIssueAt: billingIssueAt,
+        );
+  }
+
+  @override
+  Future<void> confirmLapseIfExpired() async {
+    await _ref
+        .read(subscriptionAccountControllerProvider.notifier)
+        .confirmLapseIfExpired();
   }
 
   @override
@@ -132,6 +169,15 @@ abstract class PurchaseRepository extends ChangeNotifier {
   DateTime? get lastPurchaseCheckAt;
   Set<String> get loadedProductIds;
   String? get unavailableReason;
+
+  /// True while store products are being requested (at start-up or after
+  /// [retryLoadProducts]). Lets the paywall tell "still loading" apart from
+  /// "the store could not be reached".
+  bool get isLoadingProducts;
+
+  /// Asks the store for products again after a failed or empty load. Never
+  /// purchases, restores or syncs anything.
+  Future<void> retryLoadProducts();
   Future<PurchaseResult> purchasePersonalPremium(BillingPlan plan);
   Future<PurchaseResult> restorePurchases();
   Future<void> syncPurchasesSilently({bool waitForServerMirror = false});
@@ -161,6 +207,15 @@ class StoreUnavailablePurchaseRepository extends ChangeNotifier
 
   @override
   String get unavailableReason => _message;
+
+  @override
+  bool get isLoadingProducts => false;
+
+  @override
+  Future<void> retryLoadProducts() async {
+    // Nothing to retry: this build has no store configured.
+    notifyListeners();
+  }
 
   @override
   List<PremiumProduct> get personalPremiumProducts =>

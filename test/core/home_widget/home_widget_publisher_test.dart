@@ -84,4 +84,39 @@ void main() {
       expect(widgetColorHex(null), isNull);
     });
   });
+
+  group('widget Checked mirror', () {
+    RoutineRun run(int routineId, DateTime finishedAt) => RoutineRun(
+      id: 'run-$routineId-${finishedAt.millisecondsSinceEpoch}',
+      routineId: '$routineId',
+      routineTitle: 'Routine $routineId',
+      finishedAt: finishedAt,
+      stepCompletionData: null,
+      ownerUserId: null,
+      syncStatus: 'localOnly',
+      lastSyncedAt: null,
+      syncMetadataJson: null,
+      updatedAt: finishedAt,
+    );
+
+    test("picks the routine's own latest run", () {
+      final routine = _routine(id: 2, isPinned: true);
+      final latest = latestRunFor(routine, [
+        run(1, DateTime(2026, 10, 3, 9)),
+        run(2, DateTime(2026, 10, 3, 7)),
+        run(2, DateTime(2026, 10, 3, 8, 4)),
+      ]);
+      expect(latest?.finishedAt, DateTime(2026, 10, 3, 8, 4));
+      expect(latestRunFor(null, [run(2, DateTime(2026))]), isNull);
+    });
+
+    test('reads "Checked · time" inside the window, nothing after', () {
+      final finished = run(1, DateTime(2026, 10, 3, 8, 4));
+      final checked = widgetCheckedState(finished, DateTime(2026, 10, 3, 9));
+      expect(checked?.label, 'Checked · 8:04 AM');
+      expect(checked?.until, DateTime(2026, 10, 3, 14, 4));
+      expect(widgetCheckedState(finished, DateTime(2026, 10, 3, 15)), isNull);
+      expect(widgetCheckedState(null, DateTime(2026, 10, 3, 9)), isNull);
+    });
+  });
 }

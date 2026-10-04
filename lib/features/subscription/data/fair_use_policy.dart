@@ -60,6 +60,14 @@ class ProofMediaFairUseState {
     return '${_formatBytes(activeCloudBytes)} of ${_formatBytes(storageLimitBytes)} used';
   }
 
+  /// Honest description of what [activeCloudBytes] actually tracks: bytes
+  /// uploaded inside the current rolling window. It is a local counter — it
+  /// resets with the window, ignores deletions, and does not survive a
+  /// reinstall — so it must never be presented as total cloud storage.
+  String get recentUploadLabel {
+    return '${_formatBytes(activeCloudBytes)} uploaded in the last 30 days';
+  }
+
   String get uploadLabel {
     return '$uploadsThisPeriod of $monthlyUploadLimit proof photo uploads used this month';
   }

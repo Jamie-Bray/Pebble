@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 import 'package:pebble_routines/core/config/app_runtime_config.dart';
@@ -24,9 +27,32 @@ void configureSentryOptions(
   // attachViewHierarchy, tracing, and session replay are all off by default
   // and must stay off; see the privacy note above before changing any of them.
   options.maxBreadcrumbs = 32;
+  // debugPrint output includes account and RevenueCat IDs; it must never
+  // become crash breadcrumbs, or crash reports would be linked to the user.
+  options.enablePrintBreadcrumbs = false;
   options.beforeSend = (event, hint) {
     event.user = null;
     event.serverName = null;
     return event;
   };
+}
+
+/// Reports an error Pebble recovered from (the app carried on). Always logged
+/// locally; sent to Sentry only when crash reporting is configured, under the
+/// same privacy options as crashes. [context] must be a fixed label, never
+/// user content.
+void reportRecoveredError(
+  Object error,
+  StackTrace stackTrace, {
+  required String context,
+}) {
+  debugPrint('[$context] $error');
+  if (!isCrashReportingConfigured) return;
+  unawaited(
+    Sentry.captureException(
+      error,
+      stackTrace: stackTrace,
+      withScope: (scope) => scope.setTag('pebble.context', context),
+    ),
+  );
 }

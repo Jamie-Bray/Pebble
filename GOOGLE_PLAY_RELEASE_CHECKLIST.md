@@ -20,7 +20,7 @@ This checklist turns the pre-launch audit into a concrete release plan for Pebbl
 
 ## 2. Android policy and permission hardening
 
-- [x] Remove legacy `READ_EXTERNAL_STORAGE` and `WRITE_EXTERNAL_STORAGE` permissions.
+- [x] Remove legacy `READ_EXTERNAL_STORAGE`. `WRITE_EXTERNAL_STORAGE` stays declared with `maxSdkVersion="29"` for Save a copy to Photos on Android 9 and below (see `LEGAL_PROCESSOR_MAP.md`).
 - [x] Stop declaring `SCHEDULE_EXACT_ALARM` and use inexact reminder scheduling by default.
 - [ ] Confirm camera, microphone, notifications, boot completed, vibrate, and wake lock are all declared in Play Console disclosures.
 - [ ] Disclose photo/media library access because users can choose existing proof photos.
@@ -42,7 +42,7 @@ This checklist turns the pre-launch audit into a concrete release plan for Pebbl
 - [ ] Confirm the legal publication details in `LEGAL_PUBLICATION_CHECKS.md`.
 - [ ] Review `LEGAL_PROCESSOR_MAP.md` against the Play Data safety form before submission.
 - [ ] Review `COPY_RISK_SCAN.md` against store listing, screenshots, onboarding, and paywall copy.
-- [ ] Create and monitor the `privacy@pebbleroutines.app` and `support@pebbleroutines.app` inboxes, or update the pages with the final inboxes.
+- [ ] Create and monitor the `privacy@pebbleroutines.com` and `support@pebbleroutines.com` inboxes, or update the pages with the final inboxes.
 - [x] Add a clear in-app opt-in before cloud backup of sensitive user-added content goes live.
 - [ ] Complete the Data safety form for account data, photos, audio, and diagnostics/logging if applicable.
 - [x] Confirm the account deletion web link in Play Console matches the in-app deletion destination.

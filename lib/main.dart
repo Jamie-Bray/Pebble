@@ -1,19 +1,25 @@
 // lib/main.dart
 import 'dart:async';
 
+import 'package:pebble_routines/core/ui/pebble_time.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:go_router/go_router.dart';
 import 'package:home_widget/home_widget.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/home_widget/home_widget_publisher.dart';
-import 'package:intl/intl.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'core/theme/pebble_fonts.dart';
+import 'core/theme/tokens.dart';
+import 'core/ui/pebble_buttons.dart';
 import 'core/theme/theme_provider.dart';
 import 'core/config/app_runtime_config.dart';
+import 'core/config/pebble_locale.dart';
 import 'core/monitoring/crash_reporting.dart';
 import 'core/navigation/app_shell.dart';
 import 'data/remote/supabase_client_provider.dart';
@@ -26,6 +32,7 @@ import 'package:pebble_routines/features/account_backup/ui/cloud_backup_screen.d
 import 'package:pebble_routines/features/settings/ui/settings_screen.dart';
 import 'package:pebble_routines/features/onboarding/ui/onboarding_screen.dart';
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
+import 'package:pebble_routines/features/subscription/ui/premium_lapse_ui.dart';
 import 'features/settings/data/player_settings_provider.dart';
 import 'core/notifications/notification_service.dart';
 import 'core/database/local_db.dart';
@@ -39,7 +46,10 @@ import 'features/sync/cloud_sync_coordinator.dart';
 import 'features/auth/providers/auth_state_provider.dart';
 import 'features/subscription/data/purchase_repository.dart';
 import 'features/subscription/data/revenuecat_runtime_config.dart';
+import 'features/subscription/domain/routine_limit_policy.dart';
+import 'features/subscription/providers/kept_routines_provider.dart';
 import 'features/subscription/providers/premium_feature_policy_provider.dart';
+
 // duplicate import removed
 
 class RoutineSessionEntry {
@@ -67,8 +77,12 @@ final routineSessionEntryProvider = FutureProvider.autoDispose
       if (routine == null) {
         return null;
       }
-      final orderedIndex = routines.indexWhere((item) => item.id == routine.id);
-      if (orderedIndex >= 0 && policy.isRoutineRestricted(orderedIndex)) {
+      final restricted = restrictedRoutineIds(
+        routines: routines,
+        policy: policy,
+        keptRoutineIds: ref.read(keptRoutinesProvider),
+      );
+      if (restricted.contains(routine.id)) {
         throw const RoutineSoftLockedException();
       }
       final session = await sessionRepo.startOrResumeSession(
@@ -87,14 +101,7 @@ class RoutineSoftLockedException implements Exception {
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
-TimeOfDay? _parseReminderTime(String value) {
-  try {
-    final parsed = DateFormat('h:mm a').parse(value);
-    return TimeOfDay(hour: parsed.hour, minute: parsed.minute);
-  } catch (_) {
-    return null;
-  }
-}
+TimeOfDay? _parseReminderTime(String value) => parseStoredClockTime(value);
 
 bool _isOnboardingTemplateRequest(GoRouterState state) {
   final path = state.uri.path;
@@ -316,7 +323,7 @@ final _routerProvider = Provider<GoRouter>((ref) {
                   body: Center(child: CircularProgressIndicator.adaptive()),
                 ),
                 error: (e, st) => e is RoutineSoftLockedException
-                    ? const _RoutineLockedScreen()
+                    ? _RoutineLockedScreen(routineId: id)
                     : const Scaffold(
                         body: Center(child: Text('Could not load routine')),
                       ),
@@ -375,9 +382,9 @@ class _RoutineUnavailableScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 24),
-                FilledButton(
+                PebbleButton.primary(
                   onPressed: () => GoRouter.of(context).go('/'),
-                  child: const Text('Back to Home'),
+                  label: 'Back to Home',
                 ),
               ],
             ),
@@ -389,7 +396,9 @@ class _RoutineUnavailableScreen extends StatelessWidget {
 }
 
 class _RoutineLockedScreen extends StatelessWidget {
-  const _RoutineLockedScreen();
+  const _RoutineLockedScreen({required this.routineId});
+
+  final int routineId;
 
   @override
   Widget build(BuildContext context) {
@@ -403,11 +412,7 @@ class _RoutineLockedScreen extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.lock_outline_rounded,
-                  size: 42,
-                  color: colorScheme.primary,
-                ),
+                Icon(LucideIcons.lock, size: 40, color: colorScheme.primary),
                 const SizedBox(height: 16),
                 Text(
                   'Premium ended',
@@ -419,23 +424,31 @@ class _RoutineLockedScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'This routine is still saved, but it needs Premium to unlock.',
+                  'This routine is still saved. Free includes 2 routines, so '
+                  'it unlocks again when you renew, or when you choose it as '
+                  'one of the 2 to keep.',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurface.withValues(alpha: 0.64),
                   ),
                 ),
                 const SizedBox(height: 24),
-                FilledButton(
+                PebbleButton.primary(
                   onPressed: () => GoRouter.of(
                     context,
                   ).push(premiumRoute(source: PremiumEntrySource.routineLimit)),
-                  child: const Text('Renew Premium'),
+                  label: 'Renew Premium',
                 ),
-                const SizedBox(height: 8),
-                TextButton(
+                const SizedBox(height: PebbleSpacing.sm),
+                PebbleButton.secondary(
+                  onPressed: () =>
+                      showKeepRoutinesSheet(context, preselect: routineId),
+                  label: 'Choose routines to keep',
+                ),
+                const SizedBox(height: PebbleSpacing.xxs),
+                PebbleButton.tertiary(
                   onPressed: () => GoRouter.of(context).go('/'),
-                  child: const Text('Back to Home'),
+                  label: 'Back to Home',
                 ),
               ],
             ),
@@ -460,12 +473,20 @@ void main() async {
 
 Future<void> _startPebble(AppRuntimeConfig appRuntimeConfig) async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Fonts are bundled; never fetch them (and never show system fonts offline).
+  PebbleFonts.configure();
+  await configurePebbleDateLocale(
+    resolvePebbleLocale(WidgetsBinding.instance.platformDispatcher.locales),
+  );
   final prefs = await SharedPreferences.getInstance();
   final db = LocalDb();
   const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
   const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
   const googleWebClientId = String.fromEnvironment(
     'SUPABASE_GOOGLE_WEB_CLIENT_ID',
+  );
+  const googleIosClientId = String.fromEnvironment(
+    'SUPABASE_GOOGLE_IOS_CLIENT_ID',
   );
   const revenueCatAndroidApiKey = String.fromEnvironment(
     'REVENUECAT_ANDROID_API_KEY',
@@ -516,6 +537,9 @@ Future<void> _startPebble(AppRuntimeConfig appRuntimeConfig) async {
           googleWebClientId: googleWebClientId.isEmpty
               ? null
               : googleWebClientId,
+          googleIosClientId: googleIosClientId.isEmpty
+              ? null
+              : googleIosClientId,
         )
       : const SupabaseRuntimeConfig.disabled();
   const revenueCatConfig = RevenueCatRuntimeConfig(
@@ -531,20 +555,53 @@ Future<void> _startPebble(AppRuntimeConfig appRuntimeConfig) async {
     );
   }
 
-  // Initialize services - MUST be awaited before runApp
-  await NotificationService().init();
-  await _resyncEnabledReminderNotifications(db);
+  // Notifications must never keep the app from starting: a plugin or
+  // database failure here costs reminders, not a splash screen stuck forever.
+  final notificationsReady = await _runStartupStep(
+    'notification init',
+    NotificationService().init,
+  );
 
   // Handle notification taps: navigate to player
   NotificationService().selectedRoutineIdStream.listen((routineId) {
     unawaited(_openRoutineFromExternalLaunch(routineId));
   });
+  // A tap that cold-starts a killed app is not delivered to the stream above;
+  // it is only available from the plugin's launch details.
+  if (notificationsReady) {
+    unawaited(
+      _runStartupStep('notification launch', () async {
+        final routineId = await NotificationService().launchRoutineId();
+        if (routineId != null) {
+          unawaited(_openRoutineFromExternalLaunch(routineId));
+        }
+      }),
+    );
+  }
 
   // Home-screen widget: republish display data whenever routines change
   // (covers startup, pin/unpin, rename, delete - all in-app events, so no
   // background refresh is ever needed) and handle widget taps.
+  // The widget also mirrors Home's "Checked" state, so runs republish too.
+  var widgetRoutines = const <Routine>[];
+  var widgetRuns = const <RoutineRun>[];
+  void publishWidget() {
+    final routine = selectWidgetRoutine(widgetRoutines);
+    unawaited(
+      publishHomeWidgetRoutine(
+        routine,
+        latestRun: latestRunFor(routine, widgetRuns),
+      ),
+    );
+  }
+
   db.routineDao.watchAllRoutines().listen((routines) {
-    unawaited(publishHomeWidgetRoutine(selectWidgetRoutine(routines)));
+    widgetRoutines = routines;
+    publishWidget();
+  });
+  db.routineRunDao.watchAllRuns().listen((runs) {
+    widgetRuns = runs;
+    publishWidget();
   });
   HomeWidget.widgetClicked.listen((uri) {
     final routineId = routineIdFromWidgetUri(uri);
@@ -575,6 +632,31 @@ Future<void> _startPebble(AppRuntimeConfig appRuntimeConfig) async {
       child: const PebbleApp(),
     ),
   );
+
+  // Rescheduling reminders touches every routine, so it runs after the first
+  // frame instead of holding the splash screen.
+  if (notificationsReady) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(
+        _runStartupStep(
+          'reminder resync',
+          () => _resyncEnabledReminderNotifications(db),
+        ),
+      );
+    });
+  }
+}
+
+/// Runs a non-essential startup step, reporting (not rethrowing) failures so
+/// startup always reaches runApp. Returns whether the step succeeded.
+Future<bool> _runStartupStep(String label, Future<void> Function() step) async {
+  try {
+    await step();
+    return true;
+  } catch (error, stackTrace) {
+    reportRecoveredError(error, stackTrace, context: 'startup: $label');
+    return false;
+  }
 }
 
 /// Navigates to the player for an externally triggered launch (widget tap or
@@ -647,10 +729,20 @@ class _PebbleAppState extends ConsumerState<PebbleApp>
     return MaterialApp.router(
       title: 'Pebble Routines',
       theme: themeData,
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      supportedLocales: pebbleSupportedLocales,
+      localeListResolutionCallback: (locales, supported) {
+        final locale = resolvePebbleLocale(locales);
+        applyPebbleDateLocale(locale);
+        return locale;
+      },
       builder: (context, child) {
         final mq = MediaQuery.of(context);
         final scale = mq.textScaler.scale(1);
-        final clampedScale = scale.clamp(1.0, 3.0);
+        // Cap at 1.6: the fixed-height cards, time blocks, and nav bar hold
+        // together up to here, but overflow beyond it. Raising this cap
+        // requires a responsive-layout pass first.
+        final clampedScale = scale.clamp(1.0, 1.6);
         return MediaQuery(
           data: mq.copyWith(textScaler: TextScaler.linear(clampedScale)),
           child: child!,

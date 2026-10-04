@@ -16,15 +16,18 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-# Play Console already has build 28 (built on a machine that no longer
-# exists; its 27/28 changes are not in git). The next release must be 29+.
-version: 1.0.0+31
+# Build numbers only go up. A production build 33 was produced on the
+# owner's laptop (its source is merged here from laptop-build-33), so the next
+# upload must be 34 or higher; check Play Console before uploading.
+version: 1.0.0+34
 
 environment:
   sdk: '>=3.8.0 <4.0.0'
 
 dependencies:
   flutter:
+    sdk: flutter
+  flutter_localizations:
     sdk: flutter
   cupertino_icons: ^1.0.8
   flutter_riverpod: ^2.6.1
@@ -87,3 +90,29 @@ flutter:
     - assets/seed/templates_en.json
     - assets/images/logo.png
     - assets/audio/step_complete.wav
+    - assets/audio/routine_complete.wav
+    # Bundled so text never falls back to system fonts (first launch offline).
+    # google_fonts finds these by file name (`DMSans-SemiBold.ttf` etc.) with
+    # runtime fetching disabled; the OFL licences are registered in main().
+    - assets/fonts/
+
+  # The same files as plain font families. google_fonts styles list
+  # `DMSans` / `DMSerifDisplay` as their fallback family, so these render on
+  # the very first frame (before google_fonts finishes loading its copy) and
+  # cover any weight that is not bundled (it resolves to the nearest one).
+  # Only 400, 500, 600 and italic 400 are shipped (DESIGN_DIRECTION.md §3.1).
+  fonts:
+    - family: DMSans
+      fonts:
+        - asset: assets/fonts/DMSans-Regular.ttf
+        - asset: assets/fonts/DMSans-Italic.ttf
+          style: italic
+        - asset: assets/fonts/DMSans-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/DMSans-SemiBold.ttf
+          weight: 600
+    - family: DMSerifDisplay
+      fonts:
+        - asset: assets/fonts/DMSerifDisplay-Regular.ttf
+        - asset: assets/fonts/DMSerifDisplay-Italic.ttf
+          style: italic

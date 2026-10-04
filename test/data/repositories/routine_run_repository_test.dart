@@ -13,7 +13,10 @@ import 'package:pebble_routines/features/routines/execution/data/models/routine_
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
 import 'package:pebble_routines/features/subscription/domain/subscription_lifecycle.dart';
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
+import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
+import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   group('RoutineRunRepository retention', () {
@@ -92,10 +95,9 @@ void main() {
           'legacy/photo.jpg',
         ]),
       );
-      expect(
-        proofStorage.deletedRemoteProofs,
-        contains('users/user/runs/expired/proof.webp'),
-      );
+      // Retention clears this phone only. The cloud copy is left for the
+      // server's 21-day cleanup, so a renewing subscriber can get it back.
+      expect(proofStorage.deletedRemoteProofs, isEmpty);
     });
 
     test(
@@ -141,6 +143,163 @@ void main() {
         final runs = await database.routineRunDao.getAllRuns();
         expect(runs.single.id, 'premium-signed-out-old');
         expect(proofStorage.deletedProofs, isEmpty);
+      },
+    );
+  });
+
+  group('RoutineRunRepository retention at start-up', () {
+    late LocalDb database;
+    late _FakeProofStorage proofStorage;
+
+    setUp(() {
+      database = LocalDb.forTesting(NativeDatabase.memory());
+      proofStorage = _FakeProofStorage();
+    });
+
+    tearDown(() async {
+      await database.close();
+    });
+
+    Future<ProviderContainer> containerWithStoredAccount(
+      Future<void> Function(SubscriptionAccountController writer) store, {
+      bool resetPrefs = true,
+    }) async {
+      if (resetPrefs) SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final writer = SubscriptionAccountController(
+        database,
+        prefs: prefs,
+        loadOnInit: false,
+      );
+      await store(writer);
+      final container = ProviderContainer(
+        overrides: [
+          localDbProvider.overrideWithValue(database),
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          routineSessionProofStorageProvider.overrideWithValue(proofStorage),
+          authSessionProvider.overrideWithValue(
+            const AuthSessionSummary(
+              isSignedIn: false,
+              userId: null,
+              email: null,
+              provider: null,
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      return container;
+    }
+
+    test(
+      'a Premium user\'s history is not pruned before the stored plan loads',
+      () async {
+        final container = await containerWithStoredAccount(
+          (writer) => writer.applyRevenueCatEntitlement(
+            UserTier.personalPremium,
+            periodEndsAt: DateTime.now().add(const Duration(days: 20)),
+          ),
+        );
+        await database.routineRunDao.insertOrUpdateRun(
+          _run(
+            id: 'five-days-old',
+            finishedAt: DateTime.now().subtract(const Duration(days: 5)),
+          ),
+        );
+
+        // First read creates the account controller in its Free default;
+        // retention must wait for the stored Premium plan.
+        await container
+            .read(routineRunRepositoryProvider)
+            .enforceRetentionPolicy();
+
+        final runs = await database.routineRunDao.getAllRuns();
+        expect(runs.map((run) => run.id), ['five-days-old']);
+      },
+    );
+
+    test(
+      'a lapse inferred from an old cached period end deletes nothing',
+      () async {
+        // Last seen period end was 30 days ago: the plan may well have
+        // renewed while the app was closed. Until the store confirms the
+        // lapse, history keeps the Premium window.
+        final container = await containerWithStoredAccount(
+          (writer) => writer.applyRevenueCatEntitlement(
+            UserTier.personalPremium,
+            periodEndsAt: DateTime.now().subtract(const Duration(days: 30)),
+          ),
+        );
+        await database.routineRunDao.insertOrUpdateRun(
+          _run(
+            id: 'ten-days-old',
+            finishedAt: DateTime.now().subtract(const Duration(days: 10)),
+          ),
+        );
+
+        await container
+            .read(routineRunRepositoryProvider)
+            .enforceRetentionPolicy();
+
+        final account = container.read(subscriptionAccountControllerProvider);
+        expect(account.entitlementStatus, EntitlementStatus.expired);
+        expect(account.entitlementLapseNoticedAt, isNull);
+        final runs = await database.routineRunDao.getAllRuns();
+        expect(runs.map((run) => run.id), ['ten-days-old']);
+      },
+    );
+
+    test(
+      'a confirmed lapse keeps history for 7 days, then applies Free limits',
+      () async {
+        final container = await containerWithStoredAccount((writer) async {
+          await writer.applyRevenueCatEntitlement(
+            UserTier.personalPremium,
+            periodEndsAt: DateTime.now().subtract(const Duration(days: 9)),
+          );
+          await writer.applyExpiredStoreEntitlement();
+        });
+        await database.routineRunDao.insertOrUpdateRun(
+          _run(
+            id: 'three-days-old',
+            finishedAt: DateTime.now().subtract(const Duration(days: 3)),
+          ),
+        );
+
+        await container
+            .read(routineRunRepositoryProvider)
+            .enforceRetentionPolicy();
+
+        // Confirmed just now, so grace runs 7 days from today even though
+        // the period ended 9 days ago: the user gets the full warning.
+        var runs = await database.routineRunDao.getAllRuns();
+        expect(runs.map((run) => run.id), ['three-days-old']);
+        expect(
+          container.read(subscriptionLifecycleProvider).phase,
+          SubscriptionLifecyclePhase.expiredGrace,
+        );
+
+        container.dispose();
+        // Simulate the grace window having passed: the lapse was confirmed
+        // 8 days ago. The next launch reads that and applies Free limits.
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+          'pebble.entitlement.lapse_noticed_at',
+          DateTime.now().subtract(const Duration(days: 8)).toIso8601String(),
+        );
+        final afterGrace = await containerWithStoredAccount(
+          (_) async {},
+          resetPrefs: false,
+        );
+        await afterGrace
+            .read(routineRunRepositoryProvider)
+            .enforceRetentionPolicy();
+        expect(
+          afterGrace.read(subscriptionLifecycleProvider).phase,
+          SubscriptionLifecyclePhase.expired,
+        );
+        runs = await database.routineRunDao.getAllRuns();
+        expect(runs, isEmpty);
       },
     );
   });

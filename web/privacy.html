@@ -5,9 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Privacy Policy for Pebble Routines, a local-first routine support app with optional account and backup features."
+      content="Privacy Policy for Pebble Routines, a local-first routine support app with optional account, subscription, backup, and completion email features."
     />
     <title>Privacy Policy | Pebble Routines</title>
+    <link rel="icon" type="image/svg+xml" href="icons/pebble-cairn.svg" />
     <link rel="icon" href="favicon.ico" sizes="any" />
     <link rel="icon" type="image/png" sizes="96x96" href="favicon-96x96.png" />
     <link rel="manifest" href="manifest.json" />
@@ -31,6 +32,15 @@
     </header>
 
     <main class="shell">
+      <!--
+        OWNER TODOs for this page (see docs/store/OWNER_NOTES.md):
+        - Confirm the email domain for privacy@ / support@ (site is pebbleroutines.com, inboxes use pebbleroutines.com).
+        - Add a business correspondence address if one is needed for your target markets (do not publish a home address).
+        - Add your ICO registration number once the data protection fee is paid, or remove this note if exempt.
+        - Accept each provider's data processing terms (Supabase, RevenueCat, Sentry, Resend) and confirm the transfer safeguard named below.
+        - Confirm which service sends sign-in code emails (Supabase default sender or custom SMTP) and name it if it is a separate provider.
+        - Confirm the Sentry data region and the Resend sending region.
+      -->
       <header class="page-hero">
         <p class="eyebrow">Privacy Policy</p>
         <h1>Privacy, without the fog.</h1>
@@ -40,15 +50,16 @@
           backup features.
         </p>
         <p class="meta">
-          Effective date: <strong>May 11, 2026</strong><br />
-          Contact: <a href="mailto:privacy@pebbleroutines.app">privacy@pebbleroutines.app</a>
+          Last updated: <strong>3 October 2026</strong><br />
+          Contact: <a href="mailto:privacy@pebbleroutines.com">privacy@pebbleroutines.com</a>
         </p>
       </header>
 
       <div class="notice">
         <strong>Short version</strong>
-        Pebble does not sell your personal data, use your routines or proof
-        photos for ads, or use your private routine content to train AI models.
+        Pebble does not sell your personal data, show ads, use your routines or
+        proof photos for ads, or use your private routine content to train AI
+        models. There is no ad SDK and no behavioural analytics SDK in the app.
       </div>
 
       <div class="grid">
@@ -56,11 +67,18 @@
           <h2>On this page</h2>
           <a href="#local">Local-first use</a>
           <a href="#account">Accounts and backup</a>
+          <a href="#subscriptions">Subscriptions</a>
+          <a href="#completion-emails">Completion emails</a>
+          <a href="#crash-reports">Crash reports</a>
           <a href="#content">Sensitive content</a>
           <a href="#permissions">Permissions</a>
+          <a href="#lawful-bases">Why we use data</a>
           <a href="#providers">Providers</a>
+          <a href="#transfers">International transfers</a>
           <a href="#retention">Retention</a>
+          <a href="#children">Children</a>
           <a href="#rights">Your rights</a>
+          <a href="#changes">Changes</a>
           <a href="#contact">Contact</a>
         </nav>
 
@@ -72,6 +90,12 @@
               stores routine titles, steps, reminders, settings, history,
               optional proof photos, and guidance-audio recordings on your
               device.
+            </p>
+            <p>
+              Reminders are scheduled by your device's operating system. Pebble
+              does not use a push-notification server. On Android, the
+              home-screen widget shows routine details that Pebble saves on
+              your device for the widget.
             </p>
             <p>
               Free local history and Pebble-owned proof-photo copies are kept
@@ -90,9 +114,24 @@
           <section id="account">
             <h2>Accounts and backup</h2>
             <p>
-              If you sign in, Pebble may process your email address, account
-              ID, sign-in provider, authentication session, subscription status,
-              product ID, and purchase verification records.
+              Signing in is optional. You can sign in with an email one-time
+              code, Google, or Apple where available. If you sign in, Pebble
+              processes your email address, account ID, sign-in provider,
+              authentication session, and sign-in times.
+            </p>
+            <p>
+              Pebble asks Google and Apple for your email address only. Google
+              may still include your name and profile picture link in the
+              sign-in details it returns, and our sign-in provider may store
+              them with your account record. Pebble does not use or show them.
+              Apple may give us a private relay email address instead of your
+              real one.
+            </p>
+            <p>
+              Like most online services, our sign-in and database provider
+              records technical details such as IP address and device or browser
+              information when your app connects, for security and abuse
+              prevention.
             </p>
             <p>
               Premium cloud backup requires an active paid subscription,
@@ -106,7 +145,90 @@
             <p>
               Before cloud backup uploads supported routine data, Pebble asks
               you to confirm that backup may include sensitive user-added
-              content.
+              content. We keep a record of that choice, including when you made
+              it and the app, privacy, and terms versions shown at the time.
+            </p>
+          </section>
+
+          <section id="subscriptions">
+            <h2>Subscriptions</h2>
+            <p>
+              Personal Premium is sold as a monthly or yearly subscription
+              through Google Play or the App Store. The store handles payment.
+              Pebble never receives your card or bank details.
+            </p>
+            <p>
+              We use RevenueCat to check subscription status and restore
+              purchases. RevenueCat receives an app user ID (a random ID before
+              you sign in, then your Pebble account ID), your purchase history
+              for Pebble (product, purchase and renewal dates, status, and store
+              transaction details), and basic device and app information such
+              as platform, operating system version, and app version.
+            </p>
+            <p>
+              Pebble also keeps a subscription record with your account: the
+              product, store, status, subscription period, and a one-way hash of
+              the store purchase token. This is used to unlock Premium cloud
+              features and to stop one purchase being claimed by several
+              accounts.
+            </p>
+          </section>
+
+          <section id="completion-emails">
+            <h2>Completion emails</h2>
+            <p>
+              Signed-in Premium users can choose one email contact for a
+              routine. Pebble first emails that person an invitation. Pebble only
+              sends completion emails after they accept, and every email
+              includes links to stop the emails or block the sender.
+            </p>
+            <p>
+              The invitation and every completion email show the sender's
+              account email address, so the person knows who they are from. A
+              completion email can include the routine name, completion time,
+              and step count. The sender can hide the routine name. Photos and
+              checklist details are not included.
+            </p>
+            <p>
+              To do this, Pebble stores the contact's email address, invitation
+              status, and email preferences, plus a log of emails sent
+              (completion time, step counts, delivery status, and the routine
+              name only if it was shown). Emails are delivered by Resend.
+            </p>
+            <p>
+              If a contact declines or stops the emails, the sender cannot invite
+              them again for 30 days. If a contact blocks the sender, Pebble
+              keeps their email address and a hashed copy linked to the sender's
+              account so the sender cannot invite them again. A contact can also
+              block invitations from everyone using Pebble; for this Pebble keeps
+              only a hashed copy of their address, not linked to any account.
+            </p>
+            <p>
+              Only add someone who knows you and expects these emails. If you
+              received a Pebble email you did not expect, you can block it from
+              the email or contact
+              <a href="mailto:privacy@pebbleroutines.com">privacy@pebbleroutines.com</a>.
+            </p>
+          </section>
+
+          <section id="crash-reports">
+            <h2>Crash reports</h2>
+            <p>
+              Release builds may use Sentry to receive crash reports, so we can
+              find and fix problems. A crash report contains technical details:
+              the error and stack trace, device model, operating system version,
+              app version and build, and a short trail of recent technical app
+              events.
+              <!-- OWNER TODO: Sentry print breadcrumbs can currently capture debug log lines that include the
+                   internal account ID or RevenueCat app user ID. Disable print breadcrumbs (or scrub them in
+                   beforeSend) and then replace the next sentence with: "Crash reports do not include your account ID." -->
+              That trail can include internal technical identifiers.
+            </p>
+            <p>
+              Crash reporting is set up so it does not send your name, email
+              address, routine content, photos, or audio. Pebble removes user
+              details from app crash reports before they are sent, and does not
+              use screenshots, session replay, or performance tracing.
             </p>
           </section>
 
@@ -129,25 +251,67 @@
             <h2>Device permissions</h2>
             <ul class="clean-list">
               <li><strong>Camera</strong> is used when you choose to capture a proof photo.</li>
-              <li><strong>Photos or media library</strong> is used when you choose an existing proof photo.</li>
+              <li><strong>Photos or media library</strong> is used when you choose an existing proof photo, or save a copy to Photos. Pebble does not scan your library.</li>
               <li><strong>Microphone</strong> is used when you choose to record short guidance audio.</li>
               <li><strong>Notifications</strong> are used for routine reminders you set.</li>
+            </ul>
+            <p>
+              Pebble does not request location, contacts, SMS, or phone
+              permissions.
+            </p>
+          </section>
+
+          <section id="lawful-bases">
+            <h2>Why we use data</h2>
+            <p>
+              Where UK or EU data protection law applies, we rely on these legal
+              bases:
+            </p>
+            <ul class="clean-list">
+              <li><strong>Contract:</strong> to provide sign-in, Premium, backup, restore, account deletion, and the features you ask for.</li>
+              <li><strong>Consent:</strong> for cloud backup of content you add (which may include health or other sensitive details) and for completion emails. You can withdraw consent at any time.</li>
+              <li><strong>Legitimate interests:</strong> to keep Pebble secure, fix crashes, prevent purchase misuse, and stop unwanted invitation emails.</li>
+              <li><strong>Legal obligation:</strong> to keep records we must keep for tax, accounting, or legal reasons.</li>
             </ul>
           </section>
 
           <section id="providers">
             <h2>Service providers</h2>
-            <p>We use providers only where needed to run Pebble:</p>
-            <ul class="pill-list">
-              <li>Supabase for account, database, functions, and private storage</li>
-              <li>Google for Google sign-in and Google Play billing</li>
-              <li>Apple for Apple sign-in and App Store billing where available</li>
-              <li>Email or support tools when you contact us</li>
+            <p>
+              We use providers only where needed to run Pebble. Supabase,
+              RevenueCat, Sentry, and Resend process data on our behalf under
+              their data processing terms. Google and Apple handle sign-in and
+              payments under their own privacy policies.
+            </p>
+            <ul class="clean-list">
+              <li><strong>Supabase</strong> for sign-in, database, private photo storage, server functions, and account deletion requests. Pebble's Supabase project is hosted in the USA.</li>
+              <li><strong>RevenueCat</strong> (USA) for subscription status, purchase restore, and purchase history.</li>
+              <li><strong>Google</strong> for Google sign-in and Google Play billing.</li>
+              <li><strong>Apple</strong> for Sign in with Apple and App Store billing where available.</li>
+              <li><strong>Sentry</strong> (USA) for crash reports, in builds where crash reporting is turned on.</li>
+              <li><strong>Resend</strong> (USA) for delivering completion emails and their invitations.</li>
+              <li><strong>Email and support tools</strong> when you contact us, and the email service that sends sign-in codes.</li>
             </ul>
             <p>
-              This build does not include an ad SDK. App stores and operating
-              systems may still provide their own store analytics, payment
-              records, or diagnostics.
+              App stores and operating systems may also provide their own store
+              analytics, payment records, or diagnostics under their own
+              privacy policies.
+            </p>
+          </section>
+
+          <section id="transfers">
+            <h2>International transfers</h2>
+            <p>
+              Pebble is run from the United Kingdom. If you sign in, back up,
+              subscribe, send completion emails, or a crash report is sent, your
+              data is processed in the USA by the providers listed above.
+            </p>
+            <p>
+              Where UK or EU law requires it, we rely on safeguards such as the
+              UK International Data Transfer Addendum or Standard Contractual
+              Clauses in our providers' data processing terms, or the UK
+              Extension to the EU-US Data Privacy Framework where a provider is
+              certified. Contact us for more detail.
             </p>
           </section>
 
@@ -171,8 +335,35 @@
                   <td>48 hours, unless deleted earlier</td>
                 </tr>
                 <tr>
-                  <td>Premium recent history and cloud proof-photo copies</td>
+                  <td>Premium recent history in the app and cloud proof-photo copies</td>
                   <td>Rolling 21-day window, unless deleted earlier</td>
+                </tr>
+                <!-- OWNER TODO: cloud routine_runs / routine_sessions rows are not currently pruned at 21 days
+                     (cleanup-proof-retention only removes proof photos). If you add server-side 21-day cleanup
+                     for history records, update this row to match. -->
+                <tr>
+                  <td>Backed-up routines, reminders, and text history records in your cloud account</td>
+                  <td>Until you delete them or delete your account</td>
+                </tr>
+                <tr>
+                  <td>Completion email contacts and blocks</td>
+                  <td>While your account exists; deleted with your account. Removed or declined contacts are deleted after 90 days. Opt-outs from all Pebble invitations are kept as a hashed address so they keep working</td>
+                </tr>
+                <tr>
+                  <td>Sent completion email log</td>
+                  <td>90 days. Invitation links expire after 14 days; links in completion emails after 90 days</td>
+                </tr>
+                <tr>
+                  <td>Subscription and purchase-check records</td>
+                  <td>While your account exists, then as needed for accounting and fraud prevention. RevenueCat and the app stores keep their own records</td>
+                </tr>
+                <tr>
+                  <td>Crash reports</td>
+                  <td>Up to 90 days in Sentry</td>
+                </tr>
+                <tr>
+                  <td>Web account deletion requests</td>
+                  <td>As long as needed to complete the request and show it was handled</td>
                 </tr>
                 <tr>
                   <td>Account deletion</td>
@@ -180,6 +371,16 @@
                 </tr>
               </tbody>
             </table>
+          </section>
+
+          <section id="children">
+            <h2>Children</h2>
+            <p>
+              Pebble is not designed for children and is not directed at
+              children under 13. We do not knowingly create accounts for
+              children under 13. If you think a child has given us personal
+              data, contact us and we will delete it.
+            </p>
           </section>
 
           <section id="rights">
@@ -193,7 +394,26 @@
             </p>
             <p>
               You can request account deletion through the
-              <a href="delete-account.html">account deletion page</a>.
+              <a href="delete-account.html">account deletion page</a>. The web
+              form collects the email address you enter, your optional message,
+              a hashed form of your IP address, and your browser's user agent,
+              so we can find the account and prevent abuse.
+            </p>
+            <p>
+              If you are in the UK, you can complain to the Information
+              Commissioner's Office at
+              <a href="https://ico.org.uk/make-a-complaint/">ico.org.uk</a>. In
+              the EU, you can contact your local data protection authority. We
+              would like the chance to help first, so please contact us.
+            </p>
+          </section>
+
+          <section id="changes">
+            <h2>Changes to this policy</h2>
+            <p>
+              If we change how Pebble uses personal data, we will update this
+              page and the date at the top. If a change is significant, we will
+              also tell you in the app before it applies.
             </p>
           </section>
 
@@ -203,12 +423,14 @@
               Pebble Routines is currently run by an independent developer in
               Scotland, United Kingdom. For legal and data-protection purposes,
               the controller is Jamie Bray trading as Pebble.
+              <!-- OWNER TODO: add a business correspondence address here if required (PO Box or similar, not a home address),
+                   and the ICO registration number once the data protection fee is paid. -->
             </p>
             <p>
               Privacy:
-              <a href="mailto:privacy@pebbleroutines.app">privacy@pebbleroutines.app</a><br />
+              <a href="mailto:privacy@pebbleroutines.com">privacy@pebbleroutines.com</a><br />
               Support:
-              <a href="mailto:support@pebbleroutines.app">support@pebbleroutines.app</a>
+              <a href="mailto:support@pebbleroutines.com">support@pebbleroutines.com</a>
             </p>
           </section>
         </div>

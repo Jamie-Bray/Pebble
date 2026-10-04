@@ -1,9 +1,16 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pebble_routines/features/subscription/data/purchase_repository.dart';
 import 'package:pebble_routines/features/subscription/data/revenuecat_purchase_repository.dart';
 import 'package:purchases_flutter/purchases_flutter.dart' as rc;
 
 void main() {
+  test('only Android restores purchases without a user tap', () {
+    // iOS restores can raise the Apple ID sheet, so they stay button-only.
+    expect(revenueCatAllowsSilentRestore(TargetPlatform.android), isTrue);
+    expect(revenueCatAllowsSilentRestore(TargetPlatform.iOS), isFalse);
+  });
+
   group('RevenueCat purchase mapping', () {
     test('maps monthly and yearly packages to Pebble premium products', () {
       final monthly = _package(
@@ -42,6 +49,42 @@ void main() {
       );
 
       expect(revenueCatBillingPlanForPackage(package), BillingPlan.yearly);
+    });
+
+    test('manage-subscription link prefers the purchase store', () {
+      const playUrl = 'https://play.google.com/store/account/subscriptions';
+      const appStoreUrl = 'https://apps.apple.com/account/subscriptions';
+
+      // Bought on Google Play, opened on an iPhone.
+      expect(
+        revenueCatManageSubscriptionsUrl(
+          managementUrl: playUrl,
+          platform: TargetPlatform.iOS,
+        ),
+        playUrl,
+      );
+      // No managementURL: fall back to the current platform's store.
+      expect(
+        revenueCatManageSubscriptionsUrl(
+          managementUrl: null,
+          platform: TargetPlatform.iOS,
+        ),
+        appStoreUrl,
+      );
+      expect(
+        revenueCatManageSubscriptionsUrl(
+          managementUrl: '',
+          platform: TargetPlatform.android,
+        ),
+        playUrl,
+      );
+      expect(
+        revenueCatManageSubscriptionsUrl(
+          managementUrl: null,
+          platform: TargetPlatform.linux,
+        ),
+        isNull,
+      );
     });
 
     test('reads active personal premium entitlement from CustomerInfo', () {
@@ -94,8 +137,8 @@ rc.Package _package({
     packageType,
     rc.StoreProduct(
       productIdentifier,
-      'Pebble Premium',
-      'Pebble Premium',
+      'Personal Premium',
+      'Personal Premium',
       0.99,
       price,
       'USD',

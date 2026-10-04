@@ -123,6 +123,9 @@ class RoutineRunRepositoryImpl implements RoutineRunRepository {
   }
 
   Future<List<RoutineRun>> _pruneExpiredRuns(List<RoutineRun> runs) async {
+    // Until the stored plan has loaded the account reads as Free, which would
+    // prune a Premium user's 21-day history down to 48 hours at start-up.
+    await _ref.read(subscriptionAccountControllerProvider.notifier).whenLoaded;
     final retention = _ref.read(accountHistoryRetentionProvider);
 
     final cutoff = DateTime.now().subtract(retention);
@@ -135,7 +138,10 @@ class RoutineRunRepositoryImpl implements RoutineRunRepository {
       // would render the whole history screen unusable. Orphaned files are
       // swept later by the local retention pass and server-side cleanup.
       try {
-        await _deleteProofsForRun(run);
+        // Retention only clears this phone. Cloud copies are left for the
+        // server's own 21-day cleanup, so a lapsed subscriber who renews and
+        // signs in gets recent backed-up photos back.
+        await _deleteLocalProofsForRun(run);
       } catch (error) {
         developer.log(
           'Proof cleanup failed while pruning run ${run.id}: $error',
@@ -159,6 +165,16 @@ class RoutineRunRepositoryImpl implements RoutineRunRepository {
     final refs = _proofRefsForRun(run);
     for (final asset in refs.assets) {
       await _proofStorage.deleteProofAsset(asset);
+    }
+    for (final path in refs.legacyPaths) {
+      await _proofStorage.deleteStoredProof(path);
+    }
+  }
+
+  Future<void> _deleteLocalProofsForRun(RoutineRun run) async {
+    final refs = _proofRefsForRun(run);
+    for (final asset in refs.assets) {
+      await _proofStorage.deleteStoredProof(asset.localRelativePath);
     }
     for (final path in refs.legacyPaths) {
       await _proofStorage.deleteStoredProof(path);

@@ -23,6 +23,7 @@
 
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
 }
 
 body {
@@ -927,6 +928,89 @@ code {
   line-height: 1.55;
 }
 
+.shared-alert-form {
+  display: grid;
+  gap: 16px;
+  max-width: 46ch;
+}
+
+.shared-alert-form[hidden],
+.shared-alert-check[hidden],
+.shared-alert-alt[hidden],
+.shared-alert-note[hidden] {
+  display: none;
+}
+
+.shared-alert-submit {
+  width: 100%;
+  min-height: 54px;
+  font: inherit;
+  font-size: 17px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.shared-alert-submit:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+.shared-alert-card.blocked .shared-alert-submit {
+  border-color: #8d4638;
+  background: #8d4638;
+  box-shadow: 0 14px 32px rgba(141, 70, 56, 0.2);
+}
+
+.shared-alert-card.declined .shared-alert-submit {
+  border-color: var(--slate);
+  background: var(--slate);
+  box-shadow: 0 14px 32px rgba(83, 111, 121, 0.2);
+}
+
+.shared-alert-submit:focus-visible,
+.shared-alert-alt a:focus-visible,
+.shared-alert-check input:focus-visible {
+  outline: 3px solid var(--clay);
+  outline-offset: 3px;
+}
+
+.shared-alert-check {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  border: 1px solid rgba(25, 63, 54, 0.14);
+  border-radius: 18px;
+  padding: 14px 16px;
+  background: rgba(255, 253, 247, 0.78);
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.45;
+  cursor: pointer;
+}
+
+.shared-alert-check input {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  margin: 1px 0 0;
+  accent-color: #8d4638;
+}
+
+.shared-alert-alt {
+  margin: 0;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 750;
+}
+
+.shared-alert-alt a,
+.shared-alert-footer a,
+.shared-alert-note a {
+  color: var(--forest);
+  text-underline-offset: 3px;
+}
+
 .shared-alert-footer {
   margin-top: 16px;
   color: rgba(24, 37, 34, 0.55);
@@ -1115,4 +1199,12 @@ code {
   .shared-alert-copy h1 {
     font-size: clamp(42px, 14vw, 58px);
   }
+}
+/* Shared brand mark (used by home + legal pages) --------------------------- */
+
+.brand-mark {
+  overflow: hidden;
+  background: #2c4434 url("icons/pebble-cairn.svg") center / cover no-repeat;
+  color: transparent;
+  font-size: 0;
 }

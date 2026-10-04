@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
+import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:pebble_routines/core/ui/adaptive_layout.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/features/templates/data/models/template.dart';
@@ -94,8 +95,6 @@ class _TemplatesHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           PebbleBackButton(
-            backgroundColor: tokens.templatesSurface,
-            iconColor: tokens.templatesTextSecondary,
             onPressed: fromOnboarding
                 ? () => context.go('/onboarding?step=templates')
                 : null,
@@ -103,11 +102,9 @@ class _TemplatesHeader extends StatelessWidget {
           const SizedBox(height: 24),
           Text(
             'Templates',
-            style: theme.textTheme.headlineMedium?.copyWith(
-              color: tokens.templatesTextPrimary,
-              fontWeight: FontWeight.w800,
-              height: 1.04,
-            ),
+            style: PebbleType.of(
+              context,
+            ).title1.copyWith(color: tokens.templatesTextPrimary),
           ),
           const SizedBox(height: 12),
           Text(

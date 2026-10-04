@@ -22,8 +22,9 @@ class PlayerSettingsController {
   bool get showVisualAnchor => prefs.getBool('showVisualAnchor') ?? true;
   set showVisualAnchor(bool value) => prefs.setBool('showVisualAnchor', value);
 
-  // Step-complete reassurance feedback. Off by default: most users do not
-  // expect their phone to buzz or chime, and those who want it opt in.
+  // Step-complete feedback. The stored default stays off, so anyone who
+  // installed before Moment 1 keeps exactly what they had; new installs get
+  // the buzz on through [applyNewInstallDefaults]. Sound is always opt-in.
   bool get stepCompleteHaptic => prefs.getBool('stepCompleteHaptic') ?? false;
   set stepCompleteHaptic(bool value) =>
       prefs.setBool('stepCompleteHaptic', value);
@@ -31,4 +32,14 @@ class PlayerSettingsController {
   bool get stepCompleteSound => prefs.getBool('stepCompleteSound') ?? false;
   set stepCompleteSound(bool value) =>
       prefs.setBool('stepCompleteSound', value);
+
+  /// Defaults for a new install, written once when onboarding finishes
+  /// (DESIGN_DIRECTION.md Moment 1): "Buzz on step complete" on. Only fills
+  /// in a value the person has never set, so an existing choice is never
+  /// overwritten.
+  static Future<void> applyNewInstallDefaults(SharedPreferences prefs) async {
+    if (!prefs.containsKey('stepCompleteHaptic')) {
+      await prefs.setBool('stepCompleteHaptic', true);
+    }
+  }
 }

@@ -51,12 +51,56 @@ void main() {
     expect(find.text('Theme & colours'), findsOneWidget);
     expect(find.text('About Pebble'), findsOneWidget);
 
-    expect(find.text('Your account'), findsNothing);
+    // Account, backup and support are reachable from Settings too.
+    expect(find.text('Your account'), findsOneWidget);
+    expect(find.text('Contact support'), findsOneWidget);
     expect(find.text('Subscription Status (Dev Override)'), findsNothing);
     expect(find.text('Show Celebration'), findsNothing);
     expect(find.text('Sound effects'), findsNothing);
     expect(find.text('Support'), findsNothing);
   });
+
+  for (final scale in const [1.0, 2.0]) {
+    testWidgets(
+      'settings title clears the back button under an iPhone notch '
+      '(text ${scale}x)',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        final prefs = await SharedPreferences.getInstance();
+        tester.view.physicalSize = const Size(1170, 2532);
+        tester.view.devicePixelRatio = 3;
+        tester.view.padding = const FakeViewPadding(top: 47 * 3, bottom: 34 * 3);
+        tester.view.viewPadding = const FakeViewPadding(
+          top: 47 * 3,
+          bottom: 34 * 3,
+        );
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.view.reset);
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+            child: MaterialApp(
+              theme: ThemeData(
+                colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
+                useMaterial3: true,
+              ),
+              home: const SettingsScreen(),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(tester.takeException(), isNull);
+        final back = tester.getRect(find.bySemanticsLabel('Back').first);
+        final title = tester.getRect(find.text('Settings'));
+        expect(back.top, greaterThanOrEqualTo(47));
+        expect(title.top, greaterThanOrEqualTo(back.bottom));
+      },
+    );
+  }
 
   testWidgets('visual anchor setting defaults on and persists changes', (
     tester,

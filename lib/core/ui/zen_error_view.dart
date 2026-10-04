@@ -19,7 +19,7 @@ class ZenErrorView extends StatelessWidget {
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(PebbleSpacing.xl),
+        padding: const EdgeInsets.all(PebbleSpacing.xxl),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -29,7 +29,7 @@ class ZenErrorView extends StatelessWidget {
               size: 48,
               color: cs.onSurface.withValues(alpha: PebbleOpacity.medium),
             ),
-            const SizedBox(height: PebbleSpacing.lg),
+            const SizedBox(height: PebbleSpacing.xl),
             Text(
               title,
               style: PebbleTypography.title.copyWith(
@@ -48,7 +48,7 @@ class ZenErrorView extends StatelessWidget {
               ),
             ],
             if (onRetry != null) ...[
-              const SizedBox(height: PebbleSpacing.xl),
+              const SizedBox(height: PebbleSpacing.xxl),
               TextButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh),
@@ -62,7 +62,7 @@ class ZenErrorView extends StatelessWidget {
                     alpha: PebbleOpacity.verySubtle,
                   ),
                   padding: const EdgeInsets.symmetric(
-                    horizontal: PebbleSpacing.lg,
+                    horizontal: PebbleSpacing.xl,
                     vertical: PebbleSpacing.md,
                   ),
                 ),

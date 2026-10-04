@@ -11,13 +11,13 @@ store.
 - Country: `Scotland, United Kingdom`
 - Governing law: `the laws of Scotland`
 - Courts: `the courts of Scotland`
-- Privacy email: `privacy@pebbleroutines.app`
-- Support email: `support@pebbleroutines.app`
+- Privacy email: `privacy@pebbleroutines.com`
+- Support email: `support@pebbleroutines.com`
 
 ### Must be true before publication
 
-- The `privacy@pebbleroutines.app` inbox exists and is monitored.
-- The `support@pebbleroutines.app` inbox exists and is monitored.
+- The `privacy@pebbleroutines.com` inbox exists and is monitored.
+- The `support@pebbleroutines.com` inbox exists and is monitored.
 - The domain used for the legal pages is owned or controlled by Pebble.
 - The account-deletion URL is stable, public, HTTPS, and reachable without the app.
 - The deletion request form posts to a deployed `request-account-deletion` Edge Function or equivalent backend, not just a `mailto:` link.

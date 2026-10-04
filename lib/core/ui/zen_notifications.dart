@@ -10,7 +10,7 @@ class ZenNotifications {
     String? title,
     String? actionLabel,
     VoidCallback? onAction,
-    Duration duration = const Duration(seconds: 3),
+    Duration duration = const Duration(seconds: 4),
   }) {
     _showNotification(
       context,
@@ -29,7 +29,7 @@ class ZenNotifications {
     String? title,
     String? actionLabel,
     VoidCallback? onAction,
-    Duration duration = const Duration(seconds: 3),
+    Duration duration = const Duration(seconds: 4),
   }) {
     _showNotification(
       context,
@@ -48,7 +48,7 @@ class ZenNotifications {
     String? title,
     String? actionLabel,
     VoidCallback? onAction,
-    Duration duration = const Duration(seconds: 4),
+    Duration duration = const Duration(seconds: 6),
   }) {
     _showNotification(
       context,
@@ -67,7 +67,7 @@ class ZenNotifications {
     String? title,
     String? actionLabel,
     VoidCallback? onAction,
-    Duration duration = const Duration(seconds: 4),
+    Duration duration = const Duration(seconds: 6),
   }) {
     _showNotification(
       context,
@@ -155,15 +155,21 @@ class _ZenNotificationOverlayState extends State<_ZenNotificationOverlay>
   @override
   void initState() {
     super.initState();
+    // Calm and quick: a short slide-up with a fade. No elastic bounce — the
+    // notice should arrive like a note, not a springboard.
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 240),
+      reverseDuration: const Duration(milliseconds: 180),
       vsync: this,
     );
 
-    _slideAnimation = Tween<double>(
-      begin: -1.0,
-      end: 0.0,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
+    _slideAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      ),
+    );
 
     _fadeAnimation = Tween<double>(
       begin: 0.0,
@@ -171,9 +177,9 @@ class _ZenNotificationOverlayState extends State<_ZenNotificationOverlay>
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
     _scaleAnimation = Tween<double>(
-      begin: 0.8,
+      begin: 0.97,
       end: 1.0,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
 
     // Start animation
     _controller.forward();
@@ -233,15 +239,18 @@ class _ZenNotificationOverlayState extends State<_ZenNotificationOverlay>
 
   @override
   Widget build(BuildContext context) {
+    // Bottom placement: the top of the screen belongs to titles and back
+    // buttons, and a banner dropping over them read as an interruption.
+    // Down here it behaves like a quiet receipt.
     return Positioned(
-      top: MediaQuery.of(context).padding.top + 20,
+      bottom: MediaQuery.of(context).padding.bottom + 24,
       left: 20,
       right: 20,
       child: AnimatedBuilder(
         animation: _controller,
         builder: (context, child) {
           return Transform.translate(
-            offset: Offset(0, _slideAnimation.value * 100),
+            offset: Offset(0, _slideAnimation.value * 60),
             child: Transform.scale(
               scale: _scaleAnimation.value,
               child: Opacity(
@@ -258,6 +267,30 @@ class _ZenNotificationOverlayState extends State<_ZenNotificationOverlay>
   Widget _buildNotificationCard(BuildContext context) {
     final foundation = context.darkFoundation;
     final accent = _getAccentColor(context);
+    return Semantics(
+      // TalkBack/VoiceOver announce the notice when it appears even though
+      // focus stays where the user was working.
+      liveRegion: true,
+      label: widget.title == null
+          ? widget.message
+          : '${widget.title}. ${widget.message}',
+      child: GestureDetector(
+        // A flick downward dismisses, matching where the card now lives.
+        onVerticalDragUpdate: (details) {
+          if (details.delta.dy > 6) {
+            _dismiss();
+          }
+        },
+        child: _buildCardBody(context, foundation, accent),
+      ),
+    );
+  }
+
+  Widget _buildCardBody(
+    BuildContext context,
+    PebbleDarkFoundation foundation,
+    Color accent,
+  ) {
     return Container(
       decoration: BoxDecoration(
         color: foundation.surfaceHigh,

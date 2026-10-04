@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:pebble_routines/features/account_backup/providers/account_backup_ui_provider.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
+import 'package:pebble_routines/features/subscription/data/entitlement_flow_messages.dart';
 import 'package:pebble_routines/features/subscription/data/fair_use_policy.dart';
 import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
 import 'package:pebble_routines/features/subscription/domain/subscription_lifecycle.dart';
@@ -143,7 +144,9 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
   }
 
   if (status == PersonalCloudAccessStatus.accountSwitchBlocked) {
-    final unownedOnly = _looksLikeUnownedLocalData(account.lastSyncError);
+    final unownedOnly = EntitlementFlowMessages.looksUnownedLocalData(
+      account.lastSyncError,
+    );
     return AccountStatusPresentation(
       planLabel: planFacts.label,
       title: unownedOnly
@@ -228,7 +231,8 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
     return AccountStatusPresentation(
       planLabel: planFacts.label,
       title: 'Saved on this phone',
-      body: 'Your routines are saved on this phone, with the free history window.',
+      body:
+          'Your routines are saved on this phone, with the free history window.',
       statusLabel: 'Saved on this phone',
       historyLabel: 'Saved on this phone',
       limitChips: planFacts.chips,
@@ -268,9 +272,7 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
         primaryAction: purchase.isPurchaseAvailable
             ? AccountStatusAction.startPremium
             : AccountStatusAction.none,
-        primaryActionLabel: purchase.isPurchaseAvailable
-            ? 'Get Premium'
-            : null,
+        primaryActionLabel: purchase.isPurchaseAvailable ? 'Get Premium' : null,
         secondaryAction: restoreAction,
         secondaryActionLabel: restoreLabel,
         supportingDetail: auth.isSignedIn
@@ -459,7 +461,8 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
       return AccountStatusPresentation(
         planLabel: planFacts.label,
         title: 'Backup needs attention',
-        body: 'The last backup didn\'t finish. Your changes are still saved on this phone.',
+        body:
+            'The last backup didn\'t finish. Your changes are still saved on this phone.',
         statusLabel: 'Backup needs attention',
         historyLabel: 'Backup needs attention',
         limitChips: planFacts.chips,
@@ -551,19 +554,12 @@ List<AccountFeatureHighlight> _backupHealthHighlights({
 
 String? _fairUseDetail(ProofMediaFairUseState? state) {
   if (state?.status == ProofMediaFairUseStatus.full) {
-    return 'Photo storage is full. Routine backup still works.';
+    return 'Photo upload limit reached for now. Routine backup still works.';
   }
   if (state?.status == ProofMediaFairUseStatus.warning) {
-    return 'Photo storage is nearly full.';
+    return 'Photo uploads are close to the fair-use limit.';
   }
   return null;
-}
-
-bool _looksLikeUnownedLocalData(String? error) {
-  if (error == null || error.isEmpty) {
-    return false;
-  }
-  return error.toLowerCase().contains('not linked to this account');
 }
 
 String _relativeTimestamp(DateTime timestamp) {

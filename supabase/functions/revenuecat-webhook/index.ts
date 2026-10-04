@@ -1,12 +1,31 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import {
+  canonicalProductId,
+  DEFAULT_PERSONAL_PREMIUM_ENTITLEMENT_ID,
+  type EntitlementStatus,
+  eventSupersedesClaim,
+  isEntitlementCurrentlyActive,
+  normalizeStore,
+  purchaseTokenHash,
+  uuidCandidates,
+} from '../_shared/revenuecat.ts';
+import {
+  type ClaimRow,
+  expireClaim,
+  findActiveClaims,
+  findActiveClaimsForOwners,
+  recomputeProfileTier,
+  type ServiceClient,
+} from '../_shared/entitlements_db.ts';
+import { secretsMatch, stripBearer } from '../_shared/secrets.ts';
 
 type RevenueCatWebhook = {
   api_version?: string;
   event?: RevenueCatEvent;
 };
 
-type RevenueCatEvent = {
+export type RevenueCatEvent = {
   id?: string;
   type?: string;
   app_user_id?: string;
@@ -31,23 +50,16 @@ type MappedEntitlement = {
   productId: string;
   store: string;
   purchaseTokenHash: string;
+  purchaseKeyStable: boolean;
   tier: 'personalPremium';
-  status:
-    | 'active'
-    | 'grace'
-    | 'account_hold'
-    | 'paused'
-    | 'cancelled_active'
-    | 'expired';
+  status: EntitlementStatus;
   periodStartedAt: string | null;
   periodEndsAt: string | null;
 };
 
-type SupabaseServiceClient = any;
-
 const personalPremiumEntitlementId =
   Deno.env.get('REVENUECAT_PERSONAL_PREMIUM_ENTITLEMENT_ID') ??
-    'personal_premium';
+    DEFAULT_PERSONAL_PREMIUM_ENTITLEMENT_ID;
 
 const corsHeaders = {
   'access-control-allow-origin': '*',
@@ -72,14 +84,15 @@ export async function handler(req: Request): Promise<Response> {
     return json({ error: 'Invalid body' }, 400);
   }
 
-  const expectedAuthorization =
+  const expectedAuthorization = stripBearer(
     Deno.env.get('REVENUECAT_WEBHOOK_SECRET') ??
-      Deno.env.get('REVENUECAT_WEBHOOK_AUTH');
+      Deno.env.get('REVENUECAT_WEBHOOK_AUTH'),
+  );
   if (!expectedAuthorization) {
     return json({ error: 'RevenueCat webhook authorization is not configured' }, 500);
   }
-  const authHeader = req.headers.get('authorization') ?? '';
-  if (!(await authorizationMatches(authHeader, expectedAuthorization))) {
+  const authHeader = stripBearer(req.headers.get('authorization'));
+  if (!(await secretsMatch(authHeader, expectedAuthorization))) {
     return json({ error: 'Unauthorized' }, 401);
   }
 
@@ -100,23 +113,26 @@ export async function handler(req: Request): Promise<Response> {
   if (!event?.type) {
     return json({ error: 'RevenueCat event is required' }, 400);
   }
-  console.log(
-    JSON.stringify({
-      scope: 'revenuecat-webhook',
-      message: 'event_received',
-      type: event.type,
-      id: event.id,
-      app_user_id: event.app_user_id,
-      product_id: event.product_id,
-      store: event.store,
-      transferred_to: event.transferred_to,
-      transferred_from: event.transferred_from,
-    }),
-  );
+  logStructured({
+    message: 'event_received',
+    type: event.type,
+    id: event.id,
+    app_user_id: event.app_user_id,
+    product_id: event.product_id,
+    store: event.store,
+    transferred_to: event.transferred_to,
+    transferred_from: event.transferred_from,
+  });
 
   const serviceClient = createClient(supabaseUrl, serviceRoleKey);
+
+  // TRANSFER events carry no product, store or expiry, so they never go
+  // through the generic mapping below (which would otherwise invent a
+  // permanent, period-less row for the new owner).
   if (event.type === 'TRANSFER') {
-    await handleTransfer(serviceClient, event);
+    const result = await handleTransfer(serviceClient, event);
+    if (result.error) return json({ error: result.error }, 500);
+    return json({ ok: true, status: 'transfer_processed', ...result.summary });
   }
 
   const ownerUserId = await resolveSupabaseUserIdForRevenueCatEvent(
@@ -153,44 +169,117 @@ export async function handler(req: Request): Promise<Response> {
     ? null
     : await mapRevenueCatEvent(event, ownerUserId);
   if (!mapped) {
-    console.log(
-      JSON.stringify({
-        scope: 'revenuecat-webhook',
-        message: 'event_ignored',
-        type: event.type,
-        id: event.id,
-        reason:
-          'no personal premium entitlement or no Supabase UUID app_user_id/transferred_to',
-      }),
-    );
+    logStructured({
+      message: 'event_ignored',
+      type: event.type,
+      id: event.id,
+      reason:
+        'no personal premium entitlement or no Supabase UUID app_user_id/transferred_to',
+    });
     return json({ ok: true, ignored: true });
   }
 
   const now = new Date().toISOString();
-  const existingClaim = await findExistingPurchaseClaim(
+  const affectedOwners = new Set<string>([mapped.userId]);
+
+  // Other accounts still holding this purchase as active. RevenueCat is the
+  // authority on who owns a purchase, so a newer event for this owner (or an
+  // expiry of the purchase itself) releases those claims. A stale retry that
+  // predates the other claim is acknowledged without writing anything.
+  const claims = await findActiveClaims(
     serviceClient,
     mapped.store,
     mapped.productId,
     mapped.purchaseTokenHash,
   );
-  if (existingClaim.error) {
-    return json({ error: existingClaim.error.message }, 500);
+  if (claims.error) return json({ error: claims.error.message }, 500);
+  const foreignClaims = claims.rows.filter((row) =>
+    row.owner_user_id !== mapped.userId
+  );
+  const staleAgainst = foreignClaims.filter((row) =>
+    !eventSupersedesClaim(event.event_timestamp_ms, row.updated_at)
+  );
+  if (staleAgainst.length > 0 && isActiveStatus(mapped.status)) {
+    logStructured({
+      message: 'purchase_claim_conflict',
+      action_result: 'stale_event_acknowledged_no_write',
+      revenuecat_event_id: event.id,
+      event_type: event.type,
+      mapped_user_id: mapped.userId,
+      existing_owner_user_ids: staleAgainst.map((row) => row.owner_user_id),
+      product_id: mapped.productId,
+      store: mapped.store,
+    });
+    const recompute = await recomputeProfileTier(serviceClient, mapped.userId, now);
+    if (recompute.error) return json({ error: recompute.error.message }, 500);
+    return json({ ok: true, status: 'conflict_stale_event' });
   }
-  if (existingClaim.ownerUserId && existingClaim.ownerUserId !== mapped.userId) {
-    console.log(
-      JSON.stringify({
-        scope: 'revenuecat-webhook',
-        message: 'purchase_claim_conflict',
-        mapped_user_id: mapped.userId,
-        existing_owner_user_id: existingClaim.ownerUserId,
-        product_id: mapped.productId,
-        store: mapped.store,
-      }),
-    );
-    return json({ error: 'This store purchase is already linked to another Pebble account' }, 409);
+  for (const row of foreignClaims) {
+    if (!eventSupersedesClaim(event.event_timestamp_ms, row.updated_at)) {
+      continue;
+    }
+    const { error } = await expireClaim(serviceClient, row.id, now);
+    if (error) return json({ error: error.message }, 500);
+    affectedOwners.add(row.owner_user_id);
+    logStructured({
+      message: 'purchase_claim_released',
+      revenuecat_event_id: event.id,
+      event_type: event.type,
+      released_owner_user_id: row.owner_user_id,
+      new_owner_user_id: mapped.userId,
+      product_id: mapped.productId,
+      store: mapped.store,
+    });
   }
 
-  const { error: entitlementError } = await serviceClient
+  const upsert = await upsertClaim(serviceClient, mapped, now);
+  if (upsert.error) {
+    if (upsert.error.code === '23505') {
+      // Lost a race with another writer for the same purchase. Acknowledge
+      // so RevenueCat does not retry in a loop; the next event or sync wins.
+      logStructured({
+        message: 'purchase_claim_conflict',
+        action_result: 'unique_violation_acknowledged',
+        revenuecat_event_id: event.id,
+        mapped_user_id: mapped.userId,
+        product_id: mapped.productId,
+        store: mapped.store,
+      });
+    } else {
+      return json({ error: upsert.error.message }, 500);
+    }
+  }
+
+  for (const userId of affectedOwners) {
+    const recompute = await recomputeProfileTier(serviceClient, userId, now);
+    if (recompute.error) return json({ error: recompute.error.message }, 500);
+    logStructured({
+      message: 'profile_tier_recomputed',
+      owner_user_id: userId,
+      tier: recompute.tier,
+    });
+  }
+
+  logStructured({
+    message: 'entitlement_mirror_updated',
+    owner_user_id: mapped.userId,
+    entitlement_tier: mapped.tier,
+    status: mapped.status,
+    product_id: mapped.productId,
+    store: mapped.store,
+    period_ends_at: mapped.periodEndsAt,
+    purchase_key_stable: mapped.purchaseKeyStable,
+  });
+
+  return json({ ok: true });
+}
+
+async function upsertClaim(
+  client: ServiceClient,
+  mapped: MappedEntitlement,
+  nowIso: string,
+): Promise<{ error: { message: string; code?: string } | null }> {
+  const { error } = await client
     .from('personal_entitlements')
     .upsert(
       {
@@ -202,87 +291,14 @@ export async function handler(req: Request): Promise<Response> {
         status: mapped.status,
         period_started_at: mapped.periodStartedAt,
         period_ends_at: mapped.periodEndsAt,
-        last_verified_at: now,
-        updated_at: now,
+        last_verified_at: nowIso,
+        updated_at: nowIso,
       },
       {
         onConflict: 'owner_user_id,store,product_id,purchase_token_hash',
       },
     );
-
-  if (entitlementError) {
-    return json({ error: entitlementError.message }, 500);
-  }
-
-  const active = isEntitlementCurrentlyActive(
-    mapped.status,
-    mapped.periodEndsAt,
-  );
-  
-  let targetTier = active ? mapped.tier : 'personalFree';
-  if (!active) {
-    const { data: activeEntitlements, error: countError } = await serviceClient
-      .from('personal_entitlements')
-      .select('id')
-      .eq('owner_user_id', mapped.userId)
-      .in('status', ['active', 'grace', 'cancelled_active'])
-      .or(`period_ends_at.is.null,period_ends_at.gt.${now}`)
-      .limit(1);
-
-    if (countError) {
-      return json({ error: countError.message }, 500);
-    }
-
-    if (activeEntitlements && activeEntitlements.length > 0) {
-      targetTier = mapped.tier;
-    }
-  }
-
-  const { error: profileError } = await serviceClient.from('profiles').upsert({
-    id: mapped.userId,
-    tier: targetTier,
-    updated_at: now,
-  });
-  if (profileError) {
-    return json({ error: profileError.message }, 500);
-  }
-  console.log(
-    JSON.stringify({
-      scope: 'revenuecat-webhook',
-      message: 'entitlement_mirror_updated',
-      owner_user_id: mapped.userId,
-      entitlement_tier: mapped.tier,
-      status: mapped.status,
-      product_id: mapped.productId,
-      store: mapped.store,
-      period_ends_at: mapped.periodEndsAt,
-    }),
-  );
-
-  return json({ ok: true });
-}
-
-async function findExistingPurchaseClaim(
-  client: SupabaseServiceClient,
-  store: string,
-  productId: string,
-  tokenHash: string,
-): Promise<
-  | { ownerUserId: string | null; error: null }
-  | { ownerUserId: null; error: { message: string } }
-> {
-  const { data, error } = await client
-    .from('personal_entitlements')
-    .select('owner_user_id')
-    .eq('store', store)
-    .eq('product_id', productId)
-    .eq('purchase_token_hash', tokenHash)
-    .in('status', ['active', 'grace', 'cancelled_active'])
-    .maybeSingle();
-  if (error) {
-    return { ownerUserId: null, error };
-  }
-  return { ownerUserId: data?.owner_user_id ?? null, error: null };
+  return { error: error ?? null };
 }
 
 export async function mapRevenueCatEvent(
@@ -292,19 +308,26 @@ export async function mapRevenueCatEvent(
   if (!hasPebblePremiumEntitlement(event)) return null;
 
   const status = statusForRevenueCatEvent(event);
-  const productId = event.product_id ?? personalPremiumEntitlementId;
   const store = normalizeStore(event.store);
-  const tokenSource =
-    event.original_transaction_id ??
-      event.transaction_id ??
-      event.id ??
-      `${event.app_user_id}:${productId}:${event.event_timestamp_ms ?? ''}`;
+  const productId = canonicalProductId(
+    event.product_id,
+    null,
+    personalPremiumEntitlementId,
+  );
+  const purchaseKey = await purchaseTokenHash({
+    userId: ownerUserId,
+    store,
+    productId,
+    originalTransactionId: event.original_transaction_id,
+    transactionId: event.transaction_id,
+  });
 
   return {
     userId: ownerUserId,
     productId,
     store,
-    purchaseTokenHash: await sha256Hex(tokenSource),
+    purchaseTokenHash: purchaseKey.hash,
+    purchaseKeyStable: purchaseKey.stable,
     tier: 'personalPremium',
     status,
     periodStartedAt: isoFromMillis(event.purchased_at_ms),
@@ -312,79 +335,155 @@ export async function mapRevenueCatEvent(
   };
 }
 
-async function handleTransfer(
-  serviceClient: SupabaseServiceClient,
-  event: RevenueCatEvent,
-) {
-  const from = await resolveExistingSupabaseUserIds(
-    serviceClient,
-    event.transferred_from ?? [],
-  );
-  if (from.length === 0) {
-    console.log(
-      JSON.stringify({
-        scope: 'revenuecat-webhook',
-        message: 'transfer_has_no_supabase_source_users',
-        id: event.id,
-      }),
+export type TransferMove = {
+  /** Row to expire on the source account. */
+  expireRowId: string;
+  /** Copy to create (or refresh) on the destination account, if any. */
+  moveTo: Omit<ClaimRow, 'id' | 'updated_at'> | null;
+};
+
+/**
+ * Pure planning step for a TRANSFER event: every active premium claim held by
+ * the `transferred_from` accounts is expired, and the ones still inside their
+ * paid period are re-created for the destination account. Claims written
+ * after the event (a stale retry) are left alone, which together with the
+ * status filter in `expireClaim` makes re-delivery a no-op.
+ */
+export function planTransfer(input: {
+  sourceClaims: ClaimRow[];
+  destinationUserId: string | null;
+  eventTimestampMs: number | null | undefined;
+  nowMs?: number;
+}): TransferMove[] {
+  const nowMs = input.nowMs ?? Date.now();
+  const moves: TransferMove[] = [];
+  for (const row of input.sourceClaims) {
+    if (row.owner_user_id === input.destinationUserId) continue;
+    if (!eventSupersedesClaim(input.eventTimestampMs, row.updated_at, nowMs)) {
+      continue;
+    }
+    const stillPaid = isEntitlementCurrentlyActive(
+      row.status,
+      row.period_ends_at,
+      nowMs,
     );
-    return;
-  }
-
-  const productId = event.product_id ?? personalPremiumEntitlementId;
-  const store = normalizeStore(event.store);
-  const now = new Date().toISOString();
-  await serviceClient
-    .from('personal_entitlements')
-    .update({
-      status: 'expired',
-      last_verified_at: now,
-      updated_at: now,
-    })
-    .eq('product_id', productId)
-    .eq('store', store)
-    .in('owner_user_id', from);
-
-  for (const userId of from) {
-    const { data: activeEntitlements } = await serviceClient
-      .from('personal_entitlements')
-      .select('id')
-      .eq('owner_user_id', userId)
-      .in('status', ['active', 'grace', 'cancelled_active'])
-      .or(`period_ends_at.is.null,period_ends_at.gt.${now}`)
-      .limit(1);
-
-    const hasActive = activeEntitlements && activeEntitlements.length > 0;
-
-    await serviceClient.from('profiles').upsert({
-      id: userId,
-      tier: hasActive ? 'personalPremium' : 'personalFree',
-      updated_at: now,
+    moves.push({
+      expireRowId: row.id,
+      moveTo: input.destinationUserId && stillPaid
+        ? {
+          owner_user_id: input.destinationUserId,
+          product_id: row.product_id,
+          store: row.store,
+          purchase_token_hash: row.purchase_token_hash,
+          entitlement_tier: row.entitlement_tier,
+          status: row.status,
+          period_started_at: row.period_started_at,
+          period_ends_at: row.period_ends_at,
+        }
+        : null,
     });
   }
+  return moves;
+}
+
+async function handleTransfer(
+  serviceClient: ServiceClient,
+  event: RevenueCatEvent,
+): Promise<{
+  error: string | null;
+  summary: { released: number; moved: number };
+}> {
+  const summary = { released: 0, moved: 0 };
+  const destinationUserId = (await resolveExistingSupabaseUserIds(
+    serviceClient,
+    event.transferred_to ?? [],
+  ))[0] ?? null;
+  const from = (await resolveExistingSupabaseUserIds(
+    serviceClient,
+    event.transferred_from ?? [],
+  )).filter((userId) => userId !== destinationUserId);
+
+  if (from.length === 0) {
+    logStructured({
+      message: 'transfer_has_no_supabase_source_users',
+      id: event.id,
+      destination_user_id: destinationUserId,
+    });
+    if (destinationUserId) {
+      const recompute = await recomputeProfileTier(serviceClient, destinationUserId);
+      if (recompute.error) return { error: recompute.error.message, summary };
+    }
+    return { error: null, summary };
+  }
+
+  const sourceClaims = await findActiveClaimsForOwners(serviceClient, from);
+  if (sourceClaims.error) return { error: sourceClaims.error.message, summary };
+
+  const now = new Date().toISOString();
+  const moves = planTransfer({
+    sourceClaims: sourceClaims.rows,
+    destinationUserId,
+    eventTimestampMs: event.event_timestamp_ms,
+  });
+
+  for (const move of moves) {
+    // Expire first: the partial unique index allows only one active claim per
+    // purchase, so the source row must be released before the copy is made.
+    const { error } = await expireClaim(serviceClient, move.expireRowId, now);
+    if (error) return { error: error.message, summary };
+    summary.released++;
+    if (!move.moveTo) continue;
+    const { error: moveError } = await serviceClient
+      .from('personal_entitlements')
+      .upsert(
+        { ...move.moveTo, last_verified_at: now, updated_at: now },
+        { onConflict: 'owner_user_id,store,product_id,purchase_token_hash' },
+      );
+    if (moveError) {
+      if (moveError.code === '23505') {
+        logStructured({
+          message: 'transfer_move_conflict',
+          id: event.id,
+          destination_user_id: destinationUserId,
+          product_id: move.moveTo.product_id,
+          store: move.moveTo.store,
+        });
+        continue;
+      }
+      return { error: moveError.message, summary };
+    }
+    summary.moved++;
+  }
+
+  const touched = destinationUserId ? [...from, destinationUserId] : from;
+  for (const userId of touched) {
+    const recompute = await recomputeProfileTier(serviceClient, userId, now);
+    if (recompute.error) return { error: recompute.error.message, summary };
+  }
+
+  logStructured({
+    message: 'transfer_processed',
+    id: event.id,
+    source_user_ids: from,
+    destination_user_id: destinationUserId,
+    ...summary,
+  });
+  return { error: null, summary };
 }
 
 export function candidateUserIdsForRevenueCatEvent(
   event: RevenueCatEvent,
 ): string[] {
-  const candidates = [
+  return uuidCandidates([
     event.app_user_id,
     event.original_app_user_id,
     ...(event.aliases ?? []),
     ...(event.transferred_to ?? []),
-  ];
-  const unique = new Set<string>();
-  for (const candidate of candidates) {
-    const trimmed = candidate?.trim();
-    if (trimmed && isUuid(trimmed)) {
-      unique.add(trimmed.toLowerCase());
-    }
-  }
-  return [...unique];
+  ]);
 }
 
 async function resolveSupabaseUserIdForRevenueCatEvent(
-  serviceClient: SupabaseServiceClient,
+  serviceClient: ServiceClient,
   event: RevenueCatEvent,
 ): Promise<string | null> {
   const candidates = candidateUserIdsForRevenueCatEvent(event);
@@ -415,22 +514,20 @@ async function resolveSupabaseUserIdForRevenueCatEvent(
 }
 
 async function resolveExistingSupabaseUserIds(
-  serviceClient: SupabaseServiceClient,
+  serviceClient: ServiceClient,
   values: string[],
 ): Promise<string[]> {
   const userIds: string[] = [];
-  for (const candidate of values) {
-    const trimmed = candidate.trim().toLowerCase();
-    if (!isUuid(trimmed)) continue;
-    if (await supabaseAuthUserExists(serviceClient, trimmed)) {
-      userIds.push(trimmed);
+  for (const candidate of uuidCandidates(values)) {
+    if (await supabaseAuthUserExists(serviceClient, candidate)) {
+      userIds.push(candidate);
     }
   }
   return userIds;
 }
 
 async function supabaseAuthUserExists(
-  serviceClient: SupabaseServiceClient,
+  serviceClient: ServiceClient,
   userId: string,
 ): Promise<boolean> {
   const { data, error } = await serviceClient.auth.admin.getUserById(userId);
@@ -445,7 +542,7 @@ function hasPebblePremiumEntitlement(event: RevenueCatEvent): boolean {
 
 export function statusForRevenueCatEvent(
   event: RevenueCatEvent,
-): MappedEntitlement['status'] {
+): EntitlementStatus {
   const expiresInFuture =
     event.expiration_at_ms == null || event.expiration_at_ms > Date.now();
 
@@ -472,60 +569,13 @@ export function statusForRevenueCatEvent(
   }
 }
 
-function normalizeStore(value: string | undefined): string {
-  switch (value) {
-    case 'APP_STORE':
-      return 'appStore';
-    case 'PLAY_STORE':
-      return 'googlePlay';
-    case 'STRIPE':
-      return 'stripe';
-    case 'RC_BILLING':
-      return 'revenueCat';
-    default:
-      return value?.toLowerCase() ?? 'revenueCat';
-  }
-}
-
-function isEntitlementCurrentlyActive(
-  status: MappedEntitlement['status'],
-  periodEndsAt: string | null,
-): boolean {
-  if (!['active', 'grace', 'cancelled_active'].includes(status)) {
-    return false;
-  }
-  return periodEndsAt === null || new Date(periodEndsAt).getTime() > Date.now();
+function isActiveStatus(status: EntitlementStatus): boolean {
+  return status === 'active' || status === 'grace' ||
+    status === 'cancelled_active';
 }
 
 function isoFromMillis(value: number | null | undefined): string | null {
   return typeof value === 'number' ? new Date(value).toISOString() : null;
-}
-
-function isUuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-    .test(value);
-}
-
-async function sha256Hex(value: string): Promise<string> {
-  const data = new TextEncoder().encode(value);
-  const digest = await crypto.subtle.digest('SHA-256', data);
-  return [...new Uint8Array(digest)]
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('');
-}
-
-async function authorizationMatches(
-  actualHeader: string,
-  expectedValue: string,
-): Promise<boolean> {
-  const actual = normalizeAuthorizationValue(actualHeader);
-  const expected = normalizeAuthorizationValue(expectedValue);
-  if (!actual || !expected) return false;
-  return await sha256Hex(actual) === await sha256Hex(expected);
-}
-
-function normalizeAuthorizationValue(value: string): string {
-  return value.replace(/^Bearer\s+/i, '').trim();
 }
 
 function json(body: unknown, status = 200): Response {

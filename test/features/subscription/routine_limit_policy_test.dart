@@ -33,20 +33,23 @@ void main() {
       expect(lockedPolicy.lockedStepCount(14), 4);
     });
 
-    test('recomputed identical policies are equal, so providers stay quiet', () {
-      // The routine player provider watches this policy. Without value
-      // equality, the silent purchase sync on every app resume produced a
-      // new instance, rebuilt the player controller mid-session, and lost
-      // in-flight photo attaches.
-      expect(
-        lockedPolicy,
-        const RoutineLimitPolicy(
-          hasPremiumRoutineAccess: false,
-          isInGrace: false,
-        ),
-      );
-      expect(lockedPolicy, isNot(gracePolicy));
-    });
+    test(
+      'recomputed identical policies are equal, so providers stay quiet',
+      () {
+        // The routine player provider watches this policy. Without value
+        // equality, the silent purchase sync on every app resume produced a
+        // new instance, rebuilt the player controller mid-session, and lost
+        // in-flight photo attaches.
+        expect(
+          lockedPolicy,
+          const RoutineLimitPolicy(
+            hasPremiumRoutineAccess: false,
+            isInGrace: false,
+          ),
+        );
+        expect(lockedPolicy, isNot(gracePolicy));
+      },
+    );
 
     test('detects when routine risk card can be hidden', () {
       expect(
@@ -66,6 +69,82 @@ void main() {
           policy: lockedPolicy,
         ),
         isFalse,
+      );
+    });
+  });
+
+  group('choosing which routines stay unlocked', () {
+    const lockedPolicy = RoutineLimitPolicy(
+      hasPremiumRoutineAccess: false,
+      isInGrace: false,
+    );
+    final five = [for (var id = 1; id <= 5; id++) _routine(id: id, stepCount: 3)];
+
+    test('without a choice, the first two in list order stay unlocked', () {
+      expect(
+        restrictedRoutineIds(routines: five, policy: lockedPolicy),
+        {3, 4, 5},
+      );
+    });
+
+    test('kept routines stay unlocked wherever they are in the list', () {
+      expect(
+        restrictedRoutineIds(
+          routines: five,
+          policy: lockedPolicy,
+          keptRoutineIds: {5, 3},
+        ),
+        {1, 2, 4},
+      );
+    });
+
+    test('one kept routine is topped up from list order', () {
+      expect(
+        restrictedRoutineIds(
+          routines: five,
+          policy: lockedPolicy,
+          keptRoutineIds: {4},
+        ),
+        {2, 3, 5},
+      );
+    });
+
+    test('deleted or extra kept ids never unlock more than the limit', () {
+      final restricted = restrictedRoutineIds(
+        routines: five,
+        policy: lockedPolicy,
+        keptRoutineIds: {99, 5, 4, 3},
+      );
+      // Only existing kept routines count, in list order, up to the limit.
+      expect(restricted, {1, 2, 5});
+    });
+
+    test('nothing is locked with Premium, in grace, or within the limit', () {
+      const premium = RoutineLimitPolicy(
+        hasPremiumRoutineAccess: true,
+        isInGrace: false,
+      );
+      const grace = RoutineLimitPolicy(
+        hasPremiumRoutineAccess: false,
+        isInGrace: true,
+      );
+      expect(restrictedRoutineIds(routines: five, policy: premium), isEmpty);
+      expect(restrictedRoutineIds(routines: five, policy: grace), isEmpty);
+      expect(
+        restrictedRoutineIds(routines: five.take(2).toList(), policy: lockedPolicy),
+        isEmpty,
+      );
+    });
+
+    test('access states follow the kept choice', () {
+      final states = buildRoutineAccessStates(
+        routines: five,
+        policy: lockedPolicy,
+        keptRoutineIds: {5, 4},
+      );
+      expect(
+        [for (final state in states) if (!state.isRestricted) state.routine.id],
+        [4, 5],
       );
     });
   });

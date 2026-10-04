@@ -1,24 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:pebble_routines/core/config/app_runtime_config.dart';
-import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/ui/zen_notifications.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
+import 'package:pebble_routines/features/account_backup/providers/account_backup_ui_provider.dart';
 import 'package:pebble_routines/features/account_backup/providers/account_profile_presentation_provider.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
-import 'package:pebble_routines/features/history/providers/routine_history_vm.dart';
-import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
 import 'package:pebble_routines/features/subscription/data/purchase_repository.dart';
-import 'package:pebble_routines/features/subscription/domain/routine_limit_policy.dart';
 import 'package:pebble_routines/features/subscription/domain/subscription_lifecycle.dart';
-import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
+import 'package:pebble_routines/features/subscription/providers/premium_lapse_provider.dart';
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
+import 'package:pebble_routines/features/subscription/ui/premium_lapse_ui.dart';
 
 class AccountHubScreen extends ConsumerStatefulWidget {
   const AccountHubScreen({super.key});
@@ -72,24 +70,37 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
       final result = await ref
           .read(purchaseRepositoryProvider)
           .restorePurchases();
+      // Restore succeeded from here on: a backup hiccup below must not
+      // contradict it with a "Could not restore" error on top.
+      var backupRefreshFailed = false;
+      final auth = ref.read(authSessionProvider);
+      if (auth.isSignedIn) {
+        try {
+          await ref
+              .read(authControllerProvider.notifier)
+              .refreshCloudAccessAfterEntitlementChange(
+                refreshEntitlement: false,
+              );
+        } catch (_) {
+          backupRefreshFailed = true;
+        }
+      }
       if (!mounted) {
         return;
       }
-      _showVaultNotice(
-        result.message,
-        title: 'Purchase restored',
-        type: NotificationType.success,
-      );
-      final auth = ref.read(authSessionProvider);
-      if (auth.isSignedIn) {
-        await ref
-            .read(authControllerProvider.notifier)
-            .refreshCloudAccessAfterEntitlementChange(
-              refreshEntitlement: false,
-            );
-      }
-      if (mounted) {
-        context.go('/account-hub');
+      if (backupRefreshFailed) {
+        _showVaultNotice(
+          'Premium is back. Backup will finish setting up when Pebble can '
+          'verify this account.',
+          title: 'Purchase restored',
+          type: NotificationType.info,
+        );
+      } else {
+        _showVaultNotice(
+          result.message,
+          title: 'Purchase restored',
+          type: NotificationType.success,
+        );
       }
     } catch (error) {
       _showVaultNotice(
@@ -108,9 +119,9 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
     final rawUrl = ref.read(purchaseRepositoryProvider).manageSubscriptionsUrl;
     if (rawUrl == null || rawUrl.isEmpty) {
       _showVaultNotice(
-        'Subscription management is not ready yet.',
-        title: 'Not ready',
-        type: NotificationType.warning,
+        'Manage your subscription in your app store account settings.',
+        title: 'Manage subscription',
+        type: NotificationType.info,
       );
       return;
     }
@@ -155,6 +166,38 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
     }
   }
 
+  Future<void> _showSignOutDialog() async {
+    final email = ref.read(authSessionProvider).email;
+    final backupIsOn = ref
+        .read(subscriptionLifecycleProvider)
+        .canUploadCloudChanges;
+
+    await _showAccountActionSheet<void>(
+      context: context,
+      builder: (sheetContext) => _AccountActionSheet(
+        icon: LucideIcons.logOut,
+        eyebrow: 'Your account',
+        title: 'Sign out?',
+        body: backupIsOn
+            ? 'Backup pauses until you sign in again. Everything already '
+                  'backed up stays safe, and local routines stay on this '
+                  'device.'
+            : 'Local routines stay on this device. Sign back in any time'
+                  '${email == null ? '' : ' with $email'}.',
+        accentColor: Theme.of(sheetContext).colorScheme.secondary,
+        primaryLabel: 'Sign out',
+        onPrimaryPressed: () async {
+          Navigator.of(sheetContext).pop();
+          await ref.read(authControllerProvider.notifier).signOut();
+          // No toast: the screen visibly switches to its signed-out state,
+          // and the sheet already explained what signing out means.
+        },
+        secondaryLabel: 'Cancel',
+        onSecondaryPressed: () => Navigator.of(sheetContext).pop(),
+      ),
+    );
+  }
+
   Future<void> _showDeleteAccountDialog() async {
     final runtimeConfig = ref.read(appRuntimeConfigProvider);
     final deletionUrl = runtimeConfig.accountDeletionUrl;
@@ -180,6 +223,15 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
           _AccountSheetWarningRow(
             icon: LucideIcons.smartphone,
             text: 'Local routines on this device stay here.',
+          ),
+          // Required by Apple and Google: deleting the account is not the
+          // same as cancelling the store subscription.
+          _AccountSheetWarningRow(
+            icon: LucideIcons.creditCard,
+            text:
+                'If you have Personal Premium, this does not cancel it. To '
+                'stop renewals, cancel in your app store subscription '
+                'settings.',
           ),
         ],
         primaryLabel: 'Delete account',
@@ -235,20 +287,11 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final auth = ref.watch(authSessionProvider);
     final profile = ref.watch(accountProfilePresentationProvider);
+    final backupSummary = ref.watch(accountBackupStatusSummaryProvider);
     final lifecycle = ref.watch(subscriptionLifecycleProvider);
     final isLapsedPremium =
         lifecycle.phase == SubscriptionLifecyclePhase.expiredGrace ||
         lifecycle.phase == SubscriptionLifecyclePhase.expired;
-
-    if (isLapsedPremium) {
-      return _LapsedPremiumAccountScreen(
-        state: _buildLapsedPremiumState(lifecycle),
-        onBack: _exitVault,
-        onRenew: () =>
-            context.push(premiumRoute(source: PremiumEntrySource.routineLimit)),
-        onManagePlan: _openManagePlan,
-      );
-    }
 
     return PopScope(
       canPop: false,
@@ -261,37 +304,62 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
         backgroundColor: colorScheme.surface,
         appBar: PebbleSubscreenAppBar(
           title: 'Your account',
-          subtitle: 'Manage your plan',
+          subtitle: isLapsedPremium
+              ? 'Premium ended'
+              : 'Plan, sign-in and backup',
           onBack: _exitVault,
         ),
         body: ListView(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 60),
           children: [
-            // Free users have no account to show and we don't want to nudge
-            // them into one — sign-in belongs to the backup flow. The plan
-            // card leads instead.
             if (profile.isSignedIn) ...[
               _AccountIdentityHeader(profile: profile),
               const SizedBox(height: 24),
             ],
-            if (profile.canStartPremium) ...[
+            // The plan always leads: what you have, and (for Premium) when
+            // the current period ends. After a lapse, what changed and by
+            // when leads instead; the account rows below stay available.
+            if (isLapsedPremium) ...[
+              _LapsedPremiumSection(
+                state: _buildLapsedPremiumState(lifecycle),
+                onRenew: () => context.push(
+                  premiumRoute(source: PremiumEntrySource.routineLimit),
+                ),
+                onManagePlan: _openManagePlan,
+                onChooseRoutines: () => showKeepRoutinesSheet(context),
+              ),
+              const SizedBox(height: 28),
+            ] else ...[
               _AccountPlanCard(profile: profile),
               const SizedBox(height: 14),
+            ],
+            if (profile.canStartPremium && !isLapsedPremium) ...[
               _AccountUpgradeCard(
                 onGetPremium: () => context.push(
                   premiumRoute(source: PremiumEntrySource.backup),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
             ],
-            if (profile.canManagePlan || profile.canRestorePurchase)
-              _AccountSettingsRows(
-                canRestorePurchase: profile.canRestorePurchase,
-                canManagePlan: profile.canManagePlan,
-                restoreInFlight: _restoreInFlight,
-                onRestorePurchase: _restoreInFlight ? null : _restorePurchase,
-                onManagePlan: _openManagePlan,
+            // Signed out, sign-in is always offered: it is how a returning
+            // Premium user gets their plan and backup back on a new phone.
+            if (profile.canSignIn) ...[
+              _AccountSignInCard(
+                hasPremium: profile.hasPremium,
+                onSignIn: () => context.push('/sign-in'),
               ),
+              const SizedBox(height: 14),
+            ],
+            _AccountSettingsRows(
+              canRestorePurchase: profile.canRestorePurchase,
+              // After a lapse the section above already offers it.
+              canManagePlan: profile.canManagePlan && !isLapsedPremium,
+              restoreInFlight: _restoreInFlight,
+              backupStatus: backupSummary.label,
+              onRestorePurchase: _restoreInFlight ? null : _restorePurchase,
+              onManagePlan: _openManagePlan,
+              onOpenBackup: () => context.push('/cloud-backup'),
+            ),
             const SizedBox(height: 32),
             _buildDestructiveActions(
               context,
@@ -322,16 +390,7 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
                 color: colorScheme.outline.withValues(alpha: 0.2),
               ),
             ),
-            onPressed: () async {
-              await ref.read(authControllerProvider.notifier).signOut();
-              if (context.mounted) {
-                _showVaultNotice(
-                  'Local routines stay on this device.',
-                  title: 'Signed out',
-                  type: NotificationType.info,
-                );
-              }
-            },
+            onPressed: _showSignOutDialog,
             child: Text(
               'Sign out',
               textAlign: TextAlign.center,
@@ -350,7 +409,7 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
             ),
             onPressed: _deleteInFlight ? null : _showDeleteAccountDialog,
             child: Text(
-              _deleteInFlight ? 'Deleting account...' : 'Delete Account',
+              _deleteInFlight ? 'Deleting account...' : 'Delete account',
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
           ),
@@ -362,32 +421,21 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
   _LapsedPremiumState _buildLapsedPremiumState(
     SubscriptionLifecycle lifecycle,
   ) {
-    final historyRuns = ref.watch(routineHistoryVmProvider).valueOrNull;
-    final routines = ref.watch(routineListProvider).valueOrNull;
-    final policy = ref.watch(routineLimitPolicyProvider);
     final purchase = ref.watch(purchaseRepositoryProvider);
-    final historyGraceDays = _remainingGraceDays(lifecycle);
-    final routineGraceDays = historyGraceDays;
-    final totalHistoryDays = _distinctHistoryDays(historyRuns ?? const []);
-    final showRoutineRiskCard = routines == null
-        ? true
-        : !isFreeTierFootprint(routines: routines, policy: policy);
     final products = purchase.personalPremiumProducts;
     final monthly = _productForPlan(products, BillingPlan.monthly);
     final yearly = _productForPlan(products, BillingPlan.yearly);
 
     return _LapsedPremiumState(
-      totalHistoryDays: totalHistoryDays,
-      historyGraceDays: historyGraceDays,
-      routineGraceDays: routineGraceDays,
-      showRoutineRiskCard: showRoutineRiskCard,
+      summary: ref.watch(premiumLapseSummaryProvider),
+      graceDays: _remainingGraceDays(lifecycle),
+      // Only real store prices; never a made-up fallback.
       monthlyPrice: monthly?.priceLabel.trim().isNotEmpty == true
           ? monthly!.priceLabel
-          : '99p',
+          : null,
       yearlyPrice: yearly?.priceLabel.trim().isNotEmpty == true
           ? yearly!.priceLabel
-          : 'GBP 7.99',
-      canRenew: purchase.isPurchaseAvailable,
+          : null,
     );
   }
 }
@@ -402,7 +450,7 @@ class _AccountIdentityHeader extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final caption = profile.providerLabel == null
         ? profile.identityDetail
-        : '${profile.providerLabel} · ${profile.planName}';
+        : 'Signed in with ${profile.providerLabel}';
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2),
       child: Row(
@@ -433,7 +481,7 @@ class _AccountIdentityHeader extends StatelessWidget {
                   profile.identityLabel,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.outfit(
+                  style: PebbleFonts.sans(
                     color: colorScheme.onSurface,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -445,7 +493,7 @@ class _AccountIdentityHeader extends StatelessWidget {
                   caption,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.outfit(
+                  style: PebbleFonts.sans(
                     color: colorScheme.onSurface.withValues(alpha: 0.58),
                     fontSize: 13,
                     fontWeight: FontWeight.w400,
@@ -469,24 +517,112 @@ class _AccountPlanCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    // Just the facts: plan name and what it includes. The selling happens
-    // in the upgrade card below, not here.
+    final periodLine = profile.planPeriodLine;
+    // Just the facts: plan name, status and what it includes. The selling
+    // happens in the upgrade card below, not here.
+    return _AccountSurface(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 10,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                profile.planName,
+                style: PebbleFonts.serif(
+                  color: colorScheme.onSurface,
+                  fontSize: 30,
+                  fontWeight: FontWeight.w400,
+                  letterSpacing: 0,
+                  height: 1.05,
+                ),
+              ),
+              if (profile.hasPremium)
+                _AccountPill(label: profile.planStatusLabel),
+            ],
+          ),
+          if (periodLine != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              periodLine,
+              style: PebbleFonts.sans(
+                color: colorScheme.onSurface.withValues(alpha: 0.68),
+                fontSize: 13.5,
+                fontWeight: FontWeight.w400,
+                letterSpacing: 0,
+                height: 1.45,
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          _AccountLimitGrid(limits: profile.limits),
+        ],
+      ),
+    );
+  }
+}
+
+/// Offered whenever nobody is signed in. Free users see it as the way back
+/// to Premium they already bought; Premium users as the way to turn on
+/// backup.
+class _AccountSignInCard extends StatelessWidget {
+  const _AccountSignInCard({required this.hasPremium, required this.onSignIn});
+
+  final bool hasPremium;
+  final VoidCallback onSignIn;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final title = hasPremium ? 'Sign in to back up' : 'Already have Premium?';
+    final body = hasPremium
+        ? 'Premium is active on this phone. Sign in so Pebble can back up '
+              'your routines and restore them on a new phone.'
+        : 'Sign in with the account you used before. Pebble brings back '
+              'your Premium and your backup. If Premium does not appear, use '
+              'Restore purchase below.';
     return _AccountSurface(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            profile.planName,
-            style: GoogleFonts.dmSerifDisplay(
+            title,
+            style: PebbleFonts.serif(
               color: colorScheme.onSurface,
-              fontSize: 30,
+              fontSize: 24,
               fontWeight: FontWeight.w400,
               letterSpacing: 0,
-              height: 1.05,
+              height: 1.1,
+            ),
+          ),
+          const SizedBox(height: 7),
+          Text(
+            body,
+            style: PebbleFonts.sans(
+              color: colorScheme.onSurface.withValues(alpha: 0.68),
+              fontSize: 13.5,
+              fontWeight: FontWeight.w400,
+              letterSpacing: 0,
+              height: 1.5,
             ),
           ),
           const SizedBox(height: 16),
-          _AccountLimitGrid(limits: profile.limits),
+          OutlinedButton.icon(
+            onPressed: onSignIn,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(52),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+            ),
+            icon: const Icon(LucideIcons.logIn, size: 18),
+            label: const Text(
+              'Sign in',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            ),
+          ),
         ],
       ),
     );
@@ -513,8 +649,8 @@ class _AccountUpgradeCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Premium',
-            style: GoogleFonts.dmSerifDisplay(
+            'Personal Premium',
+            style: PebbleFonts.serif(
               color: colorScheme.onSurface,
               fontSize: 24,
               fontWeight: FontWeight.w400,
@@ -524,9 +660,9 @@ class _AccountUpgradeCard extends StatelessWidget {
           ),
           const SizedBox(height: 7),
           Text(
-            'Upgrade when you want 21 days of history, unlimited routines, '
-            'unlimited steps, and backup.',
-            style: GoogleFonts.outfit(
+            'Get 21 days of history, unlimited routines and steps, and '
+            'cloud backup when you choose to turn it on.',
+            style: PebbleFonts.sans(
               color: colorScheme.onSurface.withValues(alpha: 0.66),
               fontSize: 13.5,
               fontWeight: FontWeight.w300,
@@ -560,15 +696,19 @@ class _AccountSettingsRows extends StatelessWidget {
     required this.canRestorePurchase,
     required this.canManagePlan,
     required this.restoreInFlight,
+    required this.backupStatus,
     required this.onRestorePurchase,
     required this.onManagePlan,
+    required this.onOpenBackup,
   });
 
   final bool canRestorePurchase;
   final bool canManagePlan;
   final bool restoreInFlight;
+  final String backupStatus;
   final VoidCallback? onRestorePurchase;
   final VoidCallback onManagePlan;
+  final VoidCallback onOpenBackup;
 
   @override
   Widget build(BuildContext context) {
@@ -577,7 +717,7 @@ class _AccountSettingsRows extends StatelessWidget {
       if (canManagePlan)
         _AccountSettingsRow(
           icon: LucideIcons.creditCard,
-          label: 'Manage plan',
+          label: 'Manage subscription',
           onTap: onManagePlan,
         ),
       if (canRestorePurchase)
@@ -586,10 +726,13 @@ class _AccountSettingsRows extends StatelessWidget {
           label: restoreInFlight ? 'Restoring...' : 'Restore purchase',
           onTap: onRestorePurchase,
         ),
+      _AccountSettingsRow(
+        icon: LucideIcons.cloud,
+        label: 'Backup',
+        value: backupStatus,
+        onTap: onOpenBackup,
+      ),
     ];
-    if (rows.isEmpty) {
-      return const SizedBox.shrink();
-    }
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
@@ -619,10 +762,12 @@ class _AccountSettingsRow extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
+    this.value,
   });
 
   final IconData icon;
   final String label;
+  final String? value;
   final VoidCallback? onTap;
 
   @override
@@ -644,7 +789,7 @@ class _AccountSettingsRow extends StatelessWidget {
             Expanded(
               child: Text(
                 label,
-                style: GoogleFonts.outfit(
+                style: PebbleFonts.sans(
                   color: colorScheme.onSurface.withValues(
                     alpha: onTap == null ? 0.45 : 0.86,
                   ),
@@ -654,6 +799,24 @@ class _AccountSettingsRow extends StatelessWidget {
                 ),
               ),
             ),
+            if (value != null) ...[
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  value!,
+                  textAlign: TextAlign.end,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: PebbleFonts.sans(
+                    color: colorScheme.onSurface.withValues(alpha: 0.62),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+            ],
             Icon(
               LucideIcons.chevronRight,
               size: 18,
@@ -707,7 +870,7 @@ class _AccountLimitTile extends StatelessWidget {
               child: Text(
                 limit.value,
                 maxLines: 1,
-                style: GoogleFonts.dmSerifDisplay(
+                style: PebbleFonts.serif(
                   color: colorScheme.onSurface,
                   fontSize: 22,
                   fontWeight: FontWeight.w400,
@@ -722,7 +885,7 @@ class _AccountLimitTile extends StatelessWidget {
               maxLines: 2,
               textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.outfit(
+              style: PebbleFonts.sans(
                 color: colorScheme.onSurface.withValues(alpha: 0.56),
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
@@ -774,7 +937,7 @@ class _AccountPill extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
         child: Text(
           label,
-          style: GoogleFonts.outfit(
+          style: PebbleFonts.sans(
             color: colorScheme.onSurface.withValues(alpha: 0.66),
             fontSize: 11,
             fontWeight: FontWeight.w700,
@@ -798,13 +961,6 @@ int _remainingGraceDays(SubscriptionLifecycle lifecycle) {
   return (remaining.inHours / 24).ceil().clamp(0, 7);
 }
 
-int _distinctHistoryDays(List<RoutineRun> runs) {
-  return {
-    for (final run in runs)
-      DateTime(run.finishedAt.year, run.finishedAt.month, run.finishedAt.day),
-  }.length;
-}
-
 PremiumProduct? _productForPlan(
   List<PremiumProduct> products,
   BillingPlan plan,
@@ -817,98 +973,136 @@ PremiumProduct? _productForPlan(
 
 class _LapsedPremiumState {
   const _LapsedPremiumState({
-    required this.totalHistoryDays,
-    required this.historyGraceDays,
-    required this.routineGraceDays,
-    required this.showRoutineRiskCard,
+    required this.summary,
+    required this.graceDays,
     required this.monthlyPrice,
     required this.yearlyPrice,
-    required this.canRenew,
   });
 
-  final int totalHistoryDays;
-  final int historyGraceDays;
-  final int routineGraceDays;
-  final bool showRoutineRiskCard;
-  final String monthlyPrice;
-  final String yearlyPrice;
-  final bool canRenew;
+  final PremiumLapseSummary summary;
+  final int graceDays;
+  final String? monthlyPrice;
+  final String? yearlyPrice;
 }
 
-class _LapsedPremiumAccountScreen extends StatelessWidget {
-  const _LapsedPremiumAccountScreen({
+/// Top of the account screen once Premium has ended: what changed, by when,
+/// and what the user can do (renew, choose routines to keep). The normal
+/// account rows (sign in, restore, backup, sign out, delete) follow it.
+class _LapsedPremiumSection extends StatelessWidget {
+  const _LapsedPremiumSection({
     required this.state,
-    required this.onBack,
     required this.onRenew,
     required this.onManagePlan,
+    required this.onChooseRoutines,
   });
 
   final _LapsedPremiumState state;
-  final VoidCallback onBack;
   final VoidCallback onRenew;
   final VoidCallback onManagePlan;
+  final VoidCallback onChooseRoutines;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Scaffold(
-      backgroundColor: colorScheme.surface,
-      appBar: PebbleSubscreenAppBar(
-        title: 'Your account',
-        subtitle: 'Premium ended',
-        onBack: onBack,
-      ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: ListView(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 48),
-            children: [
-              const _LapsedHero(),
-              const SizedBox(height: 24),
-              _RiskCard.history(
-                totalHistoryDays: state.totalHistoryDays,
-                graceDays: state.historyGraceDays,
-              ),
-              if (state.showRoutineRiskCard) ...[
-                const SizedBox(height: 10),
-                _RiskCard.routines(graceDays: state.routineGraceDays),
-              ],
-              const SizedBox(height: 24),
-              Divider(
-                height: 1,
-                color: colorScheme.outline.withValues(alpha: 0.12),
-              ),
-              const SizedBox(height: 20),
-              _LapsedCtaSection(
-                monthlyPrice: state.monthlyPrice,
-                yearlyPrice: state.yearlyPrice,
-                canRenew: state.canRenew,
-                onRenew: onRenew,
-                onManagePlan: onManagePlan,
-              ),
-              const SizedBox(height: 18),
-              Text(
-                'Works without an account - Cancel anytime',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.outfit(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w300,
-                  letterSpacing: 0.3,
-                  color: colorScheme.onSurface.withValues(alpha: 0.38),
-                ),
-              ),
-            ],
+    final summary = state.summary;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _LapsedHero(
+          inGrace: summary.inGrace,
+          graceEndDate: summary.graceEndDateLabel,
+        ),
+        const SizedBox(height: 24),
+        _RiskCard(
+          icon: LucideIcons.clock3,
+          title: 'Longer history',
+          body: _historyBody(summary),
+          countdown: summary.inGrace
+              ? _countdownLabel(state.graceDays)
+              : 'FREE LIMITS APPLY',
+          progress: summary.inGrace ? state.graceDays / 7 : 0,
+        ),
+        if (summary.hasMoreRoutinesThanFree) ...[
+          const SizedBox(height: 10),
+          _RiskCard(
+            icon: LucideIcons.listChecks,
+            title: 'Extra routines and steps',
+            body: _routinesBody(summary),
+            countdown: summary.inGrace
+                ? _countdownLabel(state.graceDays)
+                : 'FREE LIMITS APPLY',
+            progress: summary.inGrace ? state.graceDays / 7 : 0,
+            actionLabel: 'Choose ${summary.freeRoutineLimit} routines to keep',
+            onAction: onChooseRoutines,
+          ),
+        ],
+        const SizedBox(height: 24),
+        Divider(height: 1, color: colorScheme.outline.withValues(alpha: 0.12)),
+        const SizedBox(height: 20),
+        _LapsedCtaSection(
+          monthlyPrice: state.monthlyPrice,
+          yearlyPrice: state.yearlyPrice,
+          onRenew: onRenew,
+          onManagePlan: onManagePlan,
+        ),
+        const SizedBox(height: 18),
+        Text(
+          'Works without an account · Cancel anytime',
+          textAlign: TextAlign.center,
+          style: PebbleFonts.sans(
+            fontSize: 11,
+            fontWeight: FontWeight.w300,
+            letterSpacing: 0.3,
+            color: colorScheme.onSurface.withValues(alpha: 0.5),
           ),
         ),
-      ),
+      ],
     );
+  }
+
+  static String _countdownLabel(int days) =>
+      '$days ${days == 1 ? 'DAY' : 'DAYS'} LEFT';
+
+  static String _historyBody(PremiumLapseSummary summary) {
+    final backupLine = summary.isSignedIn
+        ? ' If backup was on, your account keeps a copy, and the last 21 days '
+              'come back when you renew.'
+        : ' If backup was on, your account keeps a copy. Renew and sign in to '
+              'bring back the last 21 days.';
+    if (summary.inGrace) {
+      final date = summary.graceEndDateLabel;
+      if (summary.olderHistoryRunCount == 0) {
+        return 'Your history is still here. From $date, Free keeps the last '
+            '48 hours on this phone.$backupLine';
+      }
+      final count = summary.olderHistoryRunCount;
+      return '$count completed ${count == 1 ? 'routine' : 'routines'} older '
+          'than 48 hours stay on this phone until $date. After that they are '
+          'removed from this phone, because Free keeps 48 hours. Renew before '
+          'then to keep them.$backupLine';
+    }
+    return 'Free keeps the last 48 hours of history on this phone.$backupLine';
+  }
+
+  static String _routinesBody(PremiumLapseSummary summary) {
+    final limit = summary.freeRoutineLimit;
+    if (summary.inGrace) {
+      return 'Free includes $limit routines with up to 10 steps each. From '
+          '${summary.graceEndDateLabel}, the others lock until you renew. '
+          'Nothing is deleted, and you choose which $limit stay unlocked.';
+    }
+    final locked = summary.lockedRoutineCount;
+    return '$locked ${locked == 1 ? 'routine is' : 'routines are'} locked and '
+        'still saved. Steps after the 10th are locked too. Everything unlocks '
+        'again when you renew.';
   }
 }
 
 class _LapsedHero extends StatelessWidget {
-  const _LapsedHero();
+  const _LapsedHero({required this.inGrace, required this.graceEndDate});
+
+  final bool inGrace;
+  final String graceEndDate;
 
   @override
   Widget build(BuildContext context) {
@@ -919,9 +1113,9 @@ class _LapsedHero extends StatelessWidget {
         Text.rich(
           TextSpan(
             children: [
-              const TextSpan(text: 'A few things\nare '),
+              const TextSpan(text: 'Premium has\n'),
               TextSpan(
-                text: 'at risk.',
+                text: 'ended.',
                 style: TextStyle(
                   color: colorScheme.onSurface.withValues(alpha: 0.55),
                   fontStyle: FontStyle.italic,
@@ -929,7 +1123,7 @@ class _LapsedHero extends StatelessWidget {
               ),
             ],
           ),
-          style: GoogleFonts.dmSerifDisplay(
+          style: PebbleFonts.serif(
             fontSize: 38,
             height: 1.06,
             fontWeight: FontWeight.w400,
@@ -938,12 +1132,16 @@ class _LapsedHero extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Text(
-          'Your Premium period has ended. Here\'s what happens next - no surprises.',
-          style: GoogleFonts.outfit(
+          inGrace
+              ? 'Your routines and history stay as they are until '
+                    '$graceEndDate. Here is what changes after that.'
+              : 'Pebble now uses Free limits. Here is what that means for '
+                    'what you saved.',
+          style: PebbleFonts.sans(
             fontSize: 14,
             fontWeight: FontWeight.w300,
             height: 1.6,
-            color: colorScheme.onSurface.withValues(alpha: 0.62),
+            color: colorScheme.onSurface.withValues(alpha: 0.7),
           ),
         ),
       ],
@@ -951,69 +1149,31 @@ class _LapsedHero extends StatelessWidget {
   }
 }
 
-enum _RiskCardKind { history, routines }
-
 class _RiskCard extends StatelessWidget {
-  const _RiskCard.history({
-    required this.totalHistoryDays,
-    required this.graceDays,
-  }) : kind = _RiskCardKind.history;
+  const _RiskCard({
+    required this.icon,
+    required this.title,
+    required this.body,
+    required this.countdown,
+    required this.progress,
+    this.actionLabel,
+    this.onAction,
+  });
 
-  const _RiskCard.routines({required this.graceDays})
-    : kind = _RiskCardKind.routines,
-      totalHistoryDays = 0;
-
-  final _RiskCardKind kind;
-  final int totalHistoryDays;
-  final int graceDays;
+  final IconData icon;
+  final String title;
+  final String body;
+  final String countdown;
+  final double progress;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final accent = kind == _RiskCardKind.history
-        ? colorScheme.tertiary
-        : colorScheme.error;
-    final emphasis = TextStyle(
-      color: colorScheme.onSurface.withValues(alpha: 0.82),
-      fontWeight: FontWeight.w500,
-    );
-    final icon = kind == _RiskCardKind.history
-        ? LucideIcons.clock3
-        : LucideIcons.listChecks;
-    final title = kind == _RiskCardKind.history
-        ? 'Your history is fading'
-        : 'Extra routines & steps are at risk';
-    final body = kind == _RiskCardKind.history
-        ? TextSpan(
-            children: [
-              TextSpan(
-                text:
-                    '$totalHistoryDays days of completed routines are still here. ',
-              ),
-              TextSpan(
-                text: graceDays <= 0
-                    ? 'Locked now'
-                    : 'Locked in $graceDays days',
-                style: emphasis,
-              ),
-              const TextSpan(text: ' unless you renew.'),
-            ],
-          )
-        : TextSpan(
-            children: [
-              const TextSpan(text: 'Free accounts keep '),
-              TextSpan(text: '2 routines', style: emphasis),
-              const TextSpan(text: ' with up to '),
-              TextSpan(text: '10 steps each', style: emphasis),
-              TextSpan(
-                text: graceDays <= 0
-                    ? '. Extra routines and steps are soft-locked until you renew.'
-                    : '. Extra routines and steps above this limit will be deactivated in $graceDays days.',
-              ),
-            ],
-          );
-    final countdown = graceDays <= 0 ? 'LOCKED' : '$graceDays DAYS REMAINING';
-    final clampedProgress = (graceDays / 7).clamp(0.0, 1.0);
+    // Information, not an alarm: one calm accent for both cards.
+    final accent = colorScheme.primary;
+    final actionLabel = this.actionLabel;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
@@ -1041,20 +1201,20 @@ class _RiskCard extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: GoogleFonts.outfit(
-                    fontSize: 13,
+                  style: PebbleFonts.sans(
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: accent,
+                    color: colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 3),
-                Text.rich(
+                Text(
                   body,
-                  style: GoogleFonts.outfit(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w300,
+                  style: PebbleFonts.sans(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w400,
                     height: 1.5,
-                    color: colorScheme.onSurface.withValues(alpha: 0.62),
+                    color: colorScheme.onSurface.withValues(alpha: 0.72),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -1062,7 +1222,7 @@ class _RiskCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(100),
                   child: LinearProgressIndicator(
                     minHeight: 2,
-                    value: clampedProgress,
+                    value: progress.clamp(0.0, 1.0),
                     backgroundColor: colorScheme.onSurface.withValues(
                       alpha: 0.08,
                     ),
@@ -1072,13 +1232,27 @@ class _RiskCard extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   countdown,
-                  style: GoogleFonts.outfit(
+                  style: PebbleFonts.sans(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.6,
-                    color: accent.withValues(alpha: 0.75),
+                    color: accent,
                   ),
                 ),
+                if (actionLabel != null) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton(
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(0, 40),
+                      ),
+                      onPressed: onAction,
+                      child: Text(actionLabel),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -1092,50 +1266,53 @@ class _LapsedCtaSection extends StatelessWidget {
   const _LapsedCtaSection({
     required this.monthlyPrice,
     required this.yearlyPrice,
-    required this.canRenew,
     required this.onRenew,
     required this.onManagePlan,
   });
 
-  final String monthlyPrice;
-  final String yearlyPrice;
-  final bool canRenew;
+  final String? monthlyPrice;
+  final String? yearlyPrice;
   final VoidCallback onRenew;
   final VoidCallback onManagePlan;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final monthlyPrice = this.monthlyPrice;
+    final yearlyPrice = this.yearlyPrice;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.baseline,
-          textBaseline: TextBaseline.alphabetic,
-          children: [
-            Text(
-              monthlyPrice,
-              style: GoogleFonts.dmSerifDisplay(
-                fontSize: 30,
-                color: colorScheme.onSurface,
+        if (monthlyPrice != null)
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              Text(
+                monthlyPrice,
+                style: PebbleFonts.serif(
+                  fontSize: 30,
+                  color: colorScheme.onSurface,
+                ),
               ),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              '/ month',
-              style: GoogleFonts.outfit(
-                fontSize: 13,
-                fontWeight: FontWeight.w300,
-                color: colorScheme.onSurface.withValues(alpha: 0.52),
+              Text(
+                '/ month',
+                style: PebbleFonts.sans(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w300,
+                  color: colorScheme.onSurface.withValues(alpha: 0.62),
+                ),
               ),
-            ),
-            const Spacer(),
-            _AccountPill(label: 'or $yearlyPrice/year'),
-          ],
-        ),
-        const SizedBox(height: 14),
+              if (yearlyPrice != null)
+                _AccountPill(label: 'or $yearlyPrice/year'),
+            ],
+          ),
+        if (monthlyPrice != null) const SizedBox(height: 14),
+        // Always tappable: the paywall explains a store problem and offers
+        // Try again, which a disabled button here never could.
         FilledButton.icon(
-          onPressed: canRenew ? onRenew : null,
+          onPressed: onRenew,
           style: FilledButton.styleFrom(
             minimumSize: const Size.fromHeight(52),
             shape: RoundedRectangleBorder(
@@ -1143,7 +1320,7 @@ class _LapsedCtaSection extends StatelessWidget {
             ),
           ),
           icon: const Icon(LucideIcons.refreshCw, size: 16),
-          label: Text(canRenew ? 'Renew Premium' : 'Premium unavailable'),
+          label: const Text('Renew Premium'),
         ),
         const SizedBox(height: 10),
         OutlinedButton(
@@ -1154,7 +1331,7 @@ class _LapsedCtaSection extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
             ),
           ),
-          child: const Text('Manage plan'),
+          child: const Text('Manage subscription'),
         ),
       ],
     );
@@ -1265,7 +1442,7 @@ class _AccountActionSheet extends StatelessWidget {
                     Text(
                       eyebrow.toUpperCase(),
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.outfit(
+                      style: PebbleFonts.sans(
                         color: accentColor,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
@@ -1276,7 +1453,7 @@ class _AccountActionSheet extends StatelessWidget {
                     Text(
                       title,
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.dmSerifDisplay(
+                      style: PebbleFonts.serif(
                         color: foreground,
                         fontSize: 30,
                         fontWeight: FontWeight.w400,
@@ -1288,7 +1465,7 @@ class _AccountActionSheet extends StatelessWidget {
                     Text(
                       body,
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.outfit(
+                      style: PebbleFonts.sans(
                         color: secondaryText,
                         fontSize: 14,
                         fontWeight: FontWeight.w300,
@@ -1461,7 +1638,7 @@ class _AccountSheetWarningRow extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: GoogleFonts.outfit(
+              style: PebbleFonts.sans(
                 color: colorScheme.onSurface.withValues(alpha: 0.76),
                 fontSize: 13,
                 fontWeight: FontWeight.w400,

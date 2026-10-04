@@ -7,7 +7,6 @@ import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/features/routines/composer/data/routine_composer_draft_repository.dart';
-import 'package:pebble_routines/core/ui/zen_notifications.dart';
 
 class ReorderStepsScreen extends ConsumerStatefulWidget {
   final Routine routine;
@@ -34,7 +33,7 @@ class _ReorderStepsScreenState extends ConsumerState<ReorderStepsScreen> {
 
     return Scaffold(
       backgroundColor: cs.surface,
-      appBar: const PebbleSubscreenAppBar(title: 'Reorder Steps'),
+      appBar: const PebbleSubscreenAppBar(title: 'Reorder steps'),
 
       body: Column(
         children: [
@@ -58,9 +57,9 @@ class _ReorderStepsScreenState extends ConsumerState<ReorderStepsScreen> {
                 final step = steps[index];
                 return _buildStepTile(step, index, cs);
               },
-              onReorder: (oldIndex, newIndex) {
+              // onReorderItem already adjusts newIndex for the removed item.
+              onReorderItem: (oldIndex, newIndex) {
                 setState(() {
-                  if (newIndex > oldIndex) newIndex--;
                   final item = steps.removeAt(oldIndex);
                   steps.insert(newIndex, item);
                 });
@@ -98,7 +97,7 @@ class _ReorderStepsScreenState extends ConsumerState<ReorderStepsScreen> {
                     ),
                     onPressed: _saveReorder,
                     child: const Text(
-                      'Save Changes',
+                      'Save changes',
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 16,
@@ -199,7 +198,7 @@ class _ReorderStepsScreenState extends ConsumerState<ReorderStepsScreen> {
         .read(routineComposerDraftRepositoryProvider)
         .clearEditDraftsForRoutine(widget.routine.id);
     if (!mounted) return;
-    ZenNotifications.showSuccess(context, message: 'Step order updated');
+    // The reordered list is its own confirmation; no toast needed.
     Navigator.pop(context, true);
   }
 

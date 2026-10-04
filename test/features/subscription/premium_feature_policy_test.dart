@@ -154,6 +154,9 @@ void main() {
           lastEntitlementCheckAt: DateTime.now().subtract(
             const Duration(days: 8),
           ),
+          entitlementLapseNoticedAt: DateTime.now().subtract(
+            const Duration(days: 8),
+          ),
         ),
       );
       addTearDown(harness.dispose);
@@ -264,6 +267,12 @@ class _TestSubscriptionAccountController extends SubscriptionAccountController {
 
 class _FakePurchaseRepository extends ChangeNotifier
     implements PurchaseRepository {
+
+  @override
+  bool get isLoadingProducts => false;
+
+  @override
+  Future<void> retryLoadProducts() async {}
   @override
   bool get billingAvailable => true;
 

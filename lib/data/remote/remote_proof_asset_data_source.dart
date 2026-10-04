@@ -14,6 +14,10 @@ class RemoteProofAssetDataSource {
 
   bool get isEnabled => _client != null;
 
+  /// The account whose proofs can be downloaded right now, or null when
+  /// signed out. Storage RLS only serves `users/<this id>/...` objects.
+  String? get signedInUserId => _client?.auth.currentUser?.id;
+
   Future<void> uploadBytes({
     required String objectKey,
     required Uint8List bytes,
@@ -22,6 +26,7 @@ class RemoteProofAssetDataSource {
     required String entityType,
     required String entityId,
     required DateTime capturedAt,
+    Duration retention = const Duration(days: _retentionDays),
   }) async {
     if (_client == null) return;
     await _reserveUsage(
@@ -32,6 +37,7 @@ class RemoteProofAssetDataSource {
       entityType: entityType,
       entityId: entityId,
       capturedAt: capturedAt,
+      retention: retention,
     );
     try {
       await _client.storage
@@ -51,7 +57,9 @@ class RemoteProofAssetDataSource {
   }
 
   Future<Uint8List?> downloadBytes(String objectKey) async {
-    if (_client == null) return null;
+    // Signed out (including after account deletion) nothing is readable, so
+    // never spend a request that can only come back "not found".
+    if (_client == null || _client.auth.currentSession == null) return null;
     return _client.storage.from(_bucket).download(objectKey);
   }
 
@@ -69,6 +77,7 @@ class RemoteProofAssetDataSource {
     required String entityType,
     required String entityId,
     required DateTime capturedAt,
+    required Duration retention,
   }) async {
     final now = DateTime.now().toUtc();
     await _client!.from('proof_asset_usage').upsert({
@@ -79,9 +88,7 @@ class RemoteProofAssetDataSource {
       'byte_size': byteSize,
       'content_type': contentType,
       'captured_at': capturedAt.toUtc().toIso8601String(),
-      'expires_at': now
-          .add(const Duration(days: _retentionDays))
-          .toIso8601String(),
+      'expires_at': now.add(retention).toIso8601String(),
       'deleted_at': null,
       'created_at': now.toIso8601String(),
       'updated_at': now.toIso8601String(),
@@ -94,6 +101,20 @@ class RemoteProofAssetDataSource {
         .from('proof_asset_usage')
         .update({'deleted_at': now, 'updated_at': now})
         .eq('object_key', objectKey);
+  }
+
+  /// Storage answers a missing object with HTTP 400 and a `not_found` body
+  /// (sometimes 404), so callers can treat it as permanent instead of
+  /// retrying a download that can never succeed.
+  static bool isObjectNotFound(Object error) {
+    if (error is StorageException) {
+      if (error.statusCode == '404' || error.error == 'not_found') {
+        return true;
+      }
+    }
+    final message = error.toString().toLowerCase();
+    return message.contains('object not found') ||
+        message.contains('not_found');
   }
 
   bool _looksLikeExistingObjectConflict(Object error) {
@@ -110,3 +131,14 @@ final remoteProofAssetDataSourceProvider = Provider<RemoteProofAssetDataSource>(
     return RemoteProofAssetDataSource(client);
   },
 );
+
+/// Supabase Storage reports a missing (or RLS-hidden) object as
+/// `{"statusCode": "404", "error": "not_found", "message": "Object not found"}`,
+/// sometimes behind an HTTP 400. Retrying those can never succeed.
+bool isMissingProofObjectError(Object error) {
+  if (error is StorageException) {
+    if (error.statusCode == '404' || error.error == 'not_found') return true;
+    return error.message.toLowerCase().contains('not found');
+  }
+  return false;
+}

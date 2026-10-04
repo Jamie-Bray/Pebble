@@ -18,9 +18,12 @@ class WallpaperNotifier extends StateNotifier<WallpaperType> {
       next,
     ) async {
       if (!next.canUsePremiumThemes && state != WallpaperType.none) {
+        // Hide it while Premium is off, but keep the saved choice so it
+        // comes back on renewal instead of being wiped at lapse.
         state = WallpaperType.none;
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setInt(_key, WallpaperType.none.index);
+      } else if (next.canUsePremiumThemes &&
+          previous?.canUsePremiumThemes != true) {
+        await _load();
       }
     });
     _load();

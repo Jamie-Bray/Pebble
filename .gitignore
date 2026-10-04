@@ -53,3 +53,8 @@ analyze_output.txt
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Build outputs and scratch copies never belong in the repo.
+/artifacts/
+*.bak
+/graphify-out/

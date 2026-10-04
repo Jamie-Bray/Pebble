@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:pebble_routines/data/remote/remote_row_parsing.dart';
 import 'package:pebble_routines/data/remote/supabase_client_provider.dart';
 
 class RemoteRoutineReminderRecord {
@@ -54,11 +55,11 @@ class RemoteRoutineReminderDataSource {
         .select()
         .eq('owner_user_id', ownerUserId)
         .order('updated_at');
-    return (response as List<dynamic>)
-        .whereType<Map>()
-        .map((item) => Map<String, dynamic>.from(item))
-        .map(RemoteRoutineReminderRecord.fromJson)
-        .toList();
+    return parseRemoteRows(
+      response as List<dynamic>,
+      RemoteRoutineReminderRecord.fromJson,
+      table: 'routine_reminders',
+    );
   }
 
   Future<void> upsert(Map<String, dynamic> payload) async {

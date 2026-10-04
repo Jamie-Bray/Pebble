@@ -24,7 +24,7 @@ void main() {
     );
 
     expect(find.byType(PageView), findsNothing);
-    expect(find.text('Pebble Premium'), findsOneWidget);
+    expect(find.text('Personal Premium'), findsOneWidget);
     expect(find.text('Never wonder\ntwice.'), findsOneWidget);
 
     await _scrollUntilVisible(tester, find.text('WHAT PREMIUM GIVES YOU'));
@@ -134,16 +134,14 @@ void main() {
       ],
     );
 
-    await _scrollUntilVisible(
-      tester,
-      find.textContaining('monthly base plan offer token'),
+    final notice = find.textContaining(
+      'The monthly plan is not available from Google Play right now.',
     );
+    await _scrollUntilVisible(tester, notice);
 
-    expect(
-      find.textContaining('monthly base plan offer token'),
-      findsOneWidget,
-    );
-    expect(find.text('Continue with \$0.99/month'), findsOneWidget);
+    expect(notice, findsOneWidget);
+    expect(find.textContaining('offer token'), findsNothing);
+    expect(find.text('Try again'), findsOneWidget);
   });
 
   testWidgets('premium CTA disables when store products are unavailable', (
@@ -160,9 +158,113 @@ void main() {
 
     await _scrollUntilVisible(tester, find.text('Store is not ready yet.'));
 
+    expect(find.text('Prices unavailable'), findsOneWidget);
     expect(find.text('Store is not ready yet.'), findsOneWidget);
-    expect(find.text('Loading store price'), findsOneWidget);
+    expect(find.text('Try again'), findsOneWidget);
+    expect(find.textContaining('Continue with'), findsNothing);
+    expect(find.text('Loading'), findsNothing);
+    // Restore, Terms and Privacy stay reachable even without prices.
+    expect(find.text('Restore purchase'), findsOneWidget);
+    expect(find.text('Terms of Use'), findsOneWidget);
+    expect(find.text('Privacy Policy'), findsOneWidget);
   });
+
+  testWidgets('Try again re-requests store products and shows the plans', (
+    tester,
+  ) async {
+    final repository = _UnavailablePurchaseRepository(recoverOnRetry: true);
+    await _pumpPaywall(
+      tester,
+      overrides: [purchaseRepositoryProvider.overrideWith((ref) => repository)],
+    );
+
+    final retry = find.text('Try again');
+    await _scrollUntilVisible(tester, retry);
+    await tester.tap(retry);
+    await tester.pump();
+    expect(repository.retryCount, 1);
+    expect(find.text('Checking the store...'), findsOneWidget);
+
+    await tester.pumpAndSettle();
+    expect(find.text('Prices unavailable'), findsNothing);
+    expect(find.text('Continue with \$6.99/year'), findsOneWidget);
+  });
+
+  testWidgets('a store that never answers turns into Try again', (
+    tester,
+  ) async {
+    final repository = _UnavailablePurchaseRepository(loading: true);
+    await _pumpPaywall(
+      tester,
+      settle: false,
+      overrides: [purchaseRepositoryProvider.overrideWith((ref) => repository)],
+    );
+    await tester.pump();
+    expect(find.text('Checking the store...'), findsOneWidget);
+    expect(find.text('Try again'), findsNothing);
+
+    await tester.pump(const Duration(seconds: 13));
+    expect(find.text('Prices unavailable'), findsOneWidget);
+    expect(find.textContaining('taking longer than usual'), findsOneWidget);
+    expect(find.text('Try again'), findsOneWidget);
+  });
+
+  for (final size in const [Size(390, 844), Size(360, 640)]) {
+    testWidgets(
+      'paywall at 2x text keeps the CTA, price and legal links visible '
+      '(${size.width.toInt()}x${size.height.toInt()})',
+      (tester) async {
+        await tester.binding.setSurfaceSize(size);
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+        try {
+          await _pumpPaywall(
+            tester,
+            entrySource: PremiumEntrySource.routineLimit,
+            overrides: [
+              purchaseRepositoryProvider.overrideWith(
+                (ref) => _PlanPurchaseRepository.both(),
+              ),
+            ],
+          );
+          expect(tester.takeException(), isNull);
+
+          final cta = find.text('Continue with \$6.99/year');
+          await _scrollUntilVisible(tester, cta);
+          expect(tester.takeException(), isNull);
+          final ctaRect = tester.getRect(cta);
+          expect(ctaRect.top, greaterThanOrEqualTo(0));
+          expect(ctaRect.bottom, lessThanOrEqualTo(size.height));
+          // The label is not clipped by a fixed-height button.
+          final button = find.ancestor(
+            of: cta,
+            matching: find.byType(FilledButton),
+          );
+          expect(
+            tester.getRect(button.first).bottom,
+            greaterThanOrEqualTo(ctaRect.bottom),
+          );
+
+          // Price, plan length and renewal terms sit with the button.
+          expect(find.text('\$6.99'), findsWidgets);
+          expect(
+            find.textContaining('Personal Premium Annual: \$6.99 per year.'),
+            findsOneWidget,
+          );
+          expect(find.textContaining('Renews automatically'), findsOneWidget);
+          final restore = find.text('Restore purchase');
+          await _scrollUntilVisible(tester, restore);
+          expect(find.text('Terms of Use'), findsOneWidget);
+          expect(find.text('Privacy Policy'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
+  }
 
   testWidgets('purchase cancellation quietly returns to the paywall', (
     tester,
@@ -191,7 +293,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.byType(SnackBar), findsNothing);
-    expect(find.text('Pebble Premium'), findsOneWidget);
+    expect(find.text('Personal Premium'), findsOneWidget);
   });
 
   testWidgets('purchase success while signed out explains local Premium', (
@@ -221,7 +323,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('Premium activated'), findsOneWidget);
-    expect(find.textContaining('One last thing'), findsOneWidget);
+    expect(find.textContaining('Optional: sign in'), findsOneWidget);
     expect(
       find.text(
         'Sign in to back up your history, routines, and photos, and keep them ready across devices. Totally optional; Premium works right now without it.',
@@ -294,17 +396,15 @@ void main() {
         ],
       );
 
-      await _scrollUntilVisible(
-        tester,
-        find.textContaining('monthly base plan offer token'),
+      final notice = find.textContaining(
+        'not available from the App Store right now',
       );
+      await _scrollUntilVisible(tester, notice);
 
+      expect(notice, findsOneWidget);
+      expect(find.textContaining('App Store Connect'), findsNothing);
       expect(
-        find.textContaining('not available from App Store yet'),
-        findsOneWidget,
-      );
-      expect(
-        find.textContaining('offer token in App Store Connect'),
+        find.textContaining('Cancel anytime in the App Store'),
         findsOneWidget,
       );
     } finally {
@@ -317,6 +417,7 @@ Future<void> _pumpPaywall(
   WidgetTester tester, {
   PremiumEntrySource entrySource = PremiumEntrySource.general,
   List<Override> overrides = const [],
+  bool settle = true,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
@@ -327,7 +428,7 @@ Future<void> _pumpPaywall(
       ),
     ),
   );
-  await tester.pumpAndSettle();
+  if (settle) await tester.pumpAndSettle();
 }
 
 Future<void> _scrollUntilVisible(WidgetTester tester, Finder finder) async {
@@ -337,11 +438,35 @@ Future<void> _scrollUntilVisible(WidgetTester tester, Finder finder) async {
 
 class _UnavailablePurchaseRepository extends ChangeNotifier
     implements PurchaseRepository {
-  @override
-  bool get isPurchaseAvailable => false;
+  _UnavailablePurchaseRepository({
+    this.loading = false,
+    this.recoverOnRetry = false,
+  });
+
+  bool loading;
+  final bool recoverOnRetry;
+  int retryCount = 0;
+  bool _recovered = false;
 
   @override
-  bool get billingAvailable => false;
+  bool get isLoadingProducts => loading;
+
+  @override
+  Future<void> retryLoadProducts() async {
+    retryCount += 1;
+    loading = true;
+    notifyListeners();
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    loading = false;
+    _recovered = recoverOnRetry;
+    notifyListeners();
+  }
+
+  @override
+  bool get isPurchaseAvailable => _recovered;
+
+  @override
+  bool get billingAvailable => _recovered;
 
   @override
   DateTime? get lastPurchaseCheckAt => null;
@@ -353,11 +478,27 @@ class _UnavailablePurchaseRepository extends ChangeNotifier
   String? get manageSubscriptionsUrl => null;
 
   @override
-  List<PremiumProduct> get personalPremiumProducts =>
-      getPlaceholderPremiumCatalog(isPurchasable: false);
+  List<PremiumProduct> get personalPremiumProducts => _recovered
+      ? [
+          _premiumProduct(
+            plan: BillingPlan.yearly,
+            price: '\$6.99',
+            offerToken: 'yearly-token',
+          ),
+          _premiumProduct(
+            plan: BillingPlan.monthly,
+            price: '\$0.99',
+            offerToken: 'monthly-token',
+          ),
+        ]
+      : getPlaceholderPremiumCatalog(isPurchasable: false);
 
   @override
-  String? get unavailableReason => 'Store is not ready yet.';
+  String? get unavailableReason => _recovered
+      ? null
+      : loading
+      ? 'Loading store products...'
+      : 'Store is not ready yet.';
 
   @override
   Future<PurchaseResult> purchasePersonalPremium(BillingPlan plan) {
@@ -380,6 +521,12 @@ class _UnavailablePurchaseRepository extends ChangeNotifier
 
 class _PlanPurchaseRepository extends ChangeNotifier
     implements PurchaseRepository {
+
+  @override
+  bool get isLoadingProducts => false;
+
+  @override
+  Future<void> retryLoadProducts() async {}
   _PlanPurchaseRepository(this._products, {this.cancelPurchase = false});
 
   factory _PlanPurchaseRepository.monthly() {
@@ -468,7 +615,7 @@ class _PlanPurchaseRepository extends ChangeNotifier
       tier: UserTier.personalPremium,
       plan: BillingPlan.monthly,
       requiresSignIn: false,
-      message: 'Pebble Premium restored from RevenueCat.',
+      message: 'Personal Premium restored from RevenueCat.',
     );
   }
 

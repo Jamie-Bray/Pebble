@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -15,9 +16,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
+import 'package:pebble_routines/core/ui/pebble_buttons.dart';
+import 'package:pebble_routines/core/ui/pebble_time.dart';
+import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/core/navigation/app_shell.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
+import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
+import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/core/ui/pebble_photo_gallery_viewer.dart';
 import 'package:pebble_routines/features/history/ui/routine_run_detail_screen.dart';
@@ -26,6 +32,10 @@ import 'package:pebble_routines/features/routines/execution/data/models/routine_
 import 'package:pebble_routines/features/routines/execution/data/services/routine_player_photo_picker.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
 import 'package:pebble_routines/features/routines/execution/providers/player_state_provider.dart';
+import 'package:pebble_routines/features/routines/execution/ui/routine_complete_screen.dart';
+import 'package:pebble_routines/features/routines/execution/ui/step_check_off.dart';
+
+export 'package:pebble_routines/features/routines/execution/ui/routine_complete_screen.dart';
 import 'package:pebble_routines/features/routines/composer/data/guidance_audio_storage.dart';
 import 'package:pebble_routines/features/routines/shared/ui/guidance_audio_play_button.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
@@ -44,14 +54,35 @@ class RoutinePlayerScreen extends ConsumerStatefulWidget {
 }
 
 class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
-    with WidgetsBindingObserver {
-  final GlobalKey<AnimatedVisualAnchorState> _visualAnchorKey =
-      GlobalKey<AnimatedVisualAnchorState>();
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   static const _pendingCameraCapturePrefsKey =
       'routine_player_pending_camera_capture';
   String? _lastReminderSentRunId;
-  bool _isPrimaryPreludeRunning = false;
+
+  /// What happened to this run's completion email, shown on the completion
+  /// screen. Null when no email was due.
+  String? _completionEmailNote;
   AudioPlayer? _chimePlayer;
+
+  /// Moment 1. The check is saved the instant it is tapped; this controller
+  /// only plays the motion over the already-saved state.
+  late final AnimationController _checkOff = AnimationController(
+    vsync: this,
+    duration: CheckOffTimeline.duration,
+  )..addStatusListener(_onCheckOffStatus);
+
+  /// The step that was just checked, shown while it settles into the trail.
+  CheckedStepSnapshot? _outgoing;
+  bool _checkOffReduced = false;
+
+  /// True for [CheckOffTimeline.inputGuard] after a check: a double tap must
+  /// never check two steps.
+  bool _inputGuarded = false;
+
+  /// Keeps the final step on screen while its check draws, before the
+  /// completion screen fades in.
+  bool _holdCompletion = false;
+  final List<Timer> _checkOffTimers = <Timer>[];
 
   @override
   void initState() {
@@ -134,19 +165,99 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _cancelCheckOffTimers();
+    _checkOff.dispose();
     unawaited(_chimePlayer?.dispose());
+    unawaited(_completionPlayer?.dispose());
     super.dispose();
   }
 
-  /// Opt-in reassurance feedback when a step is checked off.
-  void _playStepCompleteFeedback() {
+  void _onCheckOffStatus(AnimationStatus status) {
+    if (status == AnimationStatus.completed && mounted && _outgoing != null) {
+      setState(() => _outgoing = null);
+    }
+  }
+
+  void _cancelCheckOffTimers() {
+    for (final timer in _checkOffTimers) {
+      timer.cancel();
+    }
+    _checkOffTimers.clear();
+  }
+
+  /// Under Reduce Motion (or with transitions off) the check-off is a plain
+  /// cross-fade. Haptics are not motion, so they stay.
+  bool _reduceMotion() =>
+      MediaQuery.disableAnimationsOf(context) ||
+      !ref.read(playerSettingsControllerProvider).enableTransitions;
+
+  /// Jumps any running check-off to its end, so a fast second tap starts the
+  /// next one cleanly instead of queueing behind it.
+  void _finishRunningCheckOff() {
+    _cancelCheckOffTimers();
+    if (_checkOff.isAnimating) {
+      _checkOff.value = 1;
+    }
+    _outgoing = null;
+    _holdCompletion = false;
+    _inputGuarded = false;
+  }
+
+  void _scheduleCheckOff(Duration delay, VoidCallback action) {
+    _checkOffTimers.add(
+      Timer(delay, () {
+        if (mounted) action();
+      }),
+    );
+  }
+
+  /// "Tap, stroke, stamp, settle": a light tap now and, as the stroke
+  /// lands, a second click plus the optional stone-tap sound.
+  void _playCheckFeedback() {
     final playerSettings = ref.read(playerSettingsControllerProvider);
     if (playerSettings.stepCompleteHaptic) {
-      unawaited(HapticFeedback.mediumImpact());
+      unawaited(HapticFeedback.lightImpact());
     }
-    if (playerSettings.stepCompleteSound) {
-      unawaited(_playChime());
-    }
+    _scheduleCheckOff(CheckOffTimeline.secondCue, () {
+      final settings = ref.read(playerSettingsControllerProvider);
+      if (settings.stepCompleteHaptic) {
+        unawaited(HapticFeedback.selectionClick());
+      }
+      if (settings.stepCompleteSound) {
+        unawaited(_playChime());
+      }
+    });
+  }
+
+  void _announce(String message) {
+    unawaited(
+      SemanticsService.sendAnnouncement(
+        View.of(context),
+        message,
+        Directionality.of(context),
+      ),
+    );
+  }
+
+  AudioPlayer? _completionPlayer;
+
+  /// Three quick stone taps, rising: the cairn being stacked. Opt-in, with
+  /// the step sound.
+  void _playCompletionSound() {
+    unawaited(() async {
+      try {
+        var player = _completionPlayer;
+        if (player == null) {
+          player = AudioPlayer();
+          _completionPlayer = player;
+          await player.setAsset('assets/audio/routine_complete.wav');
+        }
+        await player.seek(Duration.zero);
+        await player.play();
+      } catch (_) {
+        // Feedback is best-effort; never let it interfere with the routine.
+      }
+    }());
   }
 
   Future<void> _playChime() async {
@@ -224,7 +335,36 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
               : BoxDecoration(color: themeData.colorScheme.surface),
           child: SafeArea(
             bottom: false,
-            child: switch (playerState.screenPhase) {
+            child: _PhaseSwitcher(
+              reduceMotion: MediaQuery.disableAnimationsOf(context),
+              child: _buildPhase(context, themeData, playerState, controller),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhase(
+    BuildContext context,
+    ThemeData themeData,
+    RoutinePlayerUiState playerState,
+    RoutinePlayerController controller,
+  ) {
+    // The final step's check draws before the completion screen fades in,
+    // even though the run is already saved.
+    final phase =
+        playerState.screenPhase == RoutinePlayerScreenPhase.completion &&
+            _holdCompletion
+        ? RoutinePlayerScreenPhase.completing
+        : playerState.screenPhase;
+    return KeyedSubtree(
+      key: ValueKey(
+        phase == RoutinePlayerScreenPhase.completing
+            ? RoutinePlayerScreenPhase.ready
+            : phase,
+      ),
+      child: switch (phase) {
               RoutinePlayerScreenPhase.loading => const _PlayerStatusView(
                 title: 'Loading routine',
                 message: 'Restoring your place.',
@@ -248,29 +388,84 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
                 onPrimary: _goHome,
                 topAction: _TopBackButton(onBack: _attemptExit),
               ),
-              RoutinePlayerScreenPhase.completion => RoutineCompleteScreen(
-                routineName:
-                    playerState.completionSummary?.routineTitle ??
-                    'Routine complete',
-                totalStepsCompleted:
-                    playerState.completionSummary?.completedSteps ??
-                    playerState.completedSteps,
-                totalPhotosSaved:
-                    playerState.completionSummary?.photoCount ??
-                    playerState.proofAssets.length,
-                onBackToHome: _goHome,
-                onReviewRoutine: _openVault,
-              ),
+              RoutinePlayerScreenPhase.completion => _buildCompletion(playerState),
               RoutinePlayerScreenPhase.ready ||
               RoutinePlayerScreenPhase.completing => _buildPlayer(
                 context,
                 themeData,
                 playerState,
               ),
-            },
+      },
+    );
+  }
+
+  Widget _buildCompletion(RoutinePlayerUiState playerState) {
+    final summary = playerState.completionSummary;
+    final session = playerState.session;
+    final proofStorage = ref.read(routineSessionProofStorageProvider);
+    final settings = ref.read(playerSettingsControllerProvider);
+    final proofs = <RoutineSessionProofAsset>[
+      for (final stepState
+          in session?.stepStates ?? const <RoutineSessionStepState>[])
+        ...stepState.proofAssets,
+    ];
+    final hasPhotoSteps =
+        session?.routineSnapshotSteps.any((step) => step.hasPhotoRequirement) ??
+        true;
+    final photoCount = summary?.photoCount ?? proofs.length;
+    return RoutineCompleteScreen(
+      routineName:
+          summary?.routineTitle ?? session?.routineTitleSnapshot ?? 'Routine',
+      routineId: session?.routineId,
+      totalStepsCompleted:
+          summary?.completedSteps ?? playerState.completedSteps,
+      totalPhotosSaved: photoCount,
+      totalSteps: session?.routineSnapshotSteps.length,
+      skippedSteps: summary?.skippedSteps ?? 0,
+      showPhotoSummary: photoCount > 0 || hasPhotoSteps,
+      finishedAt: summary?.run.finishedAt ?? session?.completedAt,
+      photos: [
+        for (final proof in proofs)
+          CompletionPhoto(
+            id: proof.proofId,
+            load: () => proofStorage.resolveProofAssetFile(proof),
           ),
-        ),
-      ),
+      ],
+      storage: CompletionStorage.fromSyncStatus(summary?.run.syncStatus),
+      completionEmailNote: _completionEmailNote,
+      haptics: settings.stepCompleteHaptic,
+      onLanded: settings.stepCompleteSound ? _playCompletionSound : null,
+      onOpenPhoto: (index) => _openRunPhotos(proofs, index),
+      onBackToHome: _goHome,
+      onReviewRoutine: _openVault,
+    );
+  }
+
+  Future<void> _openRunPhotos(
+    List<RoutineSessionProofAsset> proofs,
+    int initialIndex,
+  ) async {
+    if (proofs.isEmpty || !mounted) return;
+    final proofStorage = ref.read(routineSessionProofStorageProvider);
+    await PebblePhotoGalleryViewer.open(
+      context,
+      photos: [
+        for (var i = 0; i < proofs.length; i++)
+          PebbleGalleryPhoto(
+            id: proofs[i].proofId,
+            storedPath: proofs[i].localRelativePath,
+            title: 'Photo ${i + 1} of ${proofs.length}',
+          ),
+      ],
+      initialIndex: initialIndex.clamp(0, proofs.length - 1),
+      resolvePhotoFile: (storedPath) async {
+        for (final asset in proofs) {
+          if (asset.localRelativePath == storedPath) {
+            return proofStorage.resolveProofAssetFile(asset);
+          }
+        }
+        return proofStorage.resolveStoredFile(storedPath);
+      },
     );
   }
 
@@ -297,118 +492,310 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
     final premiumPolicy = ref.watch(premiumFeaturePolicyProvider);
     final playerSettings = ref.read(playerSettingsControllerProvider);
     final canAddMore = playerState.canAddMorePhotos;
+    final isStepLocked = playerState.isCurrentStepLocked;
+    final readyPhase =
+        playerState.screenPhase == RoutinePlayerScreenPhase.ready;
+    // Shown by photo count, not by canAddMore, so a photo save in progress
+    // doesn't blink the footer; the capture itself refuses while busy.
     final showGalleryAction =
+        readyPhase &&
         playerState.hasPhotoRequirement &&
         currentStep.allowGallery &&
-        canAddMore;
-    // The proof-photo card is part of the step itself - it shows from the
-    // start (with the Add tile) so capture lives on the surface, not behind
-    // the primary button.
+        !isStepLocked &&
+        playerState.capturedPhotoCount < playerState.maxProofPhotosPerStep;
+    // The proof-photo card is part of the step itself and shows from the start.
+    // The first photo is the requirement; any later photos are optional.
     final showPhotoSummary = playerState.hasPhotoRequirement;
     final isFreeTier = !premiumPolicy.canUseExtraProofPhotos;
-    final isStepLocked = playerState.isCurrentStepLocked;
+    final showRing =
+        playerSettings.showVisualAnchor &&
+        !playerState.hasPhotoRequirement &&
+        !isStepLocked;
+    final type = PebbleType.of(context);
+    final instructionStyle = type.step.copyWith(
+      color: themeData.colorScheme.onSurface,
+    );
+
+    final photoSummary = showPhotoSummary && !isStepLocked
+        ? _PlayerPhotoSummary(
+            proofAssets: playerState.proofAssets,
+            capturedPhotoCount: playerState.capturedPhotoCount,
+            maxPhotoCount: playerState.maxProofPhotosPerStep,
+            isFreeTier: isFreeTier,
+            resolveProofPath: proofStorage.resolveStoredPath,
+            // The empty frame is a convenient duplicate of the placed,
+            // reliable primary camera action.
+            onAddPhoto: canAddMore ? _captureCameraPhoto : null,
+            onOpenPhoto: _openCurrentStepProofGallery,
+            onPhotoLimitUpgrade: isFreeTier ? _openProofPhotoLimitPaywall : null,
+            onRemovePhoto: !playerState.isForegroundBusy
+                ? (proofId) async {
+                    await ref
+                        .read(routinePlayerProvider(widget.sessionId).notifier)
+                        .removeProof(proofId);
+                  }
+                : null,
+          )
+        : null;
+    final guidanceAudioCard =
+        currentStep.guidanceAudio != null && !isStepLocked
+        ? _PlayerGuidanceAudioCard(
+            audio: currentStep.guidanceAudio!,
+            storage: guidanceAudioStorage,
+          )
+        : null;
+
+    final incoming = Column(
+      key: ValueKey('routine-player-step-${playerState.currentStepIndex}'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (isStepLocked) ...[
+          _LockedStepBoundaryBanner(
+            lockedStepCount: playerState.lockedStepCount,
+          ),
+          const SizedBox(height: PebbleSpacing.xl),
+        ],
+        ImageFiltered(
+          enabled: isStepLocked,
+          imageFilter: ui.ImageFilter.blur(sigmaX: 2.4, sigmaY: 2.4),
+          child: Opacity(
+            opacity: isStepLocked ? 0.30 : 1,
+            child: Text(
+              _stepInstruction(currentStep),
+              textAlign: TextAlign.center,
+              style: instructionStyle,
+            ),
+          ),
+        ),
+        // Guidance audio sits above the proof card: it tells you how to do
+        // the step, the photos record what you did. Keeping it here also
+        // means a growing photo mosaic never pushes the recording out of
+        // sight.
+        if (guidanceAudioCard != null) ...[
+          const SizedBox(height: PebbleSpacing.xl),
+          guidanceAudioCard,
+        ],
+        if (photoSummary != null) ...[
+          SizedBox(
+            height: guidanceAudioCard != null
+                ? PebbleSpacing.md
+                : PebbleSpacing.xl,
+          ),
+          photoSummary,
+        ],
+      ],
+    );
+
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    final outgoing = _outgoing;
+    final stage = AnimatedBuilder(
+      animation: _checkOff,
+      builder: (context, _) {
+        final timeline = outgoing == null
+            ? null
+            : CheckOffTimeline(_checkOff.value, reduced: _checkOffReduced);
+        return CheckOffStage(
+          incoming: incoming,
+          incomingRing: showRing,
+          instructionStyle: instructionStyle,
+          outgoing: outgoing,
+          timeline: timeline,
+        );
+      },
+    );
+    final trail = AnimatedBuilder(
+      animation: _checkOff,
+      builder: (context, _) {
+        final timeline = outgoing == null
+            ? null
+            : CheckOffTimeline(_checkOff.value, reduced: _checkOffReduced);
+        return StepTrail(
+          entries: _trailEntries(session, including: outgoing?.stepIndex),
+          revealing: outgoing?.stepIndex,
+          reveal: timeline?.trailReveal ?? 1,
+          revealOpacity: timeline?.trailOpacity ?? 1,
+          visibleRows: textScale >= 1.6 ? 1 : 2,
+          maxExpandedHeight: MediaQuery.sizeOf(context).height * 0.4,
+        );
+      },
+    );
+
+    // The footer never flickers through "Saving" for a step save: the check
+    // is already on screen, and the save takes a few milliseconds.
+    final operation = playerState.activeOperation;
+    final holdingFinal = outgoing?.isFinal == true;
+    final savingStep = operation == RoutinePlayerOperation.savingStep;
+    // While a required photo is missing the primary button is the camera.
+    final primaryIsCamera =
+        !holdingFinal && !savingStep && playerState.primaryActionIsPhotoCapture;
+    final looksEnabled =
+        isStepLocked ||
+        holdingFinal ||
+        primaryIsCamera ||
+        (readyPhase &&
+            playerState.hasEnoughPhotos &&
+            (operation == RoutinePlayerOperation.none || savingStep));
+    final primaryLabel = isStepLocked
+        ? 'Upgrade to reactivate'
+        : holdingFinal
+        ? 'Finish routine'
+        : savingStep
+        ? (playerState.isFinalStep ? 'Finish routine' : 'Complete step')
+        : playerState.primaryLabel;
+    final isBusy = !holdingFinal && !savingStep && playerState.isPrimaryBusy;
 
     return _RoutineStepSurface(
       routineName: session.routineTitleSnapshot,
       stepIndex: playerState.currentStepIndex,
       stepCount: playerState.totalSteps,
       progress: playerState.progress,
-      instruction: _stepInstruction(currentStep),
-      guidanceAudioCard: currentStep.guidanceAudio != null && !isStepLocked
-          ? _PlayerGuidanceAudioCard(
-              audio: currentStep.guidanceAudio!,
-              storage: guidanceAudioStorage,
-            )
-          : null,
-      isStepLocked: isStepLocked,
-      lockedStepCount: playerState.lockedStepCount,
-      photoRequired: playerState.hasPhotoRequirement,
-      showVisualAnchor:
-          playerSettings.showVisualAnchor &&
-          !playerState.hasPhotoRequirement &&
-          !isStepLocked,
-      visualAnchorStepKey: playerState.currentStepIndex,
-      visualAnchorKey: _visualAnchorKey,
-      isBusy: playerState.isPrimaryBusy || _isPrimaryPreludeRunning,
-      primaryLabel: isStepLocked
-          ? 'Upgrade to reactivate'
-          : playerState.primaryLabel,
-      isPrimaryEnabled: isStepLocked || playerState.isPrimaryEnabled,
+      trail: trail,
+      stage: stage,
+      isBusy: isBusy,
+      primaryLabel: primaryLabel,
+      primaryIcon: primaryIsCamera ? LucideIcons.camera : null,
+      isPrimaryEnabled: looksEnabled,
       onBack: _attemptExit,
       onComplete: isStepLocked ? _openStepLimitPaywall : _handlePrimaryAction,
-      photoSummary: showPhotoSummary && !isStepLocked
-          ? _PlayerPhotoSummary(
-              proofAssets: playerState.proofAssets,
-              capturedPhotoCount: playerState.capturedPhotoCount,
-              requiredPhotoCount: playerState.requiredPhotoCount,
-              maxPhotoCount: playerState.maxProofPhotosPerStep,
-              isFreeTier: isFreeTier,
-              resolveProofPath: proofStorage.resolveStoredPath,
-              onAddPhoto: canAddMore ? _captureCameraPhoto : null,
-              onChooseFromGallery: showGalleryAction
-                  ? _captureGalleryPhoto
-                  : null,
-              onOpenPhoto: _openCurrentStepProofGallery,
-              onPhotoLimitUpgrade: isFreeTier
-                  ? _openProofPhotoLimitPaywall
-                  : null,
-              onRemovePhoto: !playerState.isForegroundBusy
-                  ? (proofId) async {
-                      await ref
-                          .read(
-                            routinePlayerProvider(widget.sessionId).notifier,
-                          )
-                          .removeProof(proofId);
-                    }
-                  : null,
-            )
-          : null,
       secondaryActions: _PlayerSecondaryActionRow(
-        showPrevious: playerState.canGoBack,
-        onPrevious: playerState.canGoBack
-            ? () async {
-                await ref
-                    .read(routinePlayerProvider(widget.sessionId).notifier)
-                    .previousStep();
-              }
-            : null,
-        showSkip: playerState.canSkip,
-        onSkip: playerState.canSkip
-            ? () async {
-                final run = await ref
-                    .read(routinePlayerProvider(widget.sessionId).notifier)
-                    .skipCurrentStep();
-                await _handlePostCompletion(run);
-              }
-            : null,
+        // Visibility is stable through the few-ms step save so the row never
+        // flickers; the handlers re-check canGoBack / canSkip on tap.
+        showPrevious: readyPhase && playerState.currentStepIndex > 0,
+        onPrevious: _handlePrevious,
+        // Gallery stays in the stable footer row for as long as another photo
+        // can be added, without growing the proof card with extra copy.
+        showChooseFromGallery: showGalleryAction,
+        onChooseFromGallery: _captureGalleryPhoto,
+        showSkip: readyPhase && currentStep.canSkip && !isStepLocked,
+        onSkip: _handleSkip,
       ),
     );
   }
 
+  List<StepTrailEntry> _trailEntries(RoutineSession session, {int? including}) {
+    final entries = <StepTrailEntry>[];
+    for (final stepState in session.stepStates) {
+      if (stepState.status == SessionStepStatus.pending) continue;
+      final index = stepState.stepIndex;
+      if (index < 0 || index >= session.routineSnapshotSteps.length) continue;
+      if (index >= session.currentStepIndex && index != including) continue;
+      final at = stepState.completedAt;
+      entries.add(
+        StepTrailEntry(
+          stepIndex: index,
+          label: _stepTitle(session.routineSnapshotSteps[index]),
+          timeLabel: at == null ? null : formatCheckTime(context, at),
+          skipped: stepState.status == SessionStepStatus.skipped,
+        ),
+      );
+    }
+    entries.sort((a, b) => a.stepIndex.compareTo(b.stepIndex));
+    return entries;
+  }
+
+  /// While a required photo is missing the primary button IS the camera, so
+  /// the thumb never has to leave the bottom of the screen mid-run. No
+  /// check-off motion then: the step isn't done yet. Once the requirement is
+  /// met, the same button checks the step off.
   Future<void> _handlePrimaryAction() async {
-    final state = ref.read(routinePlayerProvider(widget.sessionId));
-    if (_isPrimaryPreludeRunning || !state.isPrimaryEnabled) {
+    if (_inputGuarded) {
       return;
     }
-    final playerSettings = ref.read(playerSettingsControllerProvider);
-    if (playerSettings.enableTransitions) {
-      setState(() => _isPrimaryPreludeRunning = true);
-      try {
-        await _visualAnchorKey.currentState?.playCompletion();
-      } finally {
-        if (mounted) {
-          setState(() => _isPrimaryPreludeRunning = false);
-        }
-      }
+    final state = ref.read(routinePlayerProvider(widget.sessionId));
+    if (state.primaryActionIsPhotoCapture) {
+      await _capturePhoto(ImageSource.camera);
+      return;
+    }
+    await _checkOffCurrentStep(skipped: false);
+  }
+
+  Future<void> _handleSkip() => _checkOffCurrentStep(skipped: true);
+
+  Future<void> _handlePrevious() async {
+    final state = ref.read(routinePlayerProvider(widget.sessionId));
+    if (!state.canGoBack || _inputGuarded) {
+      return;
+    }
+    _finishRunningCheckOff();
+    setState(() {});
+    await ref
+        .read(routinePlayerProvider(widget.sessionId).notifier)
+        .previousStep();
+  }
+
+  /// Moment 1: commit first, then play the motion over the saved state.
+  ///
+  /// The step is saved the instant it is tapped (the time shown is the time
+  /// stored). The motion never blocks: taps within [CheckOffTimeline
+  /// .inputGuard] are dropped so a double tap checks one step, and a later
+  /// tap jumps the running motion to its end. Nothing is ever queued.
+  Future<void> _checkOffCurrentStep({required bool skipped}) async {
+    if (_inputGuarded) {
+      return;
+    }
+    final state = ref.read(routinePlayerProvider(widget.sessionId));
+    final step = state.currentStep;
+    if (step == null || state.session == null) {
+      return;
+    }
+    // A check needs the step's photo requirement met. While a required photo
+    // is missing the primary tap is routed to the camera instead (see
+    // [_handlePrimaryAction]), so it never reaches here.
+    if (skipped
+        ? !state.canSkip
+        : !state.isPrimaryEnabled || state.primaryActionIsPhotoCapture) {
+      return;
     }
 
-    // The primary button only ever completes the step now. Photo capture is
-    // driven by the Add tile in the strip, and the button stays disabled until
-    // the step has enough photos, so photoRequired never reaches here enabled.
-    _playStepCompleteFeedback();
-    final run = await ref
-        .read(routinePlayerProvider(widget.sessionId).notifier)
-        .completeCurrentStep();
+    final at = DateTime.now();
+    final reduced = _reduceMotion();
+    final label = _stepTitle(step);
+    final timeLabel = formatCheckTime(context, at);
+    final playerSettings = ref.read(playerSettingsControllerProvider);
+    final isFinal = state.isFinalStep;
+
+    _finishRunningCheckOff();
+    setState(() {
+      _outgoing = CheckedStepSnapshot(
+        stepIndex: state.currentStepIndex,
+        instruction: _stepInstruction(step),
+        timeLabel: timeLabel,
+        skipped: skipped,
+        hadRing:
+            playerSettings.showVisualAnchor &&
+            !state.hasPhotoRequirement &&
+            !state.isCurrentStepLocked,
+        isFinal: isFinal,
+      );
+      _checkOffReduced = reduced;
+      _inputGuarded = true;
+      _holdCompletion = isFinal;
+    });
+    _checkOff.duration = reduced
+        ? CheckOffTimeline.reducedDuration
+        : CheckOffTimeline.duration;
+    unawaited(_checkOff.forward(from: 0));
+    _scheduleCheckOff(CheckOffTimeline.inputGuard, () {
+      setState(() => _inputGuarded = false);
+    });
+    if (isFinal) {
+      _scheduleCheckOff(
+        reduced ? CheckOffTimeline.reducedDuration : CheckOffTimeline.finalHold,
+        () => setState(() => _holdCompletion = false),
+      );
+    }
+    // A skip gets no stroke and no buzz: the run stays honest.
+    if (!skipped) {
+      _playCheckFeedback();
+    }
+    _announce(skipped ? '$label, skipped.' : '$label, checked at $timeLabel.');
+
+    final controller = ref.read(
+      routinePlayerProvider(widget.sessionId).notifier,
+    );
+    final run = skipped
+        ? await controller.skipCurrentStep(at: at)
+        : await controller.completeCurrentStep(at: at);
     await _handlePostCompletion(run);
   }
 
@@ -722,7 +1109,7 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
           .read(localDbProvider)
           .routineDao
           .getRoutineById(session.routineId);
-      await sharedReminders.sendCompletionReminder(
+      final result = await sharedReminders.sendCompletionReminder(
         routineId: session.routineId,
         routineCloudId: routine?.cloudId,
         routineTitle: session.routineTitleSnapshot,
@@ -732,6 +1119,9 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
         completedSteps: session.completedStepsCount,
         totalSteps: session.totalStepCount,
       );
+      if (mounted) {
+        setState(() => _completionEmailNote = result.completionScreenNote);
+      }
     } catch (_) {
       // Shared emails should never make a completed routine feel unfinished.
     } finally {
@@ -812,37 +1202,23 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
                   ),
                 ),
                 const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () =>
-                        Navigator.pop(context, _RoutineExitAction.leaveAndSave),
-                    child: const Text('Leave and save'),
-                  ),
+                PebbleButton.primary(
+                  onPressed: () =>
+                      Navigator.pop(context, _RoutineExitAction.leaveAndSave),
+                  label: 'Leave and save',
                 ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () =>
-                        Navigator.pop(context, _RoutineExitAction.stay),
-                    child: const Text('Stay here'),
-                  ),
+                const SizedBox(height: PebbleSpacing.sm),
+                PebbleButton.secondary(
+                  onPressed: () =>
+                      Navigator.pop(context, _RoutineExitAction.stay),
+                  label: 'Stay here',
                 ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: TextButton(
-                    onPressed: () =>
-                        Navigator.pop(context, _RoutineExitAction.discard),
-                    style: TextButton.styleFrom(
-                      foregroundColor: themeData.colorScheme.error.withValues(
-                        alpha: 0.78,
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    child: const Text('Discard progress'),
-                  ),
+                const SizedBox(height: PebbleSpacing.xs),
+                PebbleButton.destructive(
+                  expand: true,
+                  onPressed: () =>
+                      Navigator.pop(context, _RoutineExitAction.discard),
+                  label: 'Discard progress',
                 ),
               ],
             ),
@@ -944,47 +1320,37 @@ class _RoutineStepSurface extends StatelessWidget {
     required this.stepIndex,
     required this.stepCount,
     required this.progress,
-    required this.instruction,
-    this.guidanceAudioCard,
-    required this.isStepLocked,
-    required this.lockedStepCount,
-    required this.photoRequired,
-    required this.showVisualAnchor,
-    required this.visualAnchorStepKey,
-    required this.visualAnchorKey,
+    required this.trail,
+    required this.stage,
     required this.isBusy,
     required this.primaryLabel,
+    this.primaryIcon,
     required this.isPrimaryEnabled,
     required this.onBack,
     required this.onComplete,
     required this.secondaryActions,
-    this.photoSummary,
   });
 
   final String routineName;
   final int stepIndex;
   final int stepCount;
   final double progress;
-  final String instruction;
-  final Widget? guidanceAudioCard;
-  final bool isStepLocked;
-  final int lockedStepCount;
-  final bool photoRequired;
-  final bool showVisualAnchor;
-  final int visualAnchorStepKey;
-  final GlobalKey<AnimatedVisualAnchorState> visualAnchorKey;
+  final Widget trail;
+  final Widget stage;
   final bool isBusy;
   final String primaryLabel;
+  final IconData? primaryIcon;
   final bool isPrimaryEnabled;
   final Future<void> Function() onBack;
   final Future<void> Function() onComplete;
-  final Widget? photoSummary;
   final Widget secondaryActions;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final onSurface = theme.colorScheme.onSurface;
+    final type = PebbleType.of(context);
+    final gutter = PebbleSpacing.gutter(MediaQuery.sizeOf(context).width);
 
     return Column(
       children: [
@@ -996,13 +1362,20 @@ class _RoutineStepSurface extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    minHeight: 8,
-                    backgroundColor: onSurface.withValues(alpha: 0.08),
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      theme.colorScheme.primary,
+                  borderRadius: PebbleRadius.pillAll,
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween(end: progress),
+                    duration: MediaQuery.disableAnimationsOf(context)
+                        ? Duration.zero
+                        : PebbleMotion.emphasized,
+                    curve: PebbleMotion.emphasizedCurve,
+                    builder: (context, value, _) => LinearProgressIndicator(
+                      value: value,
+                      minHeight: 8,
+                      backgroundColor: onSurface.withValues(alpha: 0.08),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        theme.colorScheme.primary,
+                      ),
                     ),
                   ),
                 ),
@@ -1011,87 +1384,59 @@ class _RoutineStepSurface extends StatelessWidget {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
-          child: Column(
-            children: [
-              Text(
-                routineName.toUpperCase(),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0,
-                  color: onSurface.withValues(alpha: 0.52),
-                ),
+          padding: EdgeInsets.fromLTRB(gutter, PebbleSpacing.md, gutter, 0),
+          child: Semantics(
+            header: true,
+            label: '$routineName, step ${stepIndex + 1} of $stepCount',
+            excludeSemantics: true,
+            child: Text(
+              '$routineName · ${stepIndex + 1} of $stepCount',
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: type.caption.copyWith(
+                color: context.readableSecondaryText,
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
-              const SizedBox(height: 6),
-              Text(
-                'Step ${stepIndex + 1} of $stepCount',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: onSurface.withValues(alpha: 0.64),
-                ),
-              ),
-            ],
+            ),
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(gutter, PebbleSpacing.sm, gutter, 0),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: trail,
           ),
         ),
         Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: MediaQuery.sizeOf(context).height * 0.42,
+          child: LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                gutter,
+                PebbleSpacing.md,
+                gutter,
+                PebbleSpacing.xl,
               ),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 560),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (showVisualAnchor) ...[
-                        AnimatedVisualAnchor(
-                          key: visualAnchorKey,
-                          stepKey: visualAnchorStepKey,
-                        ),
-                        const SizedBox(height: 34),
-                      ],
-                      if (isStepLocked) ...[
-                        _LockedStepBoundaryBanner(
-                          lockedStepCount: lockedStepCount,
-                        ),
-                        const SizedBox(height: 24),
-                      ],
-                      ImageFiltered(
-                        enabled: isStepLocked,
-                        imageFilter: ui.ImageFilter.blur(
-                          sigmaX: 2.4,
-                          sigmaY: 2.4,
-                        ),
-                        child: Opacity(
-                          opacity: isStepLocked ? 0.30 : 1,
-                          child: Text(
-                            instruction,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 36,
-                              fontWeight: FontWeight.w800,
-                              height: 1.08,
-                              color: onSurface,
-                            ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: (constraints.maxHeight - 40).clamp(
+                    0.0,
+                    double.infinity,
+                  ),
+                ),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 560),
+                    // AnimatedSize can't run at zero duration, so Reduce
+                    // Motion simply skips it.
+                    child: MediaQuery.disableAnimationsOf(context)
+                        ? stage
+                        : AnimatedSize(
+                            duration: PebbleMotion.standard,
+                            curve: PebbleMotion.enter,
+                            alignment: Alignment.topCenter,
+                            child: stage,
                           ),
-                        ),
-                      ),
-                      if (photoSummary != null) ...[
-                        const SizedBox(height: 24),
-                        photoSummary!,
-                      ],
-                      if (guidanceAudioCard != null) ...[
-                        const SizedBox(height: 16),
-                        guidanceAudioCard!,
-                      ],
-                    ],
                   ),
                 ),
               ),
@@ -1101,150 +1446,12 @@ class _RoutineStepSurface extends StatelessWidget {
         _RoutineStepFooter(
           isBusy: isBusy,
           primaryLabel: primaryLabel,
+          primaryIcon: primaryIcon,
           isPrimaryEnabled: isPrimaryEnabled,
           onComplete: onComplete,
           secondaryActions: secondaryActions,
         ),
       ],
-    );
-  }
-}
-
-class AnimatedVisualAnchor extends StatefulWidget {
-  const AnimatedVisualAnchor({super.key, required this.stepKey});
-
-  final int stepKey;
-
-  @override
-  State<AnimatedVisualAnchor> createState() => AnimatedVisualAnchorState();
-}
-
-class AnimatedVisualAnchorState extends State<AnimatedVisualAnchor>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _curve;
-  bool _showCheck = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 400),
-      vsync: this,
-    );
-    _curve = CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  void didUpdateWidget(covariant AnimatedVisualAnchor oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.stepKey != widget.stepKey) {
-      _reset();
-    }
-  }
-
-  Future<void> playCompletion() async {
-    if (!mounted) {
-      return;
-    }
-    setState(() => _showCheck = true);
-    _controller.value = 0;
-    await _controller.forward();
-  }
-
-  void _reset() {
-    _controller.value = 0;
-    if (_showCheck) {
-      setState(() => _showCheck = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final success = Colors.green.shade600;
-
-    return SizedBox(
-      key: const ValueKey('routine-player-visual-anchor'),
-      width: 160,
-      height: 160,
-      child: AnimatedBuilder(
-        animation: _curve,
-        builder: (context, child) {
-          final t = _showCheck ? _curve.value : 0.0;
-          final idleAlpha = 1 - t;
-          return DecoratedBox(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Color.lerp(
-                theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.82),
-                success.withValues(alpha: 0.12),
-                t,
-              ),
-              border: Border.all(
-                width: 2 + (2 * t),
-                color: Color.lerp(
-                  theme.colorScheme.primary.withValues(alpha: 0.18),
-                  success,
-                  t,
-                )!,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Color.lerp(
-                    theme.colorScheme.primary.withValues(alpha: 0.08),
-                    success.withValues(alpha: 0.18),
-                    t,
-                  )!,
-                  blurRadius: 28,
-                  spreadRadius: 2,
-                ),
-              ],
-            ),
-            child: Center(
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Opacity(
-                    opacity: idleAlpha,
-                    child: Container(
-                      width: 82,
-                      height: 82,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          width: 3,
-                          color: theme.colorScheme.primary.withValues(
-                            alpha: 0.24,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (_showCheck)
-                    Opacity(
-                      opacity: t,
-                      child: Transform.scale(
-                        scale: 0.72 + (0.28 * t),
-                        child: Icon(
-                          LucideIcons.check,
-                          size: 54,
-                          color: success,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
     );
   }
 }
@@ -1294,6 +1501,7 @@ class _RoutineStepFooter extends StatelessWidget {
   const _RoutineStepFooter({
     required this.isBusy,
     required this.primaryLabel,
+    this.primaryIcon,
     required this.isPrimaryEnabled,
     required this.onComplete,
     required this.secondaryActions,
@@ -1301,6 +1509,7 @@ class _RoutineStepFooter extends StatelessWidget {
 
   final bool isBusy;
   final String primaryLabel;
+  final IconData? primaryIcon;
   final bool isPrimaryEnabled;
   final Future<void> Function() onComplete;
   final Widget secondaryActions;
@@ -1319,37 +1528,25 @@ class _RoutineStepFooter extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: isPrimaryEnabled && !isBusy
-                      ? () => unawaited(onComplete())
-                      : null,
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(56),
-                    textStyle: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  child: isBusy
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator.adaptive(
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : Text(primaryLabel),
-                ),
+              PebbleButton.primary(
+                label: primaryLabel,
+                icon: primaryIcon,
+                busy: isBusy,
+                onPressed: isPrimaryEnabled
+                    ? () => unawaited(onComplete())
+                    : null,
               ),
               const SizedBox(height: 8),
+              // Always reserve the secondary row, so the primary button
+              // never moves between steps with and without Previous/Skip.
               Container(
-                constraints: const BoxConstraints(minHeight: 36),
+                constraints: const BoxConstraints(
+                  minHeight: PebbleButton.tertiaryHeight,
+                ),
                 child: Align(
                   alignment: Alignment.center,
                   child: secondaryActions,
@@ -1391,6 +1588,46 @@ class _PlayerGuidanceAudioCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final onSurface = theme.colorScheme.onSurface;
+    final leading = Container(
+      width: 38,
+      height: 38,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: theme.colorScheme.primary.withValues(alpha: 0.10),
+      ),
+      child: Icon(
+        LucideIcons.volume2,
+        size: 19,
+        color: theme.colorScheme.primary,
+      ),
+    );
+    final copy = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Voice tip',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: onSurface,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          'A short reminder for this step',
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w500,
+            color: context.readableSecondaryText,
+          ),
+        ),
+      ],
+    );
+    final playButton = GuidanceAudioPlayButton(
+      audio: audio,
+      storage: storage,
+      compact: true,
+    );
 
     return Container(
       width: double.infinity,
@@ -1400,87 +1637,61 @@ class _PlayerGuidanceAudioCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: onSurface.withValues(alpha: 0.06)),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: theme.colorScheme.primary.withValues(alpha: 0.10),
-            ),
-            child: Icon(
-              LucideIcons.volume2,
-              size: 19,
-              color: theme.colorScheme.primary,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 300) {
+            return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Voice tip',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: onSurface,
-                  ),
+                Row(
+                  children: [
+                    leading,
+                    const SizedBox(width: 12),
+                    Expanded(child: copy),
+                  ],
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  'A short reminder for this step',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w500,
-                    color: onSurface.withValues(alpha: 0.56),
-                  ),
-                ),
+                const SizedBox(height: 12),
+                Align(alignment: Alignment.centerRight, child: playButton),
               ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          GuidanceAudioPlayButton(
-            audio: audio,
-            storage: storage,
-            compact: true,
-          ),
-        ],
+            );
+          }
+          return Row(
+            children: [
+              leading,
+              const SizedBox(width: 12),
+              Expanded(child: copy),
+              const SizedBox(width: 10),
+              playButton,
+            ],
+          );
+        },
       ),
     );
   }
 }
 
-/// Fixed-size proof-photo card from the v3 mockup: a single horizontal strip
-/// of ~64px tiles (never a grid, so the surface never has to scroll), a gated
-/// subtitle, and capture driven by the Add tile rather than the primary button.
+/// A calm proof-photo card with one clear requirement and optional capacity.
+/// Empty cells are never used to advertise Premium, so the mosaic always reads
+/// as a collection of photos already taken rather than an unfinished form.
 class _PlayerPhotoSummary extends StatelessWidget {
   const _PlayerPhotoSummary({
     required this.proofAssets,
     required this.capturedPhotoCount,
-    required this.requiredPhotoCount,
     required this.maxPhotoCount,
     required this.isFreeTier,
     required this.resolveProofPath,
     this.onAddPhoto,
-    this.onChooseFromGallery,
     this.onOpenPhoto,
     this.onRemovePhoto,
     this.onPhotoLimitUpgrade,
   });
 
-  static const double _tileSize = 64;
-  static const double _tileGap = 12;
-
   final List<RoutineSessionProofAsset> proofAssets;
   final int capturedPhotoCount;
-  final int requiredPhotoCount;
   final int maxPhotoCount;
   final bool isFreeTier;
   final Future<String> Function(String storedPath) resolveProofPath;
   final Future<void> Function()? onAddPhoto;
-  final Future<void> Function()? onChooseFromGallery;
   final Future<void> Function(String proofId)? onOpenPhoto;
   final Future<void> Function(String proofId)? onRemovePhoto;
   final VoidCallback? onPhotoLimitUpgrade;
@@ -1489,221 +1700,341 @@ class _PlayerPhotoSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final onSurface = theme.colorScheme.onSurface;
-    final primary = theme.colorScheme.primary;
     final reduceMotion = MediaQuery.of(context).disableAnimations;
 
     final hasPhotos = capturedPhotoCount > 0;
     final atMax = capturedPhotoCount >= maxPhotoCount;
+    final subtitle = hasPhotos
+        ? '$capturedPhotoCount photo${capturedPhotoCount == 1 ? '' : 's'} added'
+        : 'Add one photo to complete this step';
+    final subtitleColor = hasPhotos
+        ? context.readableSecondaryText
+        : context.readableAccentText(theme.colorScheme.primary);
 
-    // One quiet subtitle line carries the gate; no nagging copy.
-    final String subtitle;
-    final Color subtitleColor;
-    final remainingRequired = requiredPhotoCount - capturedPhotoCount;
-    if (remainingRequired > 0) {
-      if (requiredPhotoCount <= 1) {
-        subtitle = 'Required to complete this step';
-      } else if (!hasPhotos) {
-        subtitle = 'Add $requiredPhotoCount photos to complete';
-      } else {
-        final label = remainingRequired == 1 ? 'photo' : 'photos';
-        subtitle = '$remainingRequired more $label required';
-      }
-      subtitleColor = primary;
-    } else if (!isFreeTier && maxPhotoCount > 1 && !atMax) {
-      subtitle = 'Add up to $maxPhotoCount photos';
-      subtitleColor = onSurface.withValues(alpha: 0.55);
-    } else if (!isFreeTier && maxPhotoCount > 1 && atMax) {
-      subtitle = 'All $maxPhotoCount added';
-      subtitleColor = onSurface.withValues(alpha: 0.55);
-    } else if (isFreeTier && onPhotoLimitUpgrade != null) {
-      subtitle = 'More photos with Premium';
-      subtitleColor = onSurface.withValues(alpha: 0.55);
-    } else {
-      subtitle = '';
-      subtitleColor = onSurface.withValues(alpha: 0.55);
-    }
-
-    final tiles = <Widget>[
-      for (final asset in proofAssets)
-        _PhotoStripPhotoTile(
-          key: ValueKey('proof-${asset.proofId}'),
-          asset: asset,
-          size: _tileSize,
+    // Only captured photos are shown. Before the first capture there is one
+    // full-size invitation; optional Premium capacity is never represented as
+    // empty cells, so it cannot be mistaken for work the user still owes.
+    final cells = <Widget>[
+      for (var index = 0; index < proofAssets.length; index += 1)
+        _ProofPhotoCell(
+          key: ValueKey('proof-${proofAssets[index].proofId}'),
+          asset: proofAssets[index],
           reduceMotion: reduceMotion,
           resolveProofPath: resolveProofPath,
           onOpen: onOpenPhoto == null
               ? null
-              : () => onOpenPhoto!(asset.proofId),
+              : () => onOpenPhoto!(proofAssets[index].proofId),
           onRemove: onRemovePhoto == null
               ? null
-              : () => onRemovePhoto!(asset.proofId),
+              : () => onRemovePhoto!(proofAssets[index].proofId),
+          openSemanticLabel:
+              'Open proof photo ${index + 1} of $capturedPhotoCount',
+          removeSemanticLabel: 'Remove proof photo ${index + 1}',
         ),
-      if (!atMax && onAddPhoto != null)
-        _PhotoStripActionTile.add(size: _tileSize, onTap: onAddPhoto!),
-      // Free tier always carries a calm, ignorable signpost to Premium.
-      if (isFreeTier && onPhotoLimitUpgrade != null)
-        _PhotoStripActionTile.locked(
-          size: _tileSize,
-          onTap: onPhotoLimitUpgrade!,
-        ),
+      if (!hasPhotos) _ProofSlotCell(onTap: onAddPhoto),
     ];
+
+    final showCaptureAction = hasPhotos && !atMax && onAddPhoto != null;
+    final showUpgradeAction =
+        isFreeTier &&
+        hasPhotos &&
+        capturedPhotoCount < 4 &&
+        onPhotoLimitUpgrade != null;
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
           color: hasPhotos
               ? onSurface.withValues(alpha: 0.06)
-              : primary.withValues(alpha: 0.16),
+              : theme.colorScheme.primary.withValues(alpha: 0.16),
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Proof photo',
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w600,
-              color: onSurface,
-            ),
-          ),
-          const SizedBox(height: 2),
-          // Reserve the line height so the strip never shifts as copy changes.
           SizedBox(
-            height: 17,
-            child: subtitle.isEmpty
-                ? null
-                : Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w500,
-                      color: subtitleColor,
-                    ),
-                  ),
-          ),
-          const SizedBox(height: 15),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
+            height: 44,
             child: Row(
               children: [
-                for (var i = 0; i < tiles.length; i += 1) ...[
-                  if (i > 0) const SizedBox(width: _tileGap),
-                  tiles[i],
-                ],
+                Expanded(
+                  child: Text(
+                    capturedPhotoCount > 1 ? 'Proof photos' : 'Proof photo',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      color: onSurface,
+                    ),
+                  ),
+                ),
+                if (showCaptureAction)
+                  _ProofPhotoHeaderAction.capture(onTap: onAddPhoto!)
+                else if (showUpgradeAction)
+                  _ProofPhotoHeaderAction.upgrade(onTap: onPhotoLimitUpgrade!),
               ],
             ),
           ),
-          if (onChooseFromGallery != null) ...[
-            const SizedBox(height: 10),
-            TextButton.icon(
-              onPressed: () => unawaited(onChooseFromGallery!()),
-              icon: const Icon(LucideIcons.images, size: 15),
-              label: const Text('Choose from library'),
-              style: TextButton.styleFrom(
-                foregroundColor: onSurface.withValues(alpha: 0.55),
-                padding: EdgeInsets.zero,
-                minimumSize: const Size(0, 32),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                textStyle: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+          Text(
+            subtitle,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+              color: subtitleColor,
             ),
-          ],
+          ),
+          const SizedBox(height: 13),
+          _ProofCollage(cells: cells),
         ],
       ),
     );
   }
 }
 
-/// A captured proof in the strip: fixed square, rounded, with a scrim remove
-/// button. Animates in with a scale-fade unless reduced-motion is on.
-class _PhotoStripPhotoTile extends StatelessWidget {
-  const _PhotoStripPhotoTile({
+class _ProofPhotoHeaderAction extends StatelessWidget {
+  const _ProofPhotoHeaderAction._({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    required this.isUpgrade,
+  });
+
+  factory _ProofPhotoHeaderAction.capture({
+    required Future<void> Function() onTap,
+  }) {
+    return _ProofPhotoHeaderAction._(
+      label: 'Add photo',
+      icon: LucideIcons.plus,
+      onTap: () => unawaited(onTap()),
+      isUpgrade: false,
+    );
+  }
+
+  factory _ProofPhotoHeaderAction.upgrade({required VoidCallback onTap}) {
+    return _ProofPhotoHeaderAction._(
+      label: 'Add more',
+      icon: LucideIcons.lock,
+      onTap: onTap,
+      isUpgrade: true,
+    );
+  }
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool isUpgrade;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final foreground = isUpgrade
+        ? context.readableSecondaryText
+        : context.readableAccentText(theme.colorScheme.primary);
+    return Semantics(
+      button: true,
+      onTap: onTap,
+      label: isUpgrade
+          ? 'Add more proof photos with Premium'
+          : 'Add another proof photo',
+      child: ExcludeSemantics(
+        child: TextButton.icon(
+          onPressed: onTap,
+          icon: Icon(icon, size: 15),
+          label: Text(label),
+          style: TextButton.styleFrom(
+            minimumSize: const Size(0, 44),
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            foregroundColor: foreground,
+            backgroundColor: foreground.withValues(alpha: 0.07),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            textStyle: PebbleFonts.sans(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Arranges proof cells into a mosaic of stable overall height: one hero frame
+/// for a single photo, halves for two, a hero plus a stacked pair for three,
+/// and a quartered grid for four. The height responds to available width but
+/// stays fixed while photos land, so the surrounding player does not jump.
+class _ProofCollage extends StatelessWidget {
+  const _ProofCollage({required this.cells});
+
+  static const double _gap = 8;
+
+  final List<Widget> cells;
+
+  @override
+  Widget build(BuildContext context) {
+    if (cells.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final height = (constraints.maxWidth * 0.58).clamp(156.0, 208.0);
+        return SizedBox(
+          height: height,
+          width: double.infinity,
+          child: _layout(),
+        );
+      },
+    );
+  }
+
+  Widget _layout() {
+    switch (cells.length) {
+      case 1:
+        return cells[0];
+      case 2:
+        return Row(
+          children: [
+            Expanded(child: cells[0]),
+            const SizedBox(width: _gap),
+            Expanded(child: cells[1]),
+          ],
+        );
+      case 3:
+        return Row(
+          children: [
+            Expanded(flex: 3, child: cells[0]),
+            const SizedBox(width: _gap),
+            Expanded(
+              flex: 2,
+              child: Column(
+                children: [
+                  Expanded(child: cells[1]),
+                  const SizedBox(height: _gap),
+                  Expanded(child: cells[2]),
+                ],
+              ),
+            ),
+          ],
+        );
+      default:
+        return Column(
+          children: [
+            Expanded(
+              child: Row(
+                children: [
+                  Expanded(child: cells[0]),
+                  const SizedBox(width: _gap),
+                  Expanded(child: cells[1]),
+                ],
+              ),
+            ),
+            const SizedBox(height: _gap),
+            Expanded(
+              child: Row(
+                children: [
+                  Expanded(child: cells[2]),
+                  const SizedBox(width: _gap),
+                  Expanded(child: cells[3]),
+                ],
+              ),
+            ),
+          ],
+        );
+    }
+  }
+}
+
+/// A captured proof filling its mosaic cell, with a scrim remove button.
+/// Animates in with a scale-fade unless reduced-motion is on.
+class _ProofPhotoCell extends StatelessWidget {
+  const _ProofPhotoCell({
     super.key,
     required this.asset,
-    required this.size,
     required this.reduceMotion,
     required this.resolveProofPath,
+    required this.openSemanticLabel,
+    required this.removeSemanticLabel,
     this.onOpen,
     this.onRemove,
   });
 
   final RoutineSessionProofAsset asset;
-  final double size;
   final bool reduceMotion;
   final Future<String> Function(String storedPath) resolveProofPath;
+  final String openSemanticLabel;
+  final String removeSemanticLabel;
   final Future<void> Function()? onOpen;
   final Future<void> Function()? onRemove;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final tile = SizedBox(
-      width: size,
-      height: size,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned.fill(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(13),
-              child: FutureBuilder<String>(
-                future: resolveProofPath(asset.localRelativePath),
-                builder: (context, snapshot) {
-                  final path = snapshot.data;
-                  final file = path == null ? null : File(path);
-                  final exists = file != null && file.existsSync();
-                  if (exists) {
-                    return Image.file(file, fit: BoxFit.cover);
-                  }
-                  return Container(
-                    color: theme.colorScheme.surfaceContainerHighest,
-                    child: Icon(
-                      LucideIcons.imageOff,
-                      size: 22,
-                      color: theme.colorScheme.onSurface.withValues(
-                        alpha: 0.35,
-                      ),
-                    ),
-                  );
-                },
+    final cell = Stack(
+      children: [
+        Positioned.fill(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: FutureBuilder<String>(
+              future: resolveProofPath(asset.localRelativePath),
+              builder: (context, snapshot) {
+                final path = snapshot.data;
+                final file = path == null ? null : File(path);
+                final exists = file != null && file.existsSync();
+                return ExcludeSemantics(
+                  child: exists
+                      ? Image.file(file, fit: BoxFit.cover)
+                      : Container(
+                          color: theme.colorScheme.surfaceContainerHighest,
+                          child: Icon(
+                            LucideIcons.imageOff,
+                            size: 22,
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.35,
+                            ),
+                          ),
+                        ),
+                );
+              },
+            ),
+          ),
+        ),
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.05),
               ),
             ),
           ),
+        ),
+        if (onOpen != null)
           Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(13),
-                border: Border.all(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.05),
-                ),
-              ),
-            ),
-          ),
-          if (onOpen != null)
-            Positioned.fill(
+            child: Semantics(
+              button: true,
+              label: openSemanticLabel,
               child: Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(13),
+                  borderRadius: BorderRadius.circular(14),
                   onTap: () => unawaited(onOpen!()),
                 ),
               ),
             ),
-          if (onRemove != null)
-            Positioned(
-              top: -14,
-              right: -14,
-              child: SizedBox(
-                width: 44,
-                height: 44,
+          ),
+        if (onRemove != null)
+          Positioned(
+            top: 4,
+            right: 4,
+            child: SizedBox(
+              width: 48,
+              height: 48,
+              child: Semantics(
+                button: true,
+                label: removeSemanticLabel,
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
@@ -1711,16 +2042,18 @@ class _PhotoStripPhotoTile extends StatelessWidget {
                     onTap: () => unawaited(onRemove!()),
                     child: Center(
                       child: Container(
-                        width: 22,
-                        height: 22,
-                        decoration: const BoxDecoration(
-                          color: Color(0x80161612),
+                        width: 26,
+                        height: 26,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.inverseSurface.withValues(
+                            alpha: 0.72,
+                          ),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(
+                        child: Icon(
                           LucideIcons.x,
-                          size: 12,
-                          color: Colors.white,
+                          size: 14,
+                          color: theme.colorScheme.onInverseSurface,
                         ),
                       ),
                     ),
@@ -1728,12 +2061,12 @@ class _PhotoStripPhotoTile extends StatelessWidget {
                 ),
               ),
             ),
-        ],
-      ),
+          ),
+      ],
     );
 
     if (reduceMotion) {
-      return tile;
+      return cell;
     }
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
@@ -1745,113 +2078,49 @@ class _PhotoStripPhotoTile extends StatelessWidget {
           child: Transform.scale(scale: 0.94 + (0.06 * t), child: child),
         );
       },
-      child: tile,
+      child: cell,
     );
   }
 }
 
-/// The Add and locked-Premium tiles share a square, rounded, labelled shape.
-class _PhotoStripActionTile extends StatelessWidget {
-  const _PhotoStripActionTile._({
-    required this.size,
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    required this.locked,
-  });
+/// An empty frame for a photo the step still needs, drawn as a dashed outline
+/// at full cell size so the card shows the shape of what is being collected.
+class _ProofSlotCell extends StatelessWidget {
+  const _ProofSlotCell({this.onTap});
 
-  factory _PhotoStripActionTile.add({
-    required double size,
-    required Future<void> Function() onTap,
-  }) {
-    return _PhotoStripActionTile._(
-      size: size,
-      icon: LucideIcons.camera,
-      label: 'Add',
-      onTap: () => unawaited(onTap()),
-      locked: false,
-    );
-  }
-
-  factory _PhotoStripActionTile.locked({
-    required double size,
-    required VoidCallback onTap,
-  }) {
-    return _PhotoStripActionTile._(
-      size: size,
-      icon: LucideIcons.lock,
-      label: 'Add more',
-      onTap: onTap,
-      locked: true,
-    );
-  }
-
-  final double size;
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final bool locked;
+  final Future<void> Function()? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final onSurface = theme.colorScheme.onSurface;
-    final accent = locked
-        ? onSurface.withValues(alpha: 0.45)
-        : theme.colorScheme.primary;
-
-    final content = Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, size: locked ? 16 : 19, color: accent),
-        const SizedBox(height: 3),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: locked ? 10 : 10.5,
-            fontWeight: FontWeight.w500,
-            color: accent,
+    final accent = Theme.of(context).colorScheme.primary;
+    return CustomPaint(
+      painter: _DashedRRectPainter(
+        color: accent.withValues(alpha: 0.34),
+        radius: 14,
+      ),
+      child: Semantics(
+        button: onTap != null,
+        label: 'Take a proof photo',
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: onTap == null ? null : () => unawaited(onTap!()),
+            child: Center(
+              child: Icon(
+                LucideIcons.camera,
+                size: 24,
+                color: accent.withValues(alpha: 0.48),
+              ),
+            ),
           ),
-        ),
-      ],
-    );
-
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Material(
-        color: locked
-            ? onSurface.withValues(alpha: 0.03)
-            : theme.colorScheme.primary.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(13),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(13),
-          onTap: onTap,
-          child: locked
-              ? CustomPaint(
-                  painter: _DashedRRectPainter(
-                    color: onSurface.withValues(alpha: 0.22),
-                    radius: 13,
-                  ),
-                  child: Center(child: content),
-                )
-              : DecoratedBox(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(13),
-                    border: Border.all(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.30),
-                      width: 1.5,
-                    ),
-                  ),
-                  child: Center(child: content),
-                ),
         ),
       ),
     );
   }
 }
 
-/// Faint dashed rounded-rect outline for the locked Premium tile.
+/// Faint dashed rounded-rect outline for empty proof frames.
 class _DashedRRectPainter extends CustomPainter {
   const _DashedRRectPainter({required this.color, required this.radius});
 
@@ -1895,6 +2164,8 @@ class _PlayerSecondaryActionRow extends StatelessWidget {
     required this.showSkip,
     this.onPrevious,
     this.onSkip,
+    this.showChooseFromGallery = false,
+    this.onChooseFromGallery,
   });
 
   final bool showPrevious;
@@ -1902,30 +2173,33 @@ class _PlayerSecondaryActionRow extends StatelessWidget {
   final Future<void> Function()? onPrevious;
   final Future<void> Function()? onSkip;
 
+  /// Gallery pick lives down here beside the primary button, not up in the
+  /// photo card: on a photo step the hand is already at the bottom of the
+  /// screen, and reaching mid-screen for it was the flow-breaker.
+  final bool showChooseFromGallery;
+  final Future<void> Function()? onChooseFromGallery;
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final textColor = theme.colorScheme.onSurface.withValues(alpha: 0.62);
-
     final actions = <Widget>[
       if (showPrevious)
-        TextButton.icon(
+        PebbleButton.tertiary(
           onPressed: onPrevious == null ? null : () => unawaited(onPrevious!()),
-          icon: const Icon(LucideIcons.chevronLeft, size: 16),
-          label: const Text('Previous'),
-          style: TextButton.styleFrom(foregroundColor: textColor),
+          icon: LucideIcons.chevronLeft,
+          label: 'Previous',
+        ),
+      if (showChooseFromGallery)
+        PebbleButton.tertiary(
+          onPressed: onChooseFromGallery == null
+              ? null
+              : () => unawaited(onChooseFromGallery!()),
+          icon: LucideIcons.images,
+          label: 'From library',
         ),
       if (showSkip)
-        TextButton(
+        PebbleButton.tertiary(
           onPressed: onSkip == null ? null : () => unawaited(onSkip!()),
-          style: TextButton.styleFrom(
-            foregroundColor: textColor,
-            textStyle: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          child: const Text('Skip step'),
+          label: 'Skip step',
         ),
     ];
 
@@ -1942,337 +2216,6 @@ class _PlayerSecondaryActionRow extends StatelessWidget {
         else
           const Spacer(),
       ],
-    );
-  }
-}
-
-class RoutineCompleteScreen extends StatefulWidget {
-  const RoutineCompleteScreen({
-    super.key,
-    required this.routineName,
-    required this.totalStepsCompleted,
-    required this.totalPhotosSaved,
-    required this.onBackToHome,
-    required this.onReviewRoutine,
-  });
-
-  final String routineName;
-  final int totalStepsCompleted;
-  final int totalPhotosSaved;
-  final VoidCallback onBackToHome;
-  final VoidCallback onReviewRoutine;
-
-  @override
-  State<RoutineCompleteScreen> createState() => _RoutineCompleteScreenState();
-}
-
-class _RoutineCompleteScreenState extends State<RoutineCompleteScreen>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 900),
-      vsync: this,
-    )..forward();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final primary = theme.colorScheme.primary;
-    final routineName = widget.routineName.trim().isEmpty
-        ? 'Routine complete'
-        : widget.routineName.trim();
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: Center(
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _StaggeredEntrance(
-                      controller: _controller,
-                      interval: const Interval(
-                        0,
-                        0.58,
-                        curve: Curves.easeOutCubic,
-                      ),
-                      child: Column(
-                        children: [
-                          Container(
-                            width: 100,
-                            height: 100,
-                            decoration: BoxDecoration(
-                              color: primary,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: primary.withValues(alpha: 0.25),
-                                  blurRadius: 32,
-                                  offset: const Offset(0, 16),
-                                ),
-                              ],
-                            ),
-                            child: Icon(
-                              Icons.check,
-                              size: 58,
-                              color: theme.colorScheme.onPrimary,
-                              weight: 800,
-                            ),
-                          ),
-                          const SizedBox(height: 32),
-                          Text(
-                            'Routine complete',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.w800,
-                              height: 1.08,
-                              color: theme.colorScheme.onSurface,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            routineName,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              height: 1.35,
-                              color: theme.colorScheme.onSurface.withValues(
-                                alpha: 0.6,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 46),
-                    _StaggeredEntrance(
-                      controller: _controller,
-                      interval: const Interval(
-                        0.18,
-                        0.78,
-                        curve: Curves.easeOutCubic,
-                      ),
-                      child: _RoutineSummaryCard(
-                        totalStepsCompleted: widget.totalStepsCompleted,
-                        totalPhotosSaved: widget.totalPhotosSaved,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          SafeArea(
-            top: false,
-            child: _StaggeredEntrance(
-              controller: _controller,
-              interval: const Interval(0.36, 1, curve: Curves.easeOutCubic),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: widget.onBackToHome,
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(58),
-                        backgroundColor: primary,
-                        foregroundColor: theme.colorScheme.onPrimary,
-                        elevation: 0,
-                        shadowColor: primary.withValues(alpha: 0.25),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      child: const Text('Back to Home'),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: widget.onReviewRoutine,
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(56),
-                        backgroundColor: Colors.transparent,
-                        foregroundColor: primary,
-                        side: BorderSide(
-                          color: primary.withValues(alpha: 0.36),
-                          width: 1.6,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      child: const Text('Review Routine'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RoutineSummaryCard extends StatelessWidget {
-  const _RoutineSummaryCard({
-    required this.totalStepsCompleted,
-    required this.totalPhotosSaved,
-  });
-
-  final int totalStepsCompleted;
-  final int totalPhotosSaved;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    const completionText = Color(0xFF2D2B2A);
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: theme.colorScheme.primary.withValues(alpha: 0.06),
-            blurRadius: 32,
-            offset: const Offset(0, 12),
-          ),
-        ],
-        border: Border.all(color: completionText.withValues(alpha: 0.04)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'SUMMARY',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.2,
-              color: Color(0xFFADA69F),
-            ),
-          ),
-          const SizedBox(height: 16),
-          _RoutineSummaryRow(
-            icon: LucideIcons.circleCheck,
-            label: 'Steps Completed',
-            value: '$totalStepsCompleted / $totalStepsCompleted',
-          ),
-          Divider(height: 25, color: completionText.withValues(alpha: 0.08)),
-          _RoutineSummaryRow(
-            icon: LucideIcons.image,
-            label: 'Evidence Saved',
-            value: '$totalPhotosSaved Photo${totalPhotosSaved == 1 ? '' : 's'}',
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RoutineSummaryRow extends StatelessWidget {
-  const _RoutineSummaryRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    const completionText = Color(0xFF2D2B2A);
-    const mutedText = Color(0xFF8C857E);
-
-    return Row(
-      children: [
-        Icon(icon, size: 20, color: theme.colorScheme.primary),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: completionText,
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            color: mutedText,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _StaggeredEntrance extends StatelessWidget {
-  const _StaggeredEntrance({
-    required this.controller,
-    required this.interval,
-    required this.child,
-  });
-
-  final AnimationController controller;
-  final Interval interval;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final animation = CurvedAnimation(parent: controller, curve: interval);
-
-    return AnimatedBuilder(
-      animation: animation,
-      child: child,
-      builder: (context, child) {
-        return Opacity(
-          opacity: animation.value,
-          child: Transform.translate(
-            offset: Offset(0, 20 * (1 - animation.value)),
-            child: child,
-          ),
-        );
-      },
     );
   }
 }
@@ -2337,16 +2280,16 @@ class _PlayerStatusView extends StatelessWidget {
                   ),
                   if (primaryLabel != null && onPrimary != null) ...[
                     const SizedBox(height: 24),
-                    FilledButton(
+                    PebbleButton.primary(
                       onPressed: onPrimary,
-                      child: Text(primaryLabel!),
+                      label: primaryLabel!,
                     ),
                   ],
                   if (secondaryLabel != null && onSecondary != null) ...[
-                    const SizedBox(height: 10),
-                    TextButton(
+                    const SizedBox(height: PebbleSpacing.xs),
+                    PebbleButton.tertiary(
                       onPressed: onSecondary,
-                      child: Text(secondaryLabel!),
+                      label: secondaryLabel!,
                     ),
                   ],
                 ],
@@ -2360,3 +2303,35 @@ class _PlayerStatusView extends StatelessWidget {
 }
 
 enum _RoutineExitAction { stay, leaveAndSave, discard }
+
+/// Fade-through between player phases (DESIGN_DIRECTION.md Moment 2): the
+/// player fades out over the first 90 ms, the next phase in over the next
+/// 210. Reduce Motion gets a 120 ms cross-fade.
+class _PhaseSwitcher extends StatelessWidget {
+  const _PhaseSwitcher({required this.reduceMotion, required this.child});
+
+  final bool reduceMotion;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: reduceMotion
+          ? PebbleMotion.reduced
+          : PebbleMotion.quick + PebbleMotion.quick,
+      switchInCurve: reduceMotion
+          ? Curves.linear
+          : const Interval(0.3, 1, curve: PebbleMotion.enter),
+      switchOutCurve: reduceMotion
+          ? Curves.linear
+          : const Interval(0.7, 1, curve: Curves.easeOut),
+      layoutBuilder: (current, previous) => Stack(
+        fit: StackFit.expand,
+        children: [...previous, ?current],
+      ),
+      transitionBuilder: (child, animation) =>
+          FadeTransition(opacity: animation, child: child),
+      child: child,
+    );
+  }
+}

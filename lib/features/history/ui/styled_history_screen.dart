@@ -5,15 +5,17 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/ui/adaptive_layout.dart';
+import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/core/ui/pebble_confirmation_sheet.dart';
 import 'package:pebble_routines/core/ui/pebble_photo_gallery_viewer.dart';
 import 'package:pebble_routines/features/account_backup/providers/account_status_mapper.dart';
+import 'package:pebble_routines/features/history/domain/run_step_tally.dart';
 import 'package:pebble_routines/features/history/ui/routine_run_detail_screen.dart';
 import 'package:pebble_routines/features/history/providers/routine_history_vm.dart';
 import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
@@ -24,6 +26,7 @@ import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/ui/zen_error_view.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
+import 'package:pebble_routines/core/ui/pebble_time.dart';
 
 // History View Modes
 enum HistoryViewMode { timeline, vault }
@@ -251,6 +254,9 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
                       routine: byId[run.routineId],
                       proofStorage: proofStorage,
                       showSyncState: backupStatus.showRunSyncState,
+                      // "OLDER" alone says nothing about when; only there does
+                      // each card need to carry its own date.
+                      showDate: section == HistorySection.older,
                       onDismiss: () => _confirmDismissRun(context, ref, run),
                       onManage: () {
                         _showManageRunSheet(context, ref, run, proofStorage);
@@ -437,7 +443,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
                 fontSize: 13,
                 height: 1.3,
                 fontWeight: FontWeight.w300,
-                color: foundation.textMuted,
+                color: context.readableSecondaryText,
               ),
             ),
           ),
@@ -523,7 +529,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
                 fontSize: 13,
                 height: 1.35,
                 fontWeight: FontWeight.w300,
-                color: foundation.textMuted,
+                color: context.readableSecondaryText,
               ),
             ),
           ],
@@ -827,7 +833,7 @@ class _HistoryHeader extends StatelessWidget {
                     'History',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.dmSerifDisplay(
+                    style: PebbleFonts.serif(
                       fontSize: 34,
                       height: 1,
                       fontWeight: FontWeight.w400,
@@ -853,7 +859,7 @@ class _HistoryHeader extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w300,
-                color: foundation.textMuted,
+                color: context.readableSecondaryText,
                 letterSpacing: 0.1,
               ),
             ),
@@ -880,22 +886,28 @@ class _ToggleItem extends StatelessWidget {
     final foundation = context.darkFoundation;
 
     return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: isSelected ? foundation.surfaceLow : Colors.transparent,
-            borderRadius: BorderRadius.circular(7),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
-              letterSpacing: 0.1,
-              color: isSelected ? foundation.textPrimary : foundation.textMuted,
+      child: Semantics(
+        button: true,
+        selected: isSelected,
+        child: GestureDetector(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: isSelected ? foundation.surfaceLow : Colors.transparent,
+              borderRadius: BorderRadius.circular(7),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
+                letterSpacing: 0.1,
+                color: isSelected
+                    ? foundation.textPrimary
+                    : context.readableSecondaryText,
+              ),
             ),
           ),
         ),
@@ -911,7 +923,6 @@ class _HistoryDateLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
     return Padding(
       padding: const EdgeInsets.fromLTRB(2, 8, 2, 0),
       child: Text(
@@ -920,7 +931,7 @@ class _HistoryDateLabel extends StatelessWidget {
           fontSize: 10,
           fontWeight: FontWeight.w600,
           letterSpacing: 1.2,
-          color: foundation.textPrimary.withValues(alpha: 0.22),
+          color: context.readableSecondaryText,
         ),
       ),
     );
@@ -933,6 +944,7 @@ class _HistoryCard extends StatelessWidget {
     required this.routine,
     required this.proofStorage,
     required this.showSyncState,
+    required this.showDate,
     required this.onDismiss,
     required this.onManage,
   });
@@ -941,6 +953,7 @@ class _HistoryCard extends StatelessWidget {
   final Routine? routine;
   final RoutineSessionProofStorage proofStorage;
   final bool showSyncState;
+  final bool showDate;
   final Future<bool> Function() onDismiss;
   final VoidCallback onManage;
 
@@ -953,9 +966,10 @@ class _HistoryCard extends StatelessWidget {
     final title = run.routineTitle.trim().isEmpty
         ? 'Deleted routine'
         : run.routineTitle.trim();
-    final stepCount = _runStepCount(run);
-    final completedStepCount = _runCompletedStepCount(run);
-    final isComplete = stepCount > 0 && completedStepCount >= stepCount;
+    final tally = RunStepTally.fromRun(run);
+    final stepCount = tally.total;
+    final completedStepCount = tally.done;
+    final isComplete = tally.isComplete;
     final accent = Theme.of(context).colorScheme.primary;
 
     return Padding(
@@ -1007,7 +1021,10 @@ class _HistoryCard extends StatelessWidget {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        _HistoryRunTimeBlock(time: run.finishedAt),
+                        _HistoryRunTimeBlock(
+                          time: run.finishedAt,
+                          showDate: showDate,
+                        ),
                         Container(
                           width: 1,
                           height: 36,
@@ -1037,6 +1054,7 @@ class _HistoryCard extends StatelessWidget {
                                 syncState: syncState,
                                 completedSteps: completedStepCount,
                                 totalSteps: stepCount,
+                                skippedSteps: tally.skipped,
                               ),
                               if (r == null) ...[
                                 const SizedBox(height: 5),
@@ -1045,7 +1063,7 @@ class _HistoryCard extends StatelessWidget {
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w500,
-                                    color: foundation.textMuted,
+                                    color: context.readableSecondaryText,
                                   ),
                                 ),
                               ],
@@ -1072,13 +1090,17 @@ class _HistoryCard extends StatelessWidget {
 }
 
 class _HistoryRunTimeBlock extends StatelessWidget {
-  const _HistoryRunTimeBlock({required this.time});
+  const _HistoryRunTimeBlock({required this.time, this.showDate = false});
 
   final DateTime time;
+  final bool showDate;
 
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
+    // Follows the device: "8:04" + "am", or "08:04" alone on 24-hour.
+    final (clock, meridiem) = splitMeridiem(formatCheckTime(context, time));
+    final sameYear = time.year == DateTime.now().year;
     return SizedBox(
       width: 68,
       child: Column(
@@ -1091,10 +1113,10 @@ class _HistoryRunTimeBlock extends StatelessWidget {
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerRight,
               child: Text(
-                DateFormat('h:mm').format(time),
+                clock,
                 maxLines: 1,
                 textAlign: TextAlign.right,
-                style: GoogleFonts.dmSerifDisplay(
+                style: PebbleFonts.serif(
                   fontSize: 26,
                   height: 1,
                   fontWeight: FontWeight.w400,
@@ -1103,17 +1125,39 @@ class _HistoryRunTimeBlock extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 2),
-          Text(
-            DateFormat('a').format(time).toLowerCase(),
-            textAlign: TextAlign.right,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 0.8,
-              color: foundation.textMuted,
+          if (meridiem != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              meridiem.toLowerCase(),
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 0.8,
+                color: context.readableSecondaryText,
+              ),
             ),
-          ),
+          ],
+          if (showDate) ...[
+            const SizedBox(height: 4),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(
+                sameYear
+                    ? DateFormat.MMMd().format(time)
+                    : DateFormat.yMMMd().format(time),
+                maxLines: 1,
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3,
+                  color: foundation.textSecondary,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1239,6 +1283,7 @@ class _HistoryRunBadges extends StatelessWidget {
     required this.syncState,
     required this.completedSteps,
     required this.totalSteps,
+    this.skippedSteps = 0,
   });
 
   final RoutineRun run;
@@ -1246,6 +1291,7 @@ class _HistoryRunBadges extends StatelessWidget {
   final _HistorySyncState? syncState;
   final int completedSteps;
   final int totalSteps;
+  final int skippedSteps;
 
   @override
   Widget build(BuildContext context) {
@@ -1262,6 +1308,7 @@ class _HistoryRunBadges extends StatelessWidget {
               _HistoryCompletionChip(
                 completedSteps: completedSteps,
                 totalSteps: totalSteps,
+                skippedSteps: skippedSteps,
               ),
             if (syncState != null) _HistorySyncPill(state: syncState!),
             if (photoCount > 0) _HistoryPhotoCount(count: photoCount),
@@ -1276,10 +1323,12 @@ class _HistoryCompletionChip extends StatelessWidget {
   const _HistoryCompletionChip({
     required this.completedSteps,
     required this.totalSteps,
+    this.skippedSteps = 0,
   });
 
   final int completedSteps;
   final int totalSteps;
+  final int skippedSteps;
 
   @override
   Widget build(BuildContext context) {
@@ -1299,13 +1348,19 @@ class _HistoryCompletionChip extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 6),
-        Text(
-          '$completedSteps of $totalSteps steps',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w400,
-            letterSpacing: 0.1,
-            color: foundation.textMuted,
+        Flexible(
+          child: Text(
+            RunStepTally(
+              done: completedSteps,
+              skipped: skippedSteps,
+              total: totalSteps,
+            ).summary,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              letterSpacing: 0.1,
+              color: context.readableSecondaryText,
+            ),
           ),
         ),
       ],
@@ -1320,7 +1375,6 @@ class _HistoryPhotoCount extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
     return Tooltip(
       message: '$count retained photo${count == 1 ? '' : 's'}',
       child: Row(
@@ -1332,7 +1386,7 @@ class _HistoryPhotoCount extends StatelessWidget {
               fontSize: 12,
               fontWeight: FontWeight.w400,
               letterSpacing: 0.1,
-              color: foundation.textMuted,
+              color: context.readableSecondaryText,
             ),
           ),
         ],
@@ -1398,7 +1452,6 @@ class _HistoryBackupFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
     final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.fromLTRB(2, 16, 2, 24),
@@ -1412,7 +1465,7 @@ class _HistoryBackupFooter extends StatelessWidget {
                 height: 1.2,
                 fontWeight: FontWeight.w300,
                 letterSpacing: 0.1,
-                color: foundation.textPrimary.withValues(alpha: 0.22),
+                color: context.readableSecondaryText,
               ),
             ),
           ),
@@ -1424,8 +1477,8 @@ class _HistoryBackupFooter extends StatelessWidget {
               padding: EdgeInsets.zero,
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              foregroundColor: cs.primary.withValues(alpha: 0.78),
-              textStyle: const TextStyle(
+              foregroundColor: context.readableAccentText(cs.primary),
+              textStyle: PebbleFonts.sans(
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
                 letterSpacing: 0.1,
@@ -1485,28 +1538,34 @@ class _VaultGridItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    return GestureDetector(
-      onTap: () async {
-        await _showGallery(context);
-      },
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          decoration: BoxDecoration(color: cs.surfaceContainerHighest),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              _VaultStoredPhotoView(
-                proofStorage: proofStorage,
-                storedPath: photo.path,
-                asset: photo.asset,
-                missing: _buildMissingPhotoPlaceholder(cs),
-              ),
+    return Semantics(
+      button: true,
+      label:
+          'Proof photo, ${photo.label}, '
+          '${DateFormat.yMMMd().format(photo.timestamp)}',
+      child: GestureDetector(
+        onTap: () async {
+          await _showGallery(context);
+        },
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            decoration: BoxDecoration(color: cs.surfaceContainerHighest),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                _VaultStoredPhotoView(
+                  proofStorage: proofStorage,
+                  storedPath: photo.path,
+                  asset: photo.asset,
+                  missing: _buildMissingPhotoPlaceholder(cs),
+                ),
 
-              // Overlays
-              _buildGradientOverlay(),
-              _buildInfoOverlay(context),
-            ],
+                // Overlays
+                _buildGradientOverlay(),
+                _buildInfoOverlay(context),
+              ],
+            ),
           ),
         ),
       ),
@@ -1735,7 +1794,7 @@ class _HeroPhotoView extends StatelessWidget {
             top: 0,
             left: 0,
             right: 0,
-            child: PebbleBackChrome(),
+            child: PebbleBackChrome(fadeContentBehind: true),
           ),
         ],
       ),
@@ -1778,44 +1837,6 @@ class _VaultStoredPhotoView extends StatelessWidget {
 /* ---------- Private helpers ---------- */
 
 enum HistorySection { today, yesterday, twoDaysAgo, threeDaysAgo, older }
-
-int _runStepCount(RoutineRun run) {
-  final data = _decodeRunCompletionData(run);
-  final effectiveSteps = data?['effectiveSteps'];
-  if (effectiveSteps is List && effectiveSteps.isNotEmpty) {
-    return effectiveSteps.length;
-  }
-  final steps = data?['steps'];
-  if (steps is List) {
-    return steps.length;
-  }
-  return 0;
-}
-
-int _runCompletedStepCount(RoutineRun run) {
-  final data = _decodeRunCompletionData(run);
-  final steps = data?['steps'];
-  if (steps is! List || steps.isEmpty) {
-    return _runStepCount(run);
-  }
-
-  var completed = 0;
-  for (final rawStep in steps) {
-    if (rawStep is! Map) {
-      continue;
-    }
-    final step = Map<String, dynamic>.from(rawStep);
-    final skipped = step['skipped'] == true;
-    final explicitlyCompleted = step['completed'] == true;
-    final hasCompletionTime =
-        DateTime.tryParse(step['completedAt']?.toString() ?? '') != null;
-    if (!skipped && (explicitlyCompleted || hasCompletionTime)) {
-      completed++;
-    }
-  }
-
-  return completed;
-}
 
 Map<String, dynamic>? _decodeRunCompletionData(RoutineRun run) {
   final raw = run.stepCompletionData;

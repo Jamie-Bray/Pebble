@@ -4,17 +4,22 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:pebble_routines/core/theme/pebble_fonts.dart';
+import 'package:pebble_routines/core/theme/tokens.dart';
+import 'package:pebble_routines/core/ui/pebble_buttons.dart';
+import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/navigation/app_shell.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
+import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/features/routines/data/models/routine_icon_catalog.dart';
 import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:pebble_routines/features/settings/data/player_settings_controller.dart';
 
 class _StarterStep {
   const _StarterStep(this.label, {this.requiresPhoto = false});
@@ -41,10 +46,10 @@ class _StarterRoutine {
 
 const _starterRoutines = [
   _StarterRoutine(
-    cardTitle: 'Everyday Departure Check',
+    cardTitle: 'Quick Departure Check',
     subtitle:
-        'Check heat tools, stove, windows, lights, keys, and the final lock before you leave.',
-    previewTitle: 'Everyday Departure Check',
+        'Check heat tools, the stove, windows and the front door before you leave.',
+    previewTitle: 'Quick Departure Check',
     icon: LucideIcons.house,
     steps: [
       _StarterStep('Hair tools unplugged', requiresPhoto: true),
@@ -183,6 +188,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   Future<void> _markOnboardingComplete() async {
     final prefs = await SharedPreferences.getInstance();
+    await PlayerSettingsController.applyNewInstallDefaults(prefs);
     await prefs.setBool('has_completed_onboarding', true);
   }
 
@@ -291,29 +297,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         ? Padding(
                             padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
                             child: SizedBox(
-                              height: 40,
+                              height: PebbleBackButton.size,
                               child: Row(
                                 children: [
-                                  TextButton.icon(
+                                  PebbleBackButton(
                                     onPressed: () =>
                                         _goToPage(_currentPage - 1),
-                                    icon: Icon(
-                                      LucideIcons.arrowLeft,
-                                      size: 16,
-                                      color: foundation.textSecondary,
-                                    ),
-                                    label: Text(
-                                      'Back',
-                                      style: TextStyle(
-                                        color: foundation.textSecondary,
-                                      ),
-                                    ),
-                                    style: TextButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                      ),
-                                      minimumSize: Size.zero,
-                                    ),
                                   ),
                                 ],
                               ),
@@ -321,7 +310,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           )
                         : const Padding(
                             padding: EdgeInsets.fromLTRB(16, 8, 16, 2),
-                            child: SizedBox(height: 40),
+                            child: SizedBox(height: PebbleBackButton.size),
                           ),
                   ),
                   Padding(
@@ -449,7 +438,7 @@ class _WelcomePage extends StatelessWidget {
                         const SizedBox(height: 20),
                         Text(
                           'For routines you repeat.\nNot goals. Not streaks.',
-                          style: GoogleFonts.dmSerifDisplay(
+                          style: PebbleFonts.serif(
                             color: foundation.textPrimary.withValues(
                               alpha: 0.94,
                             ),
@@ -481,7 +470,7 @@ class _WelcomePage extends StatelessWidget {
                               ),
                             ],
                           ),
-                          style: GoogleFonts.outfit(
+                          style: PebbleFonts.sans(
                             color: foundation.textSecondary,
                             fontSize: 14,
                             fontWeight: FontWeight.w300,
@@ -530,7 +519,7 @@ class _WelcomeWordmark extends StatelessWidget {
         const SizedBox(width: 10),
         Text(
           'Pebble',
-          style: GoogleFonts.outfit(
+          style: PebbleFonts.sans(
             color: color,
             fontSize: 11,
             fontWeight: FontWeight.w400,
@@ -565,7 +554,7 @@ class _WelcomeStatement extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = GoogleFonts.dmSerifDisplay(
+    final style = PebbleFonts.serif(
       fontSize: 44,
       fontStyle: FontStyle.italic,
       fontWeight: FontWeight.w400,
@@ -602,24 +591,33 @@ class _StruckWelcomeWord extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
+    // One line, scaled down if it has to be: the strike is drawn across the
+    // word's own width, so it never lands between two wrapped lines.
+    return FittedBox(
+      fit: BoxFit.scaleDown,
       alignment: Alignment.centerLeft,
-      children: [
-        Text(text, style: textStyle),
-        Positioned.fill(
-          child: Align(
-            alignment: const Alignment(0, 0.08),
-            child: Container(
-              width: 238,
-              height: 2,
-              decoration: BoxDecoration(
-                color: strikeColor.withValues(alpha: 0.78),
-                borderRadius: BorderRadius.circular(2),
+      child: Stack(
+        alignment: Alignment.centerLeft,
+        children: [
+          Text(text, maxLines: 1, softWrap: false, style: textStyle),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 0,
+            child: Align(
+              alignment: const Alignment(0, 0.08),
+              child: Container(
+                height: 2,
+                decoration: BoxDecoration(
+                  color: strikeColor.withValues(alpha: 0.78),
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -655,76 +653,24 @@ class _WelcomeActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        FilledButton(
+        PebbleButton.primary(
           onPressed: onContinue,
-          style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            textStyle: GoogleFonts.outfit(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          child: const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text('Choose your theme'),
-              SizedBox(width: 8),
-              Icon(LucideIcons.arrowRight, size: 18),
-            ],
-          ),
+          label: 'Choose your theme',
+          trailingIcon: LucideIcons.arrowRight,
         ),
-        const SizedBox(height: 10),
-        OutlinedButton(
+        const SizedBox(height: PebbleSpacing.sm),
+        PebbleButton.secondary(
           onPressed: onExplore,
-          style: OutlinedButton.styleFrom(
-            foregroundColor: foundation.textPrimary,
-            side: BorderSide(
-              color: Theme.of(
-                context,
-              ).colorScheme.primary.withValues(alpha: 0.24),
-              width: 1.2,
-            ),
-            padding: const EdgeInsets.symmetric(vertical: 15),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            textStyle: GoogleFonts.outfit(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          child: const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(LucideIcons.sparkles, size: 17),
-              SizedBox(width: 8),
-              Text('What can Pebble do?'),
-            ],
-          ),
+          icon: LucideIcons.sparkles,
+          label: 'What can Pebble do?',
         ),
-        const SizedBox(height: 8),
-        TextButton(
+        const SizedBox(height: PebbleSpacing.xs),
+        PebbleButton.tertiary(
           onPressed: onSkip,
-          style: TextButton.styleFrom(
-            foregroundColor: foundation.textMuted,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            textStyle: GoogleFonts.outfit(
-              fontSize: 14,
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-          child: const Text('Skip setup, go straight in'),
+          label: 'Skip setup, go straight in',
         ),
       ],
     );
@@ -846,7 +792,7 @@ class _PebblePossibilitiesScreenState extends State<_PebblePossibilitiesScreen>
                               ),
                               label: Text(
                                 'Back',
-                                style: GoogleFonts.outfit(
+                                style: PebbleFonts.sans(
                                   color: foundation.textSecondary,
                                   fontWeight: FontWeight.w400,
                                 ),
@@ -877,7 +823,7 @@ class _PebblePossibilitiesScreenState extends State<_PebblePossibilitiesScreen>
                                 children: [
                                   Text(
                                     'WHAT CAN PEBBLE DO?',
-                                    style: GoogleFonts.outfit(
+                                    style: PebbleFonts.sans(
                                       color: foundation.textSecondary,
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
@@ -887,7 +833,7 @@ class _PebblePossibilitiesScreenState extends State<_PebblePossibilitiesScreen>
                                   const SizedBox(height: 16),
                                   Text(
                                     'Step out the door with total confidence.',
-                                    style: GoogleFonts.dmSerifDisplay(
+                                    style: PebbleFonts.serif(
                                       color: foundation.textPrimary,
                                       fontSize: 33,
                                       fontWeight: FontWeight.w400,
@@ -904,7 +850,7 @@ class _PebblePossibilitiesScreenState extends State<_PebblePossibilitiesScreen>
                                       'Daily routine or twice-a-year job: Pebble '
                                       'logs each step as you do it, so the doubt '
                                       'that hits later already has an answer.',
-                                      style: GoogleFonts.outfit(
+                                      style: PebbleFonts.sans(
                                         color: foundation.textSecondary,
                                         fontSize: 16,
                                         fontWeight: FontWeight.w300,
@@ -924,8 +870,8 @@ class _PebblePossibilitiesScreenState extends State<_PebblePossibilitiesScreen>
                                     child: Text(
                                       'One step at a time, so nothing gets skipped.',
                                       textAlign: TextAlign.center,
-                                      style: GoogleFonts.outfit(
-                                        color: foundation.textMuted,
+                                      style: PebbleFonts.sans(
+                                        color: context.readableSecondaryText,
                                         fontSize: 13,
                                         fontWeight: FontWeight.w300,
                                       ),
@@ -934,7 +880,7 @@ class _PebblePossibilitiesScreenState extends State<_PebblePossibilitiesScreen>
                                   const SizedBox(height: 40),
                                   Text(
                                     "Moments it's made for",
-                                    style: GoogleFonts.dmSerifDisplay(
+                                    style: PebbleFonts.serif(
                                       color: foundation.textPrimary,
                                       fontSize: 25,
                                       fontWeight: FontWeight.w400,
@@ -945,7 +891,7 @@ class _PebblePossibilitiesScreenState extends State<_PebblePossibilitiesScreen>
                                   Text(
                                     "The routines you'd normally double-check, "
                                     "and why the camera roll won't cut it.",
-                                    style: GoogleFonts.outfit(
+                                    style: PebbleFonts.sans(
                                       color: foundation.textSecondary,
                                       fontSize: 14,
                                       fontWeight: FontWeight.w300,
@@ -982,28 +928,10 @@ class _PebblePossibilitiesScreenState extends State<_PebblePossibilitiesScreen>
                                     stops: const [0, 0.4],
                                   ),
                                 ),
-                                child: FilledButton(
+                                child: PebbleButton.primary(
                                   onPressed: widget.onContinue,
-                                  style: FilledButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 17,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    textStyle: GoogleFonts.outfit(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  child: const Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text('Continue onboarding'),
-                                      SizedBox(width: 8),
-                                      Icon(LucideIcons.arrowRight, size: 17),
-                                    ],
-                                  ),
+                                  label: 'Continue',
+                                  trailingIcon: LucideIcons.arrowRight,
                                 ),
                               ),
                             ),
@@ -1112,7 +1040,7 @@ class _ExplainerRoutineCard extends StatelessWidget {
               Flexible(
                 child: Text(
                   'Leaving for work',
-                  style: GoogleFonts.dmSerifDisplay(
+                  style: PebbleFonts.serif(
                     color: foundation.textPrimary,
                     fontSize: 21,
                     fontWeight: FontWeight.w400,
@@ -1122,7 +1050,7 @@ class _ExplainerRoutineCard extends StatelessWidget {
               const SizedBox(width: 12),
               Text(
                 '3 of 5',
-                style: GoogleFonts.outfit(
+                style: PebbleFonts.sans(
                   color: foundation.textSecondary,
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
@@ -1225,7 +1153,7 @@ class _ExplainerStep extends StatelessWidget {
                 children: [
                   Text(
                     label,
-                    style: GoogleFonts.outfit(
+                    style: PebbleFonts.sans(
                       color: isDone
                           ? foundation.textMuted
                           : foundation.textPrimary,
@@ -1385,7 +1313,7 @@ class _PhotoChip extends StatelessWidget {
           const SizedBox(width: 5),
           Text(
             label,
-            style: GoogleFonts.outfit(
+            style: PebbleFonts.sans(
               color: accent,
               fontSize: 11.5,
               fontWeight: FontWeight.w500,
@@ -1509,7 +1437,7 @@ class _ExplainerMomentCard extends StatelessWidget {
           const SizedBox(height: 14),
           Text(
             moment.title,
-            style: GoogleFonts.outfit(
+            style: PebbleFonts.sans(
               color: foundation.textPrimary,
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -1520,7 +1448,7 @@ class _ExplainerMomentCard extends StatelessWidget {
           Expanded(
             child: Text(
               moment.description,
-              style: GoogleFonts.outfit(
+              style: PebbleFonts.sans(
                 color: foundation.textSecondary,
                 fontSize: 13.5,
                 fontWeight: FontWeight.w300,
@@ -1632,7 +1560,7 @@ class _ThemePickerPage extends StatelessWidget {
                 children: [
                   Text(
                     'MAKE IT YOURS',
-                    style: GoogleFonts.outfit(
+                    style: PebbleFonts.sans(
                       color: Theme.of(context).colorScheme.primary,
                       fontSize: 10,
                       fontWeight: FontWeight.w400,
@@ -1642,7 +1570,7 @@ class _ThemePickerPage extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     'Choose a look\nthat works for you.',
-                    style: GoogleFonts.dmSerifDisplay(
+                    style: PebbleFonts.serif(
                       color: foundation.textPrimary,
                       fontSize: 26,
                       fontWeight: FontWeight.w400,
@@ -1652,8 +1580,8 @@ class _ThemePickerPage extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text(
                     'You can change this any time in settings.',
-                    style: GoogleFonts.outfit(
-                      color: foundation.textMuted,
+                    style: PebbleFonts.sans(
+                      color: context.readableSecondaryText,
                       fontSize: 13,
                       fontWeight: FontWeight.w300,
                       height: 1,
@@ -1684,7 +1612,7 @@ class _ThemePickerPage extends StatelessWidget {
                     child: Text(
                       hint,
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.outfit(
+                      style: PebbleFonts.sans(
                         color: Theme.of(context).colorScheme.primary,
                         fontSize: 11,
                         fontWeight: FontWeight.w300,
@@ -1699,42 +1627,15 @@ class _ThemePickerPage extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              FilledButton(
+              PebbleButton.primary(
                 onPressed: onContinue,
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  textStyle: GoogleFonts.outfit(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text('Continue'),
-                    SizedBox(width: 8),
-                    Icon(LucideIcons.arrowRight, size: 18),
-                  ],
-                ),
+                label: 'Continue',
+                trailingIcon: LucideIcons.arrowRight,
               ),
-              const SizedBox(height: 8),
-              TextButton(
+              const SizedBox(height: PebbleSpacing.xs),
+              PebbleButton.tertiary(
                 onPressed: onDecideLater,
-                style: TextButton.styleFrom(
-                  foregroundColor: foundation.textMuted,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  textStyle: GoogleFonts.outfit(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-                child: const Text("I'll decide later"),
+                label: "I'll decide later",
               ),
             ],
           ),
@@ -1896,7 +1797,16 @@ class _ThemePreviewCard extends StatelessWidget {
                                   10,
                                   12,
                                 ),
-                                child: _ThemeMiniRoutine(spec: spec),
+                                // A decorative mock: at large text sizes
+                                // the label below takes more room, so clip
+                                // the mock rather than overflow the card.
+                                child: ClipRect(
+                                  child: SingleChildScrollView(
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    child: _ThemeMiniRoutine(spec: spec),
+                                  ),
+                                ),
                               ),
                             ),
                             Positioned(
@@ -1945,7 +1855,7 @@ class _ThemePreviewCard extends StatelessWidget {
                             metadata.name,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.dmSerifDisplay(
+                            style: PebbleFonts.serif(
                               color: spec.text,
                               fontSize: 13,
                               fontWeight: FontWeight.w400,
@@ -1957,7 +1867,7 @@ class _ThemePreviewCard extends StatelessWidget {
                             spec.type,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.outfit(
+                            style: PebbleFonts.sans(
                               color: spec.subtle,
                               fontSize: 10,
                               fontWeight: FontWeight.w300,
@@ -2078,7 +1988,7 @@ class _StartingPointPage extends StatelessWidget {
                 children: [
                   Text(
                     'STARTING POINT',
-                    style: GoogleFonts.outfit(
+                    style: PebbleFonts.sans(
                       color: Theme.of(context).colorScheme.primary,
                       fontSize: 10,
                       fontWeight: FontWeight.w500,
@@ -2088,7 +1998,7 @@ class _StartingPointPage extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     'Pick a routine\nto start with.',
-                    style: GoogleFonts.dmSerifDisplay(
+                    style: PebbleFonts.serif(
                       color: foundation.textPrimary,
                       fontSize: 29,
                       fontWeight: FontWeight.w400,
@@ -2099,8 +2009,8 @@ class _StartingPointPage extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text(
                     'Tap one to see the steps inside. You can change everything later.',
-                    style: GoogleFonts.outfit(
-                      color: foundation.textMuted,
+                    style: PebbleFonts.sans(
+                      color: context.readableSecondaryText,
                       fontSize: 12.5,
                       fontWeight: FontWeight.w300,
                       height: 1.35,
@@ -2124,20 +2034,10 @@ class _StartingPointPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          TextButton(
+          PebbleButton.tertiary(
+            expand: true,
             onPressed: onSkip,
-            style: TextButton.styleFrom(
-              foregroundColor: foundation.textMuted,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              textStyle: GoogleFonts.outfit(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-            child: const Text('Skip for now'),
+            label: 'Skip for now',
           ),
         ],
       ),
@@ -2186,7 +2086,7 @@ class _StarterChoiceCard extends StatelessWidget {
                     starter.cardTitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.outfit(
+                    style: PebbleFonts.sans(
                       color: foundation.textPrimary,
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
@@ -2198,8 +2098,8 @@ class _StarterChoiceCard extends StatelessWidget {
                     starter.subtitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.outfit(
-                      color: foundation.textMuted,
+                    style: PebbleFonts.sans(
+                      color: context.readableSecondaryText,
                       fontSize: 11.5,
                       fontWeight: FontWeight.w300,
                       height: 1.2,
@@ -2212,7 +2112,7 @@ class _StarterChoiceCard extends StatelessWidget {
             Icon(
               LucideIcons.chevronRight,
               size: 18,
-              color: foundation.textMuted,
+              color: context.readableSecondaryText,
             ),
           ],
         ),
@@ -2261,7 +2161,7 @@ class _BrowseTemplatesTile extends StatelessWidget {
                     'Browse all templates',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.outfit(
+                    style: PebbleFonts.sans(
                       color: foundation.textPrimary,
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
@@ -2273,8 +2173,8 @@ class _BrowseTemplatesTile extends StatelessWidget {
                     'More ready-made routines in the library',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.outfit(
-                      color: foundation.textMuted,
+                    style: PebbleFonts.sans(
+                      color: context.readableSecondaryText,
                       fontSize: 11.5,
                       fontWeight: FontWeight.w300,
                       height: 1.2,
@@ -2332,7 +2232,7 @@ class _BuildOwnTile extends StatelessWidget {
                     'Start from scratch',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.outfit(
+                    style: PebbleFonts.sans(
                       color: foundation.textPrimary,
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
@@ -2344,8 +2244,8 @@ class _BuildOwnTile extends StatelessWidget {
                     'Build your own routine, step by step',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.outfit(
-                      color: foundation.textMuted,
+                    style: PebbleFonts.sans(
+                      color: context.readableSecondaryText,
                       fontSize: 11.5,
                       fontWeight: FontWeight.w300,
                       height: 1.2,
@@ -2358,7 +2258,7 @@ class _BuildOwnTile extends StatelessWidget {
             Icon(
               LucideIcons.chevronRight,
               size: 18,
-              color: foundation.textMuted,
+              color: context.readableSecondaryText,
             ),
           ],
         ),
@@ -2388,24 +2288,14 @@ class _StarterPreviewPage extends StatelessWidget {
       bottom: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          FilledButton(
-            onPressed: isCreating ? null : onUseStarter,
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 18),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-            ),
-            child: isCreating
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                  )
-                : const Text('Use this starter routine'),
+          PebbleButton.primary(
+            onPressed: onUseStarter,
+            busy: isCreating,
+            label: 'Use this starter routine',
           ),
           const SizedBox(height: 12),
           Text(
-            "You can customize every step or add your own later. You're never locked in.",
+            "You can change any step or add your own later. You're never locked in.",
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: foundation.textSecondary,
@@ -2413,13 +2303,10 @@ class _StarterPreviewPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          TextButton(
+          PebbleButton.tertiary(
+            expand: true,
             onPressed: isCreating ? null : onPickAnother,
-            style: TextButton.styleFrom(
-              foregroundColor: foundation.textSecondary,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-            ),
-            child: const Text('Pick another starting point'),
+            label: 'Pick another starting point',
           ),
         ],
       ),
@@ -2429,11 +2316,13 @@ class _StarterPreviewPage extends StatelessWidget {
           const _OverTitle('YOUR FIRST ROUTINE'),
           const SizedBox(height: 12),
           Text(
-            "Here's how this could work",
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            "Here's how this could work.",
+            style: PebbleFonts.serif(
               color: foundation.textPrimary,
-              fontWeight: FontWeight.w500,
-              height: 1.15,
+              fontSize: 29,
+              fontWeight: FontWeight.w400,
+              height: 1.08,
+              letterSpacing: -0.2,
             ),
           ),
           const SizedBox(height: 12),

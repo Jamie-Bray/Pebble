@@ -1,9 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:pebble_routines/core/ui/pebble_time.dart';
+import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/ui/zen_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -65,7 +66,7 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
     );
     _checkAnimation = CurvedAnimation(
       parent: _checkController,
-      curve: Curves.elasticOut,
+      curve: PebbleMotion.settleCurve,
     );
     _controller.forward();
     _loadExistingReminder();
@@ -737,7 +738,7 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
         final firstDay = selectedDays.first;
         final updatedReminder = editingReminder.copyWith(
           dayOfWeek: firstDay,
-          time: _formatTime(_time!),
+          time: encodeStoredClockTime(_time!),
         );
         await db.routineReminderDao.updateReminder(updatedReminder);
         final insertedReminderIds = <int>[];
@@ -761,7 +762,7 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
               RoutineRemindersCompanion(
                 routineId: drift.Value(widget.routine.id),
                 dayOfWeek: drift.Value(day),
-                time: drift.Value(_formatTime(_time!)),
+                time: drift.Value(encodeStoredClockTime(_time!)),
                 isEnabled: drift.Value(updatedReminder.isEnabled),
               ),
             );
@@ -800,7 +801,7 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
               RoutineRemindersCompanion(
                 routineId: drift.Value(widget.routine.id),
                 dayOfWeek: drift.Value(day),
-                time: drift.Value(_formatTime(_time!)),
+                time: drift.Value(encodeStoredClockTime(_time!)),
                 isEnabled: const drift.Value(true),
               ),
             );
@@ -910,7 +911,7 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
         }
 
         if (mounted) {
-          ZenNotifications.showInfo(context, message: 'Reminder deleted');
+          // The reminder row disappearing is its own confirmation.
           Navigator.pop(context, true);
         }
         return;
@@ -935,7 +936,7 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
       );
 
       if (mounted) {
-        ZenNotifications.showInfo(context, message: 'All reminders removed');
+        // The emptied reminder list is its own confirmation.
         Navigator.pop(context, true);
       }
     } catch (_) {
@@ -987,21 +988,14 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
     return days.map(_shortWeekdayLabel).join(', ');
   }
 
-  String _formatTime(TimeOfDay time) {
-    final now = DateTime.now();
-    final dt = DateTime(now.year, now.month, now.day, time.hour, time.minute);
-    return DateFormat('h:mm a').format(dt);
-  }
+  /// For display only; [encodeStoredClockTime] is what gets saved.
+  String _formatTime(TimeOfDay time) =>
+      MaterialLocalizations.of(context).formatTimeOfDay(
+        time,
+        alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(context),
+      );
 
-  TimeOfDay? _parseTime(String? value) {
-    if (value == null || value.isEmpty) return null;
-    try {
-      final dt = DateFormat('h:mm a').parse(value);
-      return TimeOfDay(hour: dt.hour, minute: dt.minute);
-    } catch (_) {
-      return null;
-    }
-  }
+  TimeOfDay? _parseTime(String? value) => parseStoredClockTime(value);
 
   String _weekdayLabel(int day) {
     const labels = {

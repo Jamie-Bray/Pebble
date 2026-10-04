@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:pebble_routines/core/ui/pebble_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +9,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/notifications/notification_service.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
+import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
 import 'package:pebble_routines/features/routines/data/shared_reminder_preferences_repository.dart';
 import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
@@ -131,7 +133,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
                         : 'Reminders for this routine'
                   : 'Routine reminders and shared notifications',
               actions: [
-                if (_allReminders.isNotEmpty)
+                if (_allReminders.isNotEmpty && !widget.emailOnly)
                   IconButton(
                     onPressed: _showClearAllConfirmation,
                     icon: Icon(LucideIcons.trash2, color: cs.error),
@@ -525,7 +527,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        reminder.time,
+                        formatStoredClockTime(context, reminder.time),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -582,7 +584,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
         if (isLocked) ...[
           _buildEmailFeatureList(cs),
           const SizedBox(height: 28),
-          _buildSectionTitle(cs, 'Report Preview', LucideIcons.mailCheck),
+          _buildSectionTitle(cs, 'Email preview', LucideIcons.mailCheck),
           const SizedBox(height: 12),
           _buildCompletionEmailPreview(cs, contact: contact),
           const SizedBox(height: 28),
@@ -592,13 +594,13 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
           const SizedBox(height: 28),
           _buildSetupTrustedContactPanel(cs),
           const SizedBox(height: 28),
-          _buildSectionTitle(cs, 'Report Preview', LucideIcons.mailCheck),
+          _buildSectionTitle(cs, 'Email preview', LucideIcons.mailCheck),
           const SizedBox(height: 12),
           _buildCompletionEmailPreview(cs, contact: contact),
         ] else ...[
           _buildConfiguredTrustedContactPanel(cs, contact),
           const SizedBox(height: 28),
-          _buildSectionTitle(cs, 'Report Preview', LucideIcons.mailCheck),
+          _buildSectionTitle(cs, 'Email preview', LucideIcons.mailCheck),
           const SizedBox(height: 12),
           _buildCompletionEmailPreview(cs, contact: contact),
         ],
@@ -636,25 +638,25 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
         _buildEmailFeatureItem(
           cs,
           icon: LucideIcons.send,
-          title: 'Effortless reassurance',
+          title: 'Send a completion email',
           body:
-              'Automatically send a quick completion note to a partner or colleague, saving you a manual text.',
+              'Pebble can email one contact when you complete this routine, so you do not have to send a message yourself.',
         ),
         const SizedBox(height: 16),
         _buildEmailFeatureItem(
           cs,
-          icon: LucideIcons.fileClock,
-          title: 'Personal record',
+          icon: LucideIcons.mailCheck,
+          title: 'Their choice',
           body:
-              'Forward updates to your own inbox to keep a quiet, timestamped log of your consistency.',
+              'They get an invite first. Nothing is sent unless they accept, and they can stop the emails at any time.',
         ),
         const SizedBox(height: 16),
         _buildEmailFeatureItem(
           cs,
           icon: LucideIcons.shieldCheck,
-          title: 'Private by design',
+          title: 'What is included',
           body:
-              'Reports share the final time and step count. Photos and specific checklist details are never included.',
+              'The routine name (you can hide it), completion time and step count. Photos and checklist details are not included.',
         ),
       ],
     );
@@ -821,6 +823,11 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
           const SizedBox(height: 14),
           if (contact.status == SharedReminderContactStatus.accepted) ...[
             _buildCompletionEmailToggle(cs, contact),
+            const SizedBox(height: 10),
+          ],
+          if (contact.status == SharedReminderContactStatus.accepted ||
+              contact.status == SharedReminderContactStatus.pending) ...[
+            _buildRoutineNameToggle(cs, contact),
             const SizedBox(height: 14),
           ],
           _buildInlineMessage(
@@ -840,15 +847,13 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
     ColorScheme cs, {
     required SharedReminderContact? contact,
   }) {
+    final previewSentAt = DateTime.now();
     final routineTitle = widget.routine?.title.trim();
     final title = routineTitle == null || routineTitle.isEmpty
         ? 'Bedtime House Check'
         : routineTitle;
-    final status = contact == null
-        ? 'Verified & Complete'
-        : contact.canSendCompletionEmail
-        ? 'Email enabled'
-        : _sharedReminderContactStatusLabel(contact.status);
+    final showName = contact?.includeRoutineName ?? true;
+    final showSteps = contact?.includeStepCount ?? true;
     final completion = _completionPreviewLine();
     final sentTo = contact?.recipientEmail;
 
@@ -897,7 +902,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Pebble Verification',
+                        'Pebble Routines',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -908,7 +913,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Log: Routine Complete',
+                        'Routine completed',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -921,7 +926,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
                 ),
                 const SizedBox(width: 10),
                 Text(
-                  '21:07',
+                  DateFormat.jm().format(previewSentAt),
                   style: TextStyle(
                     fontSize: 11,
                     color: cs.onSurface.withValues(alpha: 0.42),
@@ -934,22 +939,21 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                _buildPreviewLogRow(cs, label: 'Routine', value: title),
                 _buildPreviewLogRow(
                   cs,
-                  label: 'Status',
-                  value: status,
-                  highlight: true,
+                  label: 'Routine',
+                  value: showName ? title : 'Not shown',
+                  highlight: showName,
                 ),
                 _buildPreviewLogRow(
                   cs,
-                  label: 'Time',
-                  value: '09 May 2026, 21:07',
+                  label: 'Completed',
+                  value: DateFormat.yMMMd().add_jm().format(previewSentAt),
                 ),
                 _buildPreviewLogRow(
                   cs,
-                  label: 'Completion',
-                  value: completion,
+                  label: 'Steps',
+                  value: showSteps ? completion : 'Not shown',
                   isLast: sentTo == null || sentTo.isEmpty,
                 ),
                 if (sentTo != null && sentTo.isNotEmpty)
@@ -1023,14 +1027,12 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
       SharedReminderContactStatus.pending => 'Pending',
       SharedReminderContactStatus.accepted => 'Accepted',
       SharedReminderContactStatus.declined => 'Declined',
-      SharedReminderContactStatus.blocked => 'Blocked',
+      SharedReminderContactStatus.blocked => 'Not accepting',
       SharedReminderContactStatus.disabled => 'Off',
     };
     final Color color = switch (status) {
       SharedReminderContactStatus.accepted => cs.primary,
-      SharedReminderContactStatus.blocked => cs.error,
-      SharedReminderContactStatus.declined => cs.error,
-      _ => cs.onSurface.withValues(alpha: 0.58),
+      _ => cs.onSurface.withValues(alpha: 0.62),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1256,6 +1258,91 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
     );
   }
 
+  Widget _buildRoutineNameToggle(
+    ColorScheme cs,
+    SharedReminderContact contact,
+  ) {
+    final isOn = contact.includeRoutineName;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+      decoration: BoxDecoration(
+        color: cs.surface.withValues(alpha: 0.68),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.08)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Show the routine name',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  isOn
+                      ? 'The email names this routine.'
+                      : 'The email says "a routine" instead.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.35,
+                    color: cs.onSurface.withValues(alpha: 0.62),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: isOn,
+            onChanged: _isSharedContactSaving || _isSharedContactRefreshing
+                ? null
+                : (enabled) => _setRoutineNameShown(contact, enabled),
+            activeThumbColor: cs.primary,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _setRoutineNameShown(
+    SharedReminderContact contact,
+    bool shown,
+  ) async {
+    if (_isSharedContactSaving) return;
+    final repo = ref.read(sharedReminderPreferencesRepositoryProvider);
+    setState(() {
+      _isSharedContactSaving = true;
+      _sharedContactError = null;
+    });
+    try {
+      final updated = await repo.setSharingOptions(
+        contact: contact,
+        includeRoutineName: shown,
+      );
+      if (!mounted) return;
+      setState(() => _sharedContact = updated);
+    } catch (e) {
+      if (!mounted) return;
+      final message = _friendlySharedReminderError(e);
+      setState(() => _sharedContactError = message);
+      ZenNotifications.showError(
+        context,
+        message: message,
+        title: 'Update failed',
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSharedContactSaving = false);
+      }
+    }
+  }
+
   Widget _buildInlineMessage(
     ColorScheme cs,
     String message, {
@@ -1414,6 +1501,10 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
     final cs = Theme.of(context).colorScheme;
     var isSaving = false;
     final initialEmail = controller.text.trim().toLowerCase();
+    final accountEmail = ref.read(authSessionProvider).email?.trim();
+    final senderEmail = accountEmail == null || accountEmail.isEmpty
+        ? null
+        : accountEmail;
 
     SharedReminderContact? contact;
     try {
@@ -1466,13 +1557,24 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
                         Text(
                           forceResend
                               ? 'Pebble will send the invite again. They will only receive completion emails if they accept.'
-                              : 'Enter the email address of someone you trust. Pebble will send them an invite first. They will only receive completion emails if they accept.',
+                              : 'Add someone who knows you and expects these emails. Pebble sends them an invite first, and only emails them after they accept.',
                           style: TextStyle(
                             fontSize: 14,
                             height: 1.4,
                             color: cs.onSurface.withValues(alpha: 0.66),
                           ),
                         ),
+                        if (senderEmail != null) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            'The emails show your account email, $senderEmail, so they know who they are from.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              height: 1.4,
+                              color: cs.onSurface.withValues(alpha: 0.58),
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 20),
                         TextFormField(
                           controller: controller,
@@ -1790,58 +1892,47 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
   }
 
   String _sharedReminderContactTitle(SharedReminderContact contact) {
-    if (contact.status == SharedReminderContactStatus.accepted) {
-      return 'Completion emails are on';
-    }
     return switch (contact.status) {
       SharedReminderContactStatus.pending => 'Waiting for them to accept',
-      SharedReminderContactStatus.accepted => 'Completion emails are on',
-      SharedReminderContactStatus.declined => 'Invite declined',
-      SharedReminderContactStatus.blocked => 'Future invites blocked',
+      SharedReminderContactStatus.accepted =>
+        contact.notifyWhenFinished
+            ? 'Completion emails are on'
+            : 'Completion emails are off',
+      SharedReminderContactStatus.declined => 'They declined',
+      SharedReminderContactStatus.blocked => 'Not accepting invites',
       SharedReminderContactStatus.disabled => 'Contact removed',
-    };
-  }
-
-  String _sharedReminderContactStatusLabel(SharedReminderContactStatus status) {
-    return switch (status) {
-      SharedReminderContactStatus.pending => 'Pending invite',
-      SharedReminderContactStatus.accepted => 'Accepted',
-      SharedReminderContactStatus.declined => 'Declined',
-      SharedReminderContactStatus.blocked => 'Blocked',
-      SharedReminderContactStatus.disabled => 'Off',
     };
   }
 
   String _completionPreviewLine() {
     final stepsJson = widget.routine?.stepsJson;
-    if (stepsJson == null || stepsJson.isEmpty) return '10 of 10 steps';
+    if (stepsJson == null || stepsJson.isEmpty) return '10 of 10';
     try {
       final decoded = jsonDecode(stepsJson);
       if (decoded is List && decoded.isNotEmpty) {
-        return '${decoded.length} of ${decoded.length} steps';
+        return '${decoded.length} of ${decoded.length}';
       }
     } catch (_) {
       // Keep the preview resilient if a local draft has malformed step data.
     }
-    return '10 of 10 steps';
+    return '10 of 10';
   }
 
   String _sharedReminderContactHelper(
     SharedReminderContactStatus status,
     SharedReminderContact contact,
   ) {
-    if (status == SharedReminderContactStatus.accepted) {
-      return 'Pebble will email this contact when you complete this routine.';
-    }
     return switch (status) {
       SharedReminderContactStatus.pending =>
-        'Pebble will email this contact when you complete this routine.',
+        'Nothing is sent until they accept. The invite expires after 14 days.',
       SharedReminderContactStatus.accepted =>
-        'Pebble will email this contact when you complete this routine.',
+        contact.notifyWhenFinished
+            ? 'Pebble emails them each time you complete this routine.'
+            : 'They accepted, but emails are off. Turn them on to send one each time you complete this routine.',
       SharedReminderContactStatus.declined =>
-        'They declined this invite. You can replace this contact with a different email address.',
+        'Nothing will be sent. You can add a different email address, or invite them again after 30 days.',
       SharedReminderContactStatus.blocked =>
-        'They blocked future invites from this account. You can use a different email address.',
+        "This address isn't accepting invitations from your account. You can use a different email address.",
       SharedReminderContactStatus.disabled =>
         'Add someone to notify again when you are ready.',
     };
@@ -1857,7 +1948,8 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
       SharedReminderContactStatus.accepted =>
         'They have accepted. Pebble can now send completion emails for this routine.',
       SharedReminderContactStatus.declined => 'They declined this invite.',
-      SharedReminderContactStatus.blocked => 'They blocked future invites.',
+      SharedReminderContactStatus.blocked =>
+        "This address isn't accepting invitations from you.",
       SharedReminderContactStatus.disabled =>
         'Completion emails are off for this routine.',
     };
@@ -1888,11 +1980,11 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
     if (!policy.hasServerVerifiedPremium) {
       return const _LockedSharedAlertMessage(
         message:
-            'Premium is active. Email alerts are waiting for secure purchase verification.',
+            'Premium is active. Completion emails start once the store confirms your purchase.',
       );
     }
     return const _LockedSharedAlertMessage(
-      message: 'Email alerts are not ready yet. Please try again later.',
+      message: "Completion emails aren't available right now. Try again later.",
     );
   }
 
@@ -2028,7 +2120,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
         ),
         onTap: () => _editReminder(reminder),
         title: Text(
-          '${reminder.time} - ${_weekdayLabel(reminder.dayOfWeek)}',
+          '${formatStoredClockTime(context, reminder.time)} - ${_weekdayLabel(reminder.dayOfWeek)}',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
@@ -2177,7 +2269,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
       );
     }
     if (!mounted) return;
-    ZenNotifications.showInfo(context, message: 'Reminder deleted');
+    // The reminder disappearing from the list is its own confirmation.
     await _loadData();
   }
 
@@ -2329,12 +2421,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
     }
 
     if (!mounted) return;
-    ZenNotifications.showInfo(
-      context,
-      message: isRoutineSpecific
-          ? 'Reminders cleared for routine'
-          : 'All reminders cleared',
-    );
+    // The cleared list is its own confirmation.
     await _loadData();
   }
 
@@ -2351,14 +2438,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
     return labels[day] ?? 'Day $day';
   }
 
-  TimeOfDay? _parseTime(String timeString) {
-    try {
-      final time = DateFormat('h:mm a').parse(timeString);
-      return TimeOfDay(hour: time.hour, minute: time.minute);
-    } catch (_) {
-      return null;
-    }
-  }
+  TimeOfDay? _parseTime(String timeString) => parseStoredClockTime(timeString);
 }
 
 class _LockedSharedAlertMessage {
@@ -2421,15 +2501,18 @@ class _DashedRRectPainter extends CustomPainter {
   }
 }
 
+const _sharedReminderFallbackError =
+    "Couldn't update completion emails. Try again.";
+
 String friendlySharedReminderErrorMessage(Object error) {
   final raw = error.toString();
-  var message = raw
+  final message = raw
       .replaceFirst('Exception: ', '')
       .replaceFirst('SharedReminderRepositoryException: ', '')
       .replaceFirst('FunctionException', '')
       .trim();
   if (message.contains('Shared alert environment is not configured')) {
-    return 'Email alerts are not ready yet. Please try again later.';
+    return "Completion emails aren't available right now. Try again later.";
   }
   if (message.contains('Personal Premium is required')) {
     return 'Premium is required to notify someone.';
@@ -2438,8 +2521,19 @@ String friendlySharedReminderErrorMessage(Object error) {
       message.contains('Invalid user authorization')) {
     return 'Sign in again to manage who gets notified.';
   }
-  if (message.startsWith('(status:') || message.startsWith('status:')) {
-    return 'Could not update shared notification.';
+  if (message.contains('has blocked invites from this account')) {
+    return "This address isn't accepting invitations from you.";
   }
-  return message.isEmpty ? 'Could not update shared notification.' : message;
+  if (message.contains('Shared alert contact was not found')) {
+    return 'This contact was removed. Check the status and try again.';
+  }
+  // Raw transport or provider text is never shown.
+  if (message.isEmpty ||
+      message.startsWith('(status:') ||
+      message.startsWith('status:') ||
+      message.contains('{') ||
+      message.length > 200) {
+    return _sharedReminderFallbackError;
+  }
+  return message;
 }

@@ -6,7 +6,17 @@ import 'package:uuid/uuid.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
 
-enum SyncEntityType { routine, reminder, run, session, proofAsset }
+enum SyncEntityType {
+  routine,
+  reminder,
+  run,
+  session,
+  proofAsset,
+
+  /// Step voice prompts: `upload` carries a local routine id, `delete` a
+  /// remote object key.
+  guidanceAudio,
+}
 
 enum SyncOperation { upsert, delete, upload }
 
