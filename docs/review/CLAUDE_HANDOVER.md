@@ -27,7 +27,6 @@ This document summarizes the independent launch readiness review for Claude to t
 
 ## 3. Open Questions and Blocked Checks
 
-*   **Backend Deno Tests Blocked:** The 65 Edge Function tests could not be executed locally because the `deno` CLI is missing from the reviewer's Windows environment.
 *   **Real-Device Validations Blocked:** Sandbox purchases, silent restores, account token exchanges, and offline OS-level background syncs require physical test devices and Apple/Google developer accounts, which are unavailable.
 *   **Live Dashboard Config Unverified:** Supabase Edge Function secrets, database migrations, pg_cron jobs, and App Store Connect/Google Play configurations remain unverified.
 
@@ -38,6 +37,8 @@ This document summarizes the independent launch readiness review for Claude to t
 
 ## 5. What Claude Should Verify First
 
-1.  **Deno Tests:** Run `cd supabase/functions && deno test --allow-env --allow-net=127.0.0.1` locally to ensure the backend logic is sound.
+1.  **AI Photo Descriptions Proposal (PR #4):** Review the optional feature feasibility study in [PR #4](https://github.com/Jamie-Bray/Pebble/pull/4). 
+    *   **Action for Claude:** Assess the usefulness, photo accuracy, conversion potential, margins, and server-enforced abuse controls *before* any implementation begins.
+    *   **Pricing Options for Claude to Evaluate:** Review Option A (Introductory 5-analysis allowance) vs. Option B (1 free analysis daily) against the 10-analysis daily Premium tier. Does an introductory allowance successfully demonstrate value and drive conversion without selling "safety assurance"?
 2.  **Cross-Account Claiming:** Confirm with Jamie if the "Use this account" destructive merge behavior on account switching is an intended product decision or a privacy bug that must be addressed before launch.
 3.  **Apply Walkthrough Fix:** Apply the proposed string change to the test harness and re-run to ensure 100% screenshot coverage.
