@@ -83,7 +83,7 @@ void showAuthMethodSheet(BuildContext context) {
                       ),
                       const SizedBox(height: 14),
                       Text(
-                        'Backup needs an account so Pebble knows where to store your routines and history. You can still use Pebble without an account, but backup and recovery need sign-in.',
+                        'Backup needs an account, so Pebble knows where to keep your routines and history. Everything else works without one.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 15,

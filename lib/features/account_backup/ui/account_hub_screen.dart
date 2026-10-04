@@ -105,7 +105,7 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
     } catch (error) {
       _showVaultNotice(
         _toUserFacingError(error),
-        title: 'Could not restore',
+        title: "Couldn't restore",
         type: NotificationType.error,
       );
     } finally {
@@ -129,8 +129,8 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
     final opened = await launchUrl(url, mode: LaunchMode.externalApplication);
     if (!opened) {
       _showVaultNotice(
-        'Could not open subscription management.',
-        title: 'Could not open',
+        "Couldn't open your subscription settings.",
+        title: "Couldn't open",
         type: NotificationType.error,
       );
     }
@@ -156,7 +156,7 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
     } catch (error) {
       _showVaultNotice(
         _toUserFacingError(error),
-        title: 'Could not delete account',
+        title: "Couldn't delete account",
         type: NotificationType.error,
       );
     } finally {
@@ -179,9 +179,9 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
         eyebrow: 'Your account',
         title: 'Sign out?',
         body: backupIsOn
-            ? 'Backup pauses until you sign in again. Everything already '
-                  'backed up stays safe, and local routines stay on this '
-                  'device.'
+            ? 'Backup pauses until you sign in again. Anything already '
+                  'backed up stays in your account, and your routines stay '
+                  'on this phone.'
             : 'Local routines stay on this device. Sign back in any time'
                   '${email == null ? '' : ' with $email'}.',
         accentColor: Theme.of(sheetContext).colorScheme.secondary,
@@ -206,7 +206,7 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
       context: context,
       builder: (sheetContext) => _AccountActionSheet(
         icon: LucideIcons.trash2,
-        eyebrow: 'Permanent action',
+        eyebrow: "Can't be undone",
         title: 'Delete account',
         body:
             'This deletes your Pebble account and cloud backup data. Local routines already saved on this device will stay here until you remove them manually.',
@@ -255,8 +255,8 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
                 );
                 if (!opened) {
                   _showVaultNotice(
-                    'Could not open the account deletion page.',
-                    title: 'Could not open',
+                    "Couldn't open the account deletion page.",
+                    title: "Couldn't open",
                     type: NotificationType.error,
                   );
                 }
@@ -274,10 +274,10 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
       return raw.replaceFirst('StateError: ', '');
     }
     if (raw.startsWith('PlatformException')) {
-      return 'The store could not complete that request. Please try again.';
+      return "The store couldn't finish that. Try again.";
     }
     if (raw.startsWith('FunctionException')) {
-      return 'Pebble could not complete that request. Please try again.';
+      return "Pebble couldn't finish that. Try again.";
     }
     return raw;
   }
@@ -581,7 +581,7 @@ class _AccountSignInCard extends StatelessWidget {
         ? 'Premium is active on this phone. Sign in so Pebble can back up '
               'your routines and restore them on a new phone.'
         : 'Sign in with the account you used before. Pebble brings back '
-              'your Premium and your backup. If Premium does not appear, use '
+              "your Premium and your backup. If Premium doesn't appear, use "
               'Restore purchase below.';
     return _AccountSurface(
       child: Column(
@@ -1130,8 +1130,8 @@ class _LapsedHero extends StatelessWidget {
         Text(
           inGrace
               ? 'Your routines and history stay as they are until '
-                    '$graceEndDate. Here is what changes after that.'
-              : 'Pebble now uses Free limits. Here is what that means for '
+                    "$graceEndDate. Here's what changes after that."
+              : "Pebble now uses Free limits. Here's what that means for "
                     'what you saved.',
           style: PebbleFonts.sans(
             fontSize: 14,

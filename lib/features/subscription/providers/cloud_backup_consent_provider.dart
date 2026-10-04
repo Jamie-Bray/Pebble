@@ -448,7 +448,7 @@ class CloudBackupConsentController
       state = CloudBackupConsentState(
         isLoading: false,
         record: previous.record,
-        lastError: 'Backup could not be paused. Please try again.',
+        lastError: "Backup couldn't be paused. Try again.",
         isRemoteConfirmed: previous.isRemoteConfirmed,
       );
       rethrow;

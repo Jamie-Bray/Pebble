@@ -1,6 +1,6 @@
 # Launch Marketing Hooks: TikTok, Reels and Shorts
 
-Last updated: 3 October 2026
+Last updated: 4 October 2026
 
 For a solo founder with no budget. Every concept below can be filmed on one
 phone in a normal home in under 15 minutes, using Pebble on screen.
@@ -67,14 +67,14 @@ can search for it.
 - **Shots:** 20-second screen recording: create a routine, add three steps,
   set "Take a photo" on one, run it.
 - **Text:** "Free, no account needed, no ads."
-- **Caption:** "Pebble Routines. It's just a checklist that saves the time."
+- **Caption:** "Pebble Routines. It's a checklist that saves the time."
 
 ### 5. "The straightener step, slow and satisfying"
 - **Hook:** "The most satisfying 6 seconds of my morning"
 - **Shots:** close-up, with a crisp sound: unplug, coil the cable, put the
   straighteners on the heat mat, phone photo, step goes green in Pebble. Use
   the app's completion sound.
-- **Caption:** "Unplug. Photo. Done. #morningroutine #grwm"
+- **Caption:** "Unplugged and photographed by 08:02. #morningroutine #grwm"
 
 ### 6. "Builder's tour: solo founder"
 - **Hook:** "I built an app because I kept photographing my straighteners"
@@ -87,7 +87,7 @@ can search for it.
 
 ### 7. "Holiday edition: the big trip shutdown"
 - **Hook:** "The 5am taxi is outside and you're checking the oven for the third time"
-- **Shots:** suitcase by the door, run Pebble's "Big Trip Home Shutdown"
+- **Shots:** suitcase by the door, run Pebble's "Big trip home shutdown"
   template: fridge, waste out, water, thermostat, plugs. Last step: front
   door.
 - **Caption:** "Saving this one for every trip. #travelhack #leavingforholiday"
@@ -95,20 +95,20 @@ can search for it.
 
 ### 8. "Hotel checkout sweep"
 - **Hook:** "Every charger I've ever lost is in a hotel room"
-- **Shots:** run the "Hotel Checkout Sweep" template: safe, outlets, under the
+- **Shots:** run the "Hotel checkout sweep" template: safe, outlets, under the
   bed, wardrobe, bedside drawer. Photo of the empty safe.
 - **Caption:** "Check the safe. Every time. #travelhacks #hotel"
   (This broadens the audience beyond home checks and is lighter in tone.)
 
 ### 9. "Wait, did I...? (car edition)"
 - **Hook:** "Walking back across the car park to check the car is locked"
-- **Shots:** "Car Lock & Parking Check": windows up, no valuables showing,
+- **Shots:** "Car lock and parking check": windows up, no valuables showing,
   lock and listen for the clack, photo of the parking spot. Blur the plate.
 - **Caption:** "Bonus: you'll know where you parked. #parkinghack"
 
 ### 10. "Bedtime house check, in the dark"
 - **Hook:** "Lying in bed wondering if the back door's locked"
-- **Shots:** dim lights, Pebble in a dark theme. "Bedtime House Check": back
+- **Shots:** dim lights, Pebble in a dark theme. "Bedtime house check": back
   door, ground-floor windows, stove off, front door. Then into bed and check
   History once: everything listed with times.
 - **Caption:** "Done before bed, so it's on the list when I wonder later.
@@ -155,7 +155,7 @@ Leaving-home checks, step by step
 
 <!-- limit:40 id:headline-3 -->
 ```text
-Straighteners off. Photo saved. 08:02.
+Straighteners off, photo saved at 08:02
 ```
 
 <!-- limit:40 id:headline-4 -->

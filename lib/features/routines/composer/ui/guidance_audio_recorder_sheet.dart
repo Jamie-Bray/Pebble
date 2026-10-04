@@ -207,7 +207,8 @@ class _GuidanceAudioRecorderSheetState
       setState(() {
         _isStarting = false;
         _isPointerDown = false;
-        _error = 'Microphone access is needed to record audio.';
+        _error =
+            'Pebble needs microphone access to record. You can allow it in your phone settings.';
       });
       return;
     }
@@ -228,7 +229,7 @@ class _GuidanceAudioRecorderSheetState
       setState(() {
         _isStarting = false;
         _isPointerDown = false;
-        _error = 'Failed to start recording.';
+        _error = "Couldn't start recording. Try again.";
       });
       return;
     }
@@ -320,7 +321,7 @@ class _GuidanceAudioRecorderSheetState
       }
     } catch (_) {
       if (!mounted) return;
-      _resetState('Failed to save recording.');
+      _resetState("Couldn't save the recording. Try again.");
     }
   }
 

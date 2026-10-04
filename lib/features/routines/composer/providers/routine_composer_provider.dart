@@ -100,7 +100,7 @@ class RoutineComposerViewModel extends StateNotifier<RoutineComposerState> {
       if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'Could not load your routine draft.',
+        errorMessage: "Couldn't load your draft.",
       );
     }
   }
@@ -234,7 +234,7 @@ class RoutineComposerViewModel extends StateNotifier<RoutineComposerState> {
       if (mounted) {
         state = state.copyWith(
           isPublishing: false,
-          errorMessage: 'Could not save your routine.',
+          errorMessage: "Couldn't save your routine. Try again.",
         );
       }
       return null;
@@ -320,7 +320,7 @@ class RoutineComposerViewModel extends StateNotifier<RoutineComposerState> {
           isSavingDraft: false,
           hasUnsavedChanges: true,
           showSavedConfirmation: false,
-          errorMessage: 'Could not save your draft.',
+          errorMessage: "Couldn't save your draft.",
         );
       }
       return;

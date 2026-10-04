@@ -40,7 +40,7 @@ camera reads `sample_photo_1.jpg` and `sample_photo_2.jpg` from
 machine, so the fake camera silently returned nothing and the photo step never
 completed.
 
-Fix in this branch (`test/walkthrough/walkthrough_screens_test.dart`):
+The fix (the same one was made independently in PR #5, whose version is used):
 
 - First photo taps the primary button; the second taps "Add photo".
 - When the sample photos are missing, the fake camera falls back to tracked

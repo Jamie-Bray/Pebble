@@ -242,7 +242,7 @@ String? _userFacingStatusFor({
             'Premium is active, but backup could not be set up yet.';
       }
       if (serverStatus == ServerFeatureStatus.signedOut) {
-        return 'Premium is active. Sign in for backup, email alerts, and recovery.';
+        return 'Premium is active. Sign in for backup, completion emails and account recovery.';
       }
       if (serverStatus == ServerFeatureStatus.error) {
         return account.lastSyncError ?? 'Backup needs your attention.';

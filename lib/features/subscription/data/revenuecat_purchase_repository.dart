@@ -644,7 +644,7 @@ bool revenueCatAllowsSilentRestore(TargetPlatform platform) =>
 String revenueCatMessageForPurchasesError(rc.PurchasesErrorCode code) {
   switch (code) {
     case rc.PurchasesErrorCode.paymentPendingError:
-      return 'Your payment is pending. Premium unlocks when the store confirms it, so there is no need to buy again.';
+      return "Your payment is pending. Premium turns on when the store confirms it, so you don't need to buy again.";
     case rc.PurchasesErrorCode.productAlreadyPurchasedError:
       return 'Premium is already active on this store account.';
     case rc.PurchasesErrorCode.networkError:
@@ -657,13 +657,13 @@ String revenueCatMessageForPurchasesError(rc.PurchasesErrorCode code) {
       return 'Purchases are not allowed on this store account.';
     case rc.PurchasesErrorCode.configurationError:
     case rc.PurchasesErrorCode.invalidCredentialsError:
-      return 'Premium is not configured correctly yet. Please try again later.';
+      return "Premium isn't set up correctly yet. Try again later.";
     case rc.PurchasesErrorCode.operationAlreadyInProgressError:
       return 'A store request is already in progress.';
     case rc.PurchasesErrorCode.storeProblemError:
-      return 'The store could not complete that request. Please try again.';
+      return "The store couldn't finish that. Try again.";
     default:
-      return 'The store could not complete that request. Please try again.';
+      return "The store couldn't finish that. Try again.";
   }
 }
 

@@ -186,7 +186,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Unlock routine style',
+                  'Routine style',
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
@@ -195,7 +195,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Icons, colors and routine personality are included with Personal Premium.',
+                  'Choosing an icon and colour for each routine comes with Personal Premium.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 15,
@@ -271,7 +271,10 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
 
     return Container(
       decoration: BoxDecoration(color: foundation.bgBase),
-      child: ZenErrorView(message: 'Error loading routines: $error'),
+      child: const ZenErrorView(
+        title: "Couldn't load your routines",
+        message: 'Close Pebble and open it again.',
+      ),
     );
   }
 
@@ -314,7 +317,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                             ),
                             const SizedBox(height: 10),
                             Text(
-                              'A reliable checklist for the routines you repeat.',
+                              'Make a checklist for something you check often, like leaving the house.',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w400,
@@ -720,7 +723,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                     : Padding(
                         padding: const EdgeInsets.only(top: 3),
                         child: Text(
-                          'Small steps, big ripples',
+                          'One step at a time',
                           maxLines: 1,
                           softWrap: false,
                           overflow: TextOverflow.fade,
@@ -817,7 +820,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                           children: [
                             Expanded(
                               child: Text(
-                                'Your Routines',
+                                'Your routines',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: PebbleFonts.serif(
@@ -861,7 +864,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                           runSpacing: 2,
                           children: [
                             Text(
-                              'Your Routines',
+                              'Your routines',
                               style: PebbleFonts.serif(
                                 fontSize: 22,
                                 fontWeight: FontWeight.w400,
@@ -1019,7 +1022,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
         ? foundation.textPrimary.withValues(alpha: 0.44)
         : foundation.textPrimary;
     final subtitle = isRestricted
-        ? 'Locked on Free. Saved, not deleted.'
+        ? 'Locked on Free, but still saved.'
         : metadata.join(' / ');
 
     return Material(
@@ -1199,7 +1202,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'More routines will gather here.',
+              'Routines you add will show here.',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
@@ -1305,7 +1308,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                   ),
                 ),
                 PopupMenuButton<String>(
-                  tooltip: 'More for this run',
+                  tooltip: 'More options',
                   icon: Icon(
                     LucideIcons.ellipsis,
                     size: 20,
@@ -1346,7 +1349,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
       context: context,
       title: 'Discard saved progress?',
       body:
-          'Your progress for "${session.routineTitleSnapshot}" will be removed. This cannot be undone.',
+          'Pebble will delete your progress on "${session.routineTitleSnapshot}". You can\'t undo this.',
       cancelLabel: 'Keep progress',
       confirmLabel: 'Discard progress',
       isDestructive: true,
@@ -1398,10 +1401,10 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
 
     ZenNotifications.showSuccess(
       context,
-      title: nextPinned ? 'Pinned for widget' : 'Unpinned',
+      title: nextPinned ? 'Added to widget' : 'Removed from widget',
       message: nextPinned
-          ? '"${routine.title}" will appear on your Pebble widget.'
-          : '"${routine.title}" was removed from the widget.',
+          ? '"${routine.title}" now shows on your home screen widget.'
+          : '"${routine.title}" is no longer on your widget.',
     );
   }
 
@@ -1530,7 +1533,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                             sheetContext,
                             icon: LucideIcons.pencil,
                             label: 'Edit',
-                            subtitle: 'Adjust title, steps and details',
+                            subtitle: 'Change the name and steps',
                             accent: accent,
                             onTap: () {
                               Navigator.pop(sheetContext);
@@ -1541,7 +1544,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                             sheetContext,
                             icon: LucideIcons.bell,
                             label: 'Reminders',
-                            subtitle: 'When this routine reminds you',
+                            subtitle: 'Choose when Pebble reminds you',
                             accent: accent,
                             onTap: () {
                               Navigator.pop(sheetContext);
@@ -1575,8 +1578,8 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                             icon: LucideIcons.palette,
                             label: 'Style',
                             subtitle: hasPremiumStyleAccess
-                                ? 'Change icon and accent color'
-                                : 'Premium icon and color studio',
+                                ? 'Change the icon and colour'
+                                : 'Icon and colour, with Premium',
                             accent: accent,
                             premiumLocked: !hasPremiumStyleAccess,
                             onTap: () async {
@@ -1593,11 +1596,11 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                                   ? LucideIcons.pinOff
                                   : LucideIcons.pin,
                               label: routine.isPinned
-                                  ? 'Unpin from Widget'
-                                  : 'Pin to Widget',
+                                  ? 'Remove from widget'
+                                  : 'Add to widget',
                               subtitle: routine.isPinned
-                                  ? 'Remove this routine from your home widget'
-                                  : 'Show this routine on your home widget',
+                                  ? 'Take it off your home screen widget'
+                                  : 'Start it from your home screen',
                               accent: accent,
                               onTap: () async {
                                 Navigator.pop(sheetContext);
@@ -1605,13 +1608,13 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                               },
                             ),
                           const SizedBox(height: 18),
-                          _buildSectionHeader(sheetContext, 'INSIGHTS'),
+                          _buildSectionHeader(sheetContext, 'MORE'),
                           const SizedBox(height: 8),
                           _buildMenuRow(
                             sheetContext,
                             icon: LucideIcons.trendingUp,
-                            label: 'Stats & history',
-                            subtitle: 'See how often you run this',
+                            label: 'History',
+                            subtitle: "See when you've run it",
                             accent: accent,
                             onTap: () {
                               Navigator.pop(sheetContext);
@@ -1622,7 +1625,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                             sheetContext,
                             icon: LucideIcons.copy,
                             label: 'Duplicate routine',
-                            subtitle: 'Create an editable copy',
+                            subtitle: 'Make a copy you can edit',
                             accent: accent,
                             onTap: () {
                               Navigator.pop(sheetContext);
@@ -1637,8 +1640,8 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                             icon: LucideIcons.trash2,
                             label: 'Delete routine',
                             subtitle: deleteOpen
-                                ? 'Confirm removal below'
-                                : 'Reveal removal options',
+                                ? 'Confirm below'
+                                : "You'll be asked to confirm",
                             accent: accent,
                             isDestructive: true,
                             trailingIcon: deleteOpen
@@ -1873,7 +1876,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Remove "${routine.title}" from Home?',
+            'Delete "${routine.title}"?',
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -1884,7 +1887,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            'History and photos stay available.',
+            'Its history and photos stay in History.',
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
@@ -1999,8 +2002,8 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
 
     ZenNotifications.showInfo(
       context,
-      message: '"${routine.title}" is gone. History stays available.',
-      title: 'Routine removed',
+      message: 'Its history and photos are still in History.',
+      title: '"${routine.title}" deleted',
     );
   }
 }
@@ -2196,7 +2199,7 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
       children: [
         SizedBox(height: metrics.topInset),
         Text(
-          inProgress ? 'IN PROGRESS' : 'YOUR NEXT RIPPLE',
+          inProgress ? 'IN PROGRESS' : 'UP NEXT',
           key: const ValueKey('home_hero_overline'),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,

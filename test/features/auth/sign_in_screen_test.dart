@@ -117,7 +117,7 @@ void main() {
 
       expect(find.text('Continue with Apple'), findsOneWidget);
       expect(find.text('Continue with Google'), findsNothing);
-      expect(find.text('Continue with Email'), findsOneWidget);
+      expect(find.text('Continue with email'), findsOneWidget);
       debugDefaultTargetPlatformOverride = null;
     });
 
@@ -265,7 +265,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Continue with Email'));
+    await tester.tap(find.text('Continue with email'));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.widgetWithText(TextField, 'Email address'),
@@ -274,7 +274,7 @@ void main() {
     await tester.tap(find.text('Send code'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Check spam or junk'), findsOneWidget);
+    expect(find.textContaining('check your spam folder'), findsOneWidget);
     expect(find.text('Use a different email'), findsOneWidget);
 
     await tester.tap(find.text('Use a different email'));

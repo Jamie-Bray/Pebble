@@ -1914,7 +1914,7 @@ void main() {
         );
         expect(account.bootstrapStatus, BootstrapStatus.error);
         expect(account.lastSyncError, isNotNull);
-        expect(find.text('Could not continue'), findsOneWidget);
+        expect(find.text("Couldn't continue"), findsOneWidget);
       },
     );
 

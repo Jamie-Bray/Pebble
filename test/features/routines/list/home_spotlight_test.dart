@@ -128,7 +128,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('YOUR NEXT RIPPLE'), findsOneWidget);
+    expect(find.text('UP NEXT'), findsOneWidget);
     expect(find.text('Start'), findsOneWidget);
     expect(find.text('Last Run.'), findsOneWidget);
     expect(find.text('Settings'), findsNothing);
@@ -141,26 +141,26 @@ void main() {
     expect(find.byTooltip('Email'), findsNothing);
     expect(find.byTooltip('Routine settings'), findsOneWidget);
     expect(find.text('2 steps'), findsOneWidget);
-    expect(find.text('Your Routines'), findsOneWidget);
+    expect(find.text('Your routines'), findsOneWidget);
     expect(find.text('2 routines'), findsOneWidget);
     expect(find.text('Last Run'), findsNothing);
     expect(find.text('Newest'), findsNothing);
-    await tester.tap(find.text('Your Routines'));
+    await tester.tap(find.text('Your routines'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
 
-    expect(find.text('Your Routines'), findsOneWidget);
+    expect(find.text('Your routines'), findsOneWidget);
     expect(find.text('Last Run'), findsOneWidget);
     expect(find.text('Newest'), findsOneWidget);
 
-    await tester.drag(find.text('Your Routines'), const Offset(0, 320));
+    await tester.drag(find.text('Your routines'), const Offset(0, 320));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
-    expect(find.text('Your Routines'), findsOneWidget);
+    expect(find.text('Your routines'), findsOneWidget);
     expect(find.text('Newest'), findsNothing);
 
-    await tester.drag(find.text('Your Routines'), const Offset(0, -90));
+    await tester.drag(find.text('Your routines'), const Offset(0, -90));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
@@ -169,7 +169,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('Newest.'), findsOneWidget);
-    expect(find.text('Your Routines'), findsWidgets);
+    expect(find.text('Your routines'), findsWidgets);
   });
 
   testWidgets('template handoff highlights the new routine on Home', (
@@ -200,20 +200,20 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('Small steps, big ripples'), findsOneWidget);
+    expect(find.text('One step at a time'), findsOneWidget);
     expect(find.text('Leaving Home is ready'), findsNothing);
     expect(find.text('Leaving Home.'), findsOneWidget);
     expect(find.text('Start'), findsOneWidget);
-    expect(find.text('Your Routines'), findsOneWidget);
+    expect(find.text('Your routines'), findsOneWidget);
     expect(find.text('Leaving Home'), findsNothing);
     expect(find.text('Add step'), findsNothing);
     expect(find.text('Style'), findsNothing);
 
-    await tester.tap(find.text('Your Routines'));
+    await tester.tap(find.text('Your routines'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
-    expect(find.text('Your Routines'), findsOneWidget);
+    expect(find.text('Your routines'), findsOneWidget);
   });
 
   testWidgets('routine library scrolls beyond four routines', (tester) async {
@@ -238,10 +238,10 @@ void main() {
     expect(find.text('Routine 1.'), findsOneWidget);
     expect(find.text('Routine 1'), findsNothing);
     expect(find.text('Ready when you are'), findsNothing);
-    expect(find.text('Your Routines'), findsOneWidget);
+    expect(find.text('Your routines'), findsOneWidget);
     expect(find.text('7 routines'), findsOneWidget);
 
-    await tester.tap(find.text('Your Routines'));
+    await tester.tap(find.text('Your routines'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
@@ -276,7 +276,7 @@ void main() {
     );
 
     final headerBottom = tester
-        .getBottomLeft(find.text('Small steps, big ripples'))
+        .getBottomLeft(find.text('One step at a time'))
         .dy;
     final overlineTop = tester
         .getTopLeft(find.byKey(const ValueKey('home_hero_overline')))
@@ -374,7 +374,7 @@ void main() {
     final ctaBottom = tester
         .getBottomLeft(find.byKey(const ValueKey('home_hero_cta_box')))
         .dy;
-    final shelfTop = tester.getTopLeft(find.text('Your Routines')).dy;
+    final shelfTop = tester.getTopLeft(find.text('Your routines')).dy;
     expect(ctaBottom, lessThan(shelfTop));
     expect(tester.takeException(), isNull);
   });
@@ -647,7 +647,7 @@ void main() {
       expect(find.text('The Anxiety-Free Departure'), findsNothing);
       expect(find.text('Car Security & Parking Peace'), findsNothing);
 
-      await tester.tap(find.text('Your Routines'));
+      await tester.tap(find.text('Your routines'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
 
@@ -681,7 +681,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('YOUR NEXT RIPPLE'), findsOneWidget);
+    expect(find.text('UP NEXT'), findsOneWidget);
     expect(find.text('Morning Reset.'), findsOneWidget);
     expect(find.text('Settings'), findsNothing);
     expect(find.byTooltip('App settings'), findsOneWidget);
@@ -711,7 +711,7 @@ void main() {
     final ctaBottom = tester
         .getBottomLeft(find.byKey(const ValueKey('home_hero_cta_box')))
         .dy;
-    final shelfTop = tester.getTopLeft(find.text('Your Routines')).dy;
+    final shelfTop = tester.getTopLeft(find.text('Your routines')).dy;
     expect(ctaBottom, lessThan(shelfTop));
     expect(tester.takeException(), isNull);
   });
@@ -731,12 +731,12 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('Pin to Widget'), findsOneWidget);
-    expect(find.text('Show this routine on your home widget'), findsOneWidget);
+    expect(find.text('Add to widget'), findsOneWidget);
+    expect(find.text('Start it from your home screen'), findsOneWidget);
 
-    await tester.ensureVisible(find.text('Pin to Widget'));
+    await tester.ensureVisible(find.text('Add to widget'));
     await tester.pump();
-    await tester.tap(find.text('Pin to Widget'));
+    await tester.tap(find.text('Add to widget'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
@@ -758,7 +758,7 @@ void main() {
       routines: repo._routines.values.toList(),
       routineRepository: repo,
     );
-    await tester.tap(find.text('Your Routines'));
+    await tester.tap(find.text('Your routines'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
@@ -808,8 +808,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(find.text('Edit'), findsOneWidget);
-      expect(find.text('Pin to Widget'), findsNothing);
-      expect(find.text('Unpin from Widget'), findsNothing);
+      expect(find.text('Add to widget'), findsNothing);
+      expect(find.text('Remove from widget'), findsNothing);
       expect(find.textContaining('home widget'), findsNothing);
       expect(find.textContaining('Pinned'), findsNothing);
     } finally {
@@ -847,12 +847,12 @@ void main() {
     final cta = find.byKey(const ValueKey('home_hero_cta_box'));
     expect(cta, findsOneWidget);
     final ctaBottom = tester.getBottomLeft(cta).dy;
-    final shelfTop = tester.getTopLeft(find.text('Your Routines')).dy;
+    final shelfTop = tester.getTopLeft(find.text('Your routines')).dy;
     expect(ctaBottom, lessThan(shelfTop));
     expect(tester.getTopLeft(cta).dy, greaterThan(0));
 
     // The expanded routine list grows its rows instead of clipping them.
-    await tester.tap(find.text('Your Routines'));
+    await tester.tap(find.text('Your routines'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
     expect(find.text('Morning reset'), findsOneWidget);
@@ -890,7 +890,7 @@ void main() {
     expect(find.byKey(const ValueKey('home_resume_card')), findsOneWidget);
     final cta = find.byKey(const ValueKey('home_hero_cta_box'));
     final ctaBottom = tester.getBottomLeft(cta).dy;
-    final shelfTop = tester.getTopLeft(find.text('Your Routines')).dy;
+    final shelfTop = tester.getTopLeft(find.text('Your routines')).dy;
     expect(ctaBottom, lessThan(shelfTop));
     final metaBottom = tester
         .getBottomLeft(find.byKey(const ValueKey('home_hero_meta_row')))
@@ -995,7 +995,7 @@ void _checkedTests() {
     // Run again is tonal: no filled Start competing with the answer.
     expect(find.text('Run again'), findsOneWidget);
     expect(find.text('Start'), findsNothing);
-    expect(find.text('YOUR NEXT RIPPLE'), findsNothing);
+    expect(find.text('UP NEXT'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -1045,7 +1045,7 @@ void _checkedTests() {
 
     expect(find.text('Run again'), findsNothing);
     expect(find.text('Start'), findsOneWidget);
-    expect(find.text('YOUR NEXT RIPPLE'), findsOneWidget);
+    expect(find.text('UP NEXT'), findsOneWidget);
   });
 
   testWidgets('a saved run of the hero routine shows Resume, not Checked', (
