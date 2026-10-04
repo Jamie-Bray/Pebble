@@ -758,14 +758,12 @@ class _FakePhotoPicker implements RoutinePlayerPhotoPicker {
     int? imageQuality,
     double? maxWidth,
   }) async {
-    // The sample photos are not in git. Without them, fall back to a tracked
-    // image so a fresh checkout still completes the photo scenarios.
-    var sample = File('$_supportDir/sample_photo_${_count % 2 + 1}.jpg');
-    if (!sample.existsSync()) {
-      sample = File('assets/icon/feature-graphic-1024x500.png');
-    }
-    final ext = sample.path.split('.').last;
-    final copy = sample.copySync('$_supportDir/picked_${_count++}.$ext');
+    // Photos in the support directory win; otherwise use the tracked
+    // fixtures so a fresh checkout still completes the photo scenarios.
+    final name = 'sample_photo_${_count % 2 + 1}.jpg';
+    var sample = File('$_supportDir/$name');
+    if (!sample.existsSync()) sample = File('test/walkthrough/fixtures/$name');
+    final copy = sample.copySync('$_supportDir/picked_${_count++}.jpg');
     return XFile(copy.path);
   }
 
