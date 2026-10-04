@@ -87,7 +87,15 @@ I ran the following checks locally on Windows using Flutter `3.44.6` and Dart `3
 *   **Sign in with Apple:** Required by Apple App Store Review Guideline 4.8 if third-party sign-in (like Google) is offered. 
     *   *Source checked 4 Oct 2026:* [Apple App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/#sign-in-with-apple)
 
-## 7. Jamie's Next Actions & Checklist
+## 7. Engineering Handover
+
+For a detailed breakdown of failures, data flows, and unverified components, see the engineering investigation documents:
+* [Walkthrough Investigation](review/WALKTHROUGH_INVESTIGATION.md)
+* [Data Recovery Investigation](review/DATA_RECOVERY_INVESTIGATION.md)
+* [Backend Investigation](review/BACKEND_INVESTIGATION.md)
+* [Claude Handover](review/CLAUDE_HANDOVER.md)
+
+## 8. Jamie's Next Actions & Checklist
 
 Because I cannot access your production dashboards, you must personally verify the following configurations before launch:
 
