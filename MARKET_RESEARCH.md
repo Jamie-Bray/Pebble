@@ -1,6 +1,7 @@
 # Pebble Routines: Market, Competitor and Pricing Report
 
-Last updated: 4 October 2026 (SWOT added)
+Last updated: 4 October 2026 (version 2: competitor data now taken directly
+from the App Store and Google Play)
 For: the owner. Written in plain English. No code changes come with this report.
 
 ## How to read this report
@@ -8,52 +9,75 @@ For: the owner. Written in plain English. No code changes come with this report.
 - **Fact** means something found in a public source. Each one has a link.
 - **Our view** means judgement: a recommendation, an estimate or a guess. These
   are labelled so you can disagree with them.
-- **Dates.** Every price, rating and review count was checked on **4 October
-  2026**. Store prices change often and differ by country.
-- **One limit you should know about.** This research ran in a cloud session
-  whose network policy blocks `apps.apple.com` and `play.google.com`. Store
-  details therefore come from search-engine copies of the store pages, not from
-  the live pages. Before you rely on a number for a big decision, open the
-  store page yourself. The ones most worth re-checking are marked **(re-check)**.
+- **Dates.** Every price, rating, download count and review was checked on **4
+  October 2026**. Store prices change often and differ by country. UK prices are
+  given first.
+- **How the store data was gathered.** iPhone apps: Apple's public search and
+  lookup service (exact ratings and rating counts for the UK and US stores),
+  each app's App Store page (in-app purchase prices) and Apple's public reviews
+  feed (recent reviews). Android apps: Google Play's UK search results and each
+  app's store page (downloads, last update, ads and in-app purchases). Google
+  Play doesn't show in-app prices without signing in, so Android prices are
+  missing where the app has no iPhone version.
 
 ---
 
 ## 1. Summary
 
 **The market.** Photographing the straighteners or the hob "just in case" is a
-widespread habit. A whole wave of small "photo proof" checking apps launched in
-2025 and 2026, mostly on iPhone. Almost none of them have enough ratings for the
-App Store to show a score, so **nobody owns this category yet.** Android is
-thinner still: the closest like-for-like Android app (SureCheck) is free, with no
-paid tier. The big routine apps (Structured, Routinery, Tiimo, Fabulous) have
-huge audiences but don't do checking or photos.
+widespread habit. Developers have noticed: the App Store now has **33
+dedicated "did I lock it?" checking apps, 28 of them launched in 2025 or 2026**
+(21 this year alone). Between them they have **16 ratings in total**, and only 2
+have any rating at all in the UK store. On Google Play the biggest dedicated
+checking app has **1,000+ downloads** and most have under 100. **Nobody owns
+this category yet**, and four apps found by an earlier web search have already
+disappeared from the App Store.
 
-**Pebble's edge.** Pebble is the only one of these with Android **and** iPhone,
-optional backup and account recovery, completion emails, voice prompts, a
-template library, and copy that is careful not to promise anything. Most rivals
-lead with "undeniable proof" or "everything is safe". That is exactly the
-language Pebble avoids, and it is a real point of difference for a cautious
-audience.
+**Three kinds of rival.**
+
+1. **"Reassurance-first" apps** promise certainty ("Know for sure",
+   "undeniable proof", "You are good"). Some send a reassurance message after
+   each check, or push your morning photos to you at 2 pm.
+2. **"Check-less" apps** are built around therapy ideas, with a pause before
+   viewing, urge tracking and "move on or look" choices.
+3. **"Neutral record" apps**, the closest to Pebble, just show what you checked
+   and when. The two strongest, **Is It Locked?** and **Before You Go**, both
+   launched in the last three months, are iPhone-only, and use language very
+   like Pebble's.
+
+**Pebble's edge.** Pebble is the only checking app found that offers
+**Android and iPhone, backup and account recovery, completion emails, voice
+prompts in your own voice, up to 4 photos per step, and a full template
+library** together. Most rivals have one or two of these. **None of the 45 or so
+checking apps describes its photos with AI.**
+
+**Pebble's gaps.** Rivals already offer things Pebble doesn't: an iPhone
+widget, Apple Watch, a reminder when you leave home (geofence), sharing a list
+with the people you live with, a "camera only" option, app lock, a choice of
+how long photos are kept, and one-off "lifetime" prices.
 
 **Price.** £0.89 a month and £6.49 a year is too low. After VAT and the store
 fee you would keep about **£0.63 a month or £4.60 a year** per person. At those
 prices you would keep roughly **£11,600 a year** from 2,000 subscribers, before
-running costs and tax. That is not a living. Our view: launch at **£2.99 a month / £19.99 a year** in
-the UK and **$2.99 / $19.99** in the US, with a 7-day free trial on the yearly
-plan only, and test £3.99 / £24.99 later. At £2.99 / £19.99, 2,000 subscribers
-come to roughly **£34,000 a year** after all costs and before tax.
+running costs and tax. That is not a living. Rivals' UK prices cluster at
+**£1.99–£5.99 a month and £14.99–£29.99 a year**. Our view: launch at **£2.99 a
+month / £19.99 a year** in the UK and **$2.99 / $19.99** in the US, with a
+7-day free trial on the yearly plan only, and test £3.99 / £24.99 later. At
+£2.99 / £19.99, 2,000 subscribers come to roughly **£34,000 a year** after all
+costs and before tax.
 
 **AI photo labels ("Jev").** Our view: **build it, carefully, after launch.**
-It is cheap to run (about **$0.0018 per photo** with Claude Haiku 4.5) and
-nothing in the market does it properly. But for people who check, an AI that
-answers "is it off?" on demand can quickly become a new thing to check. The
-design below allows **one factual note per photo, written once, saved with the
-photo and never re-asked.** Call the feature **"Photo note"**, not a character
-name. Make it Premium-only, opt-in, and run a two-week accuracy test before
-writing any app code.
+It is cheap to run (about **$0.0018 per photo** with Claude Haiku 4.5) and no
+rival does it. But for people who check, an AI that answers "is it off?" on
+demand can quickly become a new thing to check. One rival's only UK review
+says the user "ended up checking it often". The design below allows **one
+factual note per photo, written once, saved with the photo and never
+re-asked.** Call the feature **"Photo note"**, not a character name. Make it
+Premium-only and opt-in, and run a two-week accuracy test before writing any
+app code.
 
-A SWOT summary of where Pebble is strong and where it lags is in section
-4.3. The top 5 actions are at the end (section 9).
+The SWOT summary is in section 4.3. The top 5 actions are at the end (section
+9).
 
 ---
 
@@ -64,7 +88,7 @@ A SWOT summary of where Pebble is strong and where it lags is in section
 | Fact | Source |
 |---|---|
 | OCD affects about 1.2% of people in the UK, an estimated 750,000 people. | [OCD-UK](https://www.ocduk.org/?p=2376) |
-| r/OCD has about 260,000 members; r/ADHD about 2.3 million **(re-check)**. | [GummySearch r/OCD](https://gummysearch.com/r/OCD), [GummySearch r/ADHD](https://gummysearch.com/r/ADHD) |
+| r/OCD has about 260,000 members; r/ADHD about 2.3 million. | [GummySearch r/OCD](https://gummysearch.com/r/OCD), [GummySearch r/ADHD](https://gummysearch.com/r/ADHD) |
 | The "photo of the unplugged straighteners" habit has been covered as a lifehack in UK local press. | [Get Surrey](https://www.getsurrey.co.uk/news/uk-world-news/womans-genius-hack-stop-you-17746606), [Lancashire Evening Post](https://www.lep.co.uk/news/opinion/columnists/have-i-turned-my-straighteners-off-modernproblems-1084051) |
 | UK fire services run regular warnings about hair straighteners left on. | [London Fire Brigade](https://www.london-fire.gov.uk/incidents/2016/june/firefighters-issue-warning-following-hair-raising-fire), [Offaly Express](https://www.offalyexpress.ie/news/photos-firefighters-in-stark-warning-over-hair-straighteners-8039335) |
 | A straightener "how people think they behave when left on" TikTok has about 1.8 million likes. | [TikTok @shaneblud](https://www.tiktok.com/@shaneblud/video/7620850048234016022) |
@@ -112,109 +136,222 @@ reassurance" (`DESIGN_DIRECTION.md`), fits this research well. A check done
 once, with the time on it, is a record. A button you can press again and again
 for an answer is a loop. Section 6 applies this to the AI idea.
 
-### 2.3 Shape of the competition (our view)
+### 2.3 Shape of the competition
 
-- **Crowded but immature.** At least 15 small checking apps launched or updated
-  in 2025–2026, most from solo developers and most iPhone-only. Almost none show
-  a star rating yet. Nobody has brand recognition.
-- **Android is underserved.** Pebble is launching on Android first, where the
-  field is a handful of free or tiny apps.
-- **The real incumbent is the phone camera.** Most people just take a photo,
-  and it ends up buried in their camera roll. Pebble has to beat "free and
-  already on my phone". The pitch is: one photo, saved with the time, in a list
-  that shows what you already checked, kept out of your camera roll.
+**Facts** (App Store and Google Play, 4 October 2026):
+
+- **33 dedicated checking apps on the App Store.** 28 launched in 2025 or 2026,
+  21 of them in 2026. Together they have 16 ratings. The most-rated, "Did I
+  lock?", has 5, and it hasn't been updated since 2020.
+- **About 12 on Google Play UK.** The largest, CheckAlarm, has 1,000+
+  downloads. Paximus has 500+. Everything else has 100+ or fewer. None has
+  enough ratings for Google Play to show a score.
+- **High churn.** Four apps an earlier web search found (OCD Rescuer, Checked
+  OCD Companion, "Did I lock it?" with its "GPT Subscription", and Home Key
+  Reminder) no longer appear in the App Store in the UK, US, Canada, Australia,
+  India, Germany, Japan or Turkey. One Android "Secure Check – Did I lock it?"
+  listing has been turned into an unrelated photo app.
+- **The real incumbent is the phone camera**, and the free timestamp-camera
+  apps. On Google Play, Timemark: Photo Proof has 4.8 stars from about 942,000
+  reviews.
+
+**Our view.**
+
+- The category is **crowded with very small apps but has no winner.** Most are
+  side projects launched quickly, probably with AI coding tools, and many will
+  be abandoned. A polished, maintained app with a few hundred genuine reviews
+  could own "did I lock the door" searches on both stores.
+- **Android is wide open.** Pebble launches there first.
+- **The closest rivals in spirit are new and iPhone-only.** Is It Locked?
+  (launched September 2026) and Before You Go (July 2026) use plain,
+  record-not-reassurance wording very like Pebble's. Expect them to grow, and
+  expect more like them.
+- Pebble has to beat "just take a photo". The pitch is: one photo, saved with
+  the time, in a list that shows what you already checked, kept out of your
+  camera roll.
 
 ---
 
 ## 3. Competitors
 
-All checked on 4 October 2026. "Too few to show" means the App Store says the
-app "hasn't received enough ratings or reviews to display an overview".
+All checked on 4 October 2026. **Angle** is our label for how each app talks
+to its users (section 1). "none" means the store shows no ratings at all.
 
-### 3.1 Checking and "photo proof" apps
+### 3.1 Checking apps on the App Store (33)
 
-| App (platform) | Price model and prices | Headline features | Ratings | Praise and complaints | Sources |
+Prices are UK prices from each app's App Store page. "Free; …" means free to
+download, with the in-app purchases listed. Dates are launch / last update.
+
+| App | Angle | Launched / updated | UK price | Ratings (UK; US) | Headline features |
 |---|---|---|---|---|---|
-| **Yepp – Your OCD Companion** (iOS) | Free, then subscription: **$4.99/week, $9.99/month, $79.99/year** | "Peace-of-mind camera"; time-stamped photos stored in the app; auto-delete after a day, a week, or your choice | Too few to show **(re-check)** | No reviews found. The weekly plan is the kind of pricing users complain about in other apps (see Fabulous). | [App Store (AT)](https://apps.apple.com/at/app/yepp-your-ocd-companion/id6744017205?l=en-GB), [App Store (TR)](https://apps.apple.com/tr/app/yepp-your-ocd-companion/id6744017205) |
-| **Pruvd: OCD Checking Proof** (iOS) | Free, then subscription: **CA$6.99/month, CA$34.99/year**; AU$7.99 / AU$39.99 | Check once and save photo, video or voice proof; review instead of going back. Says it is "not a replacement for professional treatment" | Too few to show | Launched on Product Hunt. No user reviews found. | [App Store (CA)](https://apps.apple.com/ca/app/pruvd-ocd-checking-proof/id6757632735), [App Store (AU)](https://apps.apple.com/au/app/pruvd-ocd-checking-proof/id6757632735), [Product Hunt](https://www.producthunt.com/posts/1162799) |
-| **OCD Rescuer: Anxiety Relief** (iOS) | Free with 1 routine; Premium **$19.99/year**, 3-day free trial | Custom checklists, time-stamped photo per step, "verified history" | Not found **(re-check)** | No reviews found. Its copy promises to "eliminate all doubt", which Pebble's rules forbid. | [App Store (US)](https://apps.apple.com/us/app/ocd-rescuer-anxiety-relief/id6751641770) |
-| **DoneKit: Did I Lock It?** (iOS) | Free, then **$1.99/month or $9.99/year** | Photo-based checklist, "visual proof before you leave" | **5.0 (1 rating)** | Praise: "used to fill [my] phone gallery with photos of [my] stove and doors… this app solves that perfectly by keeping those photos separate." | [App Store (US)](https://apps.apple.com/us/app/donekit-did-i-lock-it/id6756815675) |
-| **RemLock – no more door stress!** (iOS) | Free, then **$4.99** one-off for unlimited access ($1.99 special offer) | Door-lock reminders and checks, pitched "against OCD and anxiety" | **US: 4.0 (3 ratings).** A third-party site claims 4.6 from 9,296 ratings, probably worldwide **(re-check)** | No review text found | [App Store (US)](https://apps.apple.com/us/app/remlock-no-more-door-stress/id1599940275), [appstor.io](https://remlock-door-reminders.appstor.io/amp) |
-| **Did I lock it?** (iOS, Dragica Soldo) | **$0.99** to buy, plus in-app purchases, including a **"GPT Subscription"** (₹699 in India) | Photo proof of locking, a widget, works offline | 5.0 (1 rating) | No reviews. **Note: the "GPT Subscription" suggests someone is already trying AI here.** | [App Store (US)](https://apps.apple.com/us/app/-/id6751820916), [App Store (IN)](https://apps.apple.com/in/app/did-i-lock-it/id6751820916) |
-| **Did I Lock Up? – Checklist** (iOS) | Free | One-tap lock log with relative times ("Locked 10 minutes ago"), optional notes | Not found | None found | [App Store (US)](https://apps.apple.com/us/app/-/id6755089038) |
-| **OCD Away** (iOS) | **$0.99** to buy | Leaving-home checklist with photos kept inside the app; history of past checklists | Not found | None found | [App Store](https://apps.apple.com/app/id6752787719) |
-| **Checked OCD Companion** (iOS, UK store) | Free | Instant check log, custom lists, no cloud. Its copy says it gives "visual confirmation that everything is safe" | Too few to show | None found | [App Store (GB)](https://apps.apple.com/gb/app/checked-ocd-companion/id6741740614) |
-| **PeacePoint: OCD Smart Routines** (iOS) | Free with 1 routine; **one-off lifetime unlock** in 3 price tiers (amounts not found) | Routines, "target counts for tasks requiring extra reassurance", journaling, calm tools, biometric app lock, colour themes | Not found | None found. Target counts build repeated checking into the product, which Pebble should not copy. | [App Store (US)](https://apps.apple.com/us/app/peacepoint-ocd-smart-routines/id6757390396) |
-| **Paximus: OCD Companion** (iOS and Android) | Free with in-app purchases (prices not found) | Photo, voice note, written confirmation or checklist as "proof"; time-stamped records | Not found | None found | [Google Play](https://play.google.com/store/apps/details?id=com.foxir.paximus&hl=en_US), [App Store](https://apps.apple.com/us/app/-/id6745874911) |
-| **DoorCheck Photo Proof** (iOS) | **Free; no subscriptions, no in-app purchases** | Live camera only (no library import), templates, local reminders, history search and date filter, on-device only | Not found | None found | [mwm.ai listing](https://mwm.ai/apps/doorcheck-photo-proof/6767494303) |
-| **Locking Check** (iOS) | Free | Records the time you locked up; location registration with photos | Not found | None found | [App Store](https://apps.apple.com/py/app/locking-check/id1523162174?l=en-GB) |
-| **Home Key Reminder** (iOS) | Free | Leaving-home templates, originally designed for older people | Not found | None found | [App Store](https://apps.apple.com/us/app/-/id1665279188) |
-| **SureCheck – Did I Turn It Off?** (Android) | **Free, no ads, no premium tier** | Photo proof with large timestamps, custom checklists, **home-screen widget**, daily reminders, auto-delete photos, dark mode; updated 30 Jan 2026 | Not found **(re-check)** | None found. **The closest Android like-for-like, and it is free.** | [Google Play](https://play.google.com/store/apps/details?id=com.surecheck.surecheck&hl=en) |
-| **Stay Calm: OCD Checklist** (Android) | Free | Photos of tasks, auto-deleted after an hour, a day or a week (your choice) | 50 to 100+ downloads | None found | [Google Play](https://play.google.com/store/apps/details?id=com.staycalm.ocdchecklist&hl=en_US) |
-| **Lockt: Routines & Habits** (Android) | Not found | Photo of the locked door or unplugged iron; updated 22 Jan 2026 | Not found | None found | [Google Play](https://play.google.com/store/apps/details?id=com.ynifa.lockt&hl=en_US) |
-| **Secure Check – Did I lock It?** (Android) | Not found | Private log of daily checks (garage, stove, door); updated 25 Apr 2026 | Not found | None found | [Google Play](https://play.google.com/store/apps/details?id=com.dornbros.securecheck_lockit) |
+| [Before You Go: Leave Checklist](https://apps.apple.com/gb/app/before-you-go-leave-checklist/id6785884637) | Neutral record | 2026-07 / 2026-09 | Free; Before You Go Premium £3.99 | GB none; US none | 18 templates incl. hotel/Airbnb checkout with reminders the evening before; every item time-stamped; widget shows "Checked · Today, 8:14 · 8/8"; paste a list from Notes. No photos. |
+| [Is It Locked? Door Checklist](https://apps.apple.com/gb/app/is-it-locked-door-checklist/id6813531030) | Neutral record | 2026-09 / 2026-09 | Free; Is It Locked? Plus Monthly £1.99, Is It Locked? Plus Annual £14.99 | GB none; US none | Hold one button to check the whole list; list stays checked for 8 h (1 h–3 days); widget; Plus adds Apple Watch, reminders when you leave a place, several places, **sharing with people you live with**, PDF export. |
+| [DoorCheck - Photo Proof](https://apps.apple.com/gb/app/doorcheck-photo-proof/id6767494303) | Neutral record | 2026-05 / 2026-08 | £0.99 | GB none; US none | Offline templates; **live camera only**; photo, time, status and note per item; skipped items shown; history search. |
+| [Batten: Did I Lock It?](https://apps.apple.com/gb/app/batten-did-i-lock-it/id6779814508) | Neutral record (ritual) | 2026-08 / 2026-08 | Free; Premium Yearly £14.99, Premium Monthly £1.99 | GB none; US none | "Manifests" and "Rounds"; hold to confirm each card; photo proof; geofence departure reminders; several homes; 7-day trial. |
+| [DoneKit: Locked It?](https://apps.apple.com/gb/app/donekit-locked-it/id6756815675) | Neutral record | 2026-01 / 2026-08 | Free; Monthly £1.99, Yearly £9.99 | GB none; US 5.0 (1) | Spaces and switches; "point and call" (say it aloud); photo proof kept out of the camera roll. |
+| [Did I Lock It? Lock'd](https://apps.apple.com/gb/app/did-i-lock-it-lockd/id6757942105) | Neutral record | 2026-01 / 2026-10 | Free; Lock'd Premium Lifetime £24.99, Annual Plan £19.99, Monthly Plan £1.99 | GB none; US none | Time-stamped before-you-leave list; lists for meds, packing, chores. |
+| [Did I Lock Up? - Checklist](https://apps.apple.com/gb/app/did-i-lock-up-checklist/id6755089038) | Neutral record | 2025-11 / 2025-11 | Free | GB none; US 2.0 (1) | One-tap lock log with relative times; notes. |
+| [Did I lock?](https://apps.apple.com/gb/app/did-i-lock/id1282374259) | Neutral record | 2017-09 / 2020-12 | Free | GB 5.0 (3); US 5.0 (5) | Tap after locking; history. Not updated since 2020. |
+| [OCD Check & Photo Proof: yepp](https://apps.apple.com/gb/app/ocd-check-photo-proof-yepp/id6744017205) | Check-less (OCD-aware) | 2025-03 / 2026-10 | Free; Yepp+ Weekly £4.99, Yepp+ Yearly £79.99, Yepp+ Monthly £9.99 | GB none; US none | Photo proof, "self-trust" log without a photo, note an intrusive thought without acting, anxiety rating, auto-delete, Face ID. |
+| [Pruvd: Did I Lock the Door?](https://apps.apple.com/gb/app/pruvd-did-i-lock-the-door/id6757632735) | Check-less (OCD-aware) | 2026-02 / 2026-07 | Free; Pruvd Pro - Monthly £4.99, Pruvd Pro - Annual £24.99 | GB none; US none | Photo, video, voice or tap as evidence; **One-Check Coach** suggests a pause before viewing evidence again; Siri; widgets. |
+| [OneCheck: Check Less](https://apps.apple.com/gb/app/onecheck-check-less/id6788103404) | Check-less (ERP-style) | 2026-07 / 2026-08 | Free; OneCheck+ Monthly £2.99 | GB none; US none | Record once; when the urge comes, a **breathing delay before viewing**; one confirmation per recording; urge log; CSV export for a therapist. |
+| [MakeSure: Did I Lock the Door?](https://apps.apple.com/gb/app/makesure-did-i-lock-the-door/id6756681295) | Check-less (ERP-style) | 2026-01 / 2026-09 | Free; Monthly MakeSure Premium £5.99, Annual MakeSure Premium £29.99 | GB none; US none | Run the routine once; rate the urge; choose "move on" or "look"; tracks how often you moved on. |
+| [Paximus: OCD Companion](https://apps.apple.com/gb/app/paximus-ocd-companion/id6745874911) | Proof / reassurance | 2025-07 / 2026-07 | Free; Paximus Annual Special Offer £24.99, Paximus Premium Annual £39.99, Paximus Premium Monthly £7.99, Paximus Annual Package £24.99, Paximus Monthly Package £4.99 | GB none; US none | Photo, voice, written confirmation or checklist as proof; time-stamped records. Also on Android (500+ downloads). |
+| [Certain: OCD ADHD Reassurance](https://apps.apple.com/gb/app/certain-ocd-adhd-reassurance/id6757313797) | Reassurance-first | 2026-01 / 2026-01 | Free; Certain Plus £6.99, Certain Plus £0.99 | GB 5.0 (2); US none | Records checks by room; optional "photo evidence for reassurance". |
+| [Check: Stop Anxiety Checking](https://apps.apple.com/gb/app/check-stop-anxiety-checking/id6757536012) | Reassurance-first | 2026-01 / 2026-01 | Free; Weekly £1.99, Yearly £22.99, Monthly £3.99 | GB none; US 5.0 (1) | One-tap check, then a **"personalized reassurance message"**. |
+| [Did I Lock It? - Checklist](https://apps.apple.com/gb/app/did-i-lock-it-checklist/id6761918539) | Reassurance-first | 2026-04 / 2026-04 | £1.99 | GB none; US none | One-tap log, photo, **"tiered reassurance messages"** and an "Overthink Mode". |
+| [Capy Clear: Leaving Home Check](https://apps.apple.com/gb/app/capy-clear-leaving-home-check/id6782067107) | Reassurance-first | 2026-08 / 2026-08 | Free; Lifetime Offline £9.99 | GB none; US none | Departure checklist; **sends a 2 pm notification with your morning proof: "You are good"**. |
+| [Peace of Mind: OCD Support](https://apps.apple.com/gb/app/peace-of-mind-ocd-support/id6755696639) | Reassurance-first | 2026-01 / 2026-01 | Free; Peace Of Mind Premium £2.99, Peace Of Mind Premium £14.99 | GB none; US none | Photos as "undeniable proof", kept out of the gallery. |
+| [Proof - OCD & Anxiety Relief](https://apps.apple.com/gb/app/proof-ocd-anxiety-relief/id6757310377) | Reassurance-first | 2026-01 / 2026-01 | Free; Unlock Forever £4.99, Unlimited Access £4.99 | GB none; US none | Must snap a photo to tick an item; "forensic" date and time stamp; 3 items free. |
+| [Did I Lock? Lock Check App](https://apps.apple.com/gb/app/did-i-lock-lock-check-app/id6781271218) | Reassurance-first | 2026-06 / 2026-06 | Free; Yearly premium £29.99, Monthly  Premium £6.99 | GB none; US none | Photo proof, voice notes, Face ID, "insistent alarms" for appliances. |
+| [Latched - Did I Lock It?](https://apps.apple.com/gb/app/latched-did-i-lock-it/id6761677992) | Reassurance-first | 2026-04 / 2026-04 | Free | GB none; US 2.0 (1) | One-tap time stamp; **"confidence percentages"** from your track record. |
+| [Did I Lock It ? – Door Check](https://apps.apple.com/gb/app/did-i-lock-it-door-check/id6757918937) | Reassurance-first | 2026-02 / 2026-02 | Free; Montly Package £7.99 | GB none; US 4.0 (1) | One tap marks the door locked; widget; "calm reassurance throughout the day". |
+| [Home Checklist - Stay Calm](https://apps.apple.com/gb/app/home-checklist-stay-calm/id1639712722) | Reassurance-first | 2024-11 / 2026-06 | Free | GB none; US none | Room-by-room checklist with photo per item; widgets. |
+| [Sure — Did I Turn It Off?](https://apps.apple.com/gb/app/sure-did-i-turn-it-off/id6754885481) | Reassurance-first | 2025-11 / 2026-01 | Free | GB none; US none | Photo per item, then a "Focus Moment"; Face ID. |
+| [Home Checklist: Did I Lock](https://apps.apple.com/gb/app/home-checklist-did-i-lock/id6756528574) | Reassurance-first | 2025-12 / 2026-05 | Free; Premium Monthly £0.99, Premium Yearly £2.99 | GB none; US none | Simple one-tap home checklist. |
+| [DidYou - Home Checklist](https://apps.apple.com/gb/app/didyou-home-checklist/id6771498811) | Reminder | 2026-06 / 2026-07 | Free; DidYou Unlock £2.99 | GB none; US none | **Geofence alert** when you leave home; photo proof in the one-off unlock. |
+| [RemLock - no more door stress!](https://apps.apple.com/gb/app/remlock-no-more-door-stress/id1599940275) | Proof (video) | 2022-05 / 2023-05 | Free; Unlimited Access Special Offer £1.99, Unlimited access £4.99 | GB none; US 4.0 (3) | Record yourself locking the door; recordings auto-delete after 24 h; widget. Not updated since 2023. |
+| [PeacePoint: OCD Smart Routines](https://apps.apple.com/gb/app/peacepoint-ocd-smart-routines/id6757390396) | Reassurance-first | 2026-01 / 2026-02 | Free; Peace Seeker £3.99, Peace Giver £19.99, Peace Keeper £7.99 | GB none; US 5.0 (1) | Routines with **"target counts"**, journaling, calm tools, biometric lock; one-off unlock. |
+| [LockCheck Camera](https://apps.apple.com/gb/app/lockcheck-camera/id1658489976) | Proof | 2022-12 / 2026-07 | £1.99 | GB none; US none | Tap or photograph each item; silent shutter; photos auto-delete. |
+| [OCD Away](https://apps.apple.com/gb/app/ocd-away/id6752787719) | Reassurance-first | 2025-10 / 2025-10 | £0.29 | GB none; US none | Checklist plus photos kept in the app. |
+| [OCD Checker](https://apps.apple.com/gb/app/ocd-checker/id6762962233) | Reassurance-first | 2026-04 / 2026-04 | Free | GB none; US none | Photos or video for each check; templates. |
+| [Check List: Daily Routine Task](https://apps.apple.com/gb/app/check-list-daily-routine-task/id6756558332) | Checklist | 2025-12 / 2026-03 | Free | GB none; US none | Reusable checklists for leaving, travel, school. |
+| [Locking Check](https://apps.apple.com/us/app/locking-check/id1523162174) | Neutral record | 2020-07 / 2026-09 | Free (US store only) | US none | Tap when you lock; records the time; places with a photo; resets at a set time. |
 
-### 3.2 Routine and habit apps (adjacent, much bigger)
+**Patterns worth noticing (our view)**
 
-| App | Price model and prices | Headline features | Ratings | Praise and complaints | Sources |
+- **Pricing is all over the place**, from £0.29 one-off (OCD Away) to £79.99 a
+  year (yepp). Most cluster at **£1.99–£5.99 a month and £14.99–£29.99 a
+  year**. About a third use a one-off price or a lifetime option instead of, or
+  as well as, a subscription.
+- **Weekly plans** (yepp £4.99, Check £1.99) are a red flag for this audience.
+  Avoid them.
+- **Several apps build reassurance into the product**: a reassurance message
+  after each check (Check, the £1.99 "Did I Lock It?"), a 2 pm push of your
+  morning photos saying "You are good" (Capy Clear), "confidence percentages"
+  (Latched), and "target counts" for checking several times (PeacePoint). The
+  research in section 2.2 suggests these can keep the checking going.
+- **A few apps build the opposite**: a pause before you can look at your
+  photos again (Pruvd's One-Check Coach, OneCheck's breathing delay), urge
+  tracking (MakeSure, OneCheck), and a "self-trust" entry with no photo
+  (yepp). These read as therapy tools, which brings health-claim risk.
+- **Pebble sits with the "neutral record" group**, with much more depth than
+  any of them.
+
+### 3.2 Checking apps on Google Play UK
+
+| App | Downloads | Last update | Ads / in-app purchases | Headline features | Angle |
 |---|---|---|---|---|---|
-| **Structured – Daily Planner** | UK: **£5.99/month, £17.99/year, £59.99 lifetime**. US list: $2.99/month, $29.99/year, $99.99 lifetime (promotions vary) | Visual timeline planner | **4.8 from about 155,300** (App Store) | Praise: the timeline, and time saved ("saved me at least two hours a week"). Complaint: **sync problems**, especially iCloud. | [App Store](https://apps.apple.com/app/apple-store/id1499198946), [Cool Curation UK review](https://coolcuration.com/structured-app-review-uk), [Saner review](https://blog.saner.ai/structured-review/) |
-| **Routinery** | Premium from about **$5/month** or **$36–$39.49/year**, plus weekly, 6-month and family plans | Step-by-step routine timer, templates | **4.7 from about 16,200** (App Store) | Recognised as a leading routine app | [App Store](https://apps.apple.com/us/app/routine-planner-habit-tracker/id1450486923), [habi.app comparison](https://habi.app/insights/best-daily-routine-apps/) |
-| **Tiimo** | **$7.99/month, $79.99/year**; 7-day trial on yearly; family $119.99 | Visual planner for ADHD and autistic users, AI planning | **4.6 from about 14,800** (App Store) | Strong brand with neurodivergent users | [App Store](https://apps.apple.com/app/tiimo/id1480220328), [Lifestack](https://lifestack.ai/blog/tiimo-pricing) |
-| **Fabulous** | About **$49.99/year** (US), offers from $16.99 to $59.99 | Coached habit programmes | App Store **4.4 (88,901)**; Google Play **3.9 (about 589,000)**; Trustpilot **3.2** | Complaints are dominated by **billing confusion, auto-renewal and surprise charges**, plus a bloated interface | [habi.app](https://habi.app/insights/fabulous-alternatives/), [Nibble review](https://nibble-app.com/blog/fabulous-app-review), [Trustpilot](https://trustpilot.com/review/thefabulous.co?page=10) |
+| [CheckAlarm: Leaving Checklist](https://play.google.com/store/apps/details?id=com.checkalarm.app) | 1k+ | 1 Oct 2026 | Ads / none | Departure alarms on chosen days; start the checklist from the lock screen when it rings; widget; photos; record your own alarm sound; 90 days of history including skipped items; says it "does not verify or guarantee" anything | Neutral record + alarm |
+| [Paximus: OCD Companion](https://play.google.com/store/apps/details?id=com.foxir.paximus) | 500+ | 3 Aug 2026 | Ads / yes (iPhone: £2.99–£7.99 a month, £9.99–£39.99 a year, £14.99 lifetime) | Photo, voice note, written confirmation or checklist as proof | Proof / reassurance |
+| [Did I Lock It](https://play.google.com/store/apps/details?id=com.lunchboxclassx.didilockit) (LunchBoxClassX) | 100+ | 30 Jul 2026 | None / none | Mark doors, cars and gates locked or unlocked with a timestamp; six kinds of reminder, including **when you leave a location** | Neutral record |
+| [Lockt: Routines & Habits](https://play.google.com/store/apps/details?id=com.ynifa.lockt) | 100+ | 22 Jan 2026 | None / yes | Photo proof, voice memos ("I double-checked the windows"), routines that reset; calls itself a "personal reassurance companion" | Reassurance-first |
+| [Stay Calm: OCD Checklist](https://play.google.com/store/apps/details?id=com.staycalm.ocdchecklist) | 100+ | 31 Oct 2025 | Ads / none | Photos auto-deleted after an hour, a day or a week | Reassurance-first |
+| [Delay: OCD Recovery & ERP](https://play.google.com/store/apps/details?id=com.delayocd) | 100+ | 27 Jul 2026 | None / yes | A timer to practise delaying the urge to check. A therapy-style tool, not a checklist | Check-less (ERP-style) |
+| [Locked: OCD & Anxiety Checker](https://play.google.com/store/apps/details?id=com.slidehabit.locked) | 50+ | 31 Mar 2026 | None / none | One-tap time stamps; "the undeniable proof [your brain] needs to finally relax" | Reassurance-first |
+| [SureCheck – Did I Turn It Off?](https://play.google.com/store/apps/details?id=com.surecheck.surecheck) | 10+ | 30 Jan 2026 | None / none (free) | Photo with timestamp per item, checklists, widget, reminders, auto-delete | Reassurance-first |
+| [Did I Lock It?](https://play.google.com/store/apps/details?id=com.uikey.didilockit) (UIKEY) | 10+ | 2 Jan 2026 | Ads / none | Time-stamped checklist, optional photo | Neutral record |
+| [All Clear: Leaving Checklist](https://play.google.com/store/apps/details?id=com.dyina.leavingchecklist) | 0+ (new) | 25 Sep 2026 | Ads / yes | "3 min ago" relative times, "Check all", routines as tabs (car, bedtime, travel) | Neutral record |
+| [Timemark: Photo Proof](https://play.google.com/store/apps/details?id=com.oceangalaxy.camera.new) | (not shown) | 29 Sep 2026 | None / yes | Free timestamp and GPS camera for work photos. **4.8 stars from about 942,000 reviews** | The "just take a photo" incumbent |
 
-### 3.3 What users praise and complain about
+None of these has enough ratings for Google Play to show a score.
 
-Fact: the checking apps have almost no public review text. Most have 0 to 3
-ratings. What there is, plus the adjacent apps, points the same way:
+### 3.3 Big routine and habit apps (adjacent)
 
-- **Praise:** "keeps those photos separate" from the camera roll (DoneKit). A
-  clear visual timeline (Structured). Saving time.
-- **Complaints:** billing, auto-renewal and surprise charges (Fabulous).
-  Sync and backup failures (Structured). The camera roll filling up with
-  near-identical photos (DoneKit's reviewer, your TikTok signal).
+These don't do checking or photos, but they set price expectations and show
+what annoys people about subscription apps. The complaint counts come from each
+app's **300 most recent App Store reviews** (150 UK, 150 US).
 
-**Our view.** With so little review data, the best source of real complaints
-is your own closed test. Add a one-line "What's missing?" prompt to the
-support email in Settings, and read every reply.
+| App | UK prices (App Store) | Ratings (UK; US) | What the 1–2 star reviews are about |
+|---|---|---|---|
+| [Structured](https://apps.apple.com/gb/app/structured-daily-planner/id1499198946) | £5.99/month, £17.99/year, £59.99 lifetime (offers from £2.99/month, £9.99/year) | 4.8 (30,003); 4.8 (166,954) | 66 of 300 are 1–2 star. 24 of those are about price or paywalls ("any feature you need inside is behind a paywall"), plus sync problems and losing Pro after an OS update. |
+| [Routinery](https://apps.apple.com/gb/app/routine-planner-habit-tracker/id1450486923) | £3.49–£5.00/month, £26.49–£34.90/year, £0.99/week | 4.6 (2,139); 4.7 (18,009) | 39 of 300. Price and trials (14), alarms and notifications (8: "no way to silence this app's alarms in DND"), battery drain and lag after updates. |
+| [Tiimo](https://apps.apple.com/gb/app/tiimo-daily-to-do-list/id1480220328) | Pro from £6.49 to £39.99 depending on length and offer | 4.5 (4,040); 4.6 (20,493) | 115 of 300. Price (40) and **AI (22)**: "the AI genuinely sucks", "overly reliant on AI", "AI assistant instantly removed all my usual setup", "the only way… to update my routines was through the AI chat bot". |
+| [Fabulous](https://apps.apple.com/gb/app/fabulous-daily-habit-tracker/id1203637303) | £19.99–£56.99 a year across offers | 4.2 (12,991); 4.4 (89,139) | 225 of 300. **184 are about billing**: "keep charging me monthly even though I cancelled during free trial", "can't cancel", "deceptive". |
+
+### 3.4 What reviews actually say
+
+**Every written review of a dedicated checking app on the App Store (UK and
+US), word for word where short:**
+
+- **"Certain" (UK, 5★, Jan 2026):** "I just tried this before going on holiday,
+  **ended up checking it often** to make sure I locked all my doors, the
+  timestamp and photo proof was INVALUABLE!!"
+- **DoneKit (US, 5★, Jan 2026):** "I used to fill my phone gallery with photos
+  of my stove and doors… this solves that perfectly by keeping those photos
+  separate. The only thing I'm missing is the ability to **add notes**."
+- **"Did I Lock It? – Door Check" (US, 4★, Feb 2026):** "Only shows on iPhone,
+  **not Apple Watch**."
+- **"Did I Lock Up?" (US, 2★, May 2026)** and **Latched (US, 2★, May 2026):**
+  "can't figure out how to unlock locked items." The apps were confusing to
+  use.
+- **"Did I lock?" (UK, 5★, 2021):** "I would like to **check multiple things in
+  one app**… oven, hair iron/straightener, set the alarm, unplugged the
+  TV/computer, lock the car/bicycle."
+- **"Did I lock?" (US, 5★, 2018):** "I wish there was **a paid version with more
+  features and no ads**."
+- **"Check" (US, 5★, Jan 2026):** "I can finally relax knowing I did not forget
+  to turn on my home alarm."
+
+Source: Apple's public customer-reviews feed for each app.
+
+**Our view on what this tells Pebble**
+
+1. **Keep photos out of the camera roll, and say so.** The most-praised
+   benefit.
+2. **Multi-item lists are the baseline.** Pebble has this.
+3. **Notes on a step, and a watch app,** are the first feature requests.
+4. **Clarity beats cleverness.** Two of the seven reviews are about not
+   understanding the app.
+5. **Even a simple record can become the new thing to check** ("ended up
+   checking it often"). This matters for the widget and for Photo notes
+   (section 6.4).
+6. From the big apps: **billing honesty, reliable sync and AI that never takes
+   over** are what earn or lose trust.
 
 ---
 
 ## 4. Feature gap table and SWOT
 
 Value and effort are our estimates. Effort: **S** about a day, **M** a few
-days to a week, **L** more than a week. Ranked by value against effort.
+days to a week, **L** more than a week. Rows are ranked by value against effort.
 
-### 4.1 What competitors have that Pebble lacks
+### 4.1 What rivals have that Pebble lacks
 
-| Rank | Gap | Who has it | Value | Effort | Our view |
+| Rank | Gap | Who has it (fact) | Value | Effort | Our view |
 |---|---|---|---|---|---|
-| 1 | **"Camera only" option on a step** (no photo from the library) | DoorCheck | High | S | A library photo could be yesterday's. A per-step "Camera only" switch makes the record more trustworthy. Very cheap: the picker already exists. |
-| 2 | **Choose a shorter photo auto-delete** (for example, delete after the run, after 12 hours, or after 48 hours) | Stay Calm, Yepp, SureCheck | High | S–M | Privacy-minded people like it, and shorter windows cost less storage. Keep 48 hours as the free default. Always say "Pebble deletes its own copy." |
-| 3 | **Relative time on Home** ("Checked 2 h ago" next to "08:04") | Did I Lock Up? | Medium | S | Pebble already shows "Checked · 8:04". Adding the relative time is quick. |
-| 4 | **App lock** (Face ID or fingerprint to open Pebble) | PeacePoint | Medium–High | S–M | Photos of the inside of a home are private. Adds a Premium reason. Needs the `local_auth` package. |
-| 5 | **iPhone widget** | Did I lock it? (iOS); SureCheck (Android) | High on iOS | M | Pebble offers "Pin to widget" on iPhone but has no iOS widget (`VISUAL_WALKTHROUGH.md` item 7). Fix this before the iOS launch. |
-| 6 | **Lifetime purchase option** | Structured, PeacePoint, RemLock | Medium | S (store setup) | Some people hate subscriptions. Test it later. If Photo notes ship, leave them out of lifetime because they cost money every time. |
-| 7 | **Voice note as the record** (say "hob is off" and save it) | Pruvd, Paximus | Low–Medium | M | Pebble records voice *prompts*, not voice records. A spoken record is harder to glance at than a photo. Low priority. |
-| 8 | **Video proof** | Pruvd, OCD Checker | Low | M | Large files, and filming invites watching it over and over. Skip. |
-| 9 | **Location reminder when you leave home** | Locking Check (location) | High | L | Very useful, but it needs location permission and changes both privacy forms. Consider it for v2. |
-| 10 | **"Target counts"** (check something N times) | PeacePoint | Negative | — | Builds repeat checking into the product. **Do not copy.** |
-| 11 | **Journaling and calm tools** | PeacePoint, Fabulous | Low | M | Off-brand: therapeutic. Skip. |
+| 1 | **"Camera only" option on a step** (no photo from the library) | DoorCheck (live camera only), Proof (must snap a photo) | High | S | A library photo could be yesterday's. A per-step "Camera only" switch makes the record more trustworthy, and the picker already exists. |
+| 2 | **A short note on a step** ("Back door: key in the drawer") | DoorCheck, Did I Lock Up?, Paximus (written confirmation); the top request in DoneKit's only review | Medium–High | S | Cheap. A note helps you remember, without being a re-check tool. |
+| 3 | **iPhone widget** | Is It Locked?, Before You Go, Pruvd, MakeSure, Home Checklist – Stay Calm, "Did I Lock It? – Door Check", RemLock | High | M | Pebble offers "Pin to widget" on iPhone but has no iOS widget (`VISUAL_WALKTHROUGH.md` item 7). Build it before the iOS launch. Pebble's Android widget already matches CheckAlarm and SureCheck. |
+| 4 | **Choose how long photos are kept**, or when the "checked" state clears | yepp, Stay Calm, LockCheck Camera, RemLock (24 h); Is It Locked? clears a list after 8 h (adjustable from 1 h to 3 days) | Medium–High | S–M | Offer "Delete after this run", 12 h or 48 h (default). Always say "Pebble deletes its own copy". |
+| 5 | **App lock** (Face ID or fingerprint) | yepp, PeacePoint, Sure, "Did I Lock? Lock Check App" | Medium–High | S–M | Photos of the inside of a home are private. A clear Premium reason. Needs the `local_auth` package. |
+| 6 | **One-off or lifetime price** | Before You Go (£3.99), DidYou (£2.99), Proof (£4.99), Capy Clear (£9.99), Paximus (£14.99), Lock'd (£24.99), Structured (£59.99), PeacePoint | Medium | S (store setup) | Some people won't subscribe to anything. Test a lifetime price after launch (section 7.3). |
+| 7 | **Longer free history** | Is It Locked? (7 days free), CheckAlarm (90 days, free) | Medium | S | Pebble's free plan keeps 48 hours and Premium 21 days. Both are short next to rivals. A 7-day free window could be the more generous, more competitive choice, at small storage cost. Test it. |
+| 8 | **Start from the reminder** (an alarm that opens straight onto the checklist from the lock screen) | CheckAlarm | Medium | S | Pebble's reminder taps already open the routine. Add a "Start" action button on the notification. |
+| 9 | **Paste a list from Notes** when creating a routine | Before You Go | Low–Medium | S | Quick win for onboarding. |
+| 10 | **A reminder when you leave home** (geofence) | Batten, Is It Locked? Plus, DidYou, Did I Lock It (Android, LunchBoxClassX) | High | L | Very useful. It needs location permission and changes both privacy forms. Plan it for v2. |
+| 11 | **Share a list with the people you live with** | Is It Locked? Plus | Medium | L | Pebble's completion email is a lighter version. Revisit after launch. |
+| 12 | **Apple Watch** (then Wear OS) | Is It Locked? Plus; requested in a review | Medium | L | Later. |
+| 13 | **Siri and Shortcuts** | Pruvd, Before You Go, Is It Locked? | Low–Medium | M | iPhone-only. Later. |
+| 14 | **Voice note or video as the record** | Pruvd, Paximus, Lockt, yepp, OneCheck+, OCD Checker, RemLock | Low | M | Harder to glance at than a photo, and filming invites rewatching. Skip. |
+| 15 | **"Check all" in one tap, or hold to check the whole list** | All Clear, Is It Locked? | Low | — | Rushing defeats the point: a deliberate step-by-step check is what makes it memorable. Don't copy. |
+| 16 | **Reassurance messages, a 2 pm push of your morning photos, "confidence percentages", "target counts"** | Check, "Did I Lock It? – Checklist", Capy Clear, Latched, PeacePoint | Negative | — | These can keep checking going (section 2.2). **Do not copy.** |
+| 17 | **A pause before you can look at your photos again**, urge tracking | Pruvd (One-Check Coach), OneCheck, MakeSure | Unclear | M | Thoughtful, but it makes Pebble a therapy tool, with health-claim risk. Pebble's answer is not to push records at people. Don't copy for now. |
 
-### 4.2 What Pebble has that they lack
+### 4.2 What Pebble has that rivals lack
 
-| Pebble strength | Who else has it | Why it matters |
+| Pebble strength | Who else has it (fact) | Why it matters |
 |---|---|---|
-| **Android and iPhone, one product** | Only Paximus is on both | Most rivals are iPhone-only. Pebble starts on Android, where the competition is thinnest. |
-| **Optional cloud backup and account recovery** | None of the checking apps | Rivals are local-only. Losing a phone means losing your routines. This also answers the Structured "sync" complaint. |
-| **Completion emails to a contact** | None found | Unique. Keep it literal, not a "safety network". |
-| **Voice prompts in your own voice** | None found | Unusual and personal. Good for TikTok. |
-| **Template library** (leaving the house, bedtime, car, hotel, trip, school run) | DoorCheck, Home Key Reminder (basic) | Gets people started in seconds. |
-| **Up to 4 photos per step, 21-day history** | Few | Room for a fuller record. |
-| **Android home-screen widget** | SureCheck | Already built. |
-| **Accessibility themes, tested at double text size** | None claimed | Matters for older users and the Home Key Reminder audience. |
-| **Copy that promises nothing** | None. Rivals say "undeniable proof", "eliminate all doubt", "everything is safe" | Rivals' copy can feed the doubt it claims to fix. Pebble's honest tone stands out, and is less likely to trip health-claim reviews. |
-| **No ads, data not sold, works without an account** | Several local-only apps say the same | Table stakes. Keep saying it. |
+| **Android and iPhone** | Only Paximus is on both stores | Every other rival is on one store. People switch phones, and households mix them. |
+| **Backup and account recovery across Android and iPhone** | Only Is It Locked? syncs, through iCloud, so iPhone-only. DoneKit, Lock'd, Capy Clear and DoorCheck say plainly that they have no cloud sync. | Pebble's backup is the only one that survives a switch between Android and iPhone. It also answers the sync complaints seen in Structured's reviews. |
+| **Completion emails to a contact** | None. Is It Locked? Plus shares lists with a household. | Unique. Keep it literal, not a "safety network". |
+| **Voice prompts in your own voice** (spoken guidance on a step) | None. Rivals record voice notes as proof, which is different. | Unusual and personal. Good for TikTok. |
+| **Up to 4 photos per step** | Most rivals allow one photo per item | Room for a fuller record (back door and window, both sides of the hob). |
+| **Template library** (leaving the house, bedtime, car, hotel, trip, school run) | Before You Go (18 templates), DoorCheck and yepp have templates. Most rivals start from a blank list. | Gets people started in seconds. |
+| **Reminders plus an Android widget** | CheckAlarm and SureCheck on Android | Pebble has both, alongside everything else above. |
+| **Accessibility themes, tested at double text size** | None claimed | Matters for older users. |
+| **Copy that promises nothing** | Is It Locked? and Before You Go are similar. Most others say "undeniable proof", "know for sure", "you are good". | Stands out with a wary audience, and less likely to trip health-claim reviews. |
+| **No ads, data not sold, works without an account** | Several rivals say the same. CheckAlarm, Paximus, Stay Calm and others on Android show ads. | Table stakes on iPhone. A real difference on Android, where many rivals carry ads. |
 
 ### 4.3 SWOT: where Pebble stands
 
@@ -225,55 +362,58 @@ judgements are ours.
 | | Helpful | Harmful |
 |---|---|---|
 | **Inside Pebble** | **Strengths** | **Weaknesses** |
-| | 1. **Android and iPhone.** Of the checking apps found, only Paximus is also on both. | 1. **Prices are too low** (£0.89 / £6.49). That limits income, and it leaves no room for AI costs (section 7). |
-| | 2. **Backup and account recovery.** Every checking rival found is local-only. | 2. **Zero ratings or reviews on day one.** Rivals have almost none either, but the first 50 reviews will matter a lot. |
-| | 3. **Unique extras:** completion emails, voice prompts in your own voice, a template library, up to 4 photos per step, 21 days of history. | 3. **The free plan may be enough for many people.** Two routines of 10 steps covers "leaving the house" and "bedtime". Premium has to win on history, backup and photos. Test this. |
-| | 4. **Honest copy.** No medical claims or promises, so less store-review risk and more trust from a wary audience. | 4. **Gaps rivals already fill:** no "camera only" option, no app lock, no choice of auto-delete window, and no iPhone widget even though the menu offers one (section 4.1). |
-| | 5. **Private by default:** works without an account, no ads, data not sold, photos kept out of the camera roll. | 5. **The name doesn't say what it does.** "Pebble Routines" needs the store title and subtitle to carry "did I lock the door" and "leaving the house". |
-| | 6. **Quality:** 291 tests passing, 180 screens checked at normal and double text size, plus a clear design direction. | 6. **One person, no budget.** Backend fixes are still undeployed and Supabase is on the free plan. Marketing time competes with build time. |
-| | 7. **A real founder story** that suits TikTok. | 7. **Not yet launched on either store.** Every week a rival can collect reviews first. |
+| | 1. **Android and iPhone.** Of about 45 checking apps, only Paximus is on both stores. | 1. **Prices are too low** (£0.89 / £6.49). That limits income, leaves no room for AI costs, and sits below almost every paid rival (section 7). |
+| | 2. **Backup and account recovery that works across Android and iPhone.** No rival offers this. | 2. **Short history.** 48 hours free and 21 days Premium, against 7 days free (Is It Locked?) and 90 days free (CheckAlarm). |
+| | 3. **Unique extras:** completion emails, voice prompts in your own voice, up to 4 photos per step, a template library. | 3. **Gaps rivals already fill:** an iPhone widget, step notes, "camera only", app lock, a choice of how long photos are kept, a leave-home reminder, Apple Watch, household sharing (section 4.1). |
+| | 4. **Honest copy.** No medical claims or promises, so less store-review risk and more trust. | 4. **The free plan may be enough for many people.** Two routines of 10 steps covers "leaving the house" and "bedtime". Premium has to win on history, backup and photos. Test this. |
+| | 5. **Private by default:** works without an account, no ads (many Android rivals show ads), data not sold, photos kept out of the camera roll. | 5. **The name doesn't say what it does.** "Pebble Routines" needs the store title and subtitle to carry "did I lock the door" and "leaving the house". |
+| | 6. **Quality:** 291 tests passing, 180 screens checked at normal and double text size, plus a clear design direction. Rival reviews complain about confusing apps. | 6. **One person, no budget.** Backend fixes are still undeployed and Supabase is on the free plan. Marketing time competes with build time. |
+| | 7. **A real founder story** that suits TikTok. | 7. **Not launched yet.** Every month several new rivals appear (21 on the App Store this year). |
 | **Outside Pebble** | **Opportunities** | **Threats** |
-| | 1. **No category leader.** Most checking apps have 0 to 3 ratings. The first app with a few hundred good reviews can own the searches. | 1. **Free is the default.** The phone camera, plus free apps like SureCheck and DoorCheck. Pebble must clearly beat "just take a photo". |
-| | 2. **Android is underserved.** Pebble launches there first. | 2. **Copying is easy.** These apps are simple to build, and AI coding tools make new ones appear every month. Polish, trust and reviews are the moat, not features. |
-| | 3. **A proven viral format:** straightener videos reach 100k to 1.8M likes, and the photo hack has made UK news. | 3. **Rivals' AI verdicts.** If someone's "AI says your oven is off" goes wrong, stores or the press may crack down on the whole category. Stay clearly on the "describes, never promises" side. |
-| | 4. **Photo notes (AI):** nobody does this properly yet (section 6). | 4. **Harm to vulnerable users.** If any feature becomes part of someone's checking loop, that hurts them and Pebble's reputation. Section 6.4's guardrails are the defence. |
-| | 5. **Bigger nearby audiences:** ADHD (r/ADHD about 2.3M), travellers, parents, older people. | 5. **Smart plugs and smart locks** solve the problem in hardware for people who buy them. |
-| | 6. **Billing trust.** The big habit apps get billing complaints. Honest billing (no weekly plan, trial reminders) can be a selling point. | 6. **Subscription fatigue.** Some rivals charge once ($0.99, $4.99, lifetime unlocks). Some people will refuse any subscription. |
-| | 7. **Shareable completion cards** turn every user into free marketing. | 7. **Store and policy changes:** AI consent rules (Apple 5.1.2(i)), health-claim rules, fee changes. Supplier prices can also rise (Supabase, RevenueCat, Anthropic). |
+| | 1. **No category leader.** 33 App Store rivals share 16 ratings, and no Google Play rival has a visible score. A few hundred genuine reviews could put Pebble on top of both stores' searches. | 1. **Free is the default.** The phone camera, free timestamp cameras (Timemark: 942,000 reviews), and free apps like SureCheck. Pebble must clearly beat "just take a photo". |
+| | 2. **Android is wide open.** The biggest dedicated rival has 1,000+ downloads. | 2. **A flood of copycats.** 21 new App Store rivals in 2026 alone, many probably built quickly with AI tools. The moat is polish, trust, reviews and staying power, not features. |
+| | 3. **A proven viral format:** straightener videos reach 100k to 1.8M likes, and the photo hack has made UK news. | 3. **The nearest rivals are good.** Is It Locked? and Before You Go share Pebble's tone and are adding widgets, Apple Watch, geofencing and sharing. If they add Android, Pebble's main edge shrinks. |
+| | 4. **Photo notes (AI):** none of about 45 checking apps describes photos with AI (section 6). | 4. **Category scrutiny.** Rivals promise "undeniable proof" and "you are good", and one deleted app sold a "GPT Subscription". If an "AI says your oven is off" app goes wrong, stores or the press may crack down on the whole category. Stay clearly on the "describes, never promises" side. |
+| | 5. **Bigger nearby audiences:** ADHD (r/ADHD about 2.3M), travellers (hotel checkout), parents, older people. | 5. **Harm to vulnerable users.** One rival's only UK review says the user "ended up checking it often". Any Pebble feature could become part of someone's checking loop. Section 6.4's guardrails are the defence. |
+| | 6. **Billing trust.** 184 of Fabulous's last 300 reviews are about billing. Honest billing (no weekly plan, a trial reminder) can be a selling point. | 6. **AI backlash.** 22 of Tiimo's recent 1–2 star reviews blame its AI. AI that takes control or is unreliable loses trust fast. |
+| | 7. **Shareable completion cards** turn every user into free marketing. | 7. **Subscription refusal and policy change.** About a third of rivals offer one-off prices. AI consent rules (Apple 5.1.2(i)), health-claim rules, fee changes and supplier prices (Supabase, RevenueCat, Anthropic) can all move. |
 
 **What to do about it** (our view):
 
-- **Use strengths to grab opportunities:** launch on Android now. Lead with the
-  founder story and the camera-roll video. Ask happy closed-test users for
-  reviews to win the "no leader yet" race.
-- **Fix weaknesses that block opportunities:** raise prices before launch, and
-  ship "camera only", app lock and the iPhone widget. Tighten the store title
+- **Use strengths to grab opportunities:** launch on Android now, while it is
+  open. Lead with the founder story and the camera-roll video. Ask happy
+  closed-test users for reviews, and win the race to the first 100.
+- **Fix weaknesses that block opportunities:** raise prices before launch.
+  Ship "camera only", step notes and app lock. Build the iPhone widget before
+  the iOS launch. Test a longer free history window. Tighten the store title
   around the search phrases.
-- **Use strengths against threats:** honest copy plus the Photo note
-  guardrails make Pebble the trustworthy choice if the category gets
-  scrutiny. Backup and cross-platform support are hard for one-screen free
-  apps to copy.
-- **Watch the worst combination:** low prices, a free plan that's "enough", and
-  free rivals together could leave Pebble with many users and little income.
-  The pricing tests in section 7.6, and testing the free plan's limits,
-  address this directly.
+- **Use strengths against threats:** cross-platform backup, completion emails
+  and honest copy are hard for one-screen iPhone apps to copy. Photo notes,
+  built with the section 6.4 guardrails, give Pebble something no rival has,
+  in a way that won't attract scrutiny.
+- **Watch the worst combination:** low prices, a free plan that's "enough",
+  and free rivals together could leave Pebble with many users and little
+  income. The pricing tests in section 7.6, and testing the free plan's
+  limits, address this directly.
 
 ---
 
-## 5. Feature ideas you may have forgotten (grounded in complaints)
+## 5. Feature ideas you may have forgotten (grounded in reviews and rivals)
 
-| Idea | The complaint or signal behind it | Our view |
+| Idea | The evidence behind it | Our view |
 |---|---|---|
-| **1. "Camera only" step option** | A library photo might be old, which brings the doubt back | Top of the list. Cheap, honest, on-brand. |
-| **2. Photos never touch the camera roll** (say it clearly), plus **"Delete after this run"** | DoneKit review; "my camera roll is 40% straighteners" | Pebble already keeps its own copy. Say so on the photo step ("Not saved to your camera roll"). |
-| **3. Billing you can trust:** no weekly plan, a reminder 2 days before any trial ends, one-tap "Manage subscription" | Fabulous billing complaints | Turns a common category complaint into a reason to trust Pebble. It also matters more for an anxious audience. |
-| **4. Backup that just works** | Structured sync complaints | Already in hand (`SUBSCRIPTION_REVIEW.md`, `SUPABASE_LIVE_AUDIT.md`). Make "Backed up · 08:05" visible but quiet. |
-| **5. App lock** | Private photos of your home on a shared or borrowed phone | Small build, clear Premium value. |
-| **6. iPhone widget** showing "Leaving the house · Checked 08:04" | The bus-stop moment (TikTok concept 2) | Needed for the iOS launch anyway. |
-| **7. "Start from the reminder"**: a notification action that opens straight onto step 1 | People check in a rush at the door | Reminder taps already open the routine. A "Start" action button saves a tap. |
-| **8. Shareable completion card** (cairn, time, routine name, **no photos by default**) | TikTok is the growth channel | Free marketing every time someone posts it. Never include home photos unless the user adds one. |
-| **9. One short text note on a step** ("Back door: key in the drawer") | Did I Lock Up? and Paximus offer notes | Small, useful, and not a re-check tool. |
-| **10. Watch quick-check** (Wear OS, then Apple Watch) | Hands full at the door | Later. L effort. |
+| **1. "Camera only" step option** | DoorCheck and Proof require a live photo; a library photo could be old | Top of the list. Cheap, honest, on-brand. |
+| **2. A note on a step** | The only request in DoneKit's only review | Small and useful. |
+| **3. Say "Not saved to your camera roll" on the photo step**, and offer **"Delete after this run"** | DoneKit's review praises keeping photos separate; several rivals offer auto-delete | Pebble already keeps its own copy. Saying so is free. |
+| **4. Billing you can trust:** no weekly plan, a reminder 2 days before any trial ends, one-tap "Manage subscription" | 184 of Fabulous's last 300 reviews are about billing; Routinery and Tiimo reviews complain about trial charges | Turns the commonest complaint in the category into a reason to trust Pebble. |
+| **5. Backup that just works** | Structured reviews complain about sync and losing Pro | Already in hand (`SUBSCRIPTION_REVIEW.md`, `SUPABASE_LIVE_AUDIT.md`). Show "Backed up · 08:05" quietly. |
+| **6. App lock** | Offered by yepp, PeacePoint, Sure and "Did I Lock? Lock Check App" | Small build, clear Premium value. |
+| **7. iPhone widget** showing "Leaving the house · Checked 08:04" | 7 iPhone rivals have a widget; Pebble's iPhone menu already offers one | Needed for the iOS launch. Keep it quiet: the time only, no photos, no "all good". |
+| **8. "Start" button on the reminder** | CheckAlarm's lock-screen alarm-to-checklist | Saves a tap at the door. |
+| **9. Paste a list from Notes** | Before You Go | Faster first routine. |
+| **10. Shareable completion card** (cairn, time, routine name, **no photos by default**) | TikTok is the growth channel | Free marketing every time someone posts it. Never include home photos unless the user adds one. |
+| **11. Watch quick-check** (Wear OS, then Apple Watch) | Is It Locked? Plus; a 4★ review asking for Apple Watch | Later. L effort. |
+| **12. Leave-home reminder** (geofence) | Four rivals have it | v2, with privacy-form updates. |
 
 ---
 
@@ -284,9 +424,19 @@ judgements are ours.
 **Build it, as a small, carefully limited Premium feature, after the Android
 launch and the price change.** It suits Pebble's "record, not reassurance"
 idea *only if* it behaves like a caption written once, not like a helper you
-can keep asking. Nobody in the market does this well. The one AI hint we found
-is a "GPT Subscription" in a $0.99 app. Running costs are small at Pebble's
-scale.
+can keep asking. **None of the 33 App Store or 12 Google Play checking apps
+describes photos with AI.** The only AI hint found, a "GPT Subscription" in a
+$0.99 app, has since disappeared from the App Store. Running costs are small at
+Pebble's scale.
+
+Two lessons from the stores shape the design:
+
+- **AI that takes over gets punished.** 22 of Tiimo's recent 1–2 star reviews
+  blame its AI ("overly reliant on AI", "AI assistant instantly removed all my
+  usual setup"). Photo notes must be small, optional, and never in the way.
+- **Records themselves can become the new check.** One rival's only UK review:
+  "ended up checking it often". Another rival pushes your morning photos back
+  to you at 2 pm with "You are good". Pebble should do the opposite.
 
 The biggest risk is not money or technology. It is making a new, faster,
 always-available way to check again. Every design choice below is about
@@ -373,8 +523,9 @@ assume the step was done. That instruction is tested in 6.9.
 
 ### 6.4 Guardrails so it can't become a re-ask loop
 
-Grounded in section 2.2: repeated checking erodes memory confidence, and
-always-available AI answers can accommodate compulsions.
+Grounded in section 2.2 (repeated checking erodes memory confidence, and
+always-available AI answers can accommodate compulsions) and in section 3.4
+(a user of a simple record app "ended up checking it often").
 
 | Guardrail | Why |
 |---|---|
@@ -736,10 +887,28 @@ Sources: [RevenueCat report](https://www.revenuecat.com/state-of-subscription-ap
 [ARPU Brothers](https://arpubrothers.com/blog/revenuecat-subscription-app-report-2026/),
 [9to5Mac](https://9to5mac.com/2026/05/27/new-report-shows-annual-app-subscribers-rarely-return-after-they-cancel/)
 
-**Competitor prices** (section 3): DoneKit $1.99 / $9.99; OCD Rescuer $19.99
-a year; Pruvd about US$5 / US$25 (CA$6.99 / CA$34.99); Yepp $9.99 / $79.99;
-Structured (UK) £5.99 / £17.99 / £59.99 lifetime; Routinery about $5 / $36;
-Tiimo $7.99 / $79.99.
+**Rivals' UK prices** (App Store, section 3):
+
+| App | Monthly | Yearly | One-off / lifetime |
+|---|---|---|---|
+| Home Checklist: Did I Lock | £0.99 | £2.99 | — |
+| DoneKit | £1.99 | £9.99 | — |
+| Batten | £1.99 | £14.99 | — |
+| Is It Locked? Plus | £1.99 | £14.99 | — |
+| Lock'd | £1.99 | £19.99 | £24.99 |
+| Peace of Mind: OCD Support | £2.99 | £14.99 | — |
+| OneCheck+ | £2.99 | — | — |
+| Paximus (several offers) | £2.99–£7.99 | £9.99–£39.99 | £14.99 |
+| Check: Stop Anxiety Checking | £3.99 (also £1.99 a week) | £22.99 | — |
+| Pruvd Pro | £4.99 | £24.99 | — |
+| MakeSure | £5.99 | £29.99 | — |
+| Did I Lock? Lock Check App | £6.99 | £29.99 | — |
+| Did I Lock It? – Door Check | £7.99 | — | — |
+| yepp | £9.99 (also £4.99 a week) | £79.99 | — |
+| One-off only | Before You Go £3.99, DidYou £2.99, Proof £4.99, Capy Clear £9.99, DoorCheck £0.99, LockCheck Camera £1.99, OCD Away £0.29 | | |
+| Big routine apps | Structured £5.99, Routinery £3.49–£5.00, Tiimo Pro various | Structured £17.99, Routinery £26.49–£34.90 | Structured £59.99 |
+
+The middle of the checking apps is about **£2.99 a month and £19.99 a year**.
 
 ### 7.2 What you keep per sale
 
@@ -762,9 +931,11 @@ Tiimo $7.99 / $79.99.
 
 **Why**
 
-- It sits in the middle of the checking apps (above DoneKit, close to OCD
-  Rescuer and Pruvd, far below Yepp) and well below the big routine apps. It
-  still feels like a fair, small utility, which matters for a careful audience.
+- It sits right in the middle of the checking apps: above DoneKit, Batten and
+  Is It Locked? (£1.99 / £14.99), level with Lock'd and Peace of Mind, below
+  Pruvd, MakeSure and yepp, and well below the big routine apps. Pebble does
+  more than any of them, and the price still feels like a fair small utility,
+  which matters for a careful audience.
 - It is more than **3×** what you keep per subscriber at £0.89 / £6.49 (see
   7.5), and RevenueCat's data says very cheap apps also convert worse.
 - It leaves room for Photo notes, which cost about £1 per subscriber a year.
@@ -872,10 +1043,11 @@ the places.
 2. **Don't wait for AI to launch.** Carry on with the `START_HERE.md` list:
    Play Console forms, then the 12-tester, 14-day closed test. The market has
    no leader yet, and Android is the thinnest part of it.
-3. **Ship three cheap gap-closers next:** a "Camera only" option on photo
-   steps, a choice of shorter photo auto-delete, and app lock. Build the iPhone
-   widget before the iOS launch, because the app already offers "Pin to widget"
-   on iPhone.
+3. **Ship the cheap gap-closers next:** a "Camera only" option on photo
+   steps, a short note on a step, a choice of how long photos are kept, and app
+   lock. Build the iPhone widget before the iOS launch: seven iPhone rivals
+   have one, and Pebble's iPhone menu already offers it. Test a 7-day free
+   history window, since rivals offer 7 to 90 days free.
 4. **Run the two-week Photo note accuracy test** (section 6.9) with about 200
    of your own photos and Claude Haiku 4.5. Call the feature "Photo note", not
    "Jev". Build it only if there are zero false "appears off" notes, and only
@@ -899,7 +1071,13 @@ All accessed 4 October 2026.
 - Gemini pricing (third party): [morphllm](https://www.morphllm.com/gemini-api-pricing)
 - Latency (third party): [Vercel AI Gateway](https://vercel.com/ai-gateway/models/claude-haiku-4.5/latency)
 
-**Competitors:** links are in the tables in section 3.
+**Competitors:** each app's store link is in the tables in section 3. Store
+data came from Apple's public search and lookup service (`itunes.apple.com`),
+each App Store page (in-app prices), Apple's customer-reviews feed, and Google
+Play UK search results and app pages, all on 4 October 2026. Apps no longer
+found in the App Store: OCD Rescuer (id6751641770), Checked OCD Companion
+(id6741740614), "Did I lock it?" (id6751820916) and Home Key Reminder
+(id1665279188).
 
 **Research on checking and AI**
 - [Repeated checking causes memory distrust (Utrecht)](https://research-portal.uu.nl/en/publications/repeated-checking-causes-memory-distrust/)
