@@ -18,6 +18,14 @@ Baseline run of the screenshot harness (before any change):
   `reminders_global`, `reminders_global_scrolled`, `reminder_new_step1` and
   `reminder_editor_existing`.
 
+Update, second session (also stopped by a usage limit): the branch now has
+`origin/review/gemini-handover-assessment` merged in (real sample photos for
+the harness). Still no code changes, no fixes, no mocks. The two "home
+checked" failures were not re-run alone yet, so whether they are load-related
+or a real flake is still unknown. The reminders warnings come from the
+`ListTile`s at `lib/features/routines/list/ui/routine_reminders_screen.dart`
+lines 2103, 2233 and 2240; that is the first fix to make.
+
 `flutter analyze` and the full `flutter test` were not run in this session.
 
 ## Fixed
