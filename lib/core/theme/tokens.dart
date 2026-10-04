@@ -172,7 +172,7 @@ class PebbleType extends ThemeExtension<PebbleType> {
       display: serif(44, 46, -0.6),
       title1: serif(34, 38, -0.4),
       title2: serif(26, 30, -0.2),
-      step: sans(32, 38, FontWeight.w600, -0.4),
+      step: serif(38, 42, -0.4),
       sheetTitle: sans(22, 28, FontWeight.w600, -0.2),
       headline: sans(18, 24, FontWeight.w600),
       bodyLarge: sans(17, 25, FontWeight.w400),

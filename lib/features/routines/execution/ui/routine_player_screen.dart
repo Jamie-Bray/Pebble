@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -512,7 +513,14 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
         !playerState.hasPhotoRequirement &&
         !isStepLocked;
     final type = PebbleType.of(context);
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    // Display type: a little smaller on narrow phones, and it grows with the
+    // text-size setting only to 1.25x, so long words stay on one line.
+    final stepSize =
+        (MediaQuery.sizeOf(context).width < 375 ? 32.0 : 38.0) *
+        math.min(1.0, 1.25 / textScale);
     final instructionStyle = type.step.copyWith(
+      fontSize: stepSize,
       color: themeData.colorScheme.onSurface,
     );
 
@@ -586,7 +594,6 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
       ],
     );
 
-    final textScale = MediaQuery.textScalerOf(context).scale(1);
     final outgoing = _outgoing;
     final stage = AnimatedBuilder(
       animation: _checkOff,
