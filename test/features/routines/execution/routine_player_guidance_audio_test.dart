@@ -105,7 +105,7 @@ void main() {
       repository,
     );
 
-    expect(find.text('Play guidance'), findsNothing);
+    expect(find.text('Play voice tip'), findsNothing);
     expect(find.text('Voice tip'), findsNothing);
   });
 
@@ -143,7 +143,7 @@ void main() {
 
     expect(find.text('Voice tip'), findsOneWidget);
     expect(find.text('A short reminder for this step'), findsOneWidget);
-    expect(find.text('Play guidance'), findsOneWidget);
+    expect(find.text('Play voice tip'), findsOneWidget);
   });
 
   testWidgets('guidance audio does not block completion', (tester) async {

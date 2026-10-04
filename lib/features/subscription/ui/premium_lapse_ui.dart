@@ -166,7 +166,7 @@ class _KeepRoutinesSheetState extends ConsumerState<KeepRoutinesSheet> {
           const SizedBox(height: 8),
           Text(
             full && routines.length > limit
-                ? '${selected.length} of $limit chosen. Untick one to swap.'
+                ? '${selected.length} of $limit chosen. Uncheck one to swap.'
                 : '${selected.length} of $limit chosen',
             textAlign: TextAlign.center,
             style: theme.textTheme.bodySmall?.copyWith(

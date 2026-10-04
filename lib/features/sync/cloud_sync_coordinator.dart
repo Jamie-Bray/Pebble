@@ -998,13 +998,13 @@ class CloudSyncCoordinator {
     if (normalized.contains('row-level security') ||
         normalized.contains('violates row-level security') ||
         normalized.contains('permission denied')) {
-      return 'Supabase rejected the backup write. Check cloud consent and the server entitlement for this account.';
+      return "Backup couldn't save your changes. Check backup is turned on for this account, then try again.";
     }
     if (normalized.contains('proof media storage quota exceeded')) {
-      return 'Proof photo storage is full. Routine backup can continue once photo backup clears space.';
+      return 'Photo backup storage is full. Routine backup can continue once photo backup clears space.';
     }
     if (normalized.contains('proof media rolling upload quota exceeded')) {
-      return 'Proof photo backup hit the monthly upload limit. Routine backup will keep trying.';
+      return 'Photo backup has reached the monthly upload limit. Routine backup will keep trying.';
     }
     return 'The last backup didn\'t finish. Try again.';
   }

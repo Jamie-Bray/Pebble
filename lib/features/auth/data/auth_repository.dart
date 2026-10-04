@@ -56,14 +56,14 @@ class SupabaseAuthRepository implements AuthRepository {
   SupabaseClient get _requiredClient {
     final client = _client;
     if (client == null || !_config.enabled) {
-      throw StateError('Sign-in is not available in this build yet.');
+      throw StateError("Sign-in isn't available in this version of Pebble yet.");
     }
     return client;
   }
 
   GoogleSignIn get _requiredGoogleSignIn {
     if (!_config.supportsGoogleSignIn) {
-      throw StateError('Google sign-in is not available in this build yet.');
+      throw StateError("Google sign-in isn't available in this version of Pebble yet.");
     }
     return _googleSignIn ??= GoogleSignIn(
       scopes: const ['email'],

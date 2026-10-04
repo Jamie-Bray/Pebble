@@ -165,7 +165,7 @@ void main() {
     await tester.pump();
 
     expect(find.widgetWithText(FilledButton, 'Add next step'), findsOneWidget);
-    expect(find.text('Add step creates the next one'), findsOneWidget);
+    expect(find.text('Tap Add step for the next one'), findsOneWidget);
 
     await tester.tap(find.widgetWithText(FilledButton, 'Add next step'));
     await tester.pumpAndSettle();

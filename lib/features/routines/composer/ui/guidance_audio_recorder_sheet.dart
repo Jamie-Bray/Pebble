@@ -92,7 +92,7 @@ class _GuidanceAudioRecorderSheetState
             ),
             const SizedBox(height: 32),
             Text(
-              _isRecording ? 'Recording guidance' : 'Guidance audio',
+              _isRecording ? 'Recording voice tip' : 'Voice tip',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.w700,

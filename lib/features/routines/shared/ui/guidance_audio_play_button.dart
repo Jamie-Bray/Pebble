@@ -46,7 +46,7 @@ class _GuidanceAudioPlayButtonState extends State<GuidanceAudioPlayButton> {
   Widget build(BuildContext context) {
     if (_isUnavailable) {
       return Text(
-        'Audio unavailable',
+        'Voice tip unavailable',
         style: TextStyle(
           fontSize: widget.compact ? 12.5 : 14,
           fontWeight: FontWeight.w500,
@@ -62,7 +62,7 @@ class _GuidanceAudioPlayButtonState extends State<GuidanceAudioPlayButton> {
         _isPlaying ? LucideIcons.pause : LucideIcons.volume2,
         size: widget.compact ? 14 : 16,
       ),
-      label: Text(_isPlaying ? 'Playing' : 'Play guidance'),
+      label: Text(_isPlaying ? 'Playing' : 'Play voice tip'),
       style: OutlinedButton.styleFrom(
         foregroundColor: cs.onSurface.withValues(alpha: 0.74),
         backgroundColor: cs.surfaceContainerHighest.withValues(alpha: 0.16),
