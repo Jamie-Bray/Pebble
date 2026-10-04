@@ -65,7 +65,7 @@ Measured by Flutter's Android tap-target check across all scenarios.
 | # | Control | Measured size | Where | Status |
 |---|---|---|---|---|
 | S1 | Paywall footer links: "Restore purchase", "Terms of Use", "Privacy Policy" | 40 high; 23.8 high in one layout | `pebble_paywall.dart` (footer links, about line 2148-2233) | Not fixed. Layout only, purchase code untouched, but not attempted. |
-| S2 | "Back up with Premium" link | 117 x 14 | Account / backup screens (exact line not located) | Not fixed. Smallest target found. |
+| S2 | "Back up with Premium" link on the History list | 117 x 14 | `styled_history_screen.dart` (exact line not located) | Not fixed. Smallest labelled target found. |
 | S3 | Composer step options: "Require photo", "Required"/"Optional", "Voice tip" | 104 x 36 | `routine_composer_step_row.dart` (about line 374) | Not fixed. |
 | S4 | Composer delete-step button | 36 x 36 | `routine_composer_step_row.dart:155-167` | Not fixed. |
 | S5 | Composer step-name and routine-name text fields | 36 to 36.6 high | `routine_composer_screen.dart`, `routine_composer_step_row.dart` | Not fixed. |
@@ -73,14 +73,19 @@ Measured by Flutter's Android tap-target check across all scenarios.
 | S7 | Reminder day-of-week circles; "Every day" / "Weekdays" chips | 40 x 40; 37 high | `reminder_editor_sheet.dart:191-317` | Not fixed. |
 | S8 | Round glass buttons (back, settings, account, "About themes") and all "tertiary" text buttons ("Skip for now", "Not now", "I'll decide later", "See details", "Back to Home" and similar) | 44 x 44 / 44 high | `pebble_navigation.dart:74`; `pebble_buttons.dart:109` | Needs owner decision. 44 is the documented design size and meets Apple's guideline, but is under Android's 48. |
 | S9 | Compact pill buttons | 40 high | `pebble_buttons.dart:110` | Needs owner decision (documented design size). |
-| S10 | One unlabelled 24 x 24 control and several unlabelled 40 x 40 controls | 24 x 24; 40 x 40 | Not traced to a file | Not verified. |
+| S10 | History search button | 40 x 40 | `styled_history_screen.dart:844-853` (`VisualDensity.compact`) | Not fixed. |
+| S11 | An unlabelled control on the pending-purchase screen | 24 x 24 | Not traced to a file | Not verified. |
 
 ### Screen-reader labels
 
 | # | Finding | Where | Status |
 |---|---|---|---|
 | L1 | **Close button on the history "choose a photo" sheet has no label** (an "X" icon with no tooltip). | `routine_run_detail_screen.dart:294-297` | Not fixed. One-line fix: add `tooltip: 'Close'`. Found by reading the code. |
-| L2 | Flutter's "tappable thing without a label" check failed on 25 captures: the Home routines sheet, the composer (all variants), global and per-routine reminders, settings, the style studio, the email contact screen, the pending-purchase screen and the lapsed-routines sheet. | Individual controls not traced | Not verified. The list of screens is measured; which control on each screen is at fault was not worked out. |
+| L2a | **Composer delete-step button has no label** (and is 36 x 36). A screen reader announces only "button". | `routine_composer_step_row.dart:155-167` | Not fixed. Measured by Flutter's label check on every composer capture. |
+| L2b | **On/off switches have no label of their own** on the reminders screens (each reminder's switch) and in Settings (three switches). A screen reader says "switch, on" without saying what it controls unless the user also reads the row beside it. | `routine_reminders_screen.dart:561-565`, `:2147-2151`; `settings_screen.dart` (switch rows, not line-traced) | Not fixed. Measured. |
+| L2c | **The 25 icon tiles in the routine style studio have no labels**, so the icon choices cannot be told apart by a screen reader. | `routine_style_picker_sheet.dart:398` or `:485` (not confirmed which) | Not fixed. Measured. |
+| L2d | With the Home routines sheet open, a full-screen tappable area (the dimmed background that closes the sheet) has no label. | `routine_list_screen.dart` (sheet scrim, about line 616) | Not fixed. Measured; line is inferred. |
+| L2e | The same check also failed on the email contact screen, the pending-purchase screen (an unlabelled 24 x 24 control) and the lapsed-routines sheet. | Controls not traced | Not verified. |
 | L3 | Photos (`Image.file`) carry no description of their own in the history list, run detail, gallery viewer and player thumbnails. Some are wrapped in a labelled parent (for example "Photo 1 of 3" on the completion screen); the others were not checked. | `pebble_photo_gallery_viewer.dart:267`; `styled_history_screen.dart:1829`; `routine_run_detail_screen.dart:1149`; `routine_player_screen.dart:1988` | Not verified. |
 | L4 | Icon buttons that do have labels (checked in code): back, settings, account, search, delete reminder, clear all, show/hide steps, About themes. | | Passed. |
 
