@@ -393,66 +393,73 @@ class _RoutineStylePickerSheetState extends State<RoutineStylePickerSheet> {
             ? const Color(0xFFB88746).withValues(alpha: 0.14)
             : cs.surfaceContainerHighest.withValues(alpha: 0.5);
 
-        return Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () {
-              if (isLocked) {
-                widget.onPremiumIconTap?.call();
-                return;
-              }
-              setState(() {
-                _selectedIcon = iconChoice;
-                _bumpPreview();
-              });
-            },
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                color: selected
-                    ? _color.withValues(alpha: 0.15)
-                    : baseTileColor,
-                border: Border.all(
-                  color: selected ? _color : cs.outline.withValues(alpha: 0.22),
-                  width: selected ? 2.2 : 1.2,
-                ),
-              ),
-              child: Stack(
-                children: [
-                  Center(
-                    child: Icon(
-                      iconChoice.icon,
-                      size: 22,
-                      color: isLocked
-                          ? cs.onSurface.withValues(alpha: 0.72)
-                          : _color.withValues(alpha: selected ? 1.0 : 0.85),
-                    ),
+        return Semantics(
+          button: true,
+          selected: selected,
+          label: isLocked ? '${iconChoice.label}, Premium' : iconChoice.label,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                if (isLocked) {
+                  widget.onPremiumIconTap?.call();
+                  return;
+                }
+                setState(() {
+                  _selectedIcon = iconChoice;
+                  _bumpPreview();
+                });
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  color: selected
+                      ? _color.withValues(alpha: 0.15)
+                      : baseTileColor,
+                  border: Border.all(
+                    color: selected
+                        ? _color
+                        : cs.outline.withValues(alpha: 0.22),
+                    width: selected ? 2.2 : 1.2,
                   ),
-                  if (isLocked)
-                    Positioned(
-                      right: 4,
-                      top: 4,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 1.5,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(999),
-                          color: cs.surface.withValues(alpha: 0.95),
-                          border: Border.all(
-                            color: cs.outline.withValues(alpha: 0.22),
-                          ),
-                        ),
-                        child: Icon(
-                          LucideIcons.lock,
-                          size: 7,
-                          color: cs.onSurface.withValues(alpha: 0.7),
-                        ),
+                ),
+                child: Stack(
+                  children: [
+                    Center(
+                      child: Icon(
+                        iconChoice.icon,
+                        size: 22,
+                        color: isLocked
+                            ? cs.onSurface.withValues(alpha: 0.72)
+                            : _color.withValues(alpha: selected ? 1.0 : 0.85),
                       ),
                     ),
-                ],
+                    if (isLocked)
+                      Positioned(
+                        right: 4,
+                        top: 4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 1.5,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(999),
+                            color: cs.surface.withValues(alpha: 0.95),
+                            border: Border.all(
+                              color: cs.outline.withValues(alpha: 0.22),
+                            ),
+                          ),
+                          child: Icon(
+                            LucideIcons.lock,
+                            size: 7,
+                            color: cs.onSurface.withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -478,46 +485,52 @@ class _RoutineStylePickerSheetState extends State<RoutineStylePickerSheet> {
         Wrap(
           spacing: 12,
           runSpacing: 12,
-          children: _getThemeColors().map((c) {
+          children: _getThemeColors().indexed.map((entry) {
+            final c = entry.$2;
             final selected = c.toARGB32() == _color.toARGB32();
-            return Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () {
-                  setState(() {
-                    _color = c;
-                    _bumpPreview();
-                  });
-                },
-                borderRadius: BorderRadius.circular(14),
-                child: Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: c,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: selected
-                          ? cs.onSurface
-                          : Colors.white.withValues(alpha: 0.25),
-                      width: selected ? 3 : 1.5,
+            return Semantics(
+              button: true,
+              selected: selected,
+              label: 'Colour ${entry.$1 + 1}',
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    setState(() {
+                      _color = c;
+                      _bumpPreview();
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: c,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: selected
+                            ? cs.onSurface
+                            : Colors.white.withValues(alpha: 0.25),
+                        width: selected ? 3 : 1.5,
+                      ),
+                      boxShadow: selected
+                          ? [
+                              BoxShadow(
+                                color: c.withValues(alpha: 0.4),
+                                blurRadius: 12,
+                              ),
+                            ]
+                          : null,
                     ),
-                    boxShadow: selected
-                        ? [
-                            BoxShadow(
-                              color: c.withValues(alpha: 0.4),
-                              blurRadius: 12,
-                            ),
-                          ]
+                    child: selected
+                        ? Icon(
+                            Icons.check_rounded,
+                            color: _getContrastColor(c),
+                            size: 24,
+                          )
                         : null,
                   ),
-                  child: selected
-                      ? Icon(
-                          Icons.check_rounded,
-                          color: _getContrastColor(c),
-                          size: 24,
-                        )
-                      : null,
                 ),
               ),
             );

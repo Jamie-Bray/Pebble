@@ -560,7 +560,6 @@ class _UnavailablePurchaseRepository extends ChangeNotifier
 
 class _PlanPurchaseRepository extends ChangeNotifier
     implements PurchaseRepository {
-
   @override
   bool get isLoadingProducts => false;
 

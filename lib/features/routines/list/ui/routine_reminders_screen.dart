@@ -557,10 +557,14 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
                   icon: Icon(LucideIcons.trash2, color: cs.error, size: 18),
                   onPressed: () => _deleteReminder(reminder),
                 ),
-                Switch(
-                  value: isEnabled,
-                  onChanged: (enabled) => _toggleReminder(reminder, enabled),
-                  activeThumbColor: cs.primary,
+                Semantics(
+                  label:
+                      'Reminder at ${formatStoredClockTime(context, reminder.time)}, ${_weekdayLabel(reminder.dayOfWeek)}',
+                  child: Switch(
+                    value: isEnabled,
+                    onChanged: (enabled) => _toggleReminder(reminder, enabled),
+                    activeThumbColor: cs.primary,
+                  ),
                 ),
               ],
             ),
@@ -1245,12 +1249,15 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
               ],
             ),
           ),
-          Switch(
-            value: isOn,
-            onChanged: _isSharedContactSaving || _isSharedContactRefreshing
-                ? null
-                : (enabled) => _setSharedContactToggle(contact, enabled),
-            activeThumbColor: cs.primary,
+          Semantics(
+            label: 'Completion emails',
+            child: Switch(
+              value: isOn,
+              onChanged: _isSharedContactSaving || _isSharedContactRefreshing
+                  ? null
+                  : (enabled) => _setSharedContactToggle(contact, enabled),
+              activeThumbColor: cs.primary,
+            ),
           ),
         ],
       ),
@@ -1297,12 +1304,15 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
               ],
             ),
           ),
-          Switch(
-            value: isOn,
-            onChanged: _isSharedContactSaving || _isSharedContactRefreshing
-                ? null
-                : (enabled) => _setRoutineNameShown(contact, enabled),
-            activeThumbColor: cs.primary,
+          Semantics(
+            label: 'Show the routine name',
+            child: Switch(
+              value: isOn,
+              onChanged: _isSharedContactSaving || _isSharedContactRefreshing
+                  ? null
+                  : (enabled) => _setRoutineNameShown(contact, enabled),
+              activeThumbColor: cs.primary,
+            ),
           ),
         ],
       ),
@@ -2143,10 +2153,14 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
               icon: Icon(LucideIcons.trash2, color: cs.error, size: 18),
               onPressed: () => _deleteReminder(reminder),
             ),
-            Switch(
-              value: reminder.isEnabled,
-              onChanged: (enabled) => _toggleReminder(reminder, enabled),
-              activeThumbColor: cs.primary,
+            Semantics(
+              label:
+                  'Reminder at ${formatStoredClockTime(context, reminder.time)}, ${_weekdayLabel(reminder.dayOfWeek)}',
+              child: Switch(
+                value: reminder.isEnabled,
+                onChanged: (enabled) => _toggleReminder(reminder, enabled),
+                activeThumbColor: cs.primary,
+              ),
             ),
           ],
         ),

@@ -390,60 +390,63 @@ class _FlowSwitchTile extends StatelessWidget {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(10),
+      // One screen-reader item: the switch is announced with its title.
+      child: MergeSemantics(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              alignment: Alignment.center,
+              child: Icon(icon, color: theme.colorScheme.primary),
             ),
-            alignment: Alignment.center,
-            child: Icon(icon, color: theme.colorScheme.primary),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 2),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    subtitle!,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w300,
+                    title,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
                       letterSpacing: 0.2,
-                      color: theme.colorScheme.onSurface.withValues(
-                        alpha: 0.65,
-                      ),
                     ),
                   ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle!,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w300,
+                        letterSpacing: 0.2,
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.65,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Switch.adaptive(
-            value: value,
-            onChanged: onChanged,
-            // Theme accent instead of the bright iOS system green.
-            activeTrackColor: theme.colorScheme.primary,
-            thumbColor: WidgetStateProperty.resolveWith(
-              (states) => states.contains(WidgetState.selected)
-                  ? theme.colorScheme.onPrimary
-                  : null,
+            const SizedBox(width: 12),
+            Switch.adaptive(
+              value: value,
+              onChanged: onChanged,
+              // Theme accent instead of the bright iOS system green.
+              activeTrackColor: theme.colorScheme.primary,
+              thumbColor: WidgetStateProperty.resolveWith(
+                (states) => states.contains(WidgetState.selected)
+                    ? theme.colorScheme.onPrimary
+                    : null,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

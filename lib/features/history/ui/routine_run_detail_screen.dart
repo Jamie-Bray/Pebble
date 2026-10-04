@@ -292,6 +292,7 @@ class RoutineRunDetailScreen extends ConsumerWidget {
                   ),
                   const Spacer(),
                   IconButton(
+                    tooltip: 'Close',
                     onPressed: () => Navigator.pop(context),
                     icon: Icon(LucideIcons.x, color: cs.onSurface),
                   ),

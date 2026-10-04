@@ -49,6 +49,7 @@ void main() {
     tester,
   ) async {
     final repository = FakeRoutineComposerDraftRepository();
+    final semantics = tester.ensureSemantics();
 
     await tester.pumpWidget(
       ProviderScope(
@@ -65,6 +66,11 @@ void main() {
 
     await tester.pump();
     await tester.pump();
+
+    // The delete-step button and every other control has a spoken name.
+    expect(find.byTooltip('Delete step'), findsOneWidget);
+    await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+    semantics.dispose();
 
     expect(findPrimaryStepField(), findsOneWidget);
     final firstStepField = tester.widget<TextField>(findPrimaryStepField());

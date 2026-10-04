@@ -20,6 +20,7 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
+    final semantics = tester.ensureSemantics();
 
     await tester.pumpWidget(
       ProviderScope(
@@ -36,6 +37,10 @@ void main() {
 
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
+
+    // Every switch is announced with its row title.
+    await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+    semantics.dispose();
 
     expect(find.text('Reminders'), findsOneWidget);
     expect(find.text('Manage all your routine reminders'), findsOneWidget);
