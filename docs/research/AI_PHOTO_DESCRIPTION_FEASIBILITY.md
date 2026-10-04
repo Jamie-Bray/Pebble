@@ -105,7 +105,33 @@ Before proceeding to integration, we must evaluate the model fairly.
 
 ---
 
-## 6. Decision-Ready Proposal
+## 6. Pricing and Product Decisions for Claude
+
+Before implementation, Claude must evaluate how this feature fits into Pebble's business model. The following are proposed options for review (not agreed limits or pricing):
+
+*   **Option A (Introductory Allowance):** Free users receive a small, lifetime introductory allowance (e.g., 5 total analyses). 
+*   **Option B (Daily Free Allowance):** Free users receive 1 analysis daily.
+*   **Premium Offering:** Premium users receive a higher daily allowance, such as 10 analyses daily.
+
+**Cost Implications (Based on GPT-4o-mini estimates):**
+*   *Free User Cohort (1,000 users analysing 1 photo daily):* 30,000 photos/month ≈ **US$15.03/month** in AI API costs.
+*   *Premium User (1 user analysing 9 photos daily):* 270 photos/month ≈ **US$0.14/month** per user in AI API costs.
+*(Note: These figures isolate the AI token costs. Hosting, Supabase Edge Function invocations, and bandwidth are billed separately and must be factored into margin calculations.)*
+
+**Product Strategy Assessment:**
+Claude should assess how an introductory allowance (Option A) could demonstrate the feature's value and drive Premium conversions without creating an unsustainable recurring cost for free users. 
+Crucially, any upsell messaging must remain strictly factual. We must not sell "safety assurance" or "certainty," as the AI acts merely as an objective describer. 
+
+**Claude's Action Items Before Implementation:**
+Assess the following:
+1.  **Usefulness & Accuracy:** Does the evaluation (Section 5) prove the feature is genuinely useful and accurate without hallucinating?
+2.  **Conversion Potential:** Is this feature compelling enough to encourage subscriptions?
+3.  **Margins:** Do the combined API and hosting costs fit sustainably within the Premium subscription margin?
+4.  **Abuse Controls:** Are the server-enforced controls (Section 4) robust enough to protect the budget?
+
+---
+
+## 7. Decision-Ready Proposal
 
 **Recommended Candidate:** OpenAI GPT-4o-mini provides a verified, low-cost option with clear token calculations and enterprise data privacy.
 
