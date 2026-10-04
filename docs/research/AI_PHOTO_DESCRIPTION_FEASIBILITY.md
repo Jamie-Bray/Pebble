@@ -22,85 +22,78 @@ Pebble users take photos as "proof" that a routine step (e.g., locking the door,
 
 ## 2. Provider Options and Cost Comparison
 
-We evaluated four options for image-understanding (vision) models as of October 2026. This evaluation excludes generative (image-creation) models.
+We evaluated options for image-understanding (vision) models as of October 2026. This evaluation excludes generative (image-creation) models.
 
-### A. Provider Shortlist
+### A. Verified Candidate Model
 
-**1. OpenAI: GPT-5.6 Luna**
+**OpenAI: GPT-4o-mini**
 *   **Availability:** General availability for developer accounts.
-*   **Cost (per 1M tokens):** $0.20 Input / $1.20 Output.
-*   **Data Terms:** Standard enterprise API terms; data is not used for training.
-*   **Verification:** Verified via OpenAI Developer Pricing page on Oct 4, 2026.
+*   **Cost (per 1M tokens):** $0.15 Input / $0.60 Output.
+*   **Image Token Calculation:** Using the `detail: low` setting charges a flat 85 tokens per image, regardless of aspect ratio.
+*   **Data Terms:** Standard enterprise API terms; data sent via the API is not used to train OpenAI models.
+*   **Verification:** Verified via official [OpenAI API Pricing](https://openai.com/api/pricing/) and [Vision Token Calculator](https://platform.openai.com/docs/guides/vision#image-input-token-cost-calculator) on Oct 4, 2026.
 
-**2. Google: Gemini 3.8 Flash**
-*   **Availability:** General availability via Google Cloud Agent Platform / Developer API.
-*   **Cost (per 1M tokens):** $0.75 Input / $3.75 Output. *(Note: Introductory pricing, expected to double Jan 1, 2027).*
-*   **Data Terms:** Paid API tier data is excluded from model training. Free tier data *is* subject to product improvement logging.
-*   **Verification:** Verified via Google Developer API pricing page on Oct 4, 2026.
-
-**3. Anthropic: Claude Haiku 4.5**
-*   **Availability:** General availability via Anthropic Console.
-*   **Cost (per 1M tokens):** $1.00 Input / $5.00 Output.
-*   **Data Terms:** Standard enterprise API terms; zero-retention policies available on request; not used for training.
-*   **Verification:** Verified via Anthropic Pricing page on Oct 4, 2026.
-
-**4. On-Device: Android AICore (Gemini Nano Multimodal)**
-*   **Availability:** Supported on high-end 2026 flagships (12GB+ RAM) via ML Kit GenAI APIs.
-*   **Cost:** $0.00 (Free per-request, processed locally).
-*   **Data Terms:** 100% private, zero cloud transmission.
-*   **Verification:** Verified via Android Developers AICore documentation on Oct 4, 2026.
+*(Note: Other models like Anthropic's Claude 3.5 Haiku and Google's Gemini Flash were considered, but GPT-4o-mini provides a definitively documented, ultra-low-cost baseline for this feasibility study.)*
 
 ### B. Fair Comparison & Selection Criteria
 
-*   **Privacy & Operational Complexity:** On-device processing is the gold standard for privacy but fragments the user experience (requires high-end hardware). Server-mediated APIs require robust access controls.
-*   **Latency:** Haiku 4.5 and Gemini 3.8 Flash are exceptionally fast. GPT-5.6 Luna balances speed with extreme cost-efficiency.
-*   **Abstention & Description:** We cannot rank accuracy or safety adherence without evaluation. A shared evaluation dataset must be created (see Section 5).
+*   **Privacy & Operational Complexity:** Server-mediated APIs like GPT-4o-mini require robust access controls and budget limits, unlike on-device processing which is private but hardware-constrained.
+*   **Latency:** GPT-4o-mini is optimized for low-latency tasks.
+*   **Abstention & Description:** We cannot rank accuracy or safety adherence without empirical evaluation. A shared evaluation dataset must be created (see Section 5).
 
 ---
 
 ## 3. Cost Calculations
 
-We assume the API usage is funded by Pebble's operational budget, not Jamie's consumer AI subscriptions.
+We assume the API usage is funded by Pebble's operational budget, not Jamie's consumer AI subscriptions. Calculations use the verified GPT-4o-mini pricing.
 
 **Modelling Assumptions:**
-*   **Input Tokens:** 408 tokens per request (258 tokens for standard resized WebP/JPEG + 150 tokens for the strict system prompt).
-*   **Output Tokens:** 50 tokens (a constrained 1-2 sentence description).
-*   **Thinking Tokens:** 0 (budget controls will enforce no hidden reasoning tokens).
-*   **Retries/Failures:** Estimated 5% overhead.
-*   **Infrastructure (Supabase):** Negligible for compute (Edge Functions are heavily cached), but bandwidth out is approx $0.09/GB.
+*   **Image Dimensions & Tokens:** App downsamples images before upload. By enforcing `detail: low` in the API request, OpenAI charges a flat **85 image tokens**.
+*   **System Instructions:** Estimated **150 input tokens** for strict formatting and safety rules.
+*   **Total Input Tokens:** 235 tokens.
+*   **Output Tokens:** Bounded to **50 output tokens** (1-2 sentences).
+*   **Thinking Tokens:** 0 (GPT-4o-mini does not utilize hidden thinking/reasoning tokens).
+*   **Retries/Failures:** Estimated 5% overhead for duplicated or failed requests.
+*   **Backend Infrastructure:** Supabase Edge Function invocations ($2/1M after free tier) and bandwidth out ($0.09/GB) are billed separately from OpenAI.
 
 **Estimated AI Costs (US$):**
-*(Based on GPT-5.6 Luna at $0.20/1M Input, $1.20/1M Output)*
-*Cost per photo = (408 * $0.0000002) + (50 * $0.0000012) = **$0.0001416***
+*Input Cost:* 235 tokens * ($0.15 / 1,000,000) = $0.00003525
+*Output Cost:* 50 tokens * ($0.60 / 1,000,000) = $0.00003000
+*Cost per successful photo:* **~$0.000065**
+*Worst-case cost (including 5% retry overhead):* **~$0.000068**
 
 | Monthly Photos | AI API Cost | Est. Backend/Bandwidth | **Total Cost** |
 | :--- | :--- | :--- | :--- |
 | **100** | $0.01 | $0.01 | **$0.02** |
-| **1,000** | $0.14 | $0.05 | **$0.19** |
-| **10,000** | $1.42 | $0.50 | **$1.92** |
-| **100,000** (Normal Use) | $14.16 | $5.00 | **$19.16** |
-| **1,000,000** (Runaway) | $141.60 | $50.00 | **$191.60** |
+| **1,000** | $0.07 | $0.05 | **$0.12** |
+| **10,000** | $0.68 | $0.50 | **$1.18** |
+| **100,000** (Normal Use) | $6.80 | $5.00 | **$11.80** |
 
 ---
 
 ## 4. Enforceable Cost Controls
 
-To protect Jamie from open-ended AI bills (e.g., a runaway script submitting 1M photos), we must design strict server-enforced controls before writing a single line of API integration. (Using $10/mo as an illustrative budget).
+To protect Jamie from open-ended AI bills, we must design strict server-enforced controls that check every request *before* any provider call is made. The illustrative budget is US$10/month. If budget accounting is unavailable (e.g., database is down), requests must fail closed and stop immediately.
 
-**Proposed Abuse-Prevention Design:**
-1.  **Auth & Ownership:** The Supabase Edge Function reads the user's JWT. It asserts the user owns the `sessionId` before processing.
-2.  **Concurrency & Idempotency:** The Edge Function uses a Redis/Postgres locking mechanism tied to the `proofId`. Repeated taps return the existing database record rather than firing new billable requests.
-3.  **Client-Side Limits:** Maximum image resolution strictly downsampled in the app before upload (e.g., max 512x512). Output bounded to `max_tokens: 100`.
-4.  **Thinking Controls:** If using models like Claude or Gemini Pro that support hidden reasoning tokens, the `thinking_budget` must be explicitly disabled (`0`) in the API request headers.
-5.  **Per-User Allowances:** Supabase tracks a daily quota (e.g., 20 AI requests/day per user) in a rate-limiting table. 
-6.  **Global Kill Switch:** A Supabase Remote Config flag (`ai_descriptions_enabled`) that the client checks. Jamie can toggle this to `false` in the dashboard to instantly drop all incoming AI requests.
-7.  **Fallback Experience:** When an allowance is exhausted or the kill switch is flipped, the UI gracefully falls back. The button disables and says "AI limits reached for today." The ordinary photo feature continues working flawlessly.
+**Server-Enforced Abuse-Prevention Design:**
+
+1.  **Authentication and Photo Ownership:** The Supabase Edge Function decodes the user's JWT. It queries the database to strictly assert that the authenticated user owns the `proofId` requested.
+2.  **Server-Checked Kill Switch:** The Edge Function queries a Postgres configuration table (`ai_enabled`). If `false`, the request is immediately rejected. This prevents client-side bypasses.
+3.  **Actual Uploaded Bytes and Dimensions:** The server intercepts the image payload and checks the actual file size (<1MB) and dimensions (e.g., max 512x512) before making the API call, ignoring client-reported limits.
+4.  **Atomic Allowance & Global Budget Reservation:** Before calling OpenAI, the server starts a Postgres transaction. It checks the user's daily quota. It then adds the *worst-case maximum cost* of the request (e.g., $0.0002 based on `max_tokens`) to a global `spent_this_month` counter. If this exceeds $10, the transaction aborts and the request is refused.
+5.  **Reconciliation:** After the OpenAI API returns successfully, the server reads the actual `usage` tokens from the response payload, calculates the exact cost, and refunds the difference to the global budget counter. If the API call fails or times out, the full worst-case reservation is refunded without duplicate spending.
+6.  **Idempotency & Concurrency:** The reservation transaction utilizes a row-level Postgres lock on the `proofId`. If a user spams the button, concurrent requests wait for the lock. The first request processes the image, saves the result, and releases the lock. Subsequent requests instantly read the saved result for free.
+7.  **Provider-Specific Limits:** The OpenAI API payload hardcodes `max_tokens: 50` and `detail: low` to strictly bound output charges.
+
+**Residual Exposure & UX:**
+While atomic reservations prevent the API from exceeding $10, *residual exposure* remains. Requests already in-flight at the provider before the budget was exhausted will complete and be billed. Furthermore, Supabase infrastructure costs (Edge Function time, egress bandwidth) are not capped by this logic. There is no absolute billing guarantee. 
+When the allowance is exhausted or the database is unreachable, the ordinary photo feature will continue working seamlessly. The AI description button will safely disable and display "AI descriptions unavailable."
 
 ---
 
 ## 5. Evaluation Plan
 
-Before choosing a provider, we must evaluate them fairly.
+Before proceeding to integration, we must evaluate the model fairly.
 
 **Shared Dataset & Rubric:**
 *   Assemble 50 consented, human-labelled routine photos covering edge cases: clear actions, blurry photos, cropped sockets, disconnected plugs with hidden cables, and printed instructions in-frame.
@@ -114,16 +107,13 @@ Before choosing a provider, we must evaluate them fairly.
 
 ## 6. Decision-Ready Proposal
 
-**Recommended Shortlist:** OpenAI GPT-5.6 Luna and Anthropic Claude Haiku 4.5. Both are exceptionally cheap, fast, and boast standard enterprise data privacy (zero training). 
+**Recommended Candidate:** OpenAI GPT-4o-mini provides a verified, ultra-low-cost option with clear token calculations and enterprise data privacy.
 
 **Unresolved Questions:**
-*   Can these ultra-cheap models strictly adhere to the negative constraints (no safety verdicts, no medical claims)?
-*   How accurately can on-device Gemini Nano process the same prompts for users on flagship hardware?
+*   Can GPT-4o-mini strictly adhere to the negative constraints (no safety verdicts, no medical claims) on ambiguous images?
 
 **Smallest Prototype:**
-1.  Do not integrate with the app yet. 
-2.  Write a standalone Python/Node script to feed the 50-image evaluation dataset through the Luna and Haiku APIs.
+1.  Do not integrate with the app yet. Do not activate billing or upload user photos.
+2.  Write a standalone Python/Node script to feed the 50-image evaluation dataset through the GPT-4o-mini API (using a separate, strictly-budgeted dev account).
 3.  Manually grade the outputs against the rubric.
-4.  If one model passes the safety threshold, draft the Privacy Policy updates declaring third-party AI image processing and proceed to an app UI prototype.
-
-*(Note: Implementation is not recommended until this evaluation establishes that cheap vision models can safely abstain from hallucinating safety states.)*
+4.  If the model passes the safety threshold, draft the Privacy Policy updates declaring third-party AI image processing and proceed to implement the server-enforced controls described in Section 4.
