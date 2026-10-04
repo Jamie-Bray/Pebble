@@ -40,16 +40,16 @@ camera reads `sample_photo_1.jpg` and `sample_photo_2.jpg` from
 machine, so the fake camera silently returned nothing and the photo step never
 completed.
 
-Fix in this branch (`test/walkthrough/walkthrough_screens_test.dart`):
+The fix (the same one was made independently in PR #5, whose version is used):
 
 - First photo taps the primary button; the second taps "Add photo".
-- When the sample photos are missing, the fake camera falls back to a tracked
-  image so a fresh checkout still completes the run. Real photos placed in
+- When the sample photos are missing, the fake camera falls back to tracked
+  fixtures so a fresh checkout still completes the run. Photos placed in
   `walkthrough_support/` still take priority.
 
-**Follow-up for the owner:** the fallback image is the store feature graphic,
-so the proof-photo thumbnails in those screenshots are placeholders. Two real
-sample photos (a door handle, a pill box) should be committed for design review.
+Two free-to-use sample photos (a door handle and a pill organiser) are now
+committed in `test/walkthrough/fixtures/`, so the screenshots show realistic
+proof photos on any machine.
 
 ## 3. CI is red on `main`: Demonstrated, not reported by Gemini
 

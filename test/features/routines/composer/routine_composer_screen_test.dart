@@ -199,7 +199,7 @@ void main() {
     expect(find.text('Routine Composer'), findsNothing);
     expect(find.text('Brain-dump first. Upgrade steps after.'), findsNothing);
     expect(find.text('Keys & wallet'), findsNothing);
-    expect(find.text('New Routine'), findsOneWidget);
+    expect(find.text('New routine'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Add step'), findsOneWidget);
     expect(find.text('Save routine'), findsNothing);
 

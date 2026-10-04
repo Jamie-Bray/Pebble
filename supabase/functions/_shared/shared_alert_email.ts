@@ -36,7 +36,7 @@ export function buildInviteEmail(input: EmailCommon & {
     'the time it was completed',
     input.includeStepCount ? 'how many steps were completed' : null,
   ].filter((x): x is string => x !== null);
-  const includedSentence = `Each email shows ${joinList(included)}. Photos and checklist details are not included.`;
+  const includedSentence = `Each email shows ${joinList(included)}. Photos and checklist details aren't included.`;
   const expires = formatDate(input.expiresAt);
 
   const text = [
@@ -54,7 +54,7 @@ export function buildInviteEmail(input: EmailCommon & {
     `Decline: ${input.declineUrl}`,
     `Block this sender: ${input.blockUrl}`,
     '',
-    `You are receiving this because ${input.sender} entered your email address in Pebble Routines. If you don't know them, ignore this email or block the sender.`,
+    `You're getting this because ${input.sender} entered your email address in Pebble Routines. If you don't know them, ignore this email or block the sender.`,
     footerText(input),
   ].join('\n');
 
@@ -74,7 +74,7 @@ export function buildInviteEmail(input: EmailCommon & {
         { label: 'Decline', url: input.declineUrl },
         { label: 'Block this sender', url: input.blockUrl },
       ])}`,
-    footer: `You are receiving this because ${esc(input.sender)} entered your email address in Pebble Routines. If you don't know them, ignore this email or block the sender.`,
+    footer: `You're getting this because ${esc(input.sender)} entered your email address in Pebble Routines. If you don't know them, ignore this email or block the sender.`,
     common: input,
   });
 
@@ -102,7 +102,7 @@ export function buildCompletionEmail(input: EmailCommon & {
     ['Completed', input.completedAtText],
     ...(stepsText ? [['Steps', stepsText] as [string, string]] : []),
   ];
-  const sentNote = 'Sent automatically when the routine was marked complete in the Pebble app.';
+  const sentNote = 'Pebble sent this automatically when the routine was marked complete.';
 
   const text = [
     'Routine completed',
@@ -116,7 +116,7 @@ export function buildCompletionEmail(input: EmailCommon & {
     `Stop these emails: ${input.stopUrl}`,
     `Block this sender: ${input.blockUrl}`,
     '',
-    `You are receiving this because you allowed completion emails from ${input.sender}. If you stop them, they will see that completion emails are off.`,
+    `You're getting this because you allowed completion emails from ${input.sender}. If you stop them, they'll see that the emails are off.`,
     footerText(input),
   ].join('\n');
 
@@ -143,7 +143,7 @@ export function buildCompletionEmail(input: EmailCommon & {
         { label: 'Stop these emails', url: input.stopUrl },
         { label: 'Block this sender', url: input.blockUrl },
       ])}`,
-    footer: `You are receiving this because you allowed completion emails from ${esc(input.sender)}. If you stop them, they will see that completion emails are off.`,
+    footer: `You're getting this because you allowed completion emails from ${esc(input.sender)}. If you stop them, they'll see that the emails are off.`,
     common: input,
   });
 

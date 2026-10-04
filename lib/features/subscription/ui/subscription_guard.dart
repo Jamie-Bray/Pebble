@@ -70,7 +70,7 @@ class SubscriptionGuard {
               ),
               const SizedBox(height: 22),
               Text(
-                'You have reached the free routine limit',
+                "You've used your free routines",
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w800,
                   color: cs.onSurface,
@@ -78,7 +78,7 @@ class SubscriptionGuard {
               ),
               const SizedBox(height: 10),
               Text(
-                'Pebble is free to use with no login and no ads. Free includes $limit routines; unlimited routines are part of Personal Premium.',
+                'Free includes $limit routines. Personal Premium gives you as many as you need.',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   height: 1.45,
                   color: cs.onSurface.withValues(alpha: 0.72),
@@ -98,7 +98,7 @@ class SubscriptionGuard {
               PebbleButton.tertiary(
                 expand: true,
                 onPressed: () => Navigator.of(sheetContext).pop(),
-                label: 'Maybe later',
+                label: 'Not now',
               ),
             ],
           ),
@@ -135,7 +135,7 @@ class SubscriptionGuard {
               ),
               const SizedBox(height: 22),
               Text(
-                'You have reached the free step limit',
+                "You've used your free steps",
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w800,
                   color: cs.onSurface,
@@ -143,7 +143,7 @@ class SubscriptionGuard {
               ),
               const SizedBox(height: 10),
               Text(
-                'Pebble is free to use with no login and no ads. Free includes $limit steps per routine; unlimited steps are part of Personal Premium.',
+                'Free includes $limit steps per routine. Personal Premium has no step limit.',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   height: 1.45,
                   color: cs.onSurface.withValues(alpha: 0.72),
@@ -163,7 +163,7 @@ class SubscriptionGuard {
               PebbleButton.tertiary(
                 expand: true,
                 onPressed: () => Navigator.of(sheetContext).pop(),
-                label: 'Maybe later',
+                label: 'Not now',
               ),
             ],
           ),

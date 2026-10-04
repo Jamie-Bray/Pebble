@@ -552,7 +552,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.textContaining('Camera access is turned off for Pebble'),
+      find.textContaining('Camera access is off for Pebble'),
       findsOneWidget,
     );
     expect(find.text('OPEN SETTINGS'), findsOneWidget);

@@ -102,7 +102,7 @@ class SupabaseAuthRepository implements AuthRepository {
     final response = await _verifyEmailOtp(email: email, token: token);
     final user = response.user;
     if (user == null) {
-      throw StateError('We couldn\'t complete sign-in. Please try again.');
+      throw StateError("Sign-in didn't finish. Try again.");
     }
     return AuthIdentity(
       userId: user.id,
@@ -142,7 +142,7 @@ class SupabaseAuthRepository implements AuthRepository {
     final idToken = auth.idToken;
     if (idToken == null || idToken.isEmpty) {
       throw StateError(
-        'Google sign-in could not be completed. Please try again.',
+        "Google sign-in didn't finish. Try again.",
       );
     }
 
@@ -154,7 +154,7 @@ class SupabaseAuthRepository implements AuthRepository {
     final user = response.user;
     if (user == null) {
       throw StateError(
-        'We couldn\'t complete Google sign-in. Please try again.',
+        "Google sign-in didn't finish. Try again.",
       );
     }
     return AuthIdentity(
@@ -167,7 +167,7 @@ class SupabaseAuthRepository implements AuthRepository {
   @override
   Future<AuthIdentity> signInWithApple() async {
     if (!Platform.isIOS) {
-      throw StateError('Apple sign-in is available on iPhone and iPad only.');
+      throw StateError('Sign in with Apple only works on iPhone and iPad.');
     }
 
     final rawNonce = _generateNonce();
@@ -183,13 +183,13 @@ class SupabaseAuthRepository implements AuthRepository {
         throw const AuthCancelledException();
       }
       throw StateError(
-        'Apple sign-in could not be completed. Please try again.',
+        "Apple sign-in didn't finish. Try again.",
       );
     }
     final identityToken = credential.identityToken;
     if (identityToken == null || identityToken.isEmpty) {
       throw StateError(
-        'Apple sign-in could not be completed. Please try again.',
+        "Apple sign-in didn't finish. Try again.",
       );
     }
 
@@ -201,7 +201,7 @@ class SupabaseAuthRepository implements AuthRepository {
     final user = response.user;
     if (user == null) {
       throw StateError(
-        'We couldn\'t complete Apple sign-in. Please try again.',
+        "Apple sign-in didn't finish. Try again.",
       );
     }
     return AuthIdentity(
@@ -229,7 +229,7 @@ class SupabaseAuthRepository implements AuthRepository {
         throw StateError(details['error'] as String);
       }
       throw StateError(
-        'We could not delete your account right now. Please try again.',
+        "Couldn't delete your account. Check your connection and try again.",
       );
     }
 

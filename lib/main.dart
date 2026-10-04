@@ -325,7 +325,7 @@ final _routerProvider = Provider<GoRouter>((ref) {
                 error: (e, st) => e is RoutineSoftLockedException
                     ? _RoutineLockedScreen(routineId: id)
                     : const Scaffold(
-                        body: Center(child: Text('Could not load routine')),
+                        body: Center(child: Text("Couldn't load this routine")),
                       ),
                 data: (entry) {
                   if (entry == null) {
@@ -366,7 +366,7 @@ class _RoutineUnavailableScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'That routine has been removed.',
+                  'This routine has been deleted.',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: colorScheme.onSurface,
@@ -375,7 +375,7 @@ class _RoutineUnavailableScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'There is no active routine to resume.',
+                  "There's nothing to resume.",
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurface.withValues(alpha: 0.64),
@@ -384,7 +384,7 @@ class _RoutineUnavailableScreen extends StatelessWidget {
                 const SizedBox(height: 24),
                 PebbleButton.primary(
                   onPressed: () => GoRouter.of(context).go('/'),
-                  label: 'Back to Home',
+                  label: 'Back to home',
                 ),
               ],
             ),
@@ -424,9 +424,9 @@ class _RoutineLockedScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'This routine is still saved. Free includes 2 routines, so '
-                  'it unlocks again when you renew, or when you choose it as '
-                  'one of the 2 to keep.',
+                  'This routine is still saved, but Free includes 2 routines. '
+                  'Renew Premium to unlock it, or choose it as one of the 2 '
+                  'you keep.',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurface.withValues(alpha: 0.64),
@@ -448,7 +448,7 @@ class _RoutineLockedScreen extends StatelessWidget {
                 const SizedBox(height: PebbleSpacing.xxs),
                 PebbleButton.tertiary(
                   onPressed: () => GoRouter.of(context).go('/'),
-                  label: 'Back to Home',
+                  label: 'Back to home',
                 ),
               ],
             ),

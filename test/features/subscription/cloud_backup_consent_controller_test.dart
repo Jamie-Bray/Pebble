@@ -59,7 +59,7 @@ void main() {
 
     expect(controller.state.isLoading, isFalse);
     expect(controller.state.canEnableCloudUpload, isTrue);
-    expect(controller.state.lastError, contains('could not be paused'));
+    expect(controller.state.lastError, contains("couldn't be paused"));
   });
 }
 

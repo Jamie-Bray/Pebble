@@ -1,10 +1,10 @@
 [
   {
     "id": "tpl_anxiety_free_departure",
-    "title": "Everyday Departure Check",
-    "description": "Check the common leaving-home items before you go: heat tools, stove, windows, lights, keys, and the final lock.",
-    "category": "Leaving & Locking Up",
-    "goodFor": "A clear leaving-home check with optional photos for items you want to review later.",
+    "title": "Everyday departure check",
+    "description": "The usual things to check before you leave the house, from the straighteners to the front door.",
+    "category": "Leaving and locking up",
+    "goodFor": "Leaving the house on a normal day, with photos on the steps you're most likely to wonder about later.",
     "searchTerms": ["stove", "heat tools", "iron", "lock", "departure", "home"],
     "steps": [
       "Hair tools: Unplug straighteners or curling iron and place them on a heat-safe surface. (Take a photo)",
@@ -21,10 +21,10 @@
   },
   {
     "id": "tpl_deep_sleep_bedtime_scan",
-    "title": "Bedtime House Check",
-    "description": "An evening pass for doors, windows, kitchen, alarms, pets, and phone charging.",
-    "category": "Leaving & Locking Up",
-    "goodFor": "A repeatable end-of-day home check.",
+    "title": "Bedtime house check",
+    "description": "A last walk round the house before bed, covering doors, windows, the kitchen and the alarm.",
+    "category": "Leaving and locking up",
+    "goodFor": "The same check at the end of every day.",
     "searchTerms": ["night", "doors", "alarm", "windows", "bedtime", "home"],
     "steps": [
       "Back door or patio door: Check that the latch is fully closed. (Take a photo)",
@@ -41,10 +41,10 @@
   },
   {
     "id": "tpl_med_check",
-    "title": "Medication Check",
-    "description": "A simple routine for checking medication before you mark it done.",
-    "category": "Daily Care",
-    "goodFor": "A personal medication check with a timestamped routine record.",
+    "title": "Medication check",
+    "description": "Set out your medication, take it, and mark it done straight away.",
+    "category": "Daily care",
+    "goodFor": "A daily medication check, saved with the time you did it.",
     "searchTerms": ["medication", "medicine", "pill", "prescription", "daily"],
     "steps": [
       "Medication: Go to the place where you keep it.",
@@ -59,15 +59,15 @@
   },
   {
     "id": "tpl_hotel_checkout",
-    "title": "Hotel Checkout Sweep",
-    "description": "Check the safe, bathroom, outlets, drawers, and key before you leave the room.",
-    "category": "Work & Away",
-    "goodFor": "A room checkout pass for chargers, documents, jewellery, and small items.",
+    "title": "Hotel checkout sweep",
+    "description": "Go round the room for chargers, passports and anything in the safe before you hand back the key.",
+    "category": "Work and away",
+    "goodFor": "The last ten minutes in a hotel room, when small things get left behind.",
     "searchTerms": ["hotel", "checkout", "travel", "passport", "charger", "room"],
     "steps": [
       "Safe: Open it wide and check inside for passports, cash, jewellery, or cards. (Take a photo of the empty safe)",
       "Shower: Check the ledge for toiletries, rings, or razors.",
-      "Outlets: Check every power outlet for phone or laptop chargers.",
+      "Sockets: Check every socket for phone or laptop chargers.",
       "Under the bed: Use your phone light to check for small items.",
       "Wardrobe: Move every hanger and check the back.",
       "Bedside table: Open the drawer and check the back corner.",
@@ -79,10 +79,10 @@
   },
   {
     "id": "tpl_school_morning_run",
-    "title": "Essential School Morning Run",
-    "description": "Check the school-day essentials before you leave.",
-    "category": "Daily Care",
-    "goodFor": "A morning packing check for bags, food, forms, devices, and weather items.",
+    "title": "School morning run",
+    "description": "Bags, lunch, forms and shoes, checked before you leave for school.",
+    "category": "Daily care",
+    "goodFor": "Weekday mornings with children to get out of the door.",
     "searchTerms": ["school", "bag", "lunch", "PE kit", "homework", "morning"],
     "steps": [
       "School bag: Check that the main school bag is packed and by the door.",
@@ -99,10 +99,10 @@
   },
   {
     "id": "tpl_house_sitter_handover",
-    "title": "House Sitter Handover",
-    "description": "Leave practical notes and photo checks for the home, pets, and key handover.",
-    "category": "Work & Away",
-    "goodFor": "A handover checklist for care details, supplies, and house state.",
+    "title": "House sitter handover",
+    "description": "Notes, photos and the key, ready for whoever is looking after your home and pets.",
+    "category": "Work and away",
+    "goodFor": "Before you go away and someone else takes over.",
     "searchTerms": ["house sitter", "handover", "instructions", "pets", "key"],
     "steps": [
       "Contact details: Leave a note with the vet number and a local contact. (Take a photo)",
@@ -119,29 +119,29 @@
   },
   {
     "id": "tpl_car_security",
-    "title": "Car Lock & Parking Check",
-    "description": "Check the windows, lights, valuables, lock, parking spot, and keys.",
-    "category": "Leaving & Locking Up",
-    "goodFor": "A car lock and parking check you can review later.",
+    "title": "Car lock and parking check",
+    "description": "Windows up, nothing on show, car locked, and a photo of where you parked.",
+    "category": "Leaving and locking up",
+    "goodFor": "Parking somewhere you'll want to find again, or a car you'll wonder about later.",
     "searchTerms": ["car", "lock", "parking", "garage", "travel", "security"],
     "steps": [
       "Windows: Check that all windows are fully closed.",
       "Brake: Apply the handbrake or electronic brake.",
       "Lights: Check that internal lights are off and headlights are set to auto or off.",
-      "Valuables: Make sure bags, phones, and wallets are not visible on the seats.",
+      "Valuables: Check that bags, phones and wallets are out of sight.",
       "Lock: Lock the car and check for the sound or light flash.",
       "Parking spot: Take a photo of the car in its spot, with a useful marker in frame. (Take a photo)",
       "Keys: Put your keys in the pocket or pouch you use for them.",
       "Passenger seat: Check once more for sunglasses, water bottle, or small items.",
-      "Exit: Leave the car park or garage."
+      "Exit: Head off."
     ]
   },
   {
     "id": "tpl_big_trip_shutdown",
-    "title": "Big Trip Home Shutdown",
-    "description": "Before a longer trip, check food, waste, water, temperature, electronics, plants, and doors.",
-    "category": "Leaving & Locking Up",
-    "goodFor": "A home shutdown checklist for longer trips.",
+    "title": "Big trip home shutdown",
+    "description": "Before a longer trip, clear the fridge, take the waste out, unplug things and lock up.",
+    "category": "Leaving and locking up",
+    "goodFor": "The night before, or the morning you leave for a week or more.",
     "searchTerms": ["trip", "shutdown", "fridge", "waste", "power"],
     "steps": [
       "Fridge: Throw away milk and open perishables that will expire.",
@@ -158,10 +158,10 @@
   },
   {
     "id": "tpl_morning_pet_routine",
-    "title": "Morning Pet Routine",
-    "description": "Check food, water, medication, gates, doors, and collar before you leave.",
-    "category": "Daily Care",
-    "goodFor": "A daily pet care routine with optional photos for food and water.",
+    "title": "Morning pet routine",
+    "description": "Food, water and any medication, then gates and doors, before you go.",
+    "category": "Daily care",
+    "goodFor": "Mornings when the pets are home on their own.",
     "searchTerms": ["pet", "dog", "cat", "feeding", "water", "morning", "meds"],
     "steps": [
       "Clean bowl: Rinse the food bowl.",
@@ -177,10 +177,10 @@
   },
   {
     "id": "tpl_office_switch_off",
-    "title": "Office Switch-Off",
-    "description": "Close the workday with a check of screens, heater, papers, windows, mug, notes, lights, and lock.",
-    "category": "Work & Away",
-    "goodFor": "A workspace closing checklist for equipment, papers, and personal items.",
+    "title": "Office switch-off",
+    "description": "Screens off, papers away, heater unplugged and the door locked at the end of the day.",
+    "category": "Work and away",
+    "goodFor": "The end of the working day, in an office or at home.",
     "searchTerms": ["office", "work", "desk", "heater", "papers", "lock", "switch off"],
     "steps": [
       "Screens: Power down your monitors.",
@@ -196,10 +196,10 @@
   },
   {
     "id": "tpl_toddler_survival_bag",
-    "title": "Toddler Essentials Bag",
-    "description": "Check baby items, clothes, snacks, water, weather gear, keys, and stroller before you leave.",
-    "category": "Daily Care",
-    "goodFor": "A packing checklist for outings with a toddler.",
+    "title": "Toddler day bag",
+    "description": "Changing things, spare clothes, snacks and the comfort toy, packed before you leave.",
+    "category": "Daily care",
+    "goodFor": "Days out with a toddler.",
     "searchTerms": ["toddler", "baby", "bag", "baby items", "snacks", "toys", "packing"],
     "steps": [
       "Baby items: Pack enough changing items and wipes for the trip.",
@@ -216,10 +216,10 @@
   },
   {
     "id": "tpl_gym_prep",
-    "title": "Gym & Sports Prep",
-    "description": "Check shoes, kit, towel, headphones, lock, water, pass, and toiletries before you go.",
-    "category": "Work & Away",
-    "goodFor": "A packing checklist for gym and sports sessions.",
+    "title": "Gym bag",
+    "description": "Trainers, kit, towel, lock and water, packed before you go.",
+    "category": "Work and away",
+    "goodFor": "Getting to the gym or a match with everything you need.",
     "searchTerms": ["gym", "sports", "workout", "trainers", "shoes", "towel", "lock", "packing"],
     "steps": [
       "Shoes: Check that your trainers or sports shoes are in the bag.",
