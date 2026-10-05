@@ -416,7 +416,9 @@ void main() {
     expect(find.text('Turn on backup'), findsOneWidget);
     expect(find.text('Not now'), findsOneWidget);
     expect(
-      find.textContaining('proof photos, which can include personal details'),
+      find.textContaining(
+        'proof photos and voice tips, which can include personal details',
+      ),
       findsOneWidget,
     );
   });

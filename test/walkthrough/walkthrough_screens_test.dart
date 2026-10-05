@@ -947,7 +947,7 @@ void _capture(
           userId: _userId,
           feature: cloudBackupConsentFeature,
           featureEnabled: true,
-          appVersion: cloudBackupConsentAppVersion,
+          appVersion: cloudBackupConsentUnknownAppVersion,
           privacyVersion: cloudBackupConsentPrivacyVersion,
           termsVersion: cloudBackupConsentTermsVersion,
           consentTextHash: cloudBackupConsentTextHash,
