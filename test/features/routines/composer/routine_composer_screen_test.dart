@@ -40,7 +40,7 @@ void main() {
   ) {
     return [
       routineComposerDraftRepositoryProvider.overrideWithValue(repository),
-      aiPhotoActiveRoutineIdProvider.overrideWithValue(null),
+      aiPhotoActiveRoutineIdsProvider.overrideWithValue(const {}),
       premiumFeaturePolicyProvider.overrideWithValue(
         premiumFeaturePolicyForTier(UserTier.personalPremium),
       ),

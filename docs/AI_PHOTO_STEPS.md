@@ -4,8 +4,9 @@ Updated 5 October 2026. Built for testing; **not deployed or enabled**.
 
 ## What it does
 
-Signed-in Personal Premium users can enable descriptions for one routine on
-this phone. Its first five photo steps qualify. An unticked consent box names
+Signed-in Personal Premium users can enable descriptions for any of their
+routines on this phone, one consent sheet per routine. The first five photo
+steps of each qualify; the monthly allowance is the overall limit. An unticked consent box names
 Anthropic and explains the photo, step-title and optional step-description transfer, retention and limitations. No
 description can complete or fail a step. Failed descriptions leave the photo
 and routine usable. Switching off remains available after Premium expires.

@@ -2040,8 +2040,10 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
     final management = ref.read(routineManagementProvider);
     await management.deleteRoutine(routine.id);
     if (ref.read(aiPhotoControllerProvider).isOnFor(routine.id)) {
-      // Nothing is left to describe, so the consent is withdrawn with it.
-      unawaited(ref.read(aiPhotoControllerProvider.notifier).turnOff());
+      // Withdraws the consent too when no other routine uses AI.
+      unawaited(
+        ref.read(aiPhotoControllerProvider.notifier).turnOff(routine.id),
+      );
     }
     if (!mounted) return;
 

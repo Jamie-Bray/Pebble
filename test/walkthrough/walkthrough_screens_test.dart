@@ -990,8 +990,7 @@ void _capture(
     if (aiOnForHero) {
       prefsValues['pebble.ai_photo.$_userId'] = jsonEncode(
         AiPhotoSettings(
-          routineId: 1,
-          routineTitle: 'Leaving the house',
+          routineIds: const {1},
           consentVersion: aiPhotoConsentVersion,
           consentedAt: DateTime.now().subtract(const Duration(days: 2)),
         ).toJson(),

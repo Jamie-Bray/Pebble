@@ -26,56 +26,63 @@ Set<int> aiPhotoStepIndexes(List<RoutineStep> steps) {
 int photoStepCount(List<RoutineStep> steps) =>
     steps.where((step) => step.hasPhotoRequirement).length;
 
-/// Which routine has AI switched on for this account on this phone, and the
-/// consent that goes with it. One routine at a time.
+/// Which routines have AI switched on for this account on this phone, and
+/// the consent that goes with them. The monthly allowance on the server is
+/// the limit, not the number of routines.
 class AiPhotoSettings {
   const AiPhotoSettings({
-    this.routineId,
-    this.routineTitle,
+    this.routineIds = const {},
     this.consentVersion,
     this.consentedAt,
-    this.emailDescriptions,
+    this.emailRoutineIds = const {},
     this.withdrawalPending = false,
   });
 
   static const off = AiPhotoSettings();
 
-  final int? routineId;
-
-  /// The routine's name when AI was switched on, for "On for ...".
-  final String? routineTitle;
+  final Set<int> routineIds;
   final String? consentVersion;
   final DateTime? consentedAt;
 
-  /// Whether descriptions go in this routine's completion email. Null until
-  /// the person answers; only `true` ever adds them.
-  final bool? emailDescriptions;
+  /// Routines whose completion email includes the descriptions. A routine is
+  /// only here after the person said yes for it.
+  final Set<int> emailRoutineIds;
 
   /// AI was turned off but the server has not yet recorded the withdrawal.
   final bool withdrawalPending;
 
   /// On, and agreed to the wording this build shows. A consent to older
   /// wording counts as off, so the person is asked again.
-  bool get isOn => routineId != null && consentVersion == aiPhotoConsentVersion;
+  bool get isOn =>
+      routineIds.isNotEmpty && consentVersion == aiPhotoConsentVersion;
 
-  bool isOnFor(int id) => isOn && routineId == id;
+  bool isOnFor(int id) => isOn && routineIds.contains(id);
+
+  bool emailDescriptionsFor(int id) =>
+      isOnFor(id) && emailRoutineIds.contains(id);
 
   Map<String, dynamic> toJson() => {
-    'routineId': routineId,
-    'routineTitle': routineTitle,
+    'routineIds': routineIds.toList(),
     'consentVersion': consentVersion,
     'consentedAt': consentedAt?.toUtc().toIso8601String(),
-    'emailDescriptions': emailDescriptions,
+    'emailRoutineIds': emailRoutineIds.toList(),
     'withdrawalPending': withdrawalPending,
   };
 
   factory AiPhotoSettings.fromJson(Map<String, dynamic> json) {
+    Set<int> ids(Object? value) => value is List
+        ? value.whereType<num>().map((n) => n.toInt()).toSet()
+        : {};
+    // Before several routines were allowed there was one `routineId`.
+    final legacyId = (json['routineId'] as num?)?.toInt();
     return AiPhotoSettings(
-      routineId: (json['routineId'] as num?)?.toInt(),
-      routineTitle: json['routineTitle'] as String?,
+      routineIds: {...ids(json['routineIds']), if (legacyId != null) legacyId},
       consentVersion: json['consentVersion'] as String?,
       consentedAt: DateTime.tryParse(json['consentedAt']?.toString() ?? ''),
-      emailDescriptions: json['emailDescriptions'] as bool?,
+      emailRoutineIds: {
+        ...ids(json['emailRoutineIds']),
+        if (legacyId != null && json['emailDescriptions'] == true) legacyId,
+      },
       withdrawalPending: json['withdrawalPending'] == true,
     );
   }
@@ -125,13 +132,12 @@ class AiPhotoController extends StateNotifier<AiPhotoSettings> {
     }
   }
 
-  /// Switches AI on for one routine, replacing any other. Call only after the
+  /// Switches AI on for a routine, keeping any others. Call only after the
   /// person has checked the box on the consent sheet. The consent is recorded
   /// on the server first; if that fails this throws [AiPhotoException] and
   /// nothing changes.
   Future<void> turnOn({
     required int routineId,
-    required String routineTitle,
     required String routineKey,
   }) async {
     // A withdrawal still on its way must land first, or it would cancel
@@ -140,18 +146,34 @@ class AiPhotoController extends StateNotifier<AiPhotoSettings> {
     await _service.recordConsent(routineKey: routineKey);
     await _save(
       AiPhotoSettings(
-        routineId: routineId,
-        routineTitle: routineTitle,
+        // Routines agreed under older wording are asked again, one by one.
+        routineIds: {if (state.isOn) ...state.routineIds, routineId},
         consentVersion: aiPhotoConsentVersion,
         consentedAt: _clock(),
+        emailRoutineIds: state.isOn
+            ? state.emailRoutineIds.difference({routineId})
+            : const {},
       ),
     );
   }
 
-  /// Stops sending photos straight away, then records the withdrawal on the
-  /// server. If the server can't be reached it is tried again the next time
-  /// the app starts; nothing is sent in the meantime either way.
-  Future<void> turnOff() async {
+  /// Stops sending this routine's photos straight away. When it was the last
+  /// routine using AI, the withdrawal is also recorded on the server; if the
+  /// server can't be reached that is tried again the next time the app
+  /// starts, and nothing is sent in the meantime either way.
+  Future<void> turnOff(int routineId) async {
+    final remaining = state.routineIds.difference({routineId});
+    if (state.isOn && remaining.isNotEmpty) {
+      await _save(
+        AiPhotoSettings(
+          routineIds: remaining,
+          consentVersion: state.consentVersion,
+          consentedAt: state.consentedAt,
+          emailRoutineIds: state.emailRoutineIds.difference({routineId}),
+        ),
+      );
+      return;
+    }
     await _save(const AiPhotoSettings(withdrawalPending: true));
     await (_withdrawal = _recordWithdrawal());
   }
@@ -165,15 +187,16 @@ class AiPhotoController extends StateNotifier<AiPhotoSettings> {
     }
   }
 
-  Future<void> setEmailDescriptions(bool include) async {
-    if (!state.isOn) return;
+  Future<void> setEmailDescriptions(int routineId, bool include) async {
+    if (!state.isOnFor(routineId)) return;
     await _save(
       AiPhotoSettings(
-        routineId: state.routineId,
-        routineTitle: state.routineTitle,
+        routineIds: state.routineIds,
         consentVersion: state.consentVersion,
         consentedAt: state.consentedAt,
-        emailDescriptions: include,
+        emailRoutineIds: include
+            ? {...state.emailRoutineIds, routineId}
+            : state.emailRoutineIds.difference({routineId}),
       ),
     );
   }
@@ -189,13 +212,13 @@ final aiPhotoControllerProvider =
       );
     });
 
-/// The routine whose photo steps are described right now, or null. Needs the
+/// The routines whose photo steps are described right now. Needs the
 /// switch, a signed-in account and Personal Premium on this phone; the server
 /// checks all three again on every photo.
-final aiPhotoActiveRoutineIdProvider = Provider<int?>((ref) {
+final aiPhotoActiveRoutineIdsProvider = Provider<Set<int>>((ref) {
   final settings = ref.watch(aiPhotoControllerProvider);
   final policy = ref.watch(premiumFeaturePolicyProvider);
   return settings.isOn && policy.hasActiveLocalPremium
-      ? settings.routineId
-      : null;
+      ? settings.routineIds
+      : const {};
 });

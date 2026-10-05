@@ -138,7 +138,7 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
     final routineId = widget.config.routine?.id;
     final aiDescribesPhotos =
         routineId != null &&
-        ref.watch(aiPhotoActiveRoutineIdProvider) == routineId;
+        ref.watch(aiPhotoActiveRoutineIdsProvider).contains(routineId);
     final composerState = ref.watch(
       routineComposerViewModelProvider(widget.config),
     );
@@ -368,7 +368,7 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
           decoration: BoxDecoration(
             color: cs.surface.withValues(alpha: 0.96),
             border: Border(
-              top: BorderSide(color: cs.outline.withValues(alpha: 0.72)),
+              top: BorderSide(color: cs.outline.withValues(alpha: 0.22)),
             ),
           ),
           child: Column(

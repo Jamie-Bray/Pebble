@@ -90,14 +90,11 @@ String aiPhotoRowSubtitle({
         ? 'On for the first $aiPhotoMaxSteps of $photoSteps photo steps'
         : 'On for this routine';
   }
-  if (!hasPremium) return 'Describe your photos, with Premium';
-  return settings.isOn
-      ? 'On for "${settings.routineTitle ?? 'another routine'}"'
-      : 'Off';
+  return hasPremium ? 'Off' : 'Describe your photos, with Premium';
 }
 
 /// Everything behind the "AI photo descriptions" row: the Premium gate, the
-/// on state with its off switch, moving AI from another routine, the consent
+/// on state with its off switch, the consent
 /// sheet and the completion email question.
 Future<void> openAiPhotoSettings(
   BuildContext context,
@@ -135,7 +132,7 @@ Future<void> openAiPhotoSettings(
       extraBody: const AiPhotoAllowanceText(),
     );
     if (turnOff == true) {
-      await controller.turnOff();
+      await controller.turnOff(routine.id);
       if (context.mounted) {
         ZenNotifications.showInfo(
           context,
@@ -160,20 +157,6 @@ Future<void> openAiPhotoSettings(
     return;
   }
 
-  if (settings.isOn) {
-    final move = await showPebbleConfirmationSheet(
-      context: context,
-      title: 'Move AI to "${routine.title}"?',
-      body:
-          'AI is on for "${settings.routineTitle ?? 'another routine'}". '
-          'One routine can use it at a time, so Pebble will turn it off '
-          'there.',
-      confirmLabel: 'Move',
-      cancelLabel: 'Keep it there',
-    );
-    if (move != true || !context.mounted) return;
-  }
-
   final agreed = await showAiPhotoConsentSheet(
     context,
     routineName: routine.title,
@@ -185,7 +168,6 @@ Future<void> openAiPhotoSettings(
   try {
     await controller.turnOn(
       routineId: routine.id,
-      routineTitle: routine.title,
       routineKey: sharedReminders.routineKeyFor(
         routineId: routine.id,
         routineCloudId: routine.cloudId,
@@ -218,7 +200,7 @@ Future<void> openAiPhotoSettings(
       contactEmail: contact.recipientEmail,
     );
     if (include != null) {
-      await controller.setEmailDescriptions(include);
+      await controller.setEmailDescriptions(routine.id, include);
     }
     if (!context.mounted) return;
   }

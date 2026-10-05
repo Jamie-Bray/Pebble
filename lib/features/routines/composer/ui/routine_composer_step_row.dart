@@ -164,14 +164,13 @@ class RoutineComposerStepRow extends StatelessWidget {
                     fixedSize: const Size(36, 36),
                     minimumSize: const Size(36, 36),
                     padding: EdgeInsets.zero,
-                    backgroundColor: cs.error.withValues(alpha: 0.08),
-                    foregroundColor: cs.error.withValues(alpha: 0.86),
+                    foregroundColor: cs.onSurface.withValues(alpha: 0.46),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  icon: const Icon(LucideIcons.trash2, size: 15),
+                  icon: const Icon(LucideIcons.trash2, size: 17),
                 ),
               ],
             ),
@@ -225,7 +224,7 @@ class RoutineComposerStepRow extends StatelessWidget {
               ),
             ),
           ),
-          Divider(height: 1, color: cs.outline.withValues(alpha: 0.62)),
+          Divider(height: 1, color: cs.outline.withValues(alpha: 0.22)),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
             child: Row(
@@ -236,7 +235,7 @@ class RoutineComposerStepRow extends StatelessWidget {
                         ? 'Pebble asks for a photo before you can check off this step.'
                         : "This step won't ask for a photo.",
                     icon: LucideIcons.camera,
-                    label: 'Require photo',
+                    label: 'Photo',
                     tone: _StepOptionTone.amber,
                     active: step.requiresPhoto,
                     onPressed: onToggleRequiresPhoto,
