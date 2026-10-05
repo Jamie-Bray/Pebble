@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pebble_routines/core/config/app_version.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
 import 'package:pebble_routines/features/settings/ui/appearance_screen.dart';
@@ -20,10 +21,14 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
+    final semantics = tester.ensureSemantics();
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          appVersionProvider.overrideWith((ref) => '2.3.4+56'),
+        ],
         child: MaterialApp(
           theme: ThemeData(
             colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
@@ -36,6 +41,10 @@ void main() {
 
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
+
+    // Every switch is announced with its row title.
+    await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+    semantics.dispose();
 
     expect(find.text('Reminders'), findsOneWidget);
     expect(find.text('Manage all your routine reminders'), findsOneWidget);
@@ -50,6 +59,11 @@ void main() {
     );
     expect(find.text('Theme & colours'), findsOneWidget);
     expect(find.text('About Pebble'), findsOneWidget);
+    // The version comes from the installed build, not a fixed string.
+    expect(
+      find.text('Version 2.3.4 · Privacy, terms, deletion'),
+      findsOneWidget,
+    );
 
     // Account, backup and support are reachable from Settings too.
     expect(find.text('Your account'), findsOneWidget);
@@ -202,7 +216,7 @@ void main() {
     expect(find.text('Matcha'), findsNothing);
     expect(
       find.text(
-        'Choose a look that works for you.\nPreview first, then apply.',
+        'Tap a theme to preview it.\nNothing changes until you apply it.',
       ),
       findsOneWidget,
     );
@@ -266,11 +280,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Unlock Premium'), findsOneWidget);
+    expect(find.text('Get Premium'), findsOneWidget);
     expect(find.text('Use this theme'), findsNothing);
     expect(
       find.text(
-        'Preview available. Applying this theme requires Personal Premium.',
+        'You can preview this theme. Using it needs Personal Premium.',
       ),
       findsOneWidget,
     );
@@ -289,7 +303,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Use this theme'), findsOneWidget);
-    expect(find.text('Unlock Premium'), findsNothing);
-    expect(find.text('Warm tone for light sensitivity.'), findsOneWidget);
+    expect(find.text('Get Premium'), findsNothing);
+    expect(find.text('Warm tint for light sensitivity.'), findsOneWidget);
   });
 }

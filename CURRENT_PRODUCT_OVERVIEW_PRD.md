@@ -70,9 +70,11 @@ Premium includes:
 Premium recent history and proof-photo backup use a rolling 21-day retention
 window unless the user deletes data earlier.
 
-Guidance audio files currently stay local. If audio backup is added later, the
-app UI, privacy policy, Play Data safety form, and processor map must be updated
-first.
+Guidance audio (voice tip) files are backed up when Premium cloud backup is on.
+They are kept until the user replaces or removes the recording, deletes the
+routine or deletes the account, and are not part of the 21-day window. The
+privacy policy, store privacy forms, processor map and backup consent sentence
+say so.
 
 ## Subscription Expiry
 

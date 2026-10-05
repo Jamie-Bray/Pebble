@@ -97,7 +97,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
         return;
       }
       _showBackupNotice(
-        'This device is already linked to your account.',
+        'This phone is already linked to your account.',
         title: 'Already linked',
         type: NotificationType.info,
       );
@@ -141,14 +141,14 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
       builder: (sheetContext) => _BackupActionSheet(
         icon: LucideIcons.userCheck,
         eyebrow: 'Backup',
-        title: 'Use this account for this device?',
+        title: 'Use this account for this phone?',
         body:
-            'This device has Pebble data from another sign-in. Use ${email ?? 'this account'} from now on so backup can continue.',
+            'This phone has routines, history and photos from another sign-in. If you carry on, Pebble copies them into the backup for ${email ?? 'this account'}. They stay on this phone too.',
         accentColor: Theme.of(sheetContext).colorScheme.primary,
         details: [
           _BackupSheetPillRow(
             pills: [
-              _BackupSheetPill(value: itemLabel, label: 'On this device'),
+              _BackupSheetPill(value: itemLabel, label: 'On this phone'),
               const _BackupSheetPill(value: 'Current', label: 'Account'),
               const _BackupSheetPill(value: 'Backup', label: 'After choice'),
             ],
@@ -159,7 +159,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
         secondaryLabel: 'Keep backup off',
         onSecondaryPressed: () => Navigator.of(sheetContext).pop(false),
         footer:
-            'Pebble will only upload this device\'s routines after you choose.',
+            'Nothing uploads until you choose. The other sign-in\'s backup isn\'t changed.',
       ),
     );
   }
@@ -174,9 +174,9 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
       builder: (sheetContext) => _BackupActionSheet(
         icon: LucideIcons.link,
         eyebrow: 'Backup',
-        title: 'Link this device\'s data?',
+        title: 'Link this phone\'s data?',
         body:
-            'Pebble found $itemLabel on this device. Link them to ${email ?? 'this account'} so backup can start, or keep them local.',
+            'Pebble found $itemLabel on this phone. Link them to ${email ?? 'this account'} so backup can start, or keep them local.',
         accentColor: Theme.of(sheetContext).colorScheme.primary,
         details: [
           _BackupSheetPillRow(
@@ -191,7 +191,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
         onPrimaryPressed: () => Navigator.of(sheetContext).pop(true),
         secondaryLabel: 'Keep local',
         onSecondaryPressed: () => Navigator.of(sheetContext).pop(false),
-        footer: 'Pebble will not upload this device\'s data unless you choose.',
+        footer: 'Pebble will not upload this phone\'s data unless you choose.',
       ),
     );
   }
@@ -219,7 +219,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
           .noteSyncFailure(message);
       _showBackupNotice(
         message,
-        title: 'Could not link',
+        title: "Couldn't link",
         type: NotificationType.error,
       );
     } finally {
@@ -241,7 +241,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
       );
       await _prepareBackupAfterOwnershipChoice(userId);
       _showBackupNotice(
-        'This device now uses your signed-in account for backup.',
+        'This phone now uses your signed-in account for backup.',
         title: 'Backup is on',
         type: NotificationType.success,
       );
@@ -252,7 +252,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
           .noteSyncFailure(message);
       _showBackupNotice(
         message,
-        title: 'Could not continue',
+        title: "Couldn't continue",
         type: NotificationType.error,
       );
     } finally {
@@ -346,7 +346,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
     } catch (error) {
       _showBackupNotice(
         _toUserFacingError(error),
-        title: 'Could not refresh',
+        title: "Couldn't refresh",
         type: NotificationType.error,
       );
     } finally {
@@ -372,7 +372,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
               eyebrow: 'Backup',
               title: 'Turn on backup?',
               body:
-                  'Pebble will only start backup after you choose. Supported routine data can upload for restore when backup is on.',
+                  "Backup only starts if you turn it on. Once it's on, Pebble uploads your routine data so you can restore it later.",
               accentColor: Theme.of(sheetContext).colorScheme.primary,
               details: [
                 _BackupConsentCheck(
@@ -393,7 +393,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
               secondaryEnabled: !_consentInFlight,
               onSecondaryPressed: () => Navigator.of(sheetContext).pop(),
               footer:
-                  'You can pause backup later. Local routines stay on this device either way.',
+                  'You can pause backup later. Local routines stay on this phone either way.',
             );
           },
         );
@@ -415,7 +415,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
     } catch (error) {
       _showBackupNotice(
         _toUserFacingError(error),
-        title: 'Could not turn on backup',
+        title: "Couldn't turn on backup",
         type: NotificationType.error,
       );
     } finally {
@@ -433,7 +433,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
         eyebrow: 'Backup',
         title: 'Pause backup?',
         body:
-            'Pebble will stop saving new backup changes for this account. Local routines stay on this device.',
+            'Pebble will stop saving new backup changes for this account. Local routines stay on this phone.',
         accentColor: Theme.of(sheetContext).colorScheme.secondary,
         details: const [
           _BackupSheetPillRow(
@@ -471,7 +471,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
     } catch (error) {
       _showBackupNotice(
         _toUserFacingError(error),
-        title: 'Could not pause backup',
+        title: "Couldn't pause backup",
         type: NotificationType.error,
       );
     } finally {
@@ -545,10 +545,10 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
       return raw.replaceFirst('StateError: ', '');
     }
     if (raw.startsWith('PlatformException')) {
-      return 'The store could not complete that request. Please try again.';
+      return "The store couldn't finish that. Try again.";
     }
     if (raw.startsWith('FunctionException')) {
-      return 'Pebble could not complete that request. Please try again.';
+      return "Pebble couldn't finish that. Try again.";
     }
     return raw;
   }
@@ -738,9 +738,7 @@ class _BackupHero extends StatelessWidget {
             onPressed: primaryBusy ? null : onPrimary,
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(54),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-              ),
+              shape: const StadiumBorder(),
             ),
             icon: Icon(_buttonIcon(state.primaryAction), size: 18),
             label: Text(
@@ -755,9 +753,7 @@ class _BackupHero extends StatelessWidget {
             onPressed: onSignIn,
             style: OutlinedButton.styleFrom(
               minimumSize: const Size.fromHeight(50),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-              ),
+              shape: const StadiumBorder(),
             ),
             icon: const Icon(LucideIcons.logIn, size: 17),
             label: Text(
@@ -1018,7 +1014,7 @@ class _BackupDataSection extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 10),
           child: Text(
-            live ? "What's backed up" : 'What backup keeps safe for 21 days',
+            live ? "What's backed up" : 'What backup keeps for 21 days',
             style: PebbleFonts.sans(
               color: colorScheme.onSurface.withValues(alpha: 0.56),
               fontSize: 12,
@@ -1260,7 +1256,7 @@ class _OwnershipMismatchCard extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    state.ownershipTitle ?? 'Review this device',
+                    state.ownershipTitle ?? 'Review this phone',
                     style: PebbleFonts.sans(
                       color: colorScheme.onSurface,
                       fontSize: 16,
@@ -1274,7 +1270,7 @@ class _OwnershipMismatchCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               state.ownershipDetail ??
-                  'Pebble will keep this device local until you choose.',
+                  'Nothing on this phone is uploaded until you choose.',
               style: PebbleFonts.sans(
                 color: colorScheme.onSurface.withValues(alpha: 0.68),
                 fontSize: 13,
@@ -1288,9 +1284,7 @@ class _OwnershipMismatchCard extends StatelessWidget {
               onPressed: onUseCurrentAccount,
               style: FilledButton.styleFrom(
                 minimumSize: const Size.fromHeight(50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
+                shape: const StadiumBorder(),
               ),
               child: const Text('Use this account'),
             ),
@@ -1299,9 +1293,7 @@ class _OwnershipMismatchCard extends StatelessWidget {
               onPressed: onKeepBackupOff,
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size.fromHeight(48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
+                shape: const StadiumBorder(),
               ),
               child: const Text('Keep backup off'),
             ),

@@ -190,7 +190,7 @@ final _acceptedConsent = CloudBackupConsentState(
     userId: _signedIn.userId!,
     feature: cloudBackupConsentFeature,
     featureEnabled: true,
-    appVersion: cloudBackupConsentAppVersion,
+    appVersion: cloudBackupConsentUnknownAppVersion,
     privacyVersion: cloudBackupConsentPrivacyVersion,
     termsVersion: cloudBackupConsentTermsVersion,
     consentTextHash: cloudBackupConsentTextHash,

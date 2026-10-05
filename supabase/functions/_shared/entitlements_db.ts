@@ -29,7 +29,7 @@ const claimColumns =
 /**
  * Re-derives `profiles.tier` for one user from their entitlement rows and
  * writes it. `profiles.tier` is only a mirror: RLS and the app read
- * `personal_entitlements` directly. Migration 016 adds a trigger that keeps
+ * `personal_entitlements` directly. Migration 017 adds a trigger that keeps
  * the mirror in sync inside the database as well.
  */
 export async function recomputeProfileTier(

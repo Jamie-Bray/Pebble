@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
+import 'package:pebble_routines/features/ai_photo/ai_photo_settings.dart';
 import 'package:pebble_routines/features/routines/composer/data/routine_composer_draft_repository.dart';
 
 import 'package:pebble_routines/features/routines/composer/ui/routine_composer_screen.dart';
@@ -39,6 +40,7 @@ void main() {
   ) {
     return [
       routineComposerDraftRepositoryProvider.overrideWithValue(repository),
+      aiPhotoActiveRoutineIdProvider.overrideWithValue(null),
       premiumFeaturePolicyProvider.overrideWithValue(
         premiumFeaturePolicyForTier(UserTier.personalPremium),
       ),
@@ -49,6 +51,7 @@ void main() {
     tester,
   ) async {
     final repository = FakeRoutineComposerDraftRepository();
+    final semantics = tester.ensureSemantics();
 
     await tester.pumpWidget(
       ProviderScope(
@@ -66,10 +69,48 @@ void main() {
     await tester.pump();
     await tester.pump();
 
+    // The delete-step button and every other control has a spoken name.
+    expect(find.byTooltip('Delete step'), findsOneWidget);
+    await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+    semantics.dispose();
+
     expect(findPrimaryStepField(), findsOneWidget);
     final firstStepField = tester.widget<TextField>(findPrimaryStepField());
     expect(firstStepField.focusNode?.hasFocus, isTrue);
   });
+
+  testWidgets(
+    'an optional description saves multiline instructions without creating extra steps',
+    (tester) async {
+      final repository = FakeRoutineComposerDraftRepository();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: composerOverrides(repository),
+          child: MaterialApp(home: RoutineComposerScreen.newDraft()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(findAnyStepField().first, 'Do the dishes');
+      final detail = find.byType(TextFormField);
+      await tester.ensureVisible(detail);
+      await tester.enterText(
+        detail,
+        'Wash, dry and put away.\nUse the draining rack.',
+      );
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 650));
+      final saved = repository.savedSnapshots.last.steps.single;
+      expect(saved.text, 'Do the dishes');
+      expect(
+        saved.photoPrompt,
+        'Wash, dry and put away.\nUse the draining rack.',
+      );
+      expect(saved.requiresPhoto, isFalse);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 3));
+    },
+  );
 
   testWidgets('submit on a step adds a new row and moves focus forward', (
     tester,
@@ -165,7 +206,6 @@ void main() {
     await tester.pump();
 
     expect(find.widgetWithText(FilledButton, 'Add next step'), findsOneWidget);
-    expect(find.text('Add step creates the next one'), findsOneWidget);
 
     await tester.tap(find.widgetWithText(FilledButton, 'Add next step'));
     await tester.pumpAndSettle();
@@ -199,7 +239,7 @@ void main() {
     expect(find.text('Routine Composer'), findsNothing);
     expect(find.text('Brain-dump first. Upgrade steps after.'), findsNothing);
     expect(find.text('Keys & wallet'), findsNothing);
-    expect(find.text('New Routine'), findsOneWidget);
+    expect(find.text('New routine'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Add step'), findsOneWidget);
     expect(find.text('Save routine'), findsNothing);
 

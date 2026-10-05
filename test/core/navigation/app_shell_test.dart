@@ -102,7 +102,7 @@ void main() {
 
 const _presentation = AccountStatusPresentation(
   planLabel: 'Free',
-  title: 'Saved on this device',
+  title: 'Saved on this phone',
   body: '',
   statusLabel: 'Backup is off',
   historyLabel: '2 days',

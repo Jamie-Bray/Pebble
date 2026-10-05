@@ -105,9 +105,33 @@ void main() {
       repository,
     );
 
-    expect(find.text('Play guidance'), findsNothing);
+    expect(find.text('Play voice tip'), findsNothing);
     expect(find.text('Voice tip'), findsNothing);
   });
+
+  testWidgets(
+    'optional descriptions appear under check titles without requiring photos or Premium',
+    (tester) async {
+      final repository = _FakeRoutineSessionRepository();
+      await pumpPlayer(
+        tester,
+        const RoutineStep.check(
+          label: 'Do the dishes',
+          photoPrompt: 'Wash, dry and put everything away.',
+        ),
+        repository,
+        tier: UserTier.personalFree,
+        textScale: 1.6,
+      );
+      expect(find.text('Do the dishes'), findsOneWidget);
+      expect(find.text('Wash, dry and put everything away.'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('routine-step-description')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('text step renders centered redesign surface', (tester) async {
     final repository = _FakeRoutineSessionRepository();
@@ -143,7 +167,7 @@ void main() {
 
     expect(find.text('Voice tip'), findsOneWidget);
     expect(find.text('A short reminder for this step'), findsOneWidget);
-    expect(find.text('Play guidance'), findsOneWidget);
+    expect(find.text('Play voice tip'), findsOneWidget);
   });
 
   testWidgets('guidance audio does not block completion', (tester) async {
@@ -210,7 +234,7 @@ void main() {
     expect(find.text('4 of 4'), findsOneWidget);
     expect(find.text('Photos'), findsOneWidget);
     expect(find.byType(PhotoThumb), findsNWidgets(2));
-    expect(find.text('Saved on this device'), findsOneWidget);
+    expect(find.text('Saved on this phone'), findsOneWidget);
     // One primary action.
     expect(find.byType(FilledButton), findsOneWidget);
 
@@ -219,6 +243,37 @@ void main() {
 
     await tester.tap(find.text('See details'));
     expect(reviewedRoutine, isTrue);
+  });
+
+  testWidgets('completion cairn is 168 on a phone and shrinks on a short '
+      'screen instead of scrolling', (tester) async {
+    addTearDown(tester.view.reset);
+    tester.view.devicePixelRatio = 1;
+    for (final (size, full) in [
+      (const Size(390, 844), true),
+      (const Size(360, 600), false),
+    ]) {
+      tester.view.physicalSize = size;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: RoutineCompleteScreen(
+              routineName: 'Evening close down',
+              totalStepsCompleted: 4,
+              totalPhotosSaved: 0,
+              showPhotoSummary: false,
+              onBackToHome: () {},
+              onReviewRoutine: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final cairn = tester.getSize(find.byType(PebbleCairn)).height;
+      expect(cairn, full ? 168 : inExclusiveRange(84, 168), reason: '$size');
+      final scroll = tester.state<ScrollableState>(find.byType(Scrollable));
+      expect(scroll.position.maxScrollExtent, 0, reason: '$size');
+    }
   });
 
   testWidgets('completion with skipped steps stays honest', (tester) async {
@@ -552,7 +607,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.textContaining('Camera access is turned off for Pebble'),
+      find.textContaining('Camera access is off for Pebble'),
       findsOneWidget,
     );
     expect(find.text('OPEN SETTINGS'), findsOneWidget);
@@ -1477,6 +1532,13 @@ class _FakeRoutineSessionRepository implements RoutineSessionRepository {
   RoutineSession? completedSession;
 
   @override
+  Future<void> saveProofDescription({
+    required String sessionId,
+    required String proofId,
+    required String description,
+  }) async {}
+
+  @override
   Future<RoutineRun> completeSessionAndWriteRun(
     RoutineSession sessionSnapshot,
   ) async {
@@ -1552,6 +1614,13 @@ class _BlockingSaveRoutineSessionRepository
   void releaseNextSave() {
     _pendingSaves.removeAt(0).complete();
   }
+
+  @override
+  Future<void> saveProofDescription({
+    required String sessionId,
+    required String proofId,
+    required String description,
+  }) async {}
 
   @override
   Future<RoutineRun> completeSessionAndWriteRun(

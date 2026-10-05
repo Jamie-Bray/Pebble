@@ -56,8 +56,8 @@ Future<void> showEmailOtpSheet(BuildContext context, WidgetRef ref) {
                     const SizedBox(height: 10),
                     Text(
                       otpRequested
-                          ? 'We sent a one-time code to ${emailController.text.trim()}. Check spam or junk if it does not arrive.'
-                          : 'Sign in to use your account on this device.',
+                          ? "We've sent a code to ${emailController.text.trim()}. If it doesn't arrive, check your spam folder."
+                          : "We'll email you a code to sign in with.",
                       style: TextStyle(
                         fontSize: 14,
                         color: colorScheme.onSurface.withValues(alpha: 0.72),
@@ -97,6 +97,9 @@ Future<void> showEmailOtpSheet(BuildContext context, WidgetRef ref) {
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size.fromHeight(56),
+                        ),
                         onPressed: isBusy
                             ? null
                             : () async {
@@ -112,7 +115,7 @@ Future<void> showEmailOtpSheet(BuildContext context, WidgetRef ref) {
                                 if (otpRequested && code.isEmpty) {
                                   setState(
                                     () => inlineError =
-                                        'Enter the one-time code from your email.',
+                                        'Enter the code from the email.',
                                   );
                                   return;
                                 }
@@ -168,7 +171,7 @@ Future<void> showEmailOtpSheet(BuildContext context, WidgetRef ref) {
                                 ),
                               )
                             : Text(
-                                otpRequested ? 'Complete sign-in' : 'Send code',
+                                otpRequested ? 'Sign in' : 'Send code',
                               ),
                       ),
                     ),
@@ -210,5 +213,5 @@ bool _looksLikeEmail(String value) {
 
 String _authError(WidgetRef ref) {
   return ref.read(authControllerProvider).errorMessage ??
-      'We could not complete sign-in. Please try again.';
+      "Sign-in didn't finish. Try again.";
 }

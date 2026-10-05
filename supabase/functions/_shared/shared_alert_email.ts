@@ -36,7 +36,7 @@ export function buildInviteEmail(input: EmailCommon & {
     'the time it was completed',
     input.includeStepCount ? 'how many steps were completed' : null,
   ].filter((x): x is string => x !== null);
-  const includedSentence = `Each email shows ${joinList(included)}. Photos and checklist details are not included.`;
+  const includedSentence = `Each email shows ${joinList(included)}. Photos and checklist details aren't included. If they use AI photo descriptions, they can add a sentence or two about each photo. The photos themselves are never emailed.`;
   const expires = formatDate(input.expiresAt);
 
   const text = [
@@ -54,7 +54,7 @@ export function buildInviteEmail(input: EmailCommon & {
     `Decline: ${input.declineUrl}`,
     `Block this sender: ${input.blockUrl}`,
     '',
-    `You are receiving this because ${input.sender} entered your email address in Pebble Routines. If you don't know them, ignore this email or block the sender.`,
+    `You're getting this because ${input.sender} entered your email address in Pebble Routines. If you don't know them, ignore this email or block the sender.`,
     footerText(input),
   ].join('\n');
 
@@ -74,7 +74,7 @@ export function buildInviteEmail(input: EmailCommon & {
         { label: 'Decline', url: input.declineUrl },
         { label: 'Block this sender', url: input.blockUrl },
       ])}`,
-    footer: `You are receiving this because ${esc(input.sender)} entered your email address in Pebble Routines. If you don't know them, ignore this email or block the sender.`,
+    footer: `You're getting this because ${esc(input.sender)} entered your email address in Pebble Routines. If you don't know them, ignore this email or block the sender.`,
     common: input,
   });
 
@@ -91,6 +91,8 @@ export function buildCompletionEmail(input: EmailCommon & {
   routineTitle: string | null;
   completedAtText: string;
   steps: { completed: number; total: number } | null;
+  /** AI photo descriptions the sender chose to add. Already cleaned. */
+  descriptions?: string[];
   stopUrl: string;
   blockUrl: string;
   oneClickUrl: string;
@@ -102,7 +104,9 @@ export function buildCompletionEmail(input: EmailCommon & {
     ['Completed', input.completedAtText],
     ...(stepsText ? [['Steps', stepsText] as [string, string]] : []),
   ];
-  const sentNote = 'Sent automatically when the routine was marked complete in the Pebble app.';
+  const sentNote = 'Pebble sent this automatically when the routine was marked complete.';
+  const descriptions = input.descriptions ?? [];
+  const aiNote = `Written by AI from ${input.sender}'s photos. The descriptions can be wrong.`;
 
   const text = [
     'Routine completed',
@@ -111,12 +115,15 @@ export function buildCompletionEmail(input: EmailCommon & {
     '',
     ...rows.map(([k, v]) => `${k}: ${v}`),
     '',
+    ...(descriptions.length
+      ? ['Photo descriptions', aiNote, ...descriptions.map((d, i) => `Photo ${i + 1}: ${d}`), '']
+      : []),
     sentNote,
     '',
     `Stop these emails: ${input.stopUrl}`,
     `Block this sender: ${input.blockUrl}`,
     '',
-    `You are receiving this because you allowed completion emails from ${input.sender}. If you stop them, they will see that completion emails are off.`,
+    `You're getting this because you allowed completion emails from ${input.sender}. If you stop them, they'll see that the emails are off.`,
     footerText(input),
   ].join('\n');
 
@@ -138,12 +145,18 @@ export function buildCompletionEmail(input: EmailCommon & {
       ${heading('Routine completed')}
       ${para(`<strong class="pb-ink" style="color:#182522;">${esc(input.sender)}</strong> completed a routine in Pebble Routines.`, { size: 17 })}
       ${box(`<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;">${detailRows}</table>`, 'padding:4px 20px;')}
+      ${descriptions.length
+        ? box(`
+        <p class="pb-ink" style="margin:0 0 6px;color:#182522;font-size:14px;line-height:1.4;font-weight:700;">Photo descriptions</p>
+        <p class="pb-muted" style="margin:0 0 10px;color:#45524c;font-size:14px;line-height:1.5;">${esc(aiNote)}</p>
+        ${descriptions.map((d, i) => `<p class="pb-ink" style="margin:0 0 6px;color:#2a3631;font-size:15px;line-height:1.55;overflow-wrap:anywhere;word-break:break-word;"><span class="pb-muted" style="color:#55625c;">Photo ${i + 1}:</span> ${esc(d)}</p>`).join('')}`)
+        : ''}
       ${para(esc(sentNote), { size: 14, muted: true })}
       ${linkRow(null, [
         { label: 'Stop these emails', url: input.stopUrl },
         { label: 'Block this sender', url: input.blockUrl },
       ])}`,
-    footer: `You are receiving this because you allowed completion emails from ${esc(input.sender)}. If you stop them, they will see that completion emails are off.`,
+    footer: `You're getting this because you allowed completion emails from ${esc(input.sender)}. If you stop them, they'll see that the emails are off.`,
     common: input,
   });
 

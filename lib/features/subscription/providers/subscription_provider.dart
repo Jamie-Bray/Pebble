@@ -468,8 +468,11 @@ class SubscriptionAccountController
       bootstrapStatus: previousUserId != null && previousUserId != userId
           ? BootstrapStatus.idle
           : null,
-      clearLastBootstrapAt: previousUserId != null && previousUserId != userId,
-      clearLastSyncAt: previousUserId != null && previousUserId != userId,
+      // Sign-out clears the user id but keeps the "last backed up" times for
+      // the paused view, so a sign-in after sign-out is treated as a possible
+      // new account too.
+      clearLastBootstrapAt: previousUserId != userId,
+      clearLastSyncAt: previousUserId != userId,
       clearLastSyncError: true,
     );
     state = next;

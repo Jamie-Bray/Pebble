@@ -124,7 +124,7 @@ class SharedReminderCompletionResult {
     return switch (reason) {
       'rateLimited' =>
         'Completion email not sent. This contact has had several recently.',
-      'offline' => 'Completion email not sent. No connection.',
+      'offline' => "Completion email not sent because there's no connection.",
       'failed' => "Completion email couldn't be sent this time.",
       _ => null,
     };
@@ -296,6 +296,7 @@ class SharedReminderPreferencesRepository {
     required int completedSteps,
     required int totalSteps,
     String? routineCloudId,
+    List<String> descriptions = const [],
     Duration retryDelay = const Duration(seconds: 4),
   }) async {
     final client = _client;
@@ -313,6 +314,7 @@ class SharedReminderPreferencesRepository {
       completedAt: completedAt,
       completedSteps: completedSteps,
       totalSteps: totalSteps,
+      descriptions: descriptions,
     );
     var result = await _sendCompletionOnce(client, body);
     if (!result.sent &&
@@ -390,7 +392,7 @@ class SharedReminderPreferencesRepository {
     final client = _client;
     if (client == null) {
       throw SharedReminderRepositoryException(
-        "Completion emails aren't available in this build.",
+        "Completion emails aren't available in this version of Pebble.",
       );
     }
     await _ensureSession(client);
@@ -419,6 +421,9 @@ class SharedReminderPreferencesRepository {
 
 /// Request body for `send-routine-completion-alert`. The time is sent in UTC
 /// with the device's offset, so the email shows the sender's local time.
+///
+/// [descriptions] are AI photo descriptions, passed only when the person
+/// chose to add them to this routine's email. Photos are never sent.
 Map<String, dynamic> completionRequestBody({
   required String routineKey,
   required String routineTitle,
@@ -427,8 +432,10 @@ Map<String, dynamic> completionRequestBody({
   required DateTime completedAt,
   required int completedSteps,
   required int totalSteps,
+  List<String> descriptions = const [],
 }) {
   return {
+    if (descriptions.isNotEmpty) 'descriptions': descriptions,
     'routineKey': routineKey,
     'routineTitle': routineTitle,
     'runId': runId,

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
+import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
 import 'package:pebble_routines/features/subscription/data/purchase_repository.dart';
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
@@ -10,6 +11,44 @@ import 'package:pebble_routines/features/subscription/providers/cloud_backup_con
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 
 void main() {
+  testWidgets('small labels are readable and footer links are 48 high', (
+    tester,
+  ) async {
+    await _pumpPaywall(
+      tester,
+      overrides: [
+        purchaseRepositoryProvider.overrideWith(
+          (ref) => _PlanPurchaseRepository.both(),
+        ),
+      ],
+    );
+    final foundation = AppTheme.fromId(
+      ThemeId.nordicNight,
+    ).extension<PebbleDarkFoundation>()!;
+
+    for (final label in ['WHAT PREMIUM GIVES YOU', 'FREE']) {
+      await _scrollUntilVisible(tester, find.text(label).first);
+      final color = tester.widget<Text>(find.text(label).first).style!.color!;
+      for (final bg in [foundation.bgBase, foundation.surfaceLow]) {
+        expect(
+          contrastRatio(color, bg),
+          greaterThanOrEqualTo(kMinBodyTextContrast),
+          reason: label,
+        );
+      }
+    }
+
+    for (final link in ['Restore purchase', 'Terms of Use', 'Privacy Policy']) {
+      final finder = find.widgetWithText(TextButton, link);
+      await _scrollUntilVisible(tester, finder);
+      expect(
+        tester.getSize(finder).height,
+        greaterThanOrEqualTo(48),
+        reason: link,
+      );
+    }
+  });
+
   testWidgets('premium page renders the annual-first value screen', (
     tester,
   ) async {
@@ -25,7 +64,7 @@ void main() {
 
     expect(find.byType(PageView), findsNothing);
     expect(find.text('Personal Premium'), findsOneWidget);
-    expect(find.text('Never wonder\ntwice.'), findsOneWidget);
+    expect(find.text('Keep three weeks\nof checks.'), findsOneWidget);
 
     await _scrollUntilVisible(tester, find.text('WHAT PREMIUM GIVES YOU'));
     expect(find.text('WHAT PREMIUM GIVES YOU'), findsOneWidget);
@@ -323,10 +362,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('Premium activated'), findsOneWidget);
-    expect(find.textContaining('Optional: sign in'), findsOneWidget);
+    expect(find.textContaining('Sign in to\nturn on backup.'), findsOneWidget);
     expect(
       find.text(
-        'Sign in to back up your history, routines, and photos, and keep them ready across devices. Totally optional; Premium works right now without it.',
+        "Signing in lets Pebble back up your history, routines and photos, so you can restore them on another phone. It's optional. Premium already works without it.",
       ),
       findsOneWidget,
     );
@@ -377,7 +416,9 @@ void main() {
     expect(find.text('Turn on backup'), findsOneWidget);
     expect(find.text('Not now'), findsOneWidget);
     expect(
-      find.textContaining('proof photos, which can include personal details'),
+      find.textContaining(
+        'proof photos and voice tips, which can include personal details',
+      ),
       findsOneWidget,
     );
   });
@@ -521,7 +562,6 @@ class _UnavailablePurchaseRepository extends ChangeNotifier
 
 class _PlanPurchaseRepository extends ChangeNotifier
     implements PurchaseRepository {
-
   @override
   bool get isLoadingProducts => false;
 

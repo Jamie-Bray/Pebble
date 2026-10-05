@@ -136,7 +136,7 @@ class CloudRestoreCoordinator {
       await _mergeRecordSafely(
         'session',
         remote.id,
-        () => _mergeSession(ownerUserId, remote, localById[remote.id]),
+        () => _mergeSession(ownerUserId, remote, localById),
       );
     }
 
@@ -312,13 +312,16 @@ class CloudRestoreCoordinator {
   Future<void> _mergeSession(
     String ownerUserId,
     RemoteRoutineSessionRecord remote,
-    RoutineSessionRow? local,
+    Map<String, RoutineSessionRow> localById,
   ) async {
     final payload = remote.payload;
     final jsonPayload = payload['payload'] is Map<String, dynamic>
         ? Map<String, dynamic>.from(payload['payload'] as Map<String, dynamic>)
         : payload;
     final entity = RoutineSession.fromJson(jsonPayload);
+    // Match on the session's own id: the cloud row id differs for a session
+    // taken over from another account.
+    final local = localById[entity.sessionId];
     if (local == null) {
       await _database.routineSessionDao.insertOrUpdateSession(
         RoutineSessionRow(
@@ -343,7 +346,7 @@ class CloudRestoreCoordinator {
           syncMetadataJson: jsonEncode(
             (entity.syncMetadata ??
                     const RoutineSessionSyncMetadata(needsSync: false))
-                .copyWith(remoteSessionId: entity.sessionId)
+                .copyWith(remoteSessionId: remote.id)
                 .toJson(),
           ),
           completedAt: entity.completedAt,
@@ -378,7 +381,7 @@ class CloudRestoreCoordinator {
           syncMetadataJson: jsonEncode(
             (entity.syncMetadata ??
                     const RoutineSessionSyncMetadata(needsSync: false))
-                .copyWith(remoteSessionId: entity.sessionId)
+                .copyWith(remoteSessionId: remote.id)
                 .toJson(),
           ),
           completedAt: entity.completedAt,

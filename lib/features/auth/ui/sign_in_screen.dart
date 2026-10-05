@@ -47,7 +47,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
           next.errorMessage!.isNotEmpty) {
         ZenNotifications.showError(
           context,
-          title: 'Could not sign in',
+          title: "Couldn't sign in",
           message: next.errorMessage!,
         );
       }
@@ -136,7 +136,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                     if (!authController.isConfigured)
                       const _SignInUnavailableNotice(
                         message:
-                            'Sign-in is not available in this build yet. Please check app configuration and try again.',
+                            "Sign-in isn't available in this version of Pebble yet.",
                       )
                     else ...[
                       if (canUseAppleSignIn) ...[
@@ -158,7 +158,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       ],
                       _SignInButton(
                         icon: LucideIcons.mail,
-                        label: 'Continue with Email',
+                        label: 'Continue with email',
                         filled: !canUseGoogleSignIn && !canUseAppleSignIn,
                         onTap: isBusy
                             ? null
@@ -201,12 +201,12 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       case PersonalCloudAccessStatus.offlinePending:
         return 'Turning on backup...';
       case PersonalCloudAccessStatus.consentRequired:
-        return 'Getting your account ready...';
+        return 'Setting up your account...';
       case PersonalCloudAccessStatus.available:
         return 'Getting everything ready...';
       case PersonalCloudAccessStatus.error:
       case PersonalCloudAccessStatus.verificationFailed:
-        return 'Finalizing your setup...';
+        return 'Finishing setup...';
       case PersonalCloudAccessStatus.offFree:
       case PersonalCloudAccessStatus.offSignedInNoEntitlement:
       case PersonalCloudAccessStatus.pausedSignedOut:
@@ -261,8 +261,8 @@ class _SignInHero extends StatelessWidget {
         : ('Your Pebble\n', 'account.');
     final intro = hasPremium
         ? 'Sign in to back up your routines and restore them on a new phone. '
-        : 'Sign in to link Pebble to your account. Backup and restore come '
-              'with Premium, so you can add them whenever you like. ';
+        : 'Signing in links Pebble to an account. Backup and restore come '
+              'with Premium, which you can add later. ';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -324,7 +324,7 @@ class _SignInPerks extends StatelessWidget {
         ? const [
             (
               'Keep your recent history',
-              'Back up up to 21 days of completed routines.',
+              'Backs up the last 21 days of completed routines.',
             ),
             (
               'Photos included',
@@ -338,8 +338,8 @@ class _SignInPerks extends StatelessWidget {
         : const [
             (
               'Already have Premium?',
-              'Sign in with the account you used before to get Premium and '
-                  'your backup back.',
+              'Sign in with the account you used before. Your Premium and '
+                  'backup come with it.',
             ),
             (
               'Ready for backup',
@@ -391,7 +391,7 @@ class _SignInPerk extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                TextSpan(text: ' – $body'),
+                TextSpan(text: title.endsWith('?') ? ' $body' : '. $body'),
               ],
             ),
             style: PebbleFonts.sans(
@@ -427,8 +427,9 @@ class _BackupOnSignInNote extends StatelessWidget {
         Expanded(
           child: Text(
             'Signing in turns on backup for this account. Pebble backs up '
-            'routines, history, and proof photos, which can include personal '
-            'details. You can pause backup any time in Your Account.',
+            'routines, history, proof photos and voice tips, which can '
+            'include personal details. You can pause backup any time in Your '
+            'account.',
             style: PebbleFonts.sans(
               fontSize: 12,
               fontWeight: FontWeight.w300,
@@ -480,7 +481,7 @@ class _NoAccountNote extends StatelessWidget {
     return Column(
       children: [
         Text(
-          'Pebble is fully functional offline.',
+          'You can use Pebble without signing in.',
           textAlign: TextAlign.center,
           style: PebbleFonts.sans(
             fontSize: 12,

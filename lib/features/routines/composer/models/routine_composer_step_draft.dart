@@ -6,6 +6,7 @@ class RoutineComposerStepDraft {
   final String id;
   final String text;
   final bool requiresPhoto;
+  final String photoPrompt;
   final bool allowSkip;
   final StepGuidanceAudio? guidanceAudio;
   final int sortOrder;
@@ -14,6 +15,7 @@ class RoutineComposerStepDraft {
     required this.id,
     required this.text,
     required this.requiresPhoto,
+    this.photoPrompt = '',
     required this.allowSkip,
     this.guidanceAudio,
     required this.sortOrder,
@@ -24,6 +26,7 @@ class RoutineComposerStepDraft {
       id: json['id'] as String,
       text: (json['text'] as String?) ?? '',
       requiresPhoto: json['requiresPhoto'] as bool? ?? false,
+      photoPrompt: (json['photoPrompt'] as String?) ?? '',
       allowSkip: json['allowSkip'] as bool? ?? false,
       guidanceAudio: json['guidanceAudio'] is Map
           ? StepGuidanceAudio.fromJson(
@@ -61,6 +64,7 @@ class RoutineComposerStepDraft {
     String? id,
     String? text,
     bool? requiresPhoto,
+    String? photoPrompt,
     bool? allowSkip,
     StepGuidanceAudio? guidanceAudio,
     bool clearGuidanceAudio = false,
@@ -70,6 +74,7 @@ class RoutineComposerStepDraft {
       id: id ?? this.id,
       text: text ?? this.text,
       requiresPhoto: requiresPhoto ?? this.requiresPhoto,
+      photoPrompt: photoPrompt ?? this.photoPrompt,
       allowSkip: allowSkip ?? this.allowSkip,
       guidanceAudio: clearGuidanceAudio
           ? null
@@ -83,6 +88,7 @@ class RoutineComposerStepDraft {
       'id': id,
       'text': text,
       'requiresPhoto': requiresPhoto,
+      if (photoPrompt.isNotEmpty) 'photoPrompt': photoPrompt,
       'allowSkip': allowSkip,
       if (guidanceAudio != null) 'guidanceAudio': guidanceAudio!.toJson(),
       'sortOrder': sortOrder,
@@ -98,12 +104,20 @@ class RoutineComposerStepDraft {
         other.id == id &&
         other.text == text &&
         other.requiresPhoto == requiresPhoto &&
+        other.photoPrompt == photoPrompt &&
         other.allowSkip == allowSkip &&
         other.guidanceAudio == guidanceAudio &&
         other.sortOrder == sortOrder;
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, text, requiresPhoto, allowSkip, guidanceAudio, sortOrder);
+  int get hashCode => Object.hash(
+    id,
+    text,
+    requiresPhoto,
+    photoPrompt,
+    allowSkip,
+    guidanceAudio,
+    sortOrder,
+  );
 }

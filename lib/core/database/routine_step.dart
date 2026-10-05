@@ -3,6 +3,8 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'routine_step.freezed.dart';
 part 'routine_step.g.dart';
 
+const maxStepDescriptionChars = 500;
+
 @freezed
 class RoutineStep with _$RoutineStep {
   const factory RoutineStep.check({
@@ -77,6 +79,14 @@ class StepGuidanceAudio {
 
 // Extension to easily check photo requirements
 extension RoutineStepPhotoExtension on RoutineStep {
+  /// Optional check-step instructions use the existing photoPrompt JSON field
+  /// so old routines, saved sessions and backups need no schema migration.
+  /// The historical default camera instruction is not a step description.
+  String? get stepDescription {
+    final text = photoPrompt?.trim();
+    return text == null || text.isEmpty || text == 'Take a photo' ? null : text;
+  }
+
   bool get hasPhotoRequirement => when(
     check:
         (

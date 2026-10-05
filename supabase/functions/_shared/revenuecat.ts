@@ -164,7 +164,7 @@ export type EntitlementRowForTier = {
 
 /**
  * The tier `profiles.tier` must mirror, derived only from entitlement rows.
- * Mirrors `public.entitled_profile_tier(uuid)` in migration 016.
+ * Mirrors `public.entitled_profile_tier(uuid)` in migration 017.
  */
 export function profileTierForEntitlements(
   rows: EntitlementRowForTier[],

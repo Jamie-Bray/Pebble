@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/ui/pebble_buttons.dart';
+import 'package:pebble_routines/core/ui/readable_colors.dart';
 
 Widget _host(Widget child) => MaterialApp(
   theme: AppTheme.fromId(ThemeId.highNoon),
@@ -35,6 +36,39 @@ void main() {
     await tester.pumpAndSettle();
     expect(taps, 1);
   });
+
+  for (final id in ThemeId.values) {
+    testWidgets('${id.name}: primary label is readable on its fill', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.fromId(id),
+          home: Scaffold(
+            body: PebbleButton.primary(label: 'Start', onPressed: () {}),
+          ),
+        ),
+      );
+      final style = tester
+          .widget<FilledButton>(find.byType(FilledButton))
+          .style!;
+      final ratio = contrastRatio(
+        style.foregroundColor!.resolve({})!,
+        style.backgroundColor!.resolve({})!,
+      );
+      // ignore: avoid_print
+      print('primary button ${id.name}: ${ratio.toStringAsFixed(2)}');
+      // Reduced Contrast is deliberately soft and only promises 3:1.
+      expect(
+        ratio,
+        greaterThanOrEqualTo(
+          id == ThemeId.reducedContrast
+              ? kMinLargeTextContrast
+              : kMinBodyTextContrast,
+        ),
+      );
+    });
+  }
 
   testWidgets('busy shows a spinner, keeps the label and ignores taps', (
     tester,

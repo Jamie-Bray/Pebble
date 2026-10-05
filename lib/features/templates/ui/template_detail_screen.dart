@@ -36,18 +36,18 @@ class TemplateDetailScreen extends ConsumerWidget {
         child: templateAsync.when(
           loading: () => const _DetailStatusView(
             title: 'Loading template',
-            message: 'Getting the checklist ready.',
+            message: 'One moment.',
           ),
           error: (Object error, StackTrace stackTrace) =>
               const _DetailStatusView(
-                title: 'Template unavailable',
-                message: 'Please try again in a moment.',
+                title: "Couldn't load this template",
+                message: 'Go back and try again.',
               ),
           data: (Template? template) {
             if (template == null) {
               return const _DetailStatusView(
                 title: 'Template not found',
-                message: 'This template is no longer available.',
+                message: 'This template has been removed.',
               );
             }
 
@@ -179,6 +179,9 @@ class _TemplateDetailContent extends ConsumerWidget {
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(56),
+                    ),
                     onPressed: () async {
                       final currentRoutineCount =
                           ref.read(routineListProvider).valueOrNull?.length ??
@@ -219,7 +222,7 @@ class _TemplateDetailContent extends ConsumerWidget {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'Add it to your routines first, then personalise the steps any way you want.',
+                  'Add it to your routines, then change any step you like.',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: context.readableSecondaryText,

@@ -2,6 +2,8 @@
 // abuse limits, link tokens and time formatting. No I/O, so it is unit tested
 // directly (shared_alert_policy_test.ts).
 
+import { cleanEmailDescriptions } from './ai_photo.ts';
+
 export const DAY_MS = 24 * 60 * 60 * 1000;
 export const HOUR_MS = 60 * 60 * 1000;
 
@@ -112,6 +114,8 @@ export type CompletionInput = {
   completedAtHasZone: boolean;
   completedSteps: number;
   totalSteps: number;
+  /** AI photo descriptions the sender chose to add. Cleaned, verdict-free, at most five. */
+  descriptions: string[];
 };
 
 export function parseCompletionInput(
@@ -177,6 +181,7 @@ export function parseCompletionInput(
       completedAtHasZone: hasZone,
       completedSteps,
       totalSteps,
+      descriptions: cleanEmailDescriptions(b.descriptions),
     },
   };
 }

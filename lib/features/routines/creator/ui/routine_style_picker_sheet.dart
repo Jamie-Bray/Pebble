@@ -58,8 +58,8 @@ class RoutineStylePickerSheet extends StatefulWidget {
             PebbleSubpageHeader(
               title: title,
               subtitle: hasPremiumIconAccess
-                  ? 'Premium icons and colors for this routine.'
-                  : 'Unlock Premium to personalize routine style.',
+                  ? 'Pick an icon and colour for this routine.'
+                  : 'Icons and colours come with Personal Premium.',
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
@@ -111,9 +111,7 @@ class RoutineStylePickerSheet extends StatefulWidget {
                         Brightness.dark
                     ? Colors.white
                     : Colors.black,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
+                shape: const StadiumBorder(),
               ),
               child: const Text(
                 'Save style',
@@ -155,7 +153,7 @@ class RoutineStylePickerSheet extends StatefulWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Live style',
+                  'Preview',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
@@ -347,8 +345,8 @@ class _RoutineStylePickerSheetState extends State<RoutineStylePickerSheet> {
         const SizedBox(height: 6),
         Text(
           widget.hasPremiumIconAccess
-              ? 'Pick the signal that makes this routine instantly recognizable.'
-              : 'Unlock Personal Premium to personalize icons and colors.',
+              ? 'Pick one so you can spot this routine at a glance.'
+              : 'Icons and colours come with Personal Premium.',
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w500,
@@ -393,66 +391,73 @@ class _RoutineStylePickerSheetState extends State<RoutineStylePickerSheet> {
             ? const Color(0xFFB88746).withValues(alpha: 0.14)
             : cs.surfaceContainerHighest.withValues(alpha: 0.5);
 
-        return Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () {
-              if (isLocked) {
-                widget.onPremiumIconTap?.call();
-                return;
-              }
-              setState(() {
-                _selectedIcon = iconChoice;
-                _bumpPreview();
-              });
-            },
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                color: selected
-                    ? _color.withValues(alpha: 0.15)
-                    : baseTileColor,
-                border: Border.all(
-                  color: selected ? _color : cs.outline.withValues(alpha: 0.22),
-                  width: selected ? 2.2 : 1.2,
-                ),
-              ),
-              child: Stack(
-                children: [
-                  Center(
-                    child: Icon(
-                      iconChoice.icon,
-                      size: 22,
-                      color: isLocked
-                          ? cs.onSurface.withValues(alpha: 0.72)
-                          : _color.withValues(alpha: selected ? 1.0 : 0.85),
-                    ),
+        return Semantics(
+          button: true,
+          selected: selected,
+          label: isLocked ? '${iconChoice.label}, Premium' : iconChoice.label,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                if (isLocked) {
+                  widget.onPremiumIconTap?.call();
+                  return;
+                }
+                setState(() {
+                  _selectedIcon = iconChoice;
+                  _bumpPreview();
+                });
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  color: selected
+                      ? _color.withValues(alpha: 0.15)
+                      : baseTileColor,
+                  border: Border.all(
+                    color: selected
+                        ? _color
+                        : cs.outline.withValues(alpha: 0.22),
+                    width: selected ? 2.2 : 1.2,
                   ),
-                  if (isLocked)
-                    Positioned(
-                      right: 4,
-                      top: 4,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 1.5,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(999),
-                          color: cs.surface.withValues(alpha: 0.95),
-                          border: Border.all(
-                            color: cs.outline.withValues(alpha: 0.22),
-                          ),
-                        ),
-                        child: Icon(
-                          LucideIcons.lock,
-                          size: 7,
-                          color: cs.onSurface.withValues(alpha: 0.7),
-                        ),
+                ),
+                child: Stack(
+                  children: [
+                    Center(
+                      child: Icon(
+                        iconChoice.icon,
+                        size: 22,
+                        color: isLocked
+                            ? cs.onSurface.withValues(alpha: 0.72)
+                            : _color.withValues(alpha: selected ? 1.0 : 0.85),
                       ),
                     ),
-                ],
+                    if (isLocked)
+                      Positioned(
+                        right: 4,
+                        top: 4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 1.5,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(999),
+                            color: cs.surface.withValues(alpha: 0.95),
+                            border: Border.all(
+                              color: cs.outline.withValues(alpha: 0.22),
+                            ),
+                          ),
+                          child: Icon(
+                            LucideIcons.lock,
+                            size: 7,
+                            color: cs.onSurface.withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -467,7 +472,7 @@ class _RoutineStylePickerSheetState extends State<RoutineStylePickerSheet> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Accent color',
+          'Colour',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w800,
@@ -478,46 +483,52 @@ class _RoutineStylePickerSheetState extends State<RoutineStylePickerSheet> {
         Wrap(
           spacing: 12,
           runSpacing: 12,
-          children: _getThemeColors().map((c) {
+          children: _getThemeColors().indexed.map((entry) {
+            final c = entry.$2;
             final selected = c.toARGB32() == _color.toARGB32();
-            return Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () {
-                  setState(() {
-                    _color = c;
-                    _bumpPreview();
-                  });
-                },
-                borderRadius: BorderRadius.circular(14),
-                child: Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: c,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: selected
-                          ? cs.onSurface
-                          : Colors.white.withValues(alpha: 0.25),
-                      width: selected ? 3 : 1.5,
+            return Semantics(
+              button: true,
+              selected: selected,
+              label: 'Colour ${entry.$1 + 1}',
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    setState(() {
+                      _color = c;
+                      _bumpPreview();
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: c,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: selected
+                            ? cs.onSurface
+                            : Colors.white.withValues(alpha: 0.25),
+                        width: selected ? 3 : 1.5,
+                      ),
+                      boxShadow: selected
+                          ? [
+                              BoxShadow(
+                                color: c.withValues(alpha: 0.4),
+                                blurRadius: 12,
+                              ),
+                            ]
+                          : null,
                     ),
-                    boxShadow: selected
-                        ? [
-                            BoxShadow(
-                              color: c.withValues(alpha: 0.4),
-                              blurRadius: 12,
-                            ),
-                          ]
+                    child: selected
+                        ? Icon(
+                            Icons.check_rounded,
+                            color: _getContrastColor(c),
+                            size: 24,
+                          )
                         : null,
                   ),
-                  child: selected
-                      ? Icon(
-                          Icons.check_rounded,
-                          color: _getContrastColor(c),
-                          size: 24,
-                        )
-                      : null,
                 ),
               ),
             );
@@ -547,9 +558,7 @@ class _RoutineStylePickerSheetState extends State<RoutineStylePickerSheet> {
         style: FilledButton.styleFrom(
           backgroundColor: _color,
           foregroundColor: _getContrastColor(_color),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
+          shape: const StadiumBorder(),
           elevation: 2,
         ),
         child: const Text(

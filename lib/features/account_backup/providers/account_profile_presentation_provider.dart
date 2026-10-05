@@ -158,18 +158,18 @@ String _planDetail({
     return purchase.unavailableReason ?? 'Premium is not available yet.';
   }
   if (policy.localPremiumAccess == LocalPremiumAccess.historyGrace) {
-    return 'Your longer history is still available during grace.';
+    return 'Your longer history is still available for now.';
   }
   if (policy.localPremiumAccess == LocalPremiumAccess.expired) {
     return 'Pebble is using Free limits again.';
   }
   if (policy.hasActiveLocalPremium) {
     if (policy.serverFeatureStatus == ServerFeatureStatus.verificationFailed) {
-      return accountError ?? 'Backup verification needs another check.';
+      return accountError ?? 'Backup needs another check.';
     }
     return 'Unlimited routines, unlimited steps, and longer history are active.';
   }
-  return 'Upgrade when you want unlimited routines, longer history, and backup.';
+  return 'Premium adds unlimited routines, longer history and backup.';
 }
 
 String _planStatusLabel(PremiumFeaturePolicy policy) {
@@ -193,7 +193,7 @@ String _planStatusLabel(PremiumFeaturePolicy policy) {
 /// renews, ends (after a cancellation), or needs a payment fix.
 String? accountPlanPeriodLine(SubscriptionAccountState account) {
   if (account.entitlementBillingIssueAt != null) {
-    return 'The store could not take the last payment. Update your payment '
+    return "The store couldn't take your last payment. Update your payment "
         'method in your store account to keep Premium.';
   }
   final endsAt = account.entitlementPeriodEndsAt;

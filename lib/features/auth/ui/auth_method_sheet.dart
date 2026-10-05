@@ -83,7 +83,7 @@ void showAuthMethodSheet(BuildContext context) {
                       ),
                       const SizedBox(height: 14),
                       Text(
-                        'Backup needs an account so Pebble knows where to store your routines and history. You can still use Pebble without an account, but backup and recovery need sign-in.',
+                        'Backup needs an account, so Pebble knows where to keep your routines and history. Everything else works without one.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 15,
@@ -103,9 +103,7 @@ void showAuthMethodSheet(BuildContext context) {
                         child: FilledButton(
                           onPressed: () => Navigator.of(context).pop(),
                           style: FilledButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
+                            shape: const StadiumBorder(),
                           ),
                           child: const Text('Continue'),
                         ),
@@ -125,9 +123,7 @@ void showAuthMethodSheet(BuildContext context) {
                                 alpha: 0.22,
                               ),
                             ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
+                            shape: const StadiumBorder(),
                           ),
                           child: const Text('Not now'),
                         ),

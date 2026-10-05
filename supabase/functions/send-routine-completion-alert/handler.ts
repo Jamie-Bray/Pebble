@@ -1,5 +1,8 @@
 // POST {routineKey, routineTitle, runId, sessionId?, completedAt,
-//       utcOffsetMinutes?, completedSteps, totalSteps}
+//       utcOffsetMinutes?, completedSteps, totalSteps, descriptions?}
+// `descriptions` are AI photo descriptions the sender chose to add: at most
+// five, cleaned and verdict-filtered here, sent only for an account with a
+// current AI photo consent, and never stored. Photos are never emailed.
 // Sends one completion email to the routine's accepted contact.
 //
 // Responses (all 200 unless noted), read by the app:
@@ -8,6 +11,7 @@
 //   {sent: false, reason: 'noActiveEntitlement' | 'noAcceptedContact' | 'rateLimited' | 'duplicateRun'}
 //   502 {error, code: 'emailFailed'}           the app may retry the same run
 
+import { AI_PHOTO_CONSENT_VERSION } from '../_shared/ai_photo.ts';
 import { buildCompletionEmail } from '../_shared/shared_alert_email.ts';
 import {
   confirmPageUrl,
@@ -124,6 +128,11 @@ export function createCompletionHandler(deps: CompletionDeps) {
         expires_at: new Date(t + MANAGE_TTL_MS).toISOString(),
       });
 
+      const descriptions = input.descriptions.length > 0 &&
+          await deps.store.hasCurrentAiPhotoConsent(user.id, AI_PHOTO_CONSENT_VERSION)
+        ? input.descriptions
+        : [];
+
       const email = buildCompletionEmail({
         sender: senderLabel(user.email),
         privacyUrl: deps.links.privacyUrl,
@@ -131,6 +140,7 @@ export function createCompletionHandler(deps: CompletionDeps) {
         routineTitle: includeName ? input.routineTitle : null,
         completedAtText: formatCompletionTime(input),
         steps: includeSteps ? { completed: input.completedSteps, total: input.totalSteps } : null,
+        descriptions,
         stopUrl: confirmPageUrl(deps.links.pagesBase, 'decline', token),
         blockUrl: confirmPageUrl(deps.links.pagesBase, 'block', token),
         oneClickUrl: oneClickUrl(deps.links.functionsBase, 'decline', token),

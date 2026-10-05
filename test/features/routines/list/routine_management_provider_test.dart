@@ -151,6 +151,13 @@ class _FakeRoutineSessionRepository implements RoutineSessionRepository {
   }
 
   @override
+  Future<void> saveProofDescription({
+    required String sessionId,
+    required String proofId,
+    required String description,
+  }) async {}
+
+  @override
   Future<RoutineRun> completeSessionAndWriteRun(
     RoutineSession sessionSnapshot,
   ) {

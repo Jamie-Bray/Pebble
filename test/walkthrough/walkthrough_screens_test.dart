@@ -45,6 +45,9 @@ import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/data/remote/supabase_client_provider.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
+import 'package:pebble_routines/features/ai_photo/ai_photo_constants.dart';
+import 'package:pebble_routines/features/ai_photo/ai_photo_service.dart';
+import 'package:pebble_routines/features/ai_photo/ai_photo_settings.dart';
 import 'package:pebble_routines/features/auth/data/auth_repository.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -719,6 +722,7 @@ class _FakeSharedReminders extends SharedReminderPreferencesRepository {
     required int completedSteps,
     required int totalSteps,
     String? routineCloudId,
+    List<String> descriptions = const [],
     Duration retryDelay = const Duration(seconds: 4),
   }) async => contact?.canSendCompletionEmail == true
       ? SharedReminderCompletionResult(
@@ -728,8 +732,29 @@ class _FakeSharedReminders extends SharedReminderPreferencesRepository {
       : const SharedReminderCompletionResult(sent: false);
 }
 
+/// AI photo descriptions with the server switch on and no network: consent
+/// is always recorded, and the describer is a fixed answer per scene.
+class _FakeAiPhotoService extends AiPhotoService {
+  _FakeAiPhotoService() : super(null);
+
+  @override
+  Future<bool> fetchEnabled() async => true;
+
+  @override
+  Future<AiPhotoAllowance?> fetchAllowance() async => const AiPhotoAllowance(limit: 100, remaining: 97);
+
+  @override
+  Future<void> recordConsent({required String routineKey}) async {}
+
+  @override
+  Future<void> withdrawConsent() async {}
+}
+
+const _aiSampleDescription =
+    'A white front door with the handle pointing up and a key in the lock.';
+
 // ---------------------------------------------------------------------------
-// Photos: the "camera" hands back sample images from the support directory
+// Photos: the "camera" hands back sample images from test/walkthrough/fixtures
 // (sample_photo_1.jpg, sample_photo_2.jpg), copied fresh each time because
 // the player deletes the picker's temp file once the photo is saved.
 // ---------------------------------------------------------------------------
@@ -758,8 +783,12 @@ class _FakePhotoPicker implements RoutinePlayerPhotoPicker {
     int? imageQuality,
     double? maxWidth,
   }) async {
-    final sample = File('$_supportDir/sample_photo_${_count % 2 + 1}.jpg');
+    // Samples ship with the harness so captures work from any output folder.
+    final sample = File(
+      'test/walkthrough/fixtures/sample_photo_${_count % 2 + 1}.jpg',
+    );
     if (!sample.existsSync()) return null;
+    Directory(_supportDir).createSync(recursive: true);
     final copy = sample.copySync('$_supportDir/picked_${_count++}.jpg');
     return XFile(copy.path);
   }
@@ -898,6 +927,12 @@ void _capture(
   Map<String, Object> extraPrefs = const {},
   SharedReminderContact? sharedContact,
   bool fakeSharedReminders = false,
+  // AI photo descriptions: i switches the (fake) server on; iOnForHero
+  // starts with AI already on for "Leaving the house"; iDescription is
+  // what the fake describer answers, null for "couldn't describe".
+  bool ai = false,
+  bool aiOnForHero = false,
+  String? aiDescription = _aiSampleDescription,
 }) {
   final skip =
       !_enabled ||
@@ -943,12 +978,22 @@ void _capture(
           userId: _userId,
           feature: cloudBackupConsentFeature,
           featureEnabled: true,
-          appVersion: cloudBackupConsentAppVersion,
+          appVersion: cloudBackupConsentUnknownAppVersion,
           privacyVersion: cloudBackupConsentPrivacyVersion,
           termsVersion: cloudBackupConsentTermsVersion,
           consentTextHash: cloudBackupConsentTextHash,
           consentedAt: DateTime.now().subtract(const Duration(days: 12)),
           withdrawnAt: null,
+        ).toJson(),
+      );
+    }
+    if (aiOnForHero) {
+      prefsValues['pebble.ai_photo.$_userId'] = jsonEncode(
+        AiPhotoSettings(
+          routineId: 1,
+          routineTitle: 'Leaving the house',
+          consentVersion: aiPhotoConsentVersion,
+          consentedAt: DateTime.now().subtract(const Duration(days: 2)),
         ).toJson(),
       );
     }
@@ -991,6 +1036,12 @@ void _capture(
                 sharedReminderPreferencesRepositoryProvider.overrideWithValue(
                   _FakeSharedReminders(sharedContact),
                 ),
+              if (ai || aiOnForHero) ...[
+                aiPhotoServiceProvider.overrideWithValue(_FakeAiPhotoService()),
+                aiProofDescriberProvider.overrideWithValue(
+                  (asset, stepLabel, photoDetail) async => aiDescription,
+                ),
+              ],
               purchaseRepositoryProvider.overrideWith(
                 (ref) => _FakePurchases(store),
               ),
@@ -1072,7 +1123,8 @@ Future<void> _runLeavingHouseToHome(_Env env) async {
     await _tapPrimary(env);
     await env.realWait(2);
   }
-  await env.tapText('Add');
+  // A required photo is missing, so the primary button is the camera.
+  await _tapPrimary(env);
   await env.realWait(12);
   await _tapPrimary(env);
   await env.realWait(2);
@@ -1144,7 +1196,7 @@ void main() {
   // ---- Home --------------------------------------------------------------
   _capture('home populated', (env) async {
     await env.shot('home_populated');
-    await env.tapText('Your Routines');
+    await env.tapText('Your routines');
     await env.settle(10);
     await env.shot('home_routines_sheet_open');
     await env.tapFinder(find.byIcon(LucideIcons.plus).last);
@@ -1152,7 +1204,7 @@ void main() {
   });
   _capture('home premium', account: _Account.signedInPremium, (env) async {
     await env.shot('home_premium');
-    await env.tapText('Your Routines');
+    await env.tapText('Your routines');
     await env.settle(10);
     await env.shot('home_premium_routines_sheet_open');
   });
@@ -1188,7 +1240,7 @@ void main() {
   });
   _capture('home small', device: _small, (env) async {
     await env.shot('home_populated');
-    await env.tapText('Your Routines');
+    await env.tapText('Your routines');
     await env.settle(10);
     await env.shot('home_routines_sheet_open');
   });
@@ -1198,7 +1250,7 @@ void main() {
   for (final scale in [1.6, 2.0]) {
     _capture('home a11y $scale', textScale: scale, (env) async {
       await env.shot('a11y${scale}x_home_populated');
-      await env.tapText('Your Routines');
+      await env.tapText('Your routines');
       await env.settle(10);
       await env.shot('a11y${scale}x_home_routines_sheet_open');
     });
@@ -1366,10 +1418,12 @@ void main() {
         await env.realWait(2);
         await _tapPrimary(env);
         await env.realWait(2);
-        for (var i = 0; i < 2; i++) {
-          await env.tapText('Add');
-          await env.realWait(12);
-        }
+        // First photo from the primary (camera) button, the second from the
+        // proof card's "Add photo" action.
+        await _tapPrimary(env);
+        await env.realWait(12);
+        await env.tapText('Add photo');
+        await env.realWait(12);
         await _tapPrimary(env);
         await env.realWait(3);
         await env.tapText('Skip step');
@@ -1454,6 +1508,36 @@ void main() {
   }
 
   // ---- Reminders ---------------------------------------------------------
+  for (final (prefix, device, scale) in [
+    ('', _iphone, 1.0), ('small_', _small, 1.6),
+  ]) {
+    _capture('${prefix}step description', device: device, textScale: scale,
+      account: _Account.signedInPremium, (env) async {
+        final routine = (await env.db.routineDao.getRoutineById(1))!;
+        await env.db.routineDao.insertOrUpdateRoutine(routine.copyWith(
+          stepsJson: jsonEncode(const [
+            RoutineStep.check(label: 'Do the dishes',
+              photoPrompt: 'Wash, dry and put everything away. Use the draining rack for the plates and leave the worktop clear.'),
+            RoutineStep.check(label: 'Check patio door', requiresPhoto: true,
+              photoPrompt: 'Look for the small lever in a horizontal position.'),
+          ].map((step) => step.toJson()).toList())));
+        await env.push('/edit/1');
+        await env.tapText('Do the dishes');
+        await env.shot('${prefix}step_description_composer');
+        await env.scrollDown(250);
+        await env.shot('${prefix}step_description_composer_scrolled');
+        await env.go('/');
+        await _openPlayer(env, 1);
+        await env.shot('${prefix}step_description_player');
+        if (prefix == 'small_') {
+          await env.scrollDown(250);
+          await env.shot('${prefix}step_description_player_scrolled');
+        }
+        await _tapPrimary(env);
+        await env.shot('${prefix}step_description_photo_player');
+      });
+  }
+
   _capture('reminders', (env) async {
     await env.push('/reminders');
     await env.realWait(8);
@@ -1603,6 +1687,120 @@ void main() {
       },
     );
   }
+
+  // ---- AI photo descriptions ---------------------------------------------
+  // Light (High Noon) and one dark theme (Nordic Night), plus the small phone
+  // for the two densest screens.
+  for (final (prefix, theme, device) in [
+    ('', ThemeId.highNoon, _iphone),
+    ('dark_', ThemeId.nordicNight, _iphone),
+    ('small_', ThemeId.highNoon, _small),
+  ]) {
+    _capture(
+      '${prefix}ai consent',
+      theme: theme,
+      device: device,
+      account: _Account.signedInPremium,
+      ai: true,
+      (env) async {
+        await env.tapFinder(find.byTooltip('Routine settings').first);
+        await env.shot('${prefix}ai_routine_actions_row');
+        await env.tapText('AI photo descriptions', last: true);
+        await env.shot('${prefix}ai_consent_sheet');
+        await env.tapText(aiPhotoConsentCheckLabel);
+        await env.shot('${prefix}ai_consent_sheet_checked');
+      },
+    );
+    _capture(
+      '${prefix}ai email question',
+      theme: theme,
+      device: device,
+      account: _Account.signedInPremium,
+      ai: true,
+      sharedContact: _contact(SharedReminderContactStatus.accepted),
+      (env) async {
+        await _openRoutineAction(env, 'AI photo descriptions');
+        await env.tapText(aiPhotoConsentCheckLabel);
+        await env.tapText('Turn on');
+        await env.realWait(4);
+        await env.shot('${prefix}ai_email_question');
+        await env.tapText('Add descriptions');
+        // Let the "AI photo descriptions are on" notice clear first.
+        await env.settle(50);
+        await _openRoutineAction(env, 'Completion emails');
+        await env.realWait(6);
+        await env.scrollDown(260);
+        await env.shot('${prefix}ai_email_settings_toggle');
+      },
+    );
+    _capture(
+      '${prefix}ai player description',
+      theme: theme,
+      device: device,
+      account: _Account.signedInPremium,
+      aiOnForHero: true,
+      (env) async {
+        await _openPlayer(env, 1);
+        for (var i = 0; i < 3; i++) {
+          await _tapPrimary(env);
+          await env.realWait(2);
+        }
+        await _tapPrimary(env);
+        await env.tapText('Continue');
+        await env.realWait(12);
+        await env.shot('${prefix}ai_player_description');
+        await env.scrollDown(300);
+        await env.shot('${prefix}ai_player_description_scrolled');
+        // Finish, then the run's details: the same screen History opens.
+        await _tapPrimary(env);
+        await env.realWait(2);
+        await _tapPrimary(env);
+        await env.realWait(10);
+        await env.settle(20);
+        await env.tapText('See details');
+        await env.realWait(6);
+        await env.scrollDown(500);
+        await env.shot('${prefix}ai_history_description');
+      },
+    );
+    _capture(
+      '${prefix}ai player failure',
+      theme: theme,
+      device: device,
+      account: _Account.signedInPremium,
+      aiOnForHero: true,
+      aiDescription: null,
+      (env) async {
+        await _openPlayer(env, 1);
+        for (var i = 0; i < 3; i++) {
+          await _tapPrimary(env);
+          await env.realWait(2);
+        }
+        await _tapPrimary(env);
+        await env.tapText('Continue');
+        await env.realWait(12);
+        await env.scrollDown(300);
+        await env.shot('${prefix}ai_player_failure');
+      },
+    );
+  }
+  _capture(
+    'ai on settings',
+    account: _Account.signedInPremium,
+    aiOnForHero: true,
+    (env) async {
+      await _openRoutineAction(env, 'AI photo descriptions');
+      await env.shot('ai_on_settings_sheet');
+    },
+  );
+  _capture('ai text scale', textScale: 1.6, account: _Account.signedInPremium, ai: true, (
+    env,
+  ) async {
+    await _openRoutineAction(env, 'AI photo descriptions');
+    await env.shot('a11y1_6_ai_consent_sheet');
+    await env.scrollDown(600, within: find.byType(SingleChildScrollView).last);
+    await env.shot('a11y1_6_ai_consent_sheet_scrolled');
+  });
 
   // ---- Extra flows -------------------------------------------------------
   _capture('home actions', (env) async {
@@ -1779,7 +1977,7 @@ void main() {
   });
   _capture('sign in email', (env) async {
     await env.push('/sign-in');
-    await env.tapText('Continue with Email');
+    await env.tapText('Continue with email');
     await env.realWait(3);
     await env.shot('sign_in_email_sheet');
   });
@@ -1891,7 +2089,7 @@ void main() {
     (env) async {
       await env.realWait(5);
       await env.shot('sub_lapsed_home');
-      await env.tapText('Your Routines');
+      await env.tapText('Your routines');
       await env.settle(10);
       await env.shot('sub_lapsed_routines_sheet');
       await env.tapText('Morning reset', last: true);

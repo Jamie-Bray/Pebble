@@ -1,6 +1,6 @@
 # Owner Notes: Store and Legal Launch Pack
 
-Last updated: 3 October 2026
+Last updated: 5 October 2026
 
 Decisions and facts only you can confirm, gathered while preparing
 `web/privacy.html`, `web/terms.html` and the files in `docs/store/`. Nothing
@@ -27,8 +27,43 @@ Still to do (owner):
 
 ## 2. Legal details to fill in
 
-These are marked with `<!-- OWNER TODO -->` comments in `web/privacy.html`.
-They are HTML comments, so they will not show on the published page.
+These used to be `<!-- OWNER TODO -->` comments inside `web/privacy.html`.
+Anyone can read HTML comments with "view source", so they were removed from
+the page on 5 October 2026 and are kept here. The place each one applies to is
+named so it can be found again.
+
+Moved from the comment at the top of `web/privacy.html`:
+
+- Confirm the email domain for privacy@ and support@ (done, see section 1).
+- Add a business correspondence address if one is needed for your target
+  markets. Do not publish a home address.
+- Add your ICO registration number once the data protection fee is paid, or
+  record why you are exempt.
+- Accept each provider's data processing terms (Supabase, RevenueCat, Sentry,
+  Resend) and confirm the transfer safeguard named in the "International
+  transfers" section.
+- Confirm which service sends sign-in code emails (Supabase default sender or
+  custom SMTP) and name it in "Service providers" if it is a separate provider.
+- Confirm the Sentry data region and the Resend sending region.
+
+Moved from the "Crash reports" section: the note asked for Sentry print
+breadcrumbs to be turned off and the sentence "That trail can include internal
+technical identifiers" to be replaced. Both are done:
+`lib/core/monitoring/crash_reporting.dart` sets
+`enablePrintBreadcrumbs = false`, and the page now says reports don't include
+the account ID but do include a random ID for the app installation.
+
+Moved from the "Retention" table, above the row "Backed-up routines,
+reminders, and text history records": cloud `routine_runs` and
+`routine_sessions` rows are not pruned at 21 days (`cleanup-proof-retention`
+only removes proof photos). If you add server-side 21-day clean-up for history
+records, update that row to match. See also item 2 in section 3.
+
+Moved from the "Owner and contact" section: add a business correspondence
+address there if required (PO Box or similar, not a home address), and the ICO
+registration number once the data protection fee is paid.
+
+The same points as a list:
 
 - **Postal address.** Add a business correspondence address (PO Box or
   similar, not your home) if one is needed for your markets. Currently none is
@@ -56,14 +91,12 @@ They are HTML comments, so they will not show on the published page.
 The disclosures were written to match the code as it is now. These are places
 where the code, the public copy, or both should change before launch.
 
-1. **Crash reports can contain the account ID.** `sentry_flutter` records
-   `debugPrint` output as breadcrumbs by default, and release builds print
-   lines containing the Supabase account ID and RevenueCat app user ID
-   (`revenuecat_purchase_repository.dart`, `subscription_provider.dart`). Fix:
-   `options.enablePrintBreadcrumbs = false` in
-   `lib/core/monitoring/crash_reporting.dart`. Then update the sentence marked
-   in the privacy policy's "Crash reports" section, and answer "Not linked" on
-   Apple's label.
+1. ~~Crash reports can contain the account ID.~~ Fixed:
+   `lib/core/monitoring/crash_reporting.dart` sets
+   `options.enablePrintBreadcrumbs = false`, the privacy policy's "Crash
+   reports" section was corrected on 5 October 2026, and Apple's label answers
+   "Not linked". Native crash reports still carry Sentry's random installation
+   ID, which the policy now says.
 2. **Cloud history is not pruned at 21 days.** `cleanup-proof-retention` only
    deletes proof photos. Local pruning (`routine_run_repository.dart`,
    `cloud_sync_coordinator.dart`) deletes local rows only, so backed-up
@@ -84,9 +117,14 @@ where the code, the public copy, or both should change before launch.
    trusted contact update from Pebble". `COPY_GUIDELINES.md` lists "trusted
    contacts" as copy to avoid. The live templates are newer than git (see the
    live audit), so check both versions.
-6. **Voice prompts are not backed up,** but the paywall says backup is "safe if
-   you reinstall or change phone" (`LAUNCH_READINESS_AUDIT.md` item 8). The
-   store copy here does not promise audio backup.
+6. **Voice prompts are now backed up** when Premium cloud backup is on
+   (`lib/features/sync/guidance_audio_cloud_backup.dart`). They are kept until
+   the recording is replaced or removed, the routine is deleted or the account
+   is deleted; the 21-day clean-up skips them. On 5 October 2026 the privacy
+   policy, in-app summary, both store forms (Audio: Yes), the processor map and
+   the backup consent sentence were corrected to say so. The new consent
+   sentence needs a database step before it works: see "Proposed (backup
+   consent text, 5 Oct 2026)" in `supabase/DEPLOY_PLAN.md`.
 7. **The Google sign-in name.** `google_sign_in` uses the default options, so
    Google's token includes name and picture, and Supabase stores them. That is
    why Name is declared on both store forms. Check a Google user in Supabase
@@ -101,7 +139,7 @@ where the code, the public copy, or both should change before launch.
 10. **The in-app privacy summary** (`legal_about_screen.dart`) does not name
     providers. It links to the full policy, which is fine. Keep it consistent
     when you next change it.
-11. **The starter and template "Everyday Departure Check" differ** (4 steps
+11. **The starter and template "Everyday departure check" differ** (4 steps
     against 10, `VISUAL_WALKTHROUGH.md`). The store copy describes the template
     version (hair tools, stove and oven, toaster, sink, heaters, windows and
     doors).

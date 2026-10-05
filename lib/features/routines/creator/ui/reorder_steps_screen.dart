@@ -40,7 +40,7 @@ class _ReorderStepsScreenState extends ConsumerState<ReorderStepsScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
             child: Text(
-              'Drag and drop to adjust your flow.',
+              'Drag steps into the order you do them.',
               style: TextStyle(
                 color: cs.onSurface.withValues(alpha: 0.6),
                 fontSize: 14,
@@ -91,9 +91,7 @@ class _ReorderStepsScreenState extends ConsumerState<ReorderStepsScreen> {
                       backgroundColor: cs.primary,
                       foregroundColor: cs.onPrimary,
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
+                      shape: const StadiumBorder(),
                     ),
                     onPressed: _saveReorder,
                     child: const Text(

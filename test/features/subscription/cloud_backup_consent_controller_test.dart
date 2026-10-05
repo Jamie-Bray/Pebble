@@ -59,7 +59,7 @@ void main() {
 
     expect(controller.state.isLoading, isFalse);
     expect(controller.state.canEnableCloudUpload, isTrue);
-    expect(controller.state.lastError, contains('could not be paused'));
+    expect(controller.state.lastError, contains("couldn't be paused"));
   });
 }
 
@@ -68,7 +68,7 @@ CloudBackupConsentRecord _acceptedRecord(String userId) {
     userId: userId,
     feature: cloudBackupConsentFeature,
     featureEnabled: true,
-    appVersion: cloudBackupConsentAppVersion,
+    appVersion: cloudBackupConsentUnknownAppVersion,
     privacyVersion: cloudBackupConsentPrivacyVersion,
     termsVersion: cloudBackupConsentTermsVersion,
     consentTextHash: cloudBackupConsentTextHash,

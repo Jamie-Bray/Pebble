@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -26,6 +27,9 @@ import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/core/ui/pebble_photo_gallery_viewer.dart';
+import 'package:pebble_routines/features/ai_photo/ai_photo_constants.dart';
+import 'package:pebble_routines/features/ai_photo/ai_photo_settings.dart';
+import 'package:pebble_routines/features/ai_photo/ai_photo_ui.dart';
 import 'package:pebble_routines/features/history/ui/routine_run_detail_screen.dart';
 import 'package:pebble_routines/features/routines/data/shared_reminder_preferences_repository.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
@@ -371,20 +375,20 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
                 icon: LucideIcons.loaderCircle,
               ),
               RoutinePlayerScreenPhase.error => _PlayerStatusView(
-                title: 'Could not load routine',
+                title: "Couldn't load this routine",
                 message:
-                    playerState.errorMessage ?? 'Please try again in a moment.',
+                    playerState.errorMessage ?? 'Try again in a moment.',
                 icon: LucideIcons.circleAlert,
                 primaryLabel: 'Retry',
                 onPrimary: () => unawaited(controller.refresh()),
-                secondaryLabel: 'Back to Home',
+                secondaryLabel: 'Back to home',
                 onSecondary: _goHome,
               ),
               RoutinePlayerScreenPhase.empty => _PlayerStatusView(
                 title: playerState.session?.routineTitleSnapshot ?? 'Routine',
-                message: 'This routine does not have any steps yet.',
+                message: "This routine doesn't have any steps yet.",
                 icon: LucideIcons.listTodo,
-                primaryLabel: 'Back to Home',
+                primaryLabel: 'Back to home',
                 onPrimary: _goHome,
                 topAction: _TopBackButton(onBack: _attemptExit),
               ),
@@ -478,10 +482,10 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
     final session = playerState.session;
     if (currentStep == null || session == null) {
       return _PlayerStatusView(
-        title: 'Routine unavailable',
-        message: 'We could not find the current step.',
+        title: "Can't continue this routine",
+        message: "Pebble couldn't find the step you were on.",
         icon: LucideIcons.circleAlert,
-        primaryLabel: 'Back to Home',
+        primaryLabel: 'Back to home',
         onPrimary: _goHome,
         topAction: _TopBackButton(onBack: _attemptExit),
       );
@@ -512,13 +516,21 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
         !playerState.hasPhotoRequirement &&
         !isStepLocked;
     final type = PebbleType.of(context);
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    // Display type: a little smaller on narrow phones, and it grows with the
+    // text-size setting only to 1.25x, so long words stay on one line.
+    final stepSize =
+        (MediaQuery.sizeOf(context).width < 375 ? 32.0 : 38.0) *
+        math.min(1.0, 1.25 / textScale);
     final instructionStyle = type.step.copyWith(
+      fontSize: stepSize,
       color: themeData.colorScheme.onSurface,
     );
 
     final photoSummary = showPhotoSummary && !isStepLocked
         ? _PlayerPhotoSummary(
             proofAssets: playerState.proofAssets,
+            aiDescriptionFor: playerState.aiDescriptionFor,
             capturedPhotoCount: playerState.capturedPhotoCount,
             maxPhotoCount: playerState.maxProofPhotosPerStep,
             isFreeTier: isFreeTier,
@@ -567,6 +579,16 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
             ),
           ),
         ),
+        if (currentStep.stepDescription != null && !isStepLocked) ...[
+          const SizedBox(height: PebbleSpacing.md),
+          Text(
+            currentStep.stepDescription!,
+            key: const ValueKey('routine-step-description'),
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 16, height: 1.45,
+                color: context.readableSecondaryText),
+          ),
+        ],
         // Guidance audio sits above the proof card: it tells you how to do
         // the step, the photos record what you did. Keeping it here also
         // means a growing photo mosaic never pushes the recording out of
@@ -586,7 +608,6 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
       ],
     );
 
-    final textScale = MediaQuery.textScalerOf(context).scale(1);
     final outgoing = _outgoing;
     final stage = AnimatedBuilder(
       animation: _checkOff,
@@ -636,7 +657,7 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
             playerState.hasEnoughPhotos &&
             (operation == RoutinePlayerOperation.none || savingStep));
     final primaryLabel = isStepLocked
-        ? 'Upgrade to reactivate'
+        ? 'Renew to unlock'
         : holdingFinal
         ? 'Finish routine'
         : savingStep
@@ -986,8 +1007,8 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
         ZenNotifications.showWarning(
           context,
           message:
-              'Camera access is turned off for Pebble. '
-              'Allow camera in your phone settings to take photos.',
+              'Camera access is off for Pebble. '
+              'Turn it on in your phone settings to take a photo.',
           actionLabel: 'Open settings',
           onAction: () => unawaited(permissions.openAppSettings()),
         );
@@ -995,8 +1016,8 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
         ZenNotifications.showWarning(
           context,
           message:
-              'Photos access is turned off for Pebble. '
-              'Allow photo access in your phone settings to choose a photo.',
+              'Photo access is off for Pebble. '
+              'Turn it on in your phone settings to choose a photo.',
           actionLabel: 'Open settings',
           onAction: () => unawaited(permissions.openAppSettings()),
         );
@@ -1004,8 +1025,8 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
         ZenNotifications.showError(
           context,
           message: source == ImageSource.camera
-              ? 'Could not open the camera. Please try again.'
-              : 'Could not open your photos. Please try again.',
+              ? "Couldn't open the camera. Try again."
+              : "Couldn't open your photos. Try again.",
         );
     }
   }
@@ -1029,8 +1050,8 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
           title: Text(isCamera ? 'Use camera?' : 'Choose from Photos?'),
           content: Text(
             isCamera
-                ? 'Pebble uses the camera only when you choose to capture a proof photo for this routine step.'
-                : 'Pebble opens Photos only when you choose an existing image as a proof photo.',
+                ? 'Pebble only uses the camera when you take a photo for a step.'
+                : 'Pebble only opens Photos when you pick a photo for a step.',
           ),
           actions: [
             TextButton(
@@ -1060,9 +1081,9 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
     ZenNotifications.showWarning(
       context,
       message: isFreeTier
-          ? 'Pebble Free includes one proof photo per step.'
-          : 'Maximum photos added for this step.',
-      actionLabel: isFreeTier ? 'Plus' : null,
+          ? 'Free includes one photo per step.'
+          : "That's the most photos this step can hold.",
+      actionLabel: isFreeTier ? 'Premium' : null,
       onAction: isFreeTier ? _openProofPhotoLimitPaywall : null,
     );
   }
@@ -1109,7 +1130,15 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
           .read(localDbProvider)
           .routineDao
           .getRoutineById(session.routineId);
+      // Only when the person chose to add them for this routine. The
+      // server filters them again and never emails a photo.
+      final ai = ref.read(aiPhotoControllerProvider);
+      final descriptions =
+          ai.isOnFor(session.routineId) && ai.emailDescriptions == true
+          ? await _playerController.aiDescriptionsForEmail()
+          : const <String>[];
       final result = await sharedReminders.sendCompletionReminder(
+        descriptions: descriptions,
         routineId: session.routineId,
         routineCloudId: routine?.cloudId,
         routineTitle: session.routineTitleSnapshot,
@@ -1129,16 +1158,24 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
     }
   }
 
-  void _openVault() {
+  Future<void> _openVault() async {
     final summary = ref
         .read(routinePlayerProvider(widget.sessionId))
         .completionSummary;
     if (summary == null) {
       return;
     }
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => RoutineRunDetailScreen(run: summary.run),
+    // Read the run again: an AI description can be saved onto it after the
+    // routine finished.
+    final run =
+        await ref.read(localDbProvider).routineRunDao.getRunById(
+          summary.run.id,
+        ) ??
+        summary.run;
+    if (!mounted) return;
+    unawaited(
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => RoutineRunDetailScreen(run: run)),
       ),
     );
   }
@@ -1192,7 +1229,7 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'Your progress is saved and ready to resume.',
+                  'You can save your progress and carry on later, or discard it.',
                   style: TextStyle(
                     fontSize: 15,
                     color: themeData.colorScheme.onSurface.withValues(
@@ -1280,7 +1317,7 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
         if (minutes > 0) {
           return 'Pause for $minutes minute${minutes == 1 ? '' : 's'}.';
         }
-        return 'Pause briefly before continuing.';
+        return 'Take a short pause before the next step.';
       },
       orElse: () => null,
     );
@@ -1482,7 +1519,7 @@ class _LockedStepBoundaryBanner extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              '+$count more step${count == 1 ? '' : 's'} locked. Upgrade to reactivate.',
+              '$count more step${count == 1 ? '' : 's'} locked. Renew Premium to unlock ${count == 1 ? 'it' : 'them'}.',
               style: TextStyle(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.76),
                 fontSize: 14,
@@ -1676,6 +1713,7 @@ class _PlayerGuidanceAudioCard extends StatelessWidget {
 class _PlayerPhotoSummary extends StatelessWidget {
   const _PlayerPhotoSummary({
     required this.proofAssets,
+    required this.aiDescriptionFor,
     required this.capturedPhotoCount,
     required this.maxPhotoCount,
     required this.isFreeTier,
@@ -1687,6 +1725,8 @@ class _PlayerPhotoSummary extends StatelessWidget {
   });
 
   final List<RoutineSessionProofAsset> proofAssets;
+  final ProofAiDescription? Function(RoutineSessionProofAsset asset)
+  aiDescriptionFor;
   final int capturedPhotoCount;
   final int maxPhotoCount;
   final bool isFreeTier;
@@ -1785,8 +1825,69 @@ class _PlayerPhotoSummary extends StatelessWidget {
               color: subtitleColor,
             ),
           ),
+          // Above the photo, so it is readable without scrolling past it.
+          for (final asset in proofAssets)
+            if (aiDescriptionFor(asset) case final description?)
+              Padding(
+                key: ValueKey('ai-description-${asset.proofId}'),
+                padding: const EdgeInsets.only(top: 12),
+                child: _ProofAiDescriptionLine(
+                  description: description,
+                  reduceMotion: reduceMotion,
+                ),
+              ),
           const SizedBox(height: 13),
           _ProofCollage(cells: cells),
+        ],
+      ),
+    );
+  }
+}
+
+/// Under the photo on an AI step: a quiet "Describing photo" while the
+/// answer is on its way, then the description or the failure line. Announced
+/// to screen readers when it changes. It never affects the step.
+class _ProofAiDescriptionLine extends StatelessWidget {
+  const _ProofAiDescriptionLine({
+    required this.description,
+    required this.reduceMotion,
+  });
+
+  final ProofAiDescription description;
+  final bool reduceMotion;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = description.text;
+    if (text != null) {
+      return Semantics(liveRegion: true, child: AiDescriptionText(text));
+    }
+    final secondary = context.readableSecondaryText;
+    return Semantics(
+      liveRegion: true,
+      child: Row(
+        children: [
+          if (description.isPending && !reduceMotion) ...[
+            SizedBox(
+              width: 12,
+              height: 12,
+              child: ExcludeSemantics(
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.6,
+                  color: secondary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+          Expanded(
+            child: Text(
+              description.isPending
+                  ? 'Describing photo'
+                  : description.failureMessage ?? aiPhotoFailedMessage,
+              style: TextStyle(fontSize: 13, height: 1.4, color: secondary),
+            ),
+          ),
         ],
       ),
     );
@@ -1836,7 +1937,7 @@ class _ProofPhotoHeaderAction extends StatelessWidget {
       button: true,
       onTap: onTap,
       label: isUpgrade
-          ? 'Add more proof photos with Premium'
+          ? 'Add more photos with Premium'
           : 'Add another proof photo',
       child: ExcludeSemantics(
         child: TextButton.icon(
@@ -2100,7 +2201,7 @@ class _ProofSlotCell extends StatelessWidget {
       ),
       child: Semantics(
         button: onTap != null,
-        label: 'Take a proof photo',
+        label: 'Take photo',
         child: Material(
           color: Colors.transparent,
           child: InkWell(

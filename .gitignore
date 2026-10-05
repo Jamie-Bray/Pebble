@@ -58,3 +58,7 @@ analyze_output.txt
 /artifacts/
 *.bak
 /graphify-out/
+
+# Local AI photo test: never commit photos or keys
+ai_test_photos/
+.env.local

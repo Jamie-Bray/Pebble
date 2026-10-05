@@ -5,24 +5,24 @@ class Template {
   );
 
   static const List<String> launchCategoryOrder = <String>[
-    'Leaving & Locking Up',
-    'Daily Care',
-    'Work & Away',
+    'Leaving and locking up',
+    'Daily care',
+    'Work and away',
   ];
 
   static const List<String> launchTemplateTitleOrder = <String>[
-    'Everyday Departure Check',
-    'Bedtime House Check',
-    'Car Lock & Parking Check',
-    'Big Trip Home Shutdown',
-    'Medication Check',
-    'Morning Pet Routine',
-    'Essential School Morning Run',
-    'Toddler Essentials Bag',
-    'Hotel Checkout Sweep',
-    'Office Switch-Off',
-    'Gym & Sports Prep',
-    'House Sitter Handover',
+    'Everyday departure check',
+    'Bedtime house check',
+    'Car lock and parking check',
+    'Big trip home shutdown',
+    'Medication check',
+    'Morning pet routine',
+    'School morning run',
+    'Toddler day bag',
+    'Hotel checkout sweep',
+    'Office switch-off',
+    'Gym bag',
+    'House sitter handover',
   ];
 
   const Template({

@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/features/sync/local_data_ownership_guard.dart';
+import 'package:uuid/uuid.dart';
 
 void main() {
   group('LocalDataOwnershipGuard', () {
@@ -158,6 +159,46 @@ void main() {
         session.syncMetadataJson,
         contains('"ownershipChoice":"useCurrentAccount"'),
       );
+    });
+
+    test('a moved run is never dropped when its new id is taken', () async {
+      // 'run-1' is what the new owner's id for it would be derived from.
+      final takenId = const Uuid().v5(
+        Namespace.url.value,
+        'vix.pebble/new-user/run/run-1',
+      );
+      await database.routineRunDao.insertOrUpdateRun(
+        _run(ownerUserId: 'old-user'),
+      );
+      await database.routineRunDao.insertOrUpdateRun(
+        _run(ownerUserId: 'new-user').copyWith(id: takenId),
+      );
+
+      await LocalDataOwnershipGuard.useCurrentAccountForLocalData(
+        database: database,
+        signedInUserId: 'new-user',
+      );
+
+      final runs = await database.routineRunDao.getAllRuns();
+      expect(runs.map((run) => run.id).toSet(), {'run-1', takenId});
+      expect(runs.every((run) => run.ownerUserId == 'new-user'), isTrue);
+    });
+
+    test('data that never had an owner keeps its ids', () async {
+      await database.routineRunDao.insertOrUpdateRun(_run());
+      await database.routineSessionDao.insertOrUpdateSession(_session());
+
+      await LocalDataOwnershipGuard.useCurrentAccountForLocalData(
+        database: database,
+        signedInUserId: 'new-user',
+      );
+
+      final run = (await database.routineRunDao.getAllRuns()).single;
+      expect(run.id, 'run-1');
+      expect(run.syncMetadataJson, isNull);
+      final session =
+          (await database.routineSessionDao.getAllSessions()).single;
+      expect(session.syncMetadataJson, isNot(contains('remoteSessionId')));
     });
   });
 }

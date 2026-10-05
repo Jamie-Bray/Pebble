@@ -169,7 +169,7 @@ screens.
 | `display` | DM Serif | 44 / 46 | 400 | -0.6 | Home routine name, onboarding heroes, paywall hero |
 | `title1` | DM Serif | 34 / 38 | 400 | -0.4 | **Every** page title (History, Templates, Reminders, Settings, Your account, Themes, Backup, Style Studio) |
 | `title2` | DM Serif | 26 / 30 | 400 | -0.2 | In-page heroes ("Free plan", "Backup is off", "Personal Premium") |
-| `step` | DM Sans | 32 / 38 | 600 | -0.4 | Player step instruction (now 36/w800, too shouty) |
+| `step` | DM Serif | 38 / 42 | 400 | -0.4 | Player step instruction (was DM Sans 32/600) |
 | `sheetTitle` | DM Sans | 22 / 28 | 600 | -0.2 | Bottom-sheet titles ("Leave routine?", "Add reminder") |
 | `headline` | DM Sans | 18 / 24 | 600 | 0 | Card and row titles |
 | `bodyLarge` | DM Sans | 17 / 25 | 400 | 0 | Lead paragraphs |

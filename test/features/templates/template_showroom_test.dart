@@ -34,23 +34,23 @@ void main() {
       expect(templates, hasLength(12));
       expect(
         templates.map((Template template) => template.category).toSet(),
-        equals(<String>{'Leaving & Locking Up', 'Daily Care', 'Work & Away'}),
+        equals(<String>{'Leaving and locking up', 'Daily care', 'Work and away'}),
       );
       expect(
         templates.map((Template template) => template.title).toList(),
         containsAll(<String>[
-          'Everyday Departure Check',
-          'Bedtime House Check',
-          'Car Lock & Parking Check',
-          'Big Trip Home Shutdown',
-          'Medication Check',
-          'Morning Pet Routine',
-          'Essential School Morning Run',
-          'Toddler Essentials Bag',
-          'Hotel Checkout Sweep',
-          'Office Switch-Off',
-          'Gym & Sports Prep',
-          'House Sitter Handover',
+          'Everyday departure check',
+          'Bedtime house check',
+          'Car lock and parking check',
+          'Big trip home shutdown',
+          'Medication check',
+          'Morning pet routine',
+          'School morning run',
+          'Toddler day bag',
+          'Hotel checkout sweep',
+          'Office switch-off',
+          'Gym bag',
+          'House sitter handover',
         ]),
       );
       expect(
@@ -72,14 +72,14 @@ void main() {
       expect(
         grouped.keys,
         orderedEquals(<String>[
-          'Leaving & Locking Up',
-          'Daily Care',
-          'Work & Away',
+          'Leaving and locking up',
+          'Daily care',
+          'Work and away',
         ]),
       );
       expect(
-        grouped['Daily Care']!.map((Template template) => template.title),
-        orderedEquals(<String>['Morning Pet Routine']),
+        grouped['Daily care']!.map((Template template) => template.title),
+        orderedEquals(<String>['Morning pet routine']),
       );
     });
 
@@ -164,14 +164,14 @@ void main() {
       expect(find.text('Templates'), findsOneWidget);
       expect(
         find.text(
-          'Add a ready-made checklist, then personalise the steps any way you want.',
+          'Start from a ready-made checklist and change it to suit you.',
         ),
         findsOneWidget,
       );
-      expect(find.text('LEAVING & LOCKING UP'), findsOneWidget);
+      expect(find.text('LEAVING AND LOCKING UP'), findsOneWidget);
       expect(find.text('DAILY CARE'), findsOneWidget);
-      expect(find.text('WORK & AWAY'), findsOneWidget);
-      expect(find.text('Everyday Departure Check'), findsOneWidget);
+      expect(find.text('WORK AND AWAY'), findsOneWidget);
+      expect(find.text('Everyday departure check'), findsOneWidget);
       expect(find.text('5 checks'), findsNothing);
       expect(find.text('5 steps'), findsNWidgets(3));
       expect(find.text('1 photo check'), findsOneWidget);
@@ -325,7 +325,7 @@ void main() {
       );
 
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Everyday Departure Check'));
+      await tester.tap(find.text('Everyday departure check'));
       await tester.pumpAndSettle();
 
       expect(find.text('Detail from onboarding'), findsOneWidget);
@@ -477,7 +477,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(prefs.getBool('has_completed_onboarding'), isTrue);
-      expect(find.text('Everyday Departure Check is ready'), findsOneWidget);
+      expect(find.text('Everyday departure check is ready'), findsOneWidget);
       expect(routineRepository.savedRoutines, hasLength(1));
     });
 
@@ -538,7 +538,7 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.text('Everyday Departure Check'), findsOneWidget);
+      expect(find.text('Everyday departure check'), findsOneWidget);
       expect(
         find.text('Check the common leaving-home items before you go.'),
         findsOneWidget,
@@ -549,7 +549,7 @@ void main() {
       expect(find.text('Add this template'), findsOneWidget);
       expect(
         find.text(
-          'Add it to your routines first, then personalise the steps any way you want.',
+          'Add it to your routines, then change any step you like.',
         ),
         findsOneWidget,
       );
@@ -561,9 +561,9 @@ void main() {
       expect(routineRepository.savedRoutines, hasLength(1));
       expect(
         routineRepository.savedRoutines.single.title,
-        'Everyday Departure Check',
+        'Everyday departure check',
       );
-      expect(find.text('Everyday Departure Check is ready'), findsOneWidget);
+      expect(find.text('Everyday departure check is ready'), findsOneWidget);
     });
   });
 }
@@ -687,9 +687,9 @@ class _FakeRoutineRepository implements RoutineRepository {
 const List<Template> _sampleTemplates = <Template>[
   Template(
     id: 'tpl_anxiety_free_departure',
-    title: 'Everyday Departure Check',
+    title: 'Everyday departure check',
     description: 'Check the common leaving-home items before you go.',
-    category: 'Leaving & Locking Up',
+    category: 'Leaving and locking up',
     goodFor: 'Check the common leaving-home items before you go.',
     searchTerms: <String>['lock up', 'windows'],
     steps: <String>[
@@ -702,9 +702,9 @@ const List<Template> _sampleTemplates = <Template>[
   ),
   Template(
     id: 'tpl_hotel_checkout',
-    title: 'Hotel Checkout Sweep',
+    title: 'Hotel checkout sweep',
     description: 'Check the room essentials before you leave.',
-    category: 'Work & Away',
+    category: 'Work and away',
     goodFor: 'Check the room essentials before you leave.',
     searchTerms: <String>['airport', 'passport'],
     steps: <String>[
@@ -717,9 +717,9 @@ const List<Template> _sampleTemplates = <Template>[
   ),
   Template(
     id: 'tpl_morning_pet_routine',
-    title: 'Morning Pet Routine',
+    title: 'Morning pet routine',
     description: 'Check food, water, doors, and gates before you leave.',
-    category: 'Daily Care',
+    category: 'Daily care',
     goodFor: 'Check food, water, doors, and gates before you leave.',
     searchTerms: <String>['pet', 'dog', 'cat'],
     steps: <String>[

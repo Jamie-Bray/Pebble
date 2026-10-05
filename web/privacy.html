@@ -32,25 +32,18 @@
     </header>
 
     <main class="shell">
-      <!--
-        OWNER TODOs for this page (see docs/store/OWNER_NOTES.md):
-        - Confirm the email domain for privacy@ / support@ (site is pebbleroutines.com, inboxes use pebbleroutines.com).
-        - Add a business correspondence address if one is needed for your target markets (do not publish a home address).
-        - Add your ICO registration number once the data protection fee is paid, or remove this note if exempt.
-        - Accept each provider's data processing terms (Supabase, RevenueCat, Sentry, Resend) and confirm the transfer safeguard named below.
-        - Confirm which service sends sign-in code emails (Supabase default sender or custom SMTP) and name it if it is a separate provider.
-        - Confirm the Sentry data region and the Resend sending region.
-      -->
       <header class="page-hero">
         <p class="eyebrow">Privacy Policy</p>
-        <h1>Privacy, without the fog.</h1>
+        <h1>What Pebble collects, and why</h1>
         <p class="lede">
-          Pebble Routines is a local-first routine support app. Most routine
-          content stays on your device unless you choose account and cloud
-          backup features.
+          Pebble Routines keeps your routines, photos and history on your
+          phone unless you sign in, have Premium and turn on cloud backup or AI
+          photo descriptions. Some
+          technical data, such as subscription checks and crash reports, is
+          sent without an account. This page explains what and why.
         </p>
         <p class="meta">
-          Last updated: <strong>3 October 2026</strong><br />
+          Last updated: <strong>5 October 2026</strong><br />
           Contact: <a href="mailto:privacy@pebbleroutines.com">privacy@pebbleroutines.com</a>
         </p>
       </header>
@@ -69,6 +62,7 @@
           <a href="#account">Accounts and backup</a>
           <a href="#subscriptions">Subscriptions</a>
           <a href="#completion-emails">Completion emails</a>
+          <a href="#ai-photo-descriptions">AI photo descriptions</a>
           <a href="#crash-reports">Crash reports</a>
           <a href="#content">Sensitive content</a>
           <a href="#permissions">Permissions</a>
@@ -89,13 +83,13 @@
               You can use Pebble without an account. In local-only use, Pebble
               stores routine titles, steps, reminders, settings, history,
               optional proof photos, and guidance-audio recordings on your
-              device.
+              phone.
             </p>
             <p>
-              Reminders are scheduled by your device's operating system. Pebble
+              Reminders are scheduled by your phone's operating system. Pebble
               does not use a push-notification server. On Android, the
               home-screen widget shows routine details that Pebble saves on
-              your device for the widget.
+              your phone for the widget.
             </p>
             <p>
               Free local history and Pebble-owned proof-photo copies are kept
@@ -138,9 +132,11 @@
               sign-in, and your explicit choice to turn backup on. If enabled,
               Pebble may back up supported routine data, including routines,
               reminders, recent history, proof-photo files, and proof-photo
-              records. Guidance audio files currently stay on your device,
-              though routine backup may include related details such as
-              filename, duration, MIME type, or byte size.
+              records. If backup is on, Pebble also backs up your voice tip
+              recordings (guidance audio), along with related details such as
+              filename, duration, MIME type, and byte size. They are kept until
+              you replace or remove them, delete the routine or delete your
+              account.
             </p>
             <p>
               Before cloud backup uploads supported routine data, Pebble asks
@@ -187,13 +183,16 @@
               account email address, so the person knows who they are from. A
               completion email can include the routine name, completion time,
               and step count. The sender can hide the routine name. Photos and
-              checklist details are not included.
+              checklist details are not included. AI photo descriptions are
+              included only if the sender chooses to add them (see below).
+              Photos are never emailed.
             </p>
             <p>
               To do this, Pebble stores the contact's email address, invitation
               status, and email preferences, plus a log of emails sent
               (completion time, step counts, delivery status, and the routine
-              name only if it was shown). Emails are delivered by Resend.
+              name only if it was shown). AI photo descriptions are not kept
+              in that log. Emails are delivered by Resend.
             </p>
             <p>
               If a contact declines or stops the emails, the sender cannot invite
@@ -211,6 +210,56 @@
             </p>
           </section>
 
+          <section id="ai-photo-descriptions">
+            <h2>AI photo descriptions</h2>
+            <p>
+              AI photo descriptions are optional and off unless you turn them
+              on. Signed-in Premium users can turn them on for one routine at a
+              time, and turn them off at any time in that routine's settings.
+            </p>
+            <p>
+              When they are on, each photo you take on that routine's photo
+              steps (the first five, if there are more) is sent through
+              Pebble's server to Anthropic, an AI company in the USA. Anthropic
+              sends back a short description of what is in the photo.
+              Pebble sends the photo, the step title and any optional step description you add, so the AI description can
+              focus on the relevant object. It does not add account details or
+              the routine's name. Your title and step description are context, not proof that a step
+              has been completed.
+            </p>
+            <p>
+              Pebble does not keep a copy of the photo for this. Anthropic
+              deletes the photo, step title, step description and AI description within 30 days, unless it
+              has to keep them longer to deal with misuse or to meet a legal
+              duty, and does not use them to train its AI. Anthropic acts on
+              our instructions under its data processing terms.
+            </p>
+            <p>
+              The description is saved with the photo in your history on your
+              phone. If cloud backup is on, it is backed up with that history.
+              If you choose to add descriptions to a completion email, they are
+              sent to your contact by Resend. Photos are never emailed.
+            </p>
+            <p>
+              Photos can show private things, such as your home or your
+              medication. We send them only with your consent, which you give
+              when you turn the feature on. We keep a record of that consent:
+              when you gave it, the version of the wording you saw, the
+              provider named, and the routine. We also count how many
+              descriptions each account asks for, to keep within a daily limit.
+              That count does not include the photo or the description.
+            </p>
+            <p>
+              To withdraw consent, turn the feature off. Pebble stops sending
+              photos straight away. Descriptions you already have stay with
+              their photos until you delete the photo or the run.
+            </p>
+            <p>
+              Descriptions are written by AI and can be wrong. They cannot tell
+              you whether something is locked, switched off or done.
+            </p>
+          </section>
+
           <section id="crash-reports">
             <h2>Crash reports</h2>
             <p>
@@ -219,16 +268,13 @@
               the error and stack trace, device model, operating system version,
               app version and build, and a short trail of recent technical app
               events.
-              <!-- OWNER TODO: Sentry print breadcrumbs can currently capture debug log lines that include the
-                   internal account ID or RevenueCat app user ID. Disable print breadcrumbs (or scrub them in
-                   beforeSend) and then replace the next sentence with: "Crash reports do not include your account ID." -->
-              That trail can include internal technical identifiers.
             </p>
             <p>
-              Crash reporting is set up so it does not send your name, email
-              address, routine content, photos, or audio. Pebble removes user
-              details from app crash reports before they are sent, and does not
-              use screenshots, session replay, or performance tracing.
+              Crash reporting is set up so that reports don't include your
+              account ID, name, email address, routine content, photos, or
+              audio. They do include a random ID for the app installation.
+              Pebble does not use screenshots, session replay, or performance
+              tracing.
             </p>
           </section>
 
@@ -269,7 +315,7 @@
             </p>
             <ul class="clean-list">
               <li><strong>Contract:</strong> to provide sign-in, Premium, backup, restore, account deletion, and the features you ask for.</li>
-              <li><strong>Consent:</strong> for cloud backup of content you add (which may include health or other sensitive details) and for completion emails. You can withdraw consent at any time.</li>
+              <li><strong>Consent:</strong> for cloud backup of content you add (which may include health or other sensitive details), for AI photo descriptions (the photos may show the same kinds of detail) and for completion emails. You can withdraw consent at any time.</li>
               <li><strong>Legitimate interests:</strong> to keep Pebble secure, fix crashes, prevent purchase misuse, and stop unwanted invitation emails.</li>
               <li><strong>Legal obligation:</strong> to keep records we must keep for tax, accounting, or legal reasons.</li>
             </ul>
@@ -279,7 +325,7 @@
             <h2>Service providers</h2>
             <p>
               We use providers only where needed to run Pebble. Supabase,
-              RevenueCat, Sentry, and Resend process data on our behalf under
+              RevenueCat, Sentry, Resend, and Anthropic process data on our behalf under
               their data processing terms. Google and Apple handle sign-in and
               payments under their own privacy policies.
             </p>
@@ -290,6 +336,7 @@
               <li><strong>Apple</strong> for Sign in with Apple and App Store billing where available.</li>
               <li><strong>Sentry</strong> (USA) for crash reports, in builds where crash reporting is turned on.</li>
               <li><strong>Resend</strong> (USA) for delivering completion emails and their invitations.</li>
+              <li><strong>Anthropic</strong> (USA) for AI photo descriptions, only if you turn them on.</li>
               <li><strong>Email and support tools</strong> when you contact us, and the email service that sends sign-in codes.</li>
             </ul>
             <p>
@@ -303,7 +350,8 @@
             <h2>International transfers</h2>
             <p>
               Pebble is run from the United Kingdom. If you sign in, back up,
-              subscribe, send completion emails, or a crash report is sent, your
+              subscribe, send completion emails, use AI photo descriptions, or a
+              crash report is sent, your
               data is processed in the USA by the providers listed above.
             </p>
             <p>
@@ -338,12 +386,13 @@
                   <td>Premium recent history in the app and cloud proof-photo copies</td>
                   <td>Rolling 21-day window, unless deleted earlier</td>
                 </tr>
-                <!-- OWNER TODO: cloud routine_runs / routine_sessions rows are not currently pruned at 21 days
-                     (cleanup-proof-retention only removes proof photos). If you add server-side 21-day cleanup
-                     for history records, update this row to match. -->
                 <tr>
                   <td>Backed-up routines, reminders, and text history records in your cloud account</td>
                   <td>Until you delete them or delete your account</td>
+                </tr>
+                <tr>
+                  <td>Backed-up voice tip recordings (guidance audio)</td>
+                  <td>Until you replace or remove the recording, delete the routine, or delete your account</td>
                 </tr>
                 <tr>
                   <td>Completion email contacts and blocks</td>
@@ -352,6 +401,14 @@
                 <tr>
                   <td>Sent completion email log</td>
                   <td>90 days. Invitation links expire after 14 days; links in completion emails after 90 days</td>
+                </tr>
+                <tr>
+                  <td>Photos sent for AI photo descriptions</td>
+                  <td>No additional copy stored by Pebble for AI processing. Deleted by Anthropic within 30 days, except for misuse investigations or legal duties. The description is kept with the photo in your history, for as long as that history is kept</td>
+                </tr>
+                <tr>
+                  <td>AI photo description consent record and daily count</td>
+                  <td>The consent record while your account exists. Request records cover the current calendar month and at least the last 2 days. Older records are removed when your account next makes a new description request, or when your account is deleted; inactive accounts can retain older records</td>
                 </tr>
                 <tr>
                   <td>Subscription and purchase-check records</td>
@@ -423,8 +480,6 @@
               Pebble Routines is currently run by an independent developer in
               Scotland, United Kingdom. For legal and data-protection purposes,
               the controller is Jamie Bray trading as Pebble.
-              <!-- OWNER TODO: add a business correspondence address here if required (PO Box or similar, not a home address),
-                   and the ICO registration number once the data protection fee is paid. -->
             </p>
             <p>
               Privacy:

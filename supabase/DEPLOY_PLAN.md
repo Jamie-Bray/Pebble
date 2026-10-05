@@ -112,3 +112,104 @@ Migration rollback SQL is in `MIGRATION_REPAIR_PLAN.md`.
 ```bash
 cd supabase/functions && deno test --allow-env --allow-net=127.0.0.1
 ```
+
+## Proposed (backend live audit, 4 Oct 2026; not yet agreed or done)
+
+Added by the read-only audit in `docs/review/BACKEND_LIVE_AUDIT.md`. Nothing here has been run. The sections above are unchanged.
+
+- **Proposed correction to the record.** Section 1 of migration 020 (the `revoke` statements on the four `shared_alert_*` tables) is already in effect on production. The Postgres log shows it run on 3 Oct 2026 at 10:08 UTC, and the grants confirm it. Sections 2 to 6 are not applied. Line 3 above ("Nothing on this branch has been deployed") and Order step 3.2 should be updated by whoever made that change. Running the whole of 020 is still correct: every statement is safe to repeat.
+- **Proposed step 0, before Order step 3:** the confirm page is not published. `https://pebbleroutines.com/shared-alert/confirm/` returned 404 on 4 Oct. Do not deploy the three link functions until it returns 200.
+- **Proposed order within Order step 4:** deploy `cleanup-proof-retention` first, on its own, once the secret is confirmed. It is the only function whose live version destroys data (voice prompts after 21 days).
+- **Proposed addition to Order step 5:** record both 016 and 020 as applied (`supabase migration repair --status applied 016 020 --linked`) after 020 has been run in full.
+- **Proposed smoke check for Order step 6:** `select jobname, schedule, active from cron.job;` should list three jobs: `cleanup-proof-retention-daily`, `reconcile-profile-tiers-daily`, `prune-shared-alert-data-daily`. Today only the first exists.
+- **Proposed test before launch:** one real billing-retry (grace period) case, to confirm the webhook keeps Premium on while the store is retrying payment. See risk 6 in the audit.
+
+## Proposed (backup consent text, 5 Oct 2026; not yet agreed or done)
+
+Added with the legal accuracy pass (branch `fix/legal-accuracy`). Nothing here has been run. The matching migration is prepared as 022_voice_tip_backup_consent_text.sql. The sections above are unchanged.
+
+**Why.** Voice tip recordings are uploaded when backup is on, but the sentence people agree to did not mention them. The app's consent sentence now does, and the recorded policy versions are now the dates on the published privacy and terms pages. The database decides whether an account may write backup data in `public.has_current_cloud_backup_consent`, which has the old sentence's hash and the old policy dates written into it (migration 011). Until that function is updated, it does not recognise a consent given in the new app.
+
+**Proposed step: update the consent gate.** The SQL below is saved as `supabase/migrations/022_voice_tip_backup_consent_text.sql` (021 is used by AI descriptions). After approval, apply it to staging first, then production. The consent hash test checks the migration file.
+
+```sql
+-- Keep the database write-access gate aligned with the in-app cloud-backup
+-- consent text, which now names voice tip recordings, and with the privacy
+-- and terms dates recorded with each consent.
+
+create or replace function public.has_current_cloud_backup_consent(user_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.cloud_backup_consents c
+    where c.owner_user_id = user_id
+      and c.feature = 'personal_cloud_backup'
+      and c.feature_enabled = true
+      and c.withdrawn_at is null
+      and c.privacy_version = '2026-10-05'
+      and c.terms_version = '2026-10-05'
+      and c.consent_text_hash =
+        '19e2a2c7f63deef9320b02fe2e5950245a1ff4c08259af5551f0a76058d27e4f'
+  );
+$$;
+```
+
+`create or replace` keeps the function's existing grants (012, 013), so nothing else changes. The three values must equal `cloudBackupConsentPrivacyVersion`, `cloudBackupConsentTermsVersion` and the SHA-256 of `cloudBackupConsentText` in `lib/features/subscription/providers/cloud_backup_consent_provider.dart`. The test named above fails if they differ from this section.
+
+**Order, and what happens if it is wrong.**
+
+- Apply this **before any build that contains the new consent sentence reaches a phone** (any build made from `integration/launch-pass` after this branch is merged).
+- New build, old database: the user turns on backup, the consent row is saved, and the database then refuses every backup write. Nothing is uploaded and nothing is lost, but backup does not work.
+- New database, old build (34 or earlier): the old build's uploads are refused in the same way until the phone is updated.
+- Once both are in place, every account that agreed to the old sentence is asked again the next time the new build checks its backup setting. Only test accounts exist today.
+- Any later change to the consent sentence, or to the dates in `web/privacy.html` or `web/terms.html` that the app records, needs this function updated again in the same release.
+
+**Smoke check.** On a test account with Premium and the new build: turn on backup, then run `select public.has_current_cloud_backup_consent('<that account id>');` as the service role. Expect `true`, and `app_version` in `cloud_backup_consents` should show the real build (for example `1.0.0+35`), not `1.0.0+1`. Record a voice tip, wait for backup, and check an object appears under `users/<account id>/guidance_audio/`.
+
+**Roll back** by re-running `supabase/migrations/011_align_cloud_backup_consent_hash.sql`. Only do that together with rolling back the app build.
+
+## Proposed (AI photo descriptions, 5 Oct 2026; not yet agreed or done)
+
+Prepared during the Claude-to-Codex handover. **No live changes made.**
+Implementation and outstanding real-device checks: `docs/AI_PHOTO_STEPS.md`.
+
+1. Finish the earlier backend repair steps above. In staging, apply
+   `021_ai_photo_descriptions.sql`, `022_voice_tip_backup_consent_text.sql`,
+   then `023_ai_photo_monthly_allowance.sql`.
+   022 must precede release of the app with the changed backup wording.
+2. Configure `ANTHROPIC_API_KEY` in function secrets, with
+   `AI_PHOTO_ENABLED=false`. Never put the key in Flutter build arguments.
+   023 fixes the account allowance at 200 attempts/UTC calendar month across
+   phones; apply it before deploying the new allowance-reader action. The
+   existing four-argument reserve RPC remains compatible with older workers.
+   Defaults are also 20 requests/account/day and 5,000 reservations/month globally;
+   optional secrets are `AI_PHOTO_DAILY_LIMIT` and
+   `AI_PHOTO_MONTHLY_REQUEST_BUDGET`.
+3. Deploy `describe-proof-photo` and the updated
+   `send-routine-completion-alert`. Preserve JWT verification in config.toml.
+   With AI off, confirm feature discovery reports disabled and ordinary
+   completion emails continue working.
+4. In staging only, enable AI and test Premium/consent refusals, withdrawal,
+   image rejection, repeated photo IDs, concurrent requests at the allowance
+   boundary (including two requests for the 100th monthly place), own-account
+   allowance reads and month rollover, real descriptions and optional email inclusion. Check the app's
+   new backup consent produces a true database gate and working uploads.
+5. Publish the privacy/terms changes and align store disclosures. Complete the
+   real-photo and real-phone checks in `docs/AI_PHOTO_STEPS.md`.
+6. After approval of this production step, apply the migrations and deploy the
+   functions with AI still disabled; verify ordinary flows, then enable AI.
+   Record dates, deployed versions and results here. No blanket migration push:
+   the existing production migration history needs the repairs above first.
+
+**Stop switch:** set `AI_PHOTO_ENABLED=false` or set the singleton
+`ai_photo_settings.paused` row to `true`. Requests already sent to Anthropic may
+finish. Existing descriptions remain in history. Withdrawal still works while
+AI is disabled. Keep migration 023 during worker rollback so the monthly cap
+still applies; older workers show a generic budget message for that refusal.
+Keep the additive tables during rollback; do not delete history
+or roll back the backup-consent gate independently of the app.

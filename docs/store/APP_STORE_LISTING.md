@@ -1,6 +1,6 @@
 # App Store Listing: Pebble Routines (iOS)
 
-Last updated: 3 October 2026
+Last updated: 4 October 2026
 
 Ready-to-paste copy for App Store Connect. Limited fields are in fenced blocks
 with a `limit` marker; run `python3 docs/store/check_limits.py` after any edit.
@@ -92,7 +92,7 @@ for auto-renewable subscriptions.
 ```text
 Did I lock the door? Did I unplug the hair straighteners? Is the stove off?
 
-Pebble Routines turns the checks you do before leaving the house into a simple, step-by-step checklist. Go through each step, mark it done, and add a photo when you want something to look back on later. Every completed check is saved with the time you did it.
+Pebble Routines turns the checks you do before leaving the house into a step-by-step checklist. Go through each step, mark it done, and add a photo when you want something to look back on later. Every completed check is saved with the time you did it.
 
 Pebble is for anyone who has turned back at the front door to check it again, or taken a photo of the straighteners just in case.
 
@@ -119,7 +119,7 @@ USEFUL EXTRAS
 PRIVATE BY DEFAULT
 • Works without an account. No sign-up needed to start.
 • Your routines, history and photos are stored on this device.
-• No ads. No tracking. Pebble does not sell your data.
+• No ads or tracking, and Pebble does not sell your data.
 • On the free plan, photos and history are kept for 48 hours, then Pebble deletes its own copies. Pebble never deletes anything from your photo library.
 • Cloud backup only starts if you have Premium, sign in, and choose to turn it on.
 
@@ -178,7 +178,7 @@ questionnaire; the labels in App Store Connect may differ slightly.
 | Mature themes | Profanity or crude humour | None |
 | Mature themes | Horror or fear themes | None |
 | Mature themes | Alcohol, tobacco, or drug use or references | None |
-| Medical or wellness | Medical or treatment information | None. The "Medication Check" template is an ordinary checklist ("Take medication") with no dosing or treatment content |
+| Medical or wellness | Medical or treatment information | None. The "Medication check" template is an ordinary checklist ("Take medication") with no dosing or treatment content |
 | Medical or wellness | Health or wellness topics | No |
 | Sexuality or nudity | All questions | None |
 | Violence | All questions (cartoon, realistic, graphic, weapons) | None |
@@ -222,7 +222,7 @@ Purchases are processed by StoreKit through RevenueCat. Cloud backup additionall
 
 SUGGESTED DEMO (2 MINUTES)
 1. Open the app. Skip sign-in.
-2. Choose the "Everyday Departure Check" starter routine.
+2. Choose the "Everyday departure check" starter routine.
 3. Tap Start. Mark the first step done. On a photo step, take or choose a photo (camera and photo permissions are requested only at this moment, with an explanation first).
 4. Finish the routine and open History to see the completion time and photo.
 5. Optional: open the routine's reminders and set a reminder (notification permission is requested at this moment).

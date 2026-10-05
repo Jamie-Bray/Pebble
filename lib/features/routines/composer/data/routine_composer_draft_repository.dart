@@ -207,7 +207,11 @@ class RoutineComposerDraftRepositoryImpl
             label: step.text.trim(),
             requiresPhoto: step.requiresPhoto,
             photoCount: step.requiresPhoto ? 1 : 0,
-            photoPrompt: step.requiresPhoto ? 'Take a photo' : null,
+            photoPrompt: step.photoPrompt.trim().isNotEmpty
+                ? step.photoPrompt.trim()
+                : step.requiresPhoto
+                ? 'Take a photo'
+                : null,
             allowSkip: step.allowSkip,
             guidanceAudio: step.guidanceAudio,
           ),

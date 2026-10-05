@@ -10,6 +10,8 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
+import 'package:pebble_routines/features/ai_photo/ai_photo_ui.dart';
+import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/ui/adaptive_layout.dart';
 import 'package:pebble_routines/core/ui/pebble_photo_gallery_viewer.dart';
@@ -123,12 +125,9 @@ class RoutineRunDetailScreen extends ConsumerWidget {
             _punctuatedTitle(title),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 31,
-              height: 1.02,
-              fontWeight: FontWeight.w800,
-              color: foundation.textPrimary,
-            ),
+            style: PebbleType.of(
+              context,
+            ).title1.copyWith(color: foundation.textPrimary),
           ),
           const SizedBox(height: 7),
           Text(
@@ -217,7 +216,7 @@ class RoutineRunDetailScreen extends ConsumerWidget {
             Icon(LucideIcons.camera, size: 16, color: accentColor),
             SizedBox(width: 8),
             Text(
-              'View Photos',
+              'View photos',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
@@ -283,7 +282,7 @@ class RoutineRunDetailScreen extends ConsumerWidget {
               child: Row(
                 children: [
                   Text(
-                    'Run Photos',
+                    'Photos',
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
@@ -292,6 +291,7 @@ class RoutineRunDetailScreen extends ConsumerWidget {
                   ),
                   const Spacer(),
                   IconButton(
+                    tooltip: 'Close',
                     onPressed: () => Navigator.pop(context),
                     icon: Icon(LucideIcons.x, color: cs.onSurface),
                   ),
@@ -421,7 +421,7 @@ class RoutineRunDetailScreen extends ConsumerWidget {
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w800,
-          color: foundation.textMuted,
+          color: context.readableSecondaryText,
         ),
       );
     }
@@ -759,6 +759,11 @@ class RoutineRunDetailScreen extends ConsumerWidget {
     if (photos.isEmpty) {
       return const SizedBox.shrink();
     }
+    final assets = _proofAssetsByPath();
+    final descriptions = [
+      for (final path in photos)
+        if (assets[path]?.aiDescription case final description?) description,
+    ];
 
     return Container(
       margin: const EdgeInsets.only(top: 12),
@@ -778,7 +783,7 @@ class RoutineRunDetailScreen extends ConsumerWidget {
                   ),
                   const SizedBox(width: 5),
                   Text(
-                    'Photo captured',
+                    'Photo taken',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -807,6 +812,11 @@ class RoutineRunDetailScreen extends ConsumerWidget {
               ],
             ),
           ),
+          for (final description in descriptions)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: AiDescriptionText(description),
+            ),
         ],
       ),
     );
@@ -948,7 +958,7 @@ class _RunBackupLine extends StatelessWidget {
       ),
       _RunSyncState.pending => (
         LucideIcons.cloudUpload,
-        'Queued for backup',
+        'Waiting to back up',
         const Color(0xFFD0A24F),
       ),
       _RunSyncState.failed => (

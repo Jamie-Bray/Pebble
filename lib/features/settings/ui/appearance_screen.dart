@@ -9,6 +9,7 @@ import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:pebble_routines/core/ui/adaptive_layout.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
+import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 
@@ -71,7 +72,7 @@ class AppearanceScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Choose a look that works for you.\nPreview first, then apply.',
+                          'Tap a theme to preview it.\nNothing changes until you apply it.',
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(
                                 color: foundation.textSecondary,
@@ -289,7 +290,7 @@ class _SectionHeader extends StatelessWidget {
         Text(
           title.toUpperCase(),
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: foundation.textMuted,
+            color: context.readableSecondaryText,
             fontWeight: FontWeight.w900,
             letterSpacing: 1.2,
           ),
@@ -747,7 +748,7 @@ class _StatePill extends StatelessWidget {
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: _isActive ? accent : foundation.textMuted,
+          color: _isActive ? accent : context.readableSecondaryText,
           fontWeight: FontWeight.w900,
         ),
       ),
@@ -767,14 +768,14 @@ class _MiniAppPreview extends StatelessWidget {
     final foundation = themeData.extension<PebbleDarkFoundation>()!;
     final templateTokens = themeData.extension<PebbleTemplatesTokens>()!;
     final rowData = <({String label, String count, Color color})>[
-      (label: 'Leaving Home', count: '5', color: scheme.primary),
+      (label: 'Leaving home', count: '5', color: scheme.primary),
       (
-        label: 'Everyday Departure',
+        label: 'Everyday departure',
         count: '10',
         color: templateTokens.templatesAccentGroup2,
       ),
       (
-        label: 'Evening Wind Down',
+        label: 'Evening wind-down',
         count: '7',
         color: templateTokens.templatesAccentGroup3,
       ),
@@ -1062,7 +1063,7 @@ class _ThemePreviewSheet extends ConsumerWidget {
                       const SizedBox(height: 14),
                       const _SheetNote(
                         text:
-                            'Preview available. Applying this theme requires Personal Premium.',
+                            'You can preview this theme. Using it needs Personal Premium.',
                       ),
                     ],
                     if (meta.accessibilityNote != null) ...<Widget>[
@@ -1073,7 +1074,7 @@ class _ThemePreviewSheet extends ConsumerWidget {
                       const SizedBox(height: 14),
                       const _SheetNote(
                         text:
-                            'This is an older premium palette kept available for people who already know and prefer it.',
+                            'An older theme, kept for people who already use it.',
                       ),
                     ],
                     const SizedBox(height: 18),
@@ -1092,9 +1093,7 @@ class _ThemePreviewSheet extends ConsumerWidget {
                     backgroundColor: previewTheme.colorScheme.primary,
                     foregroundColor: previewTheme.colorScheme.onPrimary,
                     minimumSize: const Size.fromHeight(52),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                    ),
+                    shape: const StadiumBorder(),
                   ),
                   onPressed: isCurrent
                       ? null
@@ -1122,7 +1121,7 @@ class _ThemePreviewSheet extends ConsumerWidget {
                     isCurrent
                         ? 'Currently active'
                         : isLocked
-                        ? 'Unlock Premium'
+                        ? 'Get Premium'
                         : 'Use this theme',
                   ),
                 ),
@@ -1232,7 +1231,7 @@ void _showThemeInfoSheet(BuildContext context) {
             ),
             const SizedBox(height: 8),
             Text(
-              'Nothing changes until you confirm a theme. Accessibility themes are always free, and premium themes stay previewable before you decide.',
+              'Nothing changes until you tap Use this theme. Accessibility themes are always free, and you can preview Premium themes before you buy.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: foundation.textSecondary,
                 height: 1.45,

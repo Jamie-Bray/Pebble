@@ -1,7 +1,7 @@
 # Google Play Data Safety Answers
 
-Last updated: 3 October 2026. Based on the code at this commit, build
-1.0.0+31, including the iOS sign-in changes merged from
+Last updated: 5 October 2026. Based on the code at this commit, build
+1.0.0+34, including the iOS sign-in changes merged from
 `claude/sharp-keller-f6iiu2`.
 
 Play Console > Policy > App content > Data safety. Answers are listed in the
@@ -12,9 +12,12 @@ Ground rules used:
 
 - **Collected** means sent off the device to Pebble or to a provider working
   for Pebble. Data that only stays on the phone (local-only routines, local
-  photos, voice prompt recordings) is **not** collected.
+  photos, and voice prompt recordings while backup is off) is **not**
+  collected. Voice prompt recordings **are** collected when Premium cloud
+  backup is on.
 - **Shared** means given to a third party. Google does not count service
-  providers acting for you (Supabase, RevenueCat, Sentry, Resend) as sharing.
+  providers acting for you (Supabase, RevenueCat, Sentry, Resend, and Anthropic
+  for AI photo descriptions) as sharing.
   It also does not count transfers the user starts and would expect, such as
   a completion email the user set up. So nothing here is shared.
 - If a released build can collect something for any user, it is declared,
@@ -36,13 +39,13 @@ Ground rules used:
 
 | Question | Answer | Source |
 | --- | --- | --- |
-| Does your app collect or share any of the required user data types? | **Yes** | Sign-in, subscriptions, backup, completion emails, crash reports |
-| Is all of the user data collected by your app encrypted in transit? | **Yes** | All calls are HTTPS: Supabase (`supabase_flutter`), RevenueCat SDK, Sentry ingest, and Resend (`api.resend.com`, server side) |
+| Does your app collect or share any of the required user data types? | **Yes** | Sign-in, subscriptions, backup, completion emails, AI photo descriptions, crash reports |
+| Is all of the user data collected by your app encrypted in transit? | **Yes** | All calls are HTTPS: Supabase (`supabase_flutter`), RevenueCat SDK, Sentry ingest, and, server side, Resend (`api.resend.com`) and Anthropic (`api.anthropic.com`) |
 | Which of the following methods of account creation does your app support? | **Username and other authentication** (email address plus a one-time code) and **OAuth** (Google; Sign in with Apple on iOS) | `auth_repository.dart`: `signInWithOtp`, Google `signInWithIdToken`, Apple `signInWithIdToken` |
 | Add a link that users can use to request that their account and associated data is deleted | `https://pebbleroutines.com/delete-account` | `web/delete-account.html` posts to the `request-account-deletion` Edge Function |
 | Do you provide a way for users to request that some or all of their data is deleted, without requiring them to delete their account? | **Yes** | Users can delete routines, history runs and proof photos in the app. Deleted cloud-backed photos are removed from Supabase Storage. Other requests go to privacy@ |
 | Has your app successfully completed an independent security review (MASA)? | **No** | |
-| Is your app's data collection and sharing in line with Google Play's Families Policy? | Not applicable (target audience is 18+) | |
+| Is your app's data collection and sharing in line with Google Play's Families Policy? | Confirm against the agreed target age; do not assume 18+ | |
 
 ## Section 2: Data types
 
@@ -85,7 +88,7 @@ compliance, Personalisation, Account management.
 
 | Type | Collected | Notes |
 | --- | --- | --- |
-| Health info | No | Pebble does not ask for health information and uses no health APIs. A user may type health-related text into a routine (for example "Take medication"). That free text is declared under "Other user-generated content". Do not declare Health info unless you add a health feature. |
+| Health info | No | Pebble does not ask for health information and uses no health APIs. A user may type health-related text into a routine (for example "Take medication"). That free text is declared under "Other user-generated content". Do not declare Health info unless you add a health feature. **Owner decision needed before AI photo descriptions are switched on:** a photo of medication sent to be described, and the sentence that comes back, may count as health info. The cautious answer is then **Yes, Optional, App functionality** (see docs/research/AI_PRIVACY_LEGAL_BRIEFING.md on branch esearch/ai-photo-description, section 4, and question 12 for a solicitor). |
 | Fitness info | No | |
 
 ### Messages
@@ -100,16 +103,16 @@ compliance, Personalisation, Account management.
 
 | Type | Collected | Shared | Ephemeral | Required? | Purposes | Source and notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| Photos | **Yes** | No | No | Optional | App functionality | Only when Premium cloud backup is on (Premium + signed in + backup consent). Uploaded to the private `routine-proofs` Supabase Storage bucket, kept for a rolling 21 days. Photos that stay on the device are not collected. |
+| Photos | **Yes** | No | No | Optional | App functionality | Only when Premium cloud backup is on (Premium + signed in + backup consent). Uploaded to the private `routine-proofs` Supabase Storage bucket, kept for a rolling 21 days. Photos that stay on the device are not collected. **Also, when AI photo descriptions are on** (optional, off by default: Premium + signed in + the AI consent, for one routine): a JPEG copy of each photo from that routine's photo steps (the first five) is sent through the `describe-proof-photo` Edge Function to Anthropic to be described. Pebble's server holds it in memory only and stores nothing; Anthropic keeps it for up to 30 days, so it is **not** ephemeral. Anthropic is a service provider, so this is not sharing. |
 | Videos | No | | | | | Pebble does not capture or upload video |
 
 ### Audio files
 
-| Type | Collected | Notes |
-| --- | --- | --- |
-| Voice or sound recordings | **No** | Voice prompt recordings stay on the device (`guidance_audio_storage.dart`; `CURRENT_PRODUCT_OVERVIEW_PRD.md`). Backed-up routine steps can include the recording's filename, duration, MIME type and size, which counts as user-generated content metadata, not audio. **If audio backup is ever added, change this to Yes before release.** |
-| Music files | No | |
-| Other audio files | No | |
+| Type | Collected | Shared | Ephemeral | Required? | Purposes | Source and notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| Voice or sound recordings | **Yes** | No | No | Optional | App functionality | Only when Premium cloud backup is on (Premium + signed in + backup consent). Voice prompt recordings the user makes for routine steps are uploaded to `users/<uid>/guidance_audio/` in the private `routine-proofs` Supabase Storage bucket (`lib/features/sync/guidance_audio_cloud_backup.dart`, called from `cloud_sync_coordinator.dart`). They are kept until the user replaces or removes the recording, deletes the routine or deletes the account; the 21-day clean-up skips them (`supabase/functions/cleanup-proof-retention/plan.ts`). Recordings that stay on the device are not collected. |
+| Music files | No | | | | | |
+| Other audio files | No | | | | | |
 
 ### Files and docs
 
@@ -136,7 +139,7 @@ compliance, Personalisation, Account management.
 | App interactions | No | | | | | No analytics SDK. Sentry breadcrumbs are covered under Diagnostics. |
 | In-app search history | No | | | | | |
 | Installed apps | No | | | | | |
-| Other user-generated content | **Yes** | No | No | Optional | App functionality | With Premium cloud backup on: routine titles, steps (`steps_json`), icons and colours, reminder days and times, routine runs (title, finish time, step results), routine sessions, proof-photo records, voice prompt metadata, and the backup consent record. With completion emails on: the routine name, completion time and step counts in each email, and the sent-email log (`shared_alert_events`). |
+| Other user-generated content | **Yes** | No | No | Optional | App functionality | With Premium cloud backup on: routine titles, steps (`steps_json`), icons and colours, reminder days and times, routine runs (title, finish time, step results), routine sessions, proof-photo records, voice prompt metadata, and the backup consent record. With completion emails on: the routine name, completion time and step counts in each email, and the sent-email log (`shared_alert_events`). With AI photo descriptions on: the step title and any optional step description sent to Anthropic as context, the short description of each photo (kept in history on the phone, backed up with the run when backup is on, and included in the completion email only if the user chose that), the AI consent record (`ai_photo_consents`) and a per-account request count (`ai_photo_requests`, no content). |
 | Other actions | No | | | | | |
 
 ### Web browsing
@@ -164,8 +167,8 @@ compliance, Personalisation, Account management.
 Use this to check what the form generates on the preview screen.
 
 **Data collected:** Name, Email address, User IDs, Purchase history,
-Photos, Other user-generated content, Crash logs, Diagnostics, Device or
-other IDs.
+Photos, Voice or sound recordings, Other user-generated content, Crash logs,
+Diagnostics, Device or other IDs.
 
 **Data shared:** None.
 
@@ -176,13 +179,15 @@ You can request that data be deleted.
 
 | Change | Update |
 | --- | --- |
-| Voice prompt audio is backed up | Audio > Voice or sound recordings: Yes |
+| Voice prompt audio backup is removed from the app | Audio > Voice or sound recordings: No |
 | Analytics SDK added (Firebase, PostHog and so on) | App interactions, Device IDs, and probably Shared |
 | Push notifications through FCM or APNs tokens | Device or other IDs purposes |
 | Location reminders | Approximate or precise location |
 | Sentry removed from the build | Crash logs and Diagnostics can be removed. Device IDs stay (RevenueCat) |
 | Google sign-in changed to drop profile scope (and Supabase no longer stores the name) | Name: No |
 | Health or medication-management features | Health info, plus Play's Health apps declaration |
+| AI photo descriptions switched on for users (`AI_PHOTO_ENABLED`) | Confirm the Photos and Other user-generated content rows above, decide the Health info answer, and check Play's AI-generated content policy (a description of the user's own photo is probably out of scope) |
+| AI provider, model region or retention changes | Photos row, `web/privacy.html`, and a new consent version (`lib/features/ai_photo/ai_photo_constants.dart`) |
 
 Keep `LEGAL_PROCESSOR_MAP.md`, `web/privacy.html`, `APP_PRIVACY_LABELS.md`
 and this file in step.

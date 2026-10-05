@@ -72,16 +72,22 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
       loading: () => const _ThemeScaffold(
         child: Center(child: CircularProgressIndicator.adaptive()),
       ),
-      error: (e, _) => _ThemeScaffold(
-        child: ZenErrorView(message: 'Could not load history: $e'),
+      error: (e, _) => const _ThemeScaffold(
+        child: ZenErrorView(
+          title: "Couldn't load your history",
+          message: 'Close Pebble and open it again.',
+        ),
       ),
       data: (runs) {
         return routinesAsync.when(
           loading: () => const _ThemeScaffold(
             child: Center(child: CircularProgressIndicator.adaptive()),
           ),
-          error: (e, _) => _ThemeScaffold(
-            child: ZenErrorView(message: 'Could not load routines: $e'),
+          error: (e, _) => const _ThemeScaffold(
+            child: ZenErrorView(
+              title: "Couldn't load your routines",
+              message: 'Close Pebble and open it again.',
+            ),
           ),
           data: (routines) {
             final byId = <String, Routine>{
@@ -201,7 +207,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
             },
           ),
           _ToggleItem(
-            label: 'Photo Vault',
+            label: 'Photos',
             isSelected: mode == HistoryViewMode.vault,
             onTap: () {
               ref.read(historyViewModeProvider.notifier).state =
@@ -426,7 +432,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'No proof photos yet',
+            'No photos yet',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w500,
@@ -437,7 +443,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 48),
             child: Text(
-              'Photos you capture during routines will gather here.',
+              'Photos you take during a routine show up here.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
@@ -512,7 +518,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
             Icon(Icons.history, size: 48, color: foundation.textMuted),
             const SizedBox(height: 18),
             Text(
-              'No routine runs yet',
+              'Nothing here yet',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w500,
@@ -522,8 +528,8 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
             const SizedBox(height: 8),
             Text(
               policy.canUseCloudBackup
-                  ? 'Completed routine runs will appear here and back up quietly.'
-                  : 'Complete a routine and Pebble will keep the record here.',
+                  ? "When you finish a routine, it shows up here with the time, and it's included in your backup."
+                  : 'When you finish a routine, it shows up here with the time.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
@@ -589,7 +595,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
                 const SizedBox(height: 18),
                 _HistorySheetAction(
                   icon: LucideIcons.history,
-                  label: 'View routine run',
+                  label: 'View run',
                   onTap: () {
                     Navigator.pop(sheetContext);
                     Navigator.of(context).push(
@@ -615,7 +621,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
                   ),
                 _HistorySheetAction(
                   icon: LucideIcons.trash2,
-                  label: 'Delete this routine run',
+                  label: 'Delete this run',
                   isDestructive: true,
                   onTap: () async {
                     Navigator.pop(sheetContext);
@@ -652,9 +658,9 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
   Future<bool> _confirmDeleteRun(BuildContext context, RoutineRun run) async {
     final confirmed = await showPebbleConfirmationSheet(
       context: context,
-      title: 'Delete this routine run?',
-      body: 'This will permanently remove this routine run from your history.',
-      confirmLabel: 'Delete routine run',
+      title: 'Delete this run?',
+      body: "It'll be removed from your history. You can't undo this.",
+      confirmLabel: 'Delete run',
       isDestructive: true,
     );
     return confirmed == true;
@@ -735,7 +741,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
               );
             },
             icon: const Icon(LucideIcons.history, size: 18),
-            label: const Text('View routine run'),
+            label: const Text('View run'),
           ),
         );
       },
@@ -794,7 +800,7 @@ class _SlimSearchField extends StatelessWidget {
             color: foundation.textMuted,
           ),
           hintText: 'Search routines...',
-          hintStyle: TextStyle(color: foundation.textMuted),
+          hintStyle: TextStyle(color: context.readableSecondaryText),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: 12),
         ),
@@ -1238,7 +1244,7 @@ class _HistorySyncPill extends StatelessWidget {
       _HistorySyncState.synced => 'Backed up',
       _HistorySyncState.pending => 'Backup pending',
       _HistorySyncState.attention => 'Backup needs attention',
-      _HistorySyncState.localOnly => 'Stored on this device',
+      _HistorySyncState.localOnly => 'Stored on this phone',
     };
 
     return Tooltip(
@@ -1459,7 +1465,7 @@ class _HistoryBackupFooter extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              'History is only kept for 2 days',
+              'Free keeps 48 hours of history',
               style: TextStyle(
                 fontSize: 11,
                 height: 1.2,
@@ -1688,7 +1694,7 @@ class _VaultGridItem extends StatelessWidget {
               );
             },
             icon: const Icon(LucideIcons.history, size: 18),
-            label: const Text('View Routine Run'),
+            label: const Text('View run'),
           ),
         );
       },
@@ -1771,7 +1777,7 @@ class _HeroPhotoView extends StatelessWidget {
                         );
                       },
                       icon: const Icon(LucideIcons.history, size: 18),
-                      label: const Text('View Routine Run'),
+                      label: const Text('View run'),
                       style: FilledButton.styleFrom(
                         backgroundColor: Colors.white.withValues(alpha: 0.1),
                         foregroundColor: Colors.white,
@@ -1779,9 +1785,7 @@ class _HeroPhotoView extends StatelessWidget {
                           horizontal: 24,
                           vertical: 16,
                         ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
+                        shape: const StadiumBorder(),
                       ),
                     ),
                   ],

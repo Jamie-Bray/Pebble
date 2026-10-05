@@ -182,7 +182,7 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
       title: 'Premium isn\'t available yet',
       body:
           purchase.unavailableReason ??
-          'Premium is not ready in Google Play yet. Pebble still works on this device.',
+          "Premium isn't available from the store yet. Pebble still works on this phone.",
       statusLabel: 'Saved on this phone',
       historyLabel: 'Saved on this phone',
       limitChips: planFacts.chips,
@@ -193,7 +193,7 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
       secondaryActionLabel: restoreLabel,
       supportingDetail: purchase.unavailableReason != null
           ? 'Check your connection or try again later.'
-          : 'You have not done anything wrong. This build is waiting for store setup.',
+          : 'This version of Pebble is waiting for store setup.',
       tone: AccountStatusTone.neutral,
       icon: LucideIcons.clock3,
       isSyncRunning: false,
@@ -287,16 +287,16 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
     case PersonalCloudAccessStatus.pausedSignedOut:
       return AccountStatusPresentation(
         planLabel: planFacts.label,
-        title: 'Premium is on this device',
+        title: 'Premium is on this phone',
         body:
-            'Premium is active on this device. Sign in only if you want backup and account recovery.',
+            'Premium is active on this phone. Sign in only if you want backup and account recovery.',
         statusLabel: 'Sign in to back up',
         historyLabel: 'Waiting for sign-in',
         limitChips: planFacts.chips,
         featureHighlights: const [
           AccountFeatureHighlight(
             emphasis: '21-day history',
-            detail: 'is active on this device.',
+            detail: 'is active on this phone.',
           ),
           AccountFeatureHighlight(
             emphasis: 'Backup',
@@ -304,7 +304,7 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
           ),
           AccountFeatureHighlight(
             emphasis: 'No account needed',
-            detail: 'for extra routines and steps on this device.',
+            detail: 'for extra routines and steps on this phone.',
           ),
         ],
         primaryAction: AccountStatusAction.signIn,
@@ -356,18 +356,18 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
           planLabel: planFacts.label,
           title: 'Premium is active',
           body:
-              'Pebble is double-checking your purchase with Google Play. Backup starts right after.',
+              "Pebble is checking your purchase with the store. Backup starts once that's done.",
           statusLabel: 'Checking your purchase',
           historyLabel: 'Backup pending',
           limitChips: planFacts.chips,
           featureHighlights: const [
             AccountFeatureHighlight(
-              emphasis: 'Local Premium',
-              detail: 'is unlocked on this device.',
+              emphasis: 'Premium',
+              detail: 'is unlocked on this phone.',
             ),
             AccountFeatureHighlight(
               emphasis: 'Backup',
-              detail: 'starts after account verification.',
+              detail: 'starts once your purchase is confirmed.',
             ),
           ],
           primaryAction: AccountStatusAction.restorePurchase,
@@ -386,7 +386,7 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
         planLabel: planFacts.label,
         title: 'Backup is on',
         body:
-            'Your routines and history are backed up. If you lose or change your phone, they come back with you.',
+            'Your routines and history are backed up. On a new phone, sign in and they come back.',
         statusLabel: 'Backup is on',
         historyLabel: 'Backup is on',
         limitChips: planFacts.chips,
@@ -416,12 +416,12 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
         limitChips: planFacts.chips,
         featureHighlights: const [
           AccountFeatureHighlight(
-            emphasis: 'Local Premium',
-            detail: 'stays unlocked on this device.',
+            emphasis: 'Premium',
+            detail: 'stays unlocked on this phone.',
           ),
           AccountFeatureHighlight(
             emphasis: 'Backup',
-            detail: 'needs purchase verification.',
+            detail: 'starts once your purchase is confirmed.',
           ),
         ],
         primaryAction: AccountStatusAction.restorePurchase,
@@ -429,7 +429,7 @@ final accountStatusPresentationProvider = Provider<AccountStatusPresentation>((
         secondaryAction: AccountStatusAction.managePlan,
         secondaryActionLabel: 'Manage plan',
         supportingDetail:
-            account.entitlementError ?? 'Try again to re-check Premium.',
+            account.entitlementError ?? 'Try again to check Premium.',
         tone: AccountStatusTone.attention,
         icon: LucideIcons.cloudAlert,
         isSyncRunning: false,

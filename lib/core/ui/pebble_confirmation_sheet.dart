@@ -8,6 +8,7 @@ Future<bool?> showPebbleConfirmationSheet({
   required String confirmLabel,
   String cancelLabel = 'Cancel',
   bool isDestructive = false,
+  Widget? extraBody,
 }) {
   final themeData = Theme.of(context);
   final colorScheme = themeData.colorScheme;
@@ -21,7 +22,7 @@ Future<bool?> showPebbleConfirmationSheet({
     ),
     builder: (context) {
       return SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(24, 18, 24, 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -55,6 +56,7 @@ Future<bool?> showPebbleConfirmationSheet({
                   color: foundation.textSecondary,
                 ),
               ),
+              if (extraBody != null) ...[const SizedBox(height: 12), extraBody],
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,

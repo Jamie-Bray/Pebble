@@ -176,7 +176,7 @@ final accountBackupStatusSummaryProvider = Provider<AccountBackupStatusSummary>(
           kind: AccountBackupStatusKind.premiumSetupPending,
           label: 'Premium setup pending',
           detail:
-              'Pebble works on this phone without it. Premium can be started once the store is available in this build.',
+              'Pebble works on this phone without it. Premium isn\'t available in this version yet.',
           historyLabel: 'Saved on this phone',
           showRunSyncState: false,
         );
@@ -211,7 +211,7 @@ final accountBackupStatusSummaryProvider = Provider<AccountBackupStatusSummary>(
       return AccountBackupStatusSummary(
         kind: AccountBackupStatusKind.ready,
         label: 'Backup is on',
-        detail: 'Your routines are kept safe for restore.$pendingDetail',
+        detail: 'Your routines are backed up and can be restored.$pendingDetail',
         historyLabel: 'Backup is on',
         showRunSyncState: true,
       );
@@ -350,7 +350,7 @@ final accountBackupChipStateProvider = Provider<AccountBackupChipState>((ref) {
         label: 'Backup off',
         tone: AccountBackupChipTone.neutral,
         semanticsHint:
-            'Backup is off. Tap to keep a safe copy of your routines.',
+            'Backup is off. Tap to back up your routines.',
       );
     case PersonalCloudAccessStatus.consentRequired:
       return const AccountBackupChipState(
@@ -618,20 +618,20 @@ String? _backupDetailForState({
     return 'Photo storage full. Routine backup still works.';
   }
   if (fairUseState?.status == ProofMediaFairUseStatus.warning) {
-    return 'Proof photo storage is nearly full. Routine backup still works.';
+    return 'Photo storage is nearly full. Routine backup still works.';
   }
   switch (status) {
     case PersonalCloudAccessStatus.offFree:
     case PersonalCloudAccessStatus.offSignedInNoEntitlement:
-      return 'Upgrade when you want routine backup and restore.';
+      return 'Backup and restore come with Premium.';
     case PersonalCloudAccessStatus.consentRequired:
-      return 'Pebble needs your explicit consent before uploading routines, proof photos, history, or metadata that may reveal sensitive content.';
+      return 'Pebble asks before uploading anything, because routines, photos and history can include private details.';
     case PersonalCloudAccessStatus.available:
       return pendingChangesText ?? 'All caught up';
     case PersonalCloudAccessStatus.syncing:
       return pendingChangesText ?? 'Saving your latest changes';
     case PersonalCloudAccessStatus.verificationFailed:
-      return 'Try again to re-check Premium for this account.';
+      return 'Try again to check Premium for this account.';
     case PersonalCloudAccessStatus.pausedSignedOut:
       return 'Sign in again and backup will carry on.';
     case PersonalCloudAccessStatus.expiredGrace:

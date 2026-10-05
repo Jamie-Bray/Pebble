@@ -8,6 +8,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:pebble_routines/core/ui/pebble_buttons.dart';
+import 'package:pebble_routines/core/ui/pebble_cairn.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
@@ -46,10 +47,9 @@ class _StarterRoutine {
 
 const _starterRoutines = [
   _StarterRoutine(
-    cardTitle: 'Quick Departure Check',
-    subtitle:
-        'Check heat tools, the stove, windows and the front door before you leave.',
-    previewTitle: 'Quick Departure Check',
+    cardTitle: 'Quick departure check',
+    subtitle: 'Hair tools, the stove, the windows and the front door.',
+    previewTitle: 'Quick departure check',
     icon: LucideIcons.house,
     steps: [
       _StarterStep('Hair tools unplugged', requiresPhoto: true),
@@ -59,10 +59,9 @@ const _starterRoutines = [
     ],
   ),
   _StarterRoutine(
-    cardTitle: 'Medication Check',
-    subtitle:
-        'A simple routine for checking medication before you mark it done.',
-    previewTitle: 'Medication Check',
+    cardTitle: 'Medication check',
+    subtitle: 'Set out your medication, take it, and mark it done straight away.',
+    previewTitle: 'Medication check',
     icon: LucideIcons.pill,
     steps: [
       _StarterStep('Go to your medication spot'),
@@ -72,23 +71,23 @@ const _starterRoutines = [
     ],
   ),
   _StarterRoutine(
-    cardTitle: 'Hotel Checkout Sweep',
+    cardTitle: 'Hotel checkout sweep',
     subtitle:
-        'A quick hotel-room sweep for passports, chargers, drawers, and the safe.',
-    previewTitle: 'Hotel Checkout Sweep',
+        'Go round the room for chargers, passports and anything in the safe.',
+    previewTitle: 'Hotel checkout sweep',
     icon: LucideIcons.luggage,
     steps: [
       _StarterStep('Check the safe', requiresPhoto: true),
-      _StarterStep('Sweep every wall outlet'),
-      _StarterStep('Check drawers and nightstand'),
-      _StarterStep('Touch passport, wallet, and phone'),
+      _StarterStep('Check every socket for chargers'),
+      _StarterStep('Check the drawers and bedside table'),
+      _StarterStep('Passport, wallet and phone in hand'),
     ],
   ),
   _StarterRoutine(
-    cardTitle: 'Car Lock & Parking Check',
+    cardTitle: 'Car lock and parking check',
     subtitle:
-        'Check the windows, lights, valuables, lock, parking spot, and keys.',
-    previewTitle: 'Car Lock & Parking Check',
+        'Windows up, nothing on show, car locked, and a photo of where you parked.',
+    previewTitle: 'Car lock and parking check',
     icon: LucideIcons.car,
     steps: [
       _StarterStep('Windows fully up'),
@@ -98,10 +97,9 @@ const _starterRoutines = [
     ],
   ),
   _StarterRoutine(
-    cardTitle: 'Morning Pet Routine',
-    subtitle:
-        'Check food, water, medication, gates, doors, and collar before you leave.',
-    previewTitle: 'Morning Pet Routine',
+    cardTitle: 'Morning pet routine',
+    subtitle: 'Food, water and any medication, then gates and doors, before you go.',
+    previewTitle: 'Morning pet routine',
     icon: LucideIcons.heart,
     steps: [
       _StarterStep('Clean and fill the bowl'),
@@ -111,10 +109,9 @@ const _starterRoutines = [
     ],
   ),
   _StarterRoutine(
-    cardTitle: 'Gym & Sports Prep',
-    subtitle:
-        'Avoid arriving without trainers, towel, headphones, pass, or lock.',
-    previewTitle: 'Gym & Sports Prep',
+    cardTitle: 'Gym bag',
+    subtitle: "So you don't get to the gym without your trainers or padlock.",
+    previewTitle: 'Gym bag',
     icon: LucideIcons.dumbbell,
     steps: [
       _StarterStep('Trainers in the bag'),
@@ -421,23 +418,22 @@ class _WelcomePage extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SizedBox(height: 8),
                         _WelcomeWordmark(
                           color: Theme.of(context).colorScheme.primary,
                         ),
-                        const SizedBox(height: 28),
+                        const SizedBox(height: 16),
                         _WelcomeStatement(
                           primaryColor: foundation.textPrimary,
                           mutedColor: foundation.textSecondary,
                           accentColor: Theme.of(context).colorScheme.primary,
                         ),
-                        const SizedBox(height: 22),
+                        const SizedBox(height: 18),
                         _WelcomeRule(
                           color: Theme.of(context).colorScheme.primary,
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 16),
                         Text(
-                          'For routines you repeat.\nNot goals. Not streaks.',
+                          'For the checks you\nalready do.',
                           style: PebbleFonts.serif(
                             color: foundation.textPrimary.withValues(
                               alpha: 0.94,
@@ -452,11 +448,11 @@ class _WelcomePage extends StatelessWidget {
                           TextSpan(
                             children: [
                               const TextSpan(
-                                text: 'Pebble is for the checks that matter ',
+                                text: 'Pebble walks you through the checks you do ',
                               ),
                               TextSpan(
                                 text:
-                                    'before you leave, lock up, head out, or finish up. ',
+                                    'before you leave the house, lock up or go to bed. ',
                                 style: TextStyle(
                                   color: foundation.textPrimary.withValues(
                                     alpha: 0.82,
@@ -466,7 +462,7 @@ class _WelcomePage extends StatelessWidget {
                               ),
                               const TextSpan(
                                 text:
-                                    'The ones you do every day, once a month, or whenever the task comes up. Follow the steps, check them off, and move on with your day.',
+                                    'Some are daily, some come up twice a year. You check off each step as you go, and Pebble saves the time.',
                               ),
                             ],
                           ),
@@ -477,7 +473,6 @@ class _WelcomePage extends StatelessWidget {
                             height: 1.72,
                           ),
                         ),
-                        const SizedBox(height: 8),
                       ],
                     ),
                   ),
@@ -517,14 +512,20 @@ class _WelcomeWordmark extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 10),
+        // The brand mark, not a record of steps: hide the cairn's own label.
+        const ExcludeSemantics(
+          child: PebbleCairn(total: 3, size: 44, showCount: false),
+        ),
+        const SizedBox(width: PebbleSpacing.xs),
         Text(
-          'Pebble',
-          style: PebbleFonts.sans(
+          'pebble.',
+          semanticsLabel: 'Pebble',
+          style: PebbleFonts.serif(
             color: color,
-            fontSize: 11,
-            fontWeight: FontWeight.w400,
-            letterSpacing: 2.4,
+            fontSize: 26,
+            fontStyle: FontStyle.italic,
             height: 1,
+            letterSpacing: -0.3,
           ),
         ),
         const SizedBox(width: 10),
@@ -670,7 +671,7 @@ class _WelcomeActions extends StatelessWidget {
         const SizedBox(height: PebbleSpacing.xs),
         PebbleButton.tertiary(
           onPressed: onSkip,
-          label: 'Skip setup, go straight in',
+          label: 'Skip setup',
         ),
       ],
     );
@@ -832,7 +833,7 @@ class _PebblePossibilitiesScreenState extends State<_PebblePossibilitiesScreen>
                                   ),
                                   const SizedBox(height: 16),
                                   Text(
-                                    'Step out the door with total confidence.',
+                                    'Every check is saved with the time.',
                                     style: PebbleFonts.serif(
                                       color: foundation.textPrimary,
                                       fontSize: 33,
@@ -847,9 +848,10 @@ class _PebblePossibilitiesScreenState extends State<_PebblePossibilitiesScreen>
                                       maxWidth: 320,
                                     ),
                                     child: Text(
-                                      'Daily routine or twice-a-year job: Pebble '
-                                      'logs each step as you do it, so the doubt '
-                                      'that hits later already has an answer.',
+                                      'Use it for the daily leave-the-house check '
+                                      'or a job you do twice a year. If you '
+                                      'wonder later, you can look back and see '
+                                      'when you did each step.',
                                       style: PebbleFonts.sans(
                                         color: foundation.textSecondary,
                                         fontSize: 16,
@@ -868,7 +870,7 @@ class _PebblePossibilitiesScreenState extends State<_PebblePossibilitiesScreen>
                                   const SizedBox(height: 14),
                                   Center(
                                     child: Text(
-                                      'One step at a time, so nothing gets skipped.',
+                                      'You see one step at a time, in order.',
                                       textAlign: TextAlign.center,
                                       style: PebbleFonts.sans(
                                         color: context.readableSecondaryText,
@@ -879,7 +881,7 @@ class _PebblePossibilitiesScreenState extends State<_PebblePossibilitiesScreen>
                                   ),
                                   const SizedBox(height: 40),
                                   Text(
-                                    "Moments it's made for",
+                                    'Where it helps',
                                     style: PebbleFonts.serif(
                                       color: foundation.textPrimary,
                                       fontSize: 25,
@@ -889,8 +891,7 @@ class _PebblePossibilitiesScreenState extends State<_PebblePossibilitiesScreen>
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    "The routines you'd normally double-check, "
-                                    "and why the camera roll won't cut it.",
+                                    'A few of the checks people tend to go back for.',
                                     style: PebbleFonts.sans(
                                       color: foundation.textSecondary,
                                       fontSize: 14,
@@ -967,29 +968,29 @@ const _explainerMoments = [
     icon: LucideIcons.power,
     title: '"Did I unplug the straighteners?"',
     description:
-        'The doubt hits halfway down the street. Open Pebble: you ticked '
-        'it off two minutes ago, with a photo. No going back to check.',
+        "You're halfway down the street when you start to wonder. Open "
+        'Pebble and you can see you checked them at 08:02, with a photo.',
   ),
   _ExplainerMoment(
     icon: LucideIcons.house,
     title: '"Are the windows actually shut?"',
     description:
-        "The worry lands when you're miles away. Your photo is pinned to "
-        "today's checklist, not buried somewhere in your camera roll.",
+        "You're miles away by now. The photo you took is with today's "
+        "checklist, so you don't have to scroll your camera roll for it.",
   ),
   _ExplainerMoment(
     icon: LucideIcons.idCard,
     title: '"Where\'s my work pass?"',
     description:
-        "You're at the barrier with your bag half-open. No digging: you "
-        'ticked it off on the way out the door.',
+        "You're at the barrier, rummaging in your bag. Pebble shows you "
+        'checked it off at the front door this morning.',
   ),
   _ExplainerMoment(
     icon: LucideIcons.timer,
     title: '"How did I set this up last time?"',
     description:
-        'The boiler timer you only touch twice a year. Your steps from '
-        "last time are still here, so there's no guessing.",
+        "It's the boiler timer you touch twice a year. The steps you "
+        'saved last time are still there.',
   ),
 ];
 
@@ -1093,7 +1094,7 @@ class _ExplainerRoutineCard extends StatelessWidget {
                     status: _StepStatus.done,
                     label: 'Windows shut',
                     drawProgress: thirdTick,
-                    photoChipLabel: 'photo to be sure',
+                    photoChipLabel: 'photo taken',
                   ),
                   _ExplainerStep(
                     status: _StepStatus.now,
@@ -1155,7 +1156,7 @@ class _ExplainerStep extends StatelessWidget {
                     label,
                     style: PebbleFonts.sans(
                       color: isDone
-                          ? foundation.textMuted
+                          ? context.readableSecondaryText
                           : foundation.textPrimary,
                       fontSize: 15,
                       fontWeight: status == _StepStatus.now
@@ -1569,7 +1570,7 @@ class _ThemePickerPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Choose a look\nthat works for you.',
+                    'Choose how\nPebble looks.',
                     style: PebbleFonts.serif(
                       color: foundation.textPrimary,
                       fontSize: 26,
@@ -1579,7 +1580,7 @@ class _ThemePickerPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'You can change this any time in settings.',
+                    'You can change it any time in Settings.',
                     style: PebbleFonts.sans(
                       color: context.readableSecondaryText,
                       fontSize: 13,
@@ -1674,7 +1675,7 @@ _ThemeCardSpec _themeCardSpec(ThemeId id) {
     case ThemeId.highNoon:
       return const _ThemeCardSpec(
         type: 'Warm light',
-        hint: 'Looking at High Noon - warm and light',
+        hint: 'High Noon selected',
         swatch: Color(0xFFEFE8D8),
         label: Color(0xFFEFE8D8),
         mockCard: Color(0xBFFFFFFF),
@@ -1686,7 +1687,7 @@ _ThemeCardSpec _themeCardSpec(ThemeId id) {
     case ThemeId.amberResin:
       return const _ThemeCardSpec(
         type: 'Warm dark',
-        hint: 'Looking at Amber Resin - warm and dark',
+        hint: 'Amber Resin selected',
         swatch: Color(0xFF171411),
         label: Color(0xFF1E1916),
         mockCard: Color(0xE6241F1B),
@@ -1698,7 +1699,7 @@ _ThemeCardSpec _themeCardSpec(ThemeId id) {
     case ThemeId.softPink:
       return const _ThemeCardSpec(
         type: 'Soft light',
-        hint: 'Looking at Soft Pink - soft and gentle',
+        hint: 'Soft Pink selected',
         swatch: Color(0xFFF0E5E6),
         label: Color(0xFFF0E5E6),
         mockCard: Color(0xB3FFFFFF),
@@ -1710,7 +1711,7 @@ _ThemeCardSpec _themeCardSpec(ThemeId id) {
     case ThemeId.sageMist:
       return const _ThemeCardSpec(
         type: 'Forest dark',
-        hint: 'Looking at Sage Mist - forest dark',
+        hint: 'Sage Mist selected',
         swatch: Color(0xFF1A2018),
         label: Color(0xFF202820),
         mockCard: Color(0xD91E281C),
@@ -1725,7 +1726,7 @@ _ThemeCardSpec _themeCardSpec(ThemeId id) {
           .extension<PebbleDarkFoundation>();
       return _ThemeCardSpec(
         type: ThemeMetadata.get(id).subtitle,
-        hint: 'Looking at ${ThemeMetadata.get(id).name}',
+        hint: '${ThemeMetadata.get(id).name} selected',
         swatch: fallbackTheme.scaffoldBackgroundColor,
         label: fallbackTheme.colorScheme.surface,
         mockCard: fallbackTheme.colorScheme.surfaceContainerHigh,
@@ -2008,7 +2009,7 @@ class _StartingPointPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Tap one to see the steps inside. You can change everything later.',
+                    'Tap one to see its steps. You can change any of it later.',
                     style: PebbleFonts.sans(
                       color: context.readableSecondaryText,
                       fontSize: 12.5,
@@ -2170,7 +2171,7 @@ class _BrowseTemplatesTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    'More ready-made routines in the library',
+                    'More ready-made routines to start from',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: PebbleFonts.sans(
@@ -2241,7 +2242,7 @@ class _BuildOwnTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    'Build your own routine, step by step',
+                    'Name it and add your own steps',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: PebbleFonts.sans(
@@ -2295,7 +2296,7 @@ class _StarterPreviewPage extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            "You can change any step or add your own later. You're never locked in.",
+            'You can edit these steps or add your own later.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: foundation.textSecondary,
@@ -2316,7 +2317,7 @@ class _StarterPreviewPage extends StatelessWidget {
           const _OverTitle('YOUR FIRST ROUTINE'),
           const SizedBox(height: 12),
           Text(
-            "Here's how this could work.",
+            'How a routine works',
             style: PebbleFonts.serif(
               color: foundation.textPrimary,
               fontSize: 29,
@@ -2327,7 +2328,7 @@ class _StarterPreviewPage extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Each Pebble routine is made of small steps. You go through them one at a time, and some steps can ask for a photo.',
+            'A routine is a short list of steps. You go through them one at a time, and some ask for a photo.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: foundation.textSecondary,
               height: 1.45,

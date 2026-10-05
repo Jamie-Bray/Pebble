@@ -85,12 +85,18 @@ class RoutineSessionProofAsset {
   final ProofUploadStatus uploadStatus;
   final DateTime capturedAt;
 
+  /// What AI wrote about this photo, when the routine had AI photo
+  /// descriptions switched on. Left out of the JSON while null, so runs and
+  /// sessions saved or backed up without one read and write unchanged.
+  final String? aiDescription;
+
   const RoutineSessionProofAsset({
     required this.proofId,
     required this.localRelativePath,
     required this.remoteObjectKey,
     required this.uploadStatus,
     required this.capturedAt,
+    this.aiDescription,
   });
 
   factory RoutineSessionProofAsset.fromJson(Map<String, dynamic> json) {
@@ -102,6 +108,7 @@ class RoutineSessionProofAsset {
         json['uploadStatus']?.toString(),
       ),
       capturedAt: _parseDateTime(json['capturedAt']) ?? DateTime.now(),
+      aiDescription: _nonEmptyString(json['aiDescription']),
     );
   }
 
@@ -111,6 +118,7 @@ class RoutineSessionProofAsset {
     String? remoteObjectKey,
     ProofUploadStatus? uploadStatus,
     DateTime? capturedAt,
+    String? aiDescription,
   }) {
     return RoutineSessionProofAsset(
       proofId: proofId ?? this.proofId,
@@ -118,6 +126,7 @@ class RoutineSessionProofAsset {
       remoteObjectKey: remoteObjectKey ?? this.remoteObjectKey,
       uploadStatus: uploadStatus ?? this.uploadStatus,
       capturedAt: capturedAt ?? this.capturedAt,
+      aiDescription: aiDescription ?? this.aiDescription,
     );
   }
 
@@ -128,6 +137,7 @@ class RoutineSessionProofAsset {
       'remoteObjectKey': remoteObjectKey,
       'uploadStatus': uploadStatus.name,
       'capturedAt': capturedAt.toIso8601String(),
+      if (aiDescription != null) 'aiDescription': aiDescription,
     };
   }
 }
@@ -480,6 +490,11 @@ class RoutineSession {
       (state) => state.status != SessionStepStatus.pending,
     );
   }
+}
+
+String? _nonEmptyString(Object? value) {
+  final text = value is String ? value.trim() : '';
+  return text.isEmpty ? null : text;
 }
 
 DateTime? _parseDateTime(Object? value) {

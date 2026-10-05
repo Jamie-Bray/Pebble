@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
+import 'package:pebble_routines/features/ai_photo/ai_photo_settings.dart';
 import 'package:pebble_routines/features/routines/composer/data/guidance_audio_storage.dart';
 import 'package:pebble_routines/features/routines/composer/models/routine_composer_config.dart';
 import 'package:pebble_routines/features/routines/composer/models/routine_composer_mode.dart';
@@ -134,6 +135,10 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
       },
     );
 
+    final routineId = widget.config.routine?.id;
+    final aiDescribesPhotos =
+        routineId != null &&
+        ref.watch(aiPhotoActiveRoutineIdProvider) == routineId;
     final composerState = ref.watch(
       routineComposerViewModelProvider(widget.config),
     );
@@ -198,6 +203,12 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
                               composerState.steps[index].id,
                               value,
                             ),
+                            aiDescribesPhotos: aiDescribesPhotos,
+                            onPhotoPromptChanged: (value) =>
+                                _viewModel.updatePhotoPrompt(
+                                  composerState.steps[index].id,
+                                  value,
+                                ),
                             onSubmitted: () => _handleStepSubmitted(
                               composerState,
                               composerState.steps[index],
@@ -258,9 +269,9 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
 
   String _composerTitle(RoutineComposerState state) {
     if (state.mode == RoutineComposerMode.edit) {
-      return 'Edit Routine';
+      return 'Edit routine';
     }
-    return 'New Routine';
+    return 'New routine';
   }
 
   Widget _buildTitleField(BuildContext context) {
@@ -314,7 +325,7 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: Text(
-        'Start with a step and keep the list flowing.',
+        'Add one step at a time, in the order you do them.',
         style: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w400,
@@ -331,7 +342,7 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
         .where((step) => step.text.trim().isNotEmpty)
         .length;
     return Text(
-      'STEPS - $count ADDED',
+      'STEPS · $count',
       style: TextStyle(
         fontSize: 11,
         fontWeight: FontWeight.w700,
@@ -371,18 +382,6 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
                     : () => _handleAddStep(state),
                 subdued: _shouldSubdueAddStep(state),
               ),
-              if (_shouldShowAddStepHint(state)) ...[
-                const SizedBox(height: 8),
-                Text(
-                  'Add step creates the next one',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurface.withValues(alpha: 0.48),
-                  ),
-                ),
-              ],
               if (!state.isPublishing &&
                   (state.isSavingDraft || state.showSavedConfirmation)) ...[
                 const SizedBox(height: 8),
@@ -406,10 +405,6 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
         .where((step) => step.text.trim().isNotEmpty)
         .length;
     return nonEmptyStepCount == 0 ? 'Add step' : 'Add next step';
-  }
-
-  bool _shouldShowAddStepHint(RoutineComposerState state) {
-    return _focusedStepId != null && !state.isPublishing;
   }
 
   Future<void> _handleBack(RoutineComposerState state) async {
@@ -491,7 +486,7 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'You have $nonEmptyStepCount step${nonEmptyStepCount == 1 ? '' : 's'} in progress. Keep it to resume from Create later, or discard it now.',
+                  "You've added $nonEmptyStepCount step${nonEmptyStepCount == 1 ? '' : 's'}. Keep the draft to finish it later, or discard it.",
                   style: TextStyle(
                     fontSize: 15,
                     height: 1.4,
@@ -855,7 +850,9 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
         await _disposeGuidanceRecorder(recorder);
         if (!mounted) return;
         _resetGuidanceRecordingState();
-        _showGuidanceAudioError('Microphone access is needed to record audio.');
+        _showGuidanceAudioError(
+          'Pebble needs microphone access to record. You can allow it in your phone settings.',
+        );
         return;
       }
 
@@ -918,7 +915,7 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
       await _cancelAndDisposeGuidanceRecorder(recorder);
       if (!mounted) return;
       _resetGuidanceRecordingState();
-      _showGuidanceAudioError('Failed to start recording.');
+      _showGuidanceAudioError("Couldn't start recording. Try again.");
     }
   }
 
@@ -998,7 +995,7 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
       await _cancelAndDisposeGuidanceRecorder(recorder);
       if (!mounted) return;
       _resetGuidanceRecordingState();
-      _showGuidanceAudioError('Failed to save recording.');
+      _showGuidanceAudioError("Couldn't save the recording. Try again.");
     }
   }
 
@@ -1390,7 +1387,7 @@ class _GuidanceAudioSheet extends StatelessWidget {
             else ...[
               Text(
                 step.guidanceAudio == null
-                    ? 'Record up to 10 seconds of step guidance for this checklist item.'
+                    ? 'Record up to 10 seconds saying what to check on this step.'
                     : 'A voice tip is saved. Play it, replace it, or remove it.',
                 style: TextStyle(
                   fontSize: 14,
@@ -1456,7 +1453,7 @@ class _LockedGuidanceAudio extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Voice tips are included with Personal Premium.',
+          'Voice tips come with Personal Premium.',
           style: TextStyle(
             fontSize: 14,
             height: 1.45,
@@ -1474,9 +1471,7 @@ class _LockedGuidanceAudio extends StatelessWidget {
               fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
+            shape: const StadiumBorder(),
           ),
         ),
       ],
@@ -1519,7 +1514,7 @@ class _GuidanceRecordButton extends StatelessWidget {
     return Semantics(
       button: true,
       label: label,
-      hint: 'Hold to record, release to save. Maximum 10 seconds.',
+      hint: 'Hold to record, release to save. You can record up to 10 seconds.',
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTapDown: (_) => onRecordStart(),
@@ -1693,7 +1688,7 @@ class _AddStepButton extends StatelessWidget {
         disabledForegroundColor: cs.onSurface.withValues(alpha: 0.34),
         minimumSize: const Size.fromHeight(52),
         textStyle: PebbleFonts.sans(fontSize: 15, fontWeight: FontWeight.w700),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        shape: const StadiumBorder(),
       ),
       icon: const Icon(LucideIcons.plus, size: 16),
       label: Text(label),

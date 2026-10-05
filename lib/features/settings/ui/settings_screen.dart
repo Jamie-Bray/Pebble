@@ -1,6 +1,7 @@
 // lib/features/settings/ui/settings_screen.dart
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
+import "package:pebble_routines/core/config/app_version.dart";
 import "package:pebble_routines/core/config/legal_links.dart";
 import "package:pebble_routines/core/theme/theme_provider.dart";
 import "package:pebble_routines/core/ui/zen_notifications.dart";
@@ -211,7 +212,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                         _FlowTile(
                           icon: LucideIcons.info,
                           title: 'About Pebble',
-                          subtitle: 'Version 1.0.0 · Privacy, terms, deletion',
+                          subtitle: _aboutSubtitle(
+                            ref.watch(appVersionProvider).valueOrNull,
+                          ),
                           onTap: () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
@@ -390,60 +393,63 @@ class _FlowSwitchTile extends StatelessWidget {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(10),
+      // One screen-reader item: the switch is announced with its title.
+      child: MergeSemantics(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              alignment: Alignment.center,
+              child: Icon(icon, color: theme.colorScheme.primary),
             ),
-            alignment: Alignment.center,
-            child: Icon(icon, color: theme.colorScheme.primary),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 2),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    subtitle!,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w300,
+                    title,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
                       letterSpacing: 0.2,
-                      color: theme.colorScheme.onSurface.withValues(
-                        alpha: 0.65,
-                      ),
                     ),
                   ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle!,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w300,
+                        letterSpacing: 0.2,
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.65,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Switch.adaptive(
-            value: value,
-            onChanged: onChanged,
-            // Theme accent instead of the bright iOS system green.
-            activeTrackColor: theme.colorScheme.primary,
-            thumbColor: WidgetStateProperty.resolveWith(
-              (states) => states.contains(WidgetState.selected)
-                  ? theme.colorScheme.onPrimary
-                  : null,
+            const SizedBox(width: 12),
+            Switch.adaptive(
+              value: value,
+              onChanged: onChanged,
+              // Theme accent instead of the bright iOS system green.
+              activeTrackColor: theme.colorScheme.primary,
+              thumbColor: WidgetStateProperty.resolveWith(
+                (states) => states.contains(WidgetState.selected)
+                    ? theme.colorScheme.onPrimary
+                    : null,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -465,4 +471,12 @@ class _Hairline extends StatelessWidget {
       ),
     );
   }
+}
+
+/// "Version 1.0.0 · Privacy, terms, deletion", using the installed build's
+/// version. The version is left out until the platform has reported it.
+String _aboutSubtitle(String? appVersion) {
+  const links = 'Privacy, terms, deletion';
+  if (appVersion == null) return links;
+  return 'Version ${appVersion.split('+').first} · $links';
 }
