@@ -267,3 +267,52 @@ the AI feature or the signed app is ready/live.
 Handoff details: `docs/CLAUDE_LAUNCH_PREREQUISITES_2026-10-05.md`. Private
 verification logs and website screenshot are under ignored
 `artifacts/phone-build/`.
+
+## Live deployment record — 5 October 2026 (Claude)
+
+Owner approval: Jamie approved "update live now" for this plan in chat on
+5 October 2026. Target `pebble-production` (`yncgjqbjjzbinqkpukug`), Supabase
+CLI 2.119.0, functions bundled with `--use-api` from `main` at `3538694`
+(build 35). Two accounts existed, both test accounts.
+
+**Migration history (records only, no SQL run).** Marked the two timestamp
+versions `20260610083720` and `20260714194247` as reverted, then recorded
+`012`, `013`, `015` and `016` as applied, as `MIGRATION_REPAIR_PLAN.md` describes.
+
+**Migrations applied** with `supabase db push --linked --include-all`, in this
+order: `014`, `017`, `018`, `019`, `020`, `021`, `022`, `023`. Local and remote
+history now match for `001`–`023`.
+
+Checked afterwards with read-only SQL:
+- cron jobs `cleanup-proof-retention-daily`, `reconcile-profile-tiers-daily`
+  and `prune-shared-alert-data-daily` exist and are active;
+- `get_ai_photo_allowance` returns limit 200 and is not executable by
+  `authenticated`; `service_role` can execute the entitlement helper;
+- `routine-proofs` bucket: 5 MB, webp/jpeg/png/wav;
+- the SHA-256 of Vault secret `cleanup-proof-retention-header` equals the
+  digest of function secret `CLEANUP_PROOF_RETENTION_SECRET`;
+- one public policy still has `roles = {public}`; not investigated.
+
+**Functions deployed**, `cleanup-proof-retention` first: `cleanup-proof-retention`
+v16, `shared-alert-accept` / `-decline` / `-block` v15,
+`request-shared-alert-contact` v16, `send-routine-completion-alert` v16,
+`revenuecat-webhook` v14, `revenuecat-sync-entitlement` v11,
+`request-account-deletion` v16, `describe-proof-photo` v1 (new). `verify_jwt`
+matches `config.toml` for each. `delete-account` and `verify-purchase` unchanged.
+
+Smoke checks, no real data sent: the accept link redirects (303) to the
+published confirm page; cleanup and the RevenueCat webhook return 401 without
+their secrets; `describe-proof-photo` reported `{"enabled":false}` before the
+switch and refuses a caller who is not signed in (401).
+
+**AI enabled.** Set function secret `AI_PHOTO_ENABLED=true`; discovery now
+reports `{"enabled":true}`. `ai_photo_settings.paused` is `false`.
+`ANTHROPIC_API_KEY` was already set (Codex record above).
+
+**Not done, still owed.** No signed-in test of any flow: no real AI description,
+purchase, restore, backup upload, completion email or cron run has been
+observed since this deployment. Staging was skipped (it is paused), so plan
+step 4's staged tests, including concurrent allowance requests, were not run.
+The Anthropic key was printed into a local agent session log by a CLI parse
+error on `.env.local`; rotate it and update the secret. Stop switch if needed:
+`supabase secrets set AI_PHOTO_ENABLED=false`.
