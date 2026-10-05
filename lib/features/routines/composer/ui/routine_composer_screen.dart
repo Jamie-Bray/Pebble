@@ -368,7 +368,7 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
           decoration: BoxDecoration(
             color: cs.surface.withValues(alpha: 0.96),
             border: Border(
-              top: BorderSide(color: cs.outline.withValues(alpha: 0.72)),
+              top: BorderSide(color: cs.outline.withValues(alpha: 0.22)),
             ),
           ),
           child: Column(

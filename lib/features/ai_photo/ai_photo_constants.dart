@@ -31,8 +31,9 @@ const _consentWhatHappens =
     'When you take a photo on a photo step in this routine, Pebble sends it '
     'and the step title, plus any step description you add, to '
     '$aiPhotoProviderName, $aiPhotoProviderDescription, which sends back a '
-    "short description of what's in the photo. $aiPhotoRetentionSentence "
-    'No account details are added.';
+    "short description of what's in the photo.";
+const _consentWhatIsKept =
+    '$aiPhotoRetentionSentence No account details are added.';
 const _consentCanBeWrong =
     "The description can be wrong. It can't tell you whether something is "
     'locked, switched off or done, so look at the photo yourself if it '
@@ -43,6 +44,7 @@ const _consentOptional =
 
 const aiPhotoConsentBody = <String>[
   _consentWhatHappens,
+  _consentWhatIsKept,
   _consentCanBeWrong,
   _consentOptional,
   aiPhotoAllowanceDetail,
