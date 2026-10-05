@@ -218,8 +218,7 @@ void main() {
       final many = _routine(1, 'Lock up', [for (var i = 0; i < 7; i++) _photo]);
       final few = _routine(2, 'Bag', const [_photo, _plain]);
       final onForMany = AiPhotoSettings(
-        routineId: 1,
-        routineTitle: 'Lock up',
+        routineIds: const {1},
         consentVersion: aiPhotoConsentVersion,
         consentedAt: DateTime(2026, 10, 5),
       );
@@ -235,7 +234,7 @@ void main() {
         serverEnabled: server,
       );
       expect(subtitle(many), 'On for the first 5 of 7 photo steps');
-      expect(subtitle(few), 'On for "Lock up"');
+      expect(subtitle(few), 'Off', reason: 'on for another routine only');
       expect(subtitle(few, settings: AiPhotoSettings.off), 'Off');
       expect(subtitle(many, server: false), 'Unavailable right now');
       expect(
@@ -273,11 +272,7 @@ void main() {
       'consent is recorded on the server, then on the phone with version and time',
       () async {
         final c = controller();
-        await c.turnOn(
-          routineId: 1,
-          routineTitle: 'Lock up',
-          routineKey: 'local:1',
-        );
+        await c.turnOn(routineId: 1, routineKey: 'local:1');
 
         expect(service.consents, ['local:1']);
         expect(c.state.isOnFor(1), isTrue);
@@ -295,39 +290,54 @@ void main() {
       service.consentError = const AiPhotoException('offline');
       final c = controller();
       await expectLater(
-        c.turnOn(routineId: 1, routineTitle: 'Lock up', routineKey: 'local:1'),
+        c.turnOn(routineId: 1, routineKey: 'local:1'),
         throwsA(isA<AiPhotoException>()),
       );
       expect(c.state.isOn, isFalse);
       expect(controller().state.isOn, isFalse);
     });
 
-    test('one routine at a time: turning it on for another moves it', () async {
+    test('several routines: each is switched on and off on its own', () async {
       final c = controller();
-      await c.turnOn(
-        routineId: 1,
-        routineTitle: 'Lock up',
-        routineKey: 'local:1',
-      );
-      await c.setEmailDescriptions(true);
-      await c.turnOn(routineId: 2, routineTitle: 'Bag', routineKey: 'local:2');
+      await c.turnOn(routineId: 1, routineKey: 'local:1');
+      await c.setEmailDescriptions(1, true);
+      await c.turnOn(routineId: 2, routineKey: 'local:2');
 
+      expect(c.state.isOnFor(1), isTrue);
+      expect(c.state.isOnFor(2), isTrue);
+      expect(service.consents, ['local:1', 'local:2']);
+      // The email choice is per routine.
+      expect(c.state.emailDescriptionsFor(1), isTrue);
+      expect(c.state.emailDescriptionsFor(2), isFalse);
+
+      await c.turnOff(1);
       expect(c.state.isOnFor(1), isFalse);
       expect(c.state.isOnFor(2), isTrue);
-      expect(c.state.routineTitle, 'Bag');
-      expect(service.consents, ['local:1', 'local:2']);
-      // The email choice belonged to the other routine and is asked again.
-      expect(c.state.emailDescriptions, isNull);
+      expect(service.withdrawals, 0, reason: 'another routine still uses AI');
+      expect(controller().state.isOnFor(2), isTrue);
+
+      await c.turnOff(2);
+      expect(c.state.isOn, isFalse);
+      expect(service.withdrawals, 1);
     });
+
+    test(
+      'a setting saved before several routines were allowed still reads',
+      () {
+        final old = AiPhotoSettings.fromJson({
+          'routineId': 3,
+          'consentVersion': aiPhotoConsentVersion,
+          'emailDescriptions': true,
+        });
+        expect(old.isOnFor(3), isTrue);
+        expect(old.emailDescriptionsFor(3), isTrue);
+      },
+    );
 
     test('turning off stops at once and records the withdrawal', () async {
       final c = controller();
-      await c.turnOn(
-        routineId: 1,
-        routineTitle: 'Lock up',
-        routineKey: 'local:1',
-      );
-      await c.turnOff();
+      await c.turnOn(routineId: 1, routineKey: 'local:1');
+      await c.turnOff(1);
       expect(c.state.isOn, isFalse);
       expect(service.withdrawals, 1);
       expect(c.state.withdrawalPending, isFalse);
@@ -337,13 +347,9 @@ void main() {
       'a withdrawal that could not reach the server is sent on the next start',
       () async {
         final c = controller();
-        await c.turnOn(
-          routineId: 1,
-          routineTitle: 'Lock up',
-          routineKey: 'local:1',
-        );
+        await c.turnOn(routineId: 1, routineKey: 'local:1');
         service.withdrawFails = true;
-        await c.turnOff();
+        await c.turnOff(1);
         expect(
           c.state.isOn,
           isFalse,
@@ -365,7 +371,7 @@ void main() {
         'pebble.ai_photo.$_userId',
         jsonEncode(
           const AiPhotoSettings(
-            routineId: 1,
+            routineIds: {1},
             consentVersion: '2020-01-01',
           ).toJson(),
         ),
@@ -374,44 +380,32 @@ void main() {
     });
 
     test('signed out, or another account, has nothing switched on', () async {
-      await controller().turnOn(
-        routineId: 1,
-        routineTitle: 'Lock up',
-        routineKey: 'local:1',
-      );
+      await controller().turnOn(routineId: 1, routineKey: 'local:1');
       expect(controller(userId: null).state.isOn, isFalse);
       expect(controller(userId: 'someone-else').state.isOn, isFalse);
     });
 
-    test('email descriptions: no answer until the person gives one', () async {
+    test('email descriptions: left out until the person says yes', () async {
       final c = controller();
-      await c.setEmailDescriptions(true);
+      await c.setEmailDescriptions(1, true);
       expect(
-        c.state.emailDescriptions,
-        isNull,
+        c.state.emailDescriptionsFor(1),
+        isFalse,
         reason: 'nothing to set while AI is off',
       );
-      await c.turnOn(
-        routineId: 1,
-        routineTitle: 'Lock up',
-        routineKey: 'local:1',
-      );
-      expect(c.state.emailDescriptions, isNull);
-      await c.setEmailDescriptions(false);
-      expect(c.state.emailDescriptions, isFalse);
-      await c.setEmailDescriptions(true);
-      expect(controller().state.emailDescriptions, isTrue);
+      await c.turnOn(routineId: 1, routineKey: 'local:1');
+      expect(c.state.emailDescriptionsFor(1), isFalse);
+      await c.setEmailDescriptions(1, true);
+      expect(controller().state.emailDescriptionsFor(1), isTrue);
+      await c.setEmailDescriptions(1, false);
+      expect(controller().state.emailDescriptionsFor(1), isFalse);
     });
 
     test(
       'Premium gate: nothing is described without Personal Premium',
       () async {
-        await controller().turnOn(
-          routineId: 1,
-          routineTitle: 'Lock up',
-          routineKey: 'local:1',
-        );
-        int? activeFor(UserTier tier) {
+        await controller().turnOn(routineId: 1, routineKey: 'local:1');
+        Set<int> activeFor(UserTier tier) {
           final container = ProviderContainer(
             overrides: [
               sharedPreferencesProvider.overrideWithValue(prefs),
@@ -430,11 +424,11 @@ void main() {
             ],
           );
           addTearDown(container.dispose);
-          return container.read(aiPhotoActiveRoutineIdProvider);
+          return container.read(aiPhotoActiveRoutineIdsProvider);
         }
 
-        expect(activeFor(UserTier.personalPremium), 1);
-        expect(activeFor(UserTier.personalFree), isNull);
+        expect(activeFor(UserTier.personalPremium), {1});
+        expect(activeFor(UserTier.personalFree), isEmpty);
       },
     );
   });
@@ -490,7 +484,7 @@ void main() {
         proofStorage: _FakeProofStorage(),
         maxProofPhotosPerStep: 4,
         routineLimitPolicy: _unlocked,
-        aiRoutineId: aiRoutineId,
+        aiRoutineIds: {if (aiRoutineId != null) aiRoutineId},
         describeProof: describe,
       );
       addTearDown(controller.dispose);
@@ -930,11 +924,7 @@ void main() {
         service: service,
         userId: _userId,
       );
-      await controller.turnOn(
-        routineId: 1,
-        routineTitle: 'Lock up',
-        routineKey: 'local:1',
-      );
+      await controller.turnOn(routineId: 1, routineKey: 'local:1');
       await tester.pumpWidget(
         ProviderScope(
           overrides: [

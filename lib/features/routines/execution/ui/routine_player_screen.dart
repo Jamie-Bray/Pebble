@@ -1134,7 +1134,7 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
       // server filters them again and never emails a photo.
       final ai = ref.read(aiPhotoControllerProvider);
       final descriptions =
-          ai.isOnFor(session.routineId) && ai.emailDescriptions == true
+          ai.emailDescriptionsFor(session.routineId)
           ? await _playerController.aiDescriptionsForEmail()
           : const <String>[];
       final result = await sharedReminders.sendCompletionReminder(

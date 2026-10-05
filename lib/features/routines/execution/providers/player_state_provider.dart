@@ -351,12 +351,12 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
     required RoutineSessionProofStorage proofStorage,
     required int maxProofPhotosPerStep,
     required RoutineLimitPolicy routineLimitPolicy,
-    int? aiRoutineId,
+    Set<int> aiRoutineIds = const {},
     AiProofDescriber? describeProof,
   }) : _sessionId = sessionId,
        _repository = repository,
        _proofStorage = proofStorage,
-       _aiRoutineId = aiRoutineId,
+       _aiRoutineIds = aiRoutineIds,
        _describeProof = describeProof,
        super(
          RoutinePlayerUiState.loading(
@@ -372,7 +372,7 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
   final RoutineSessionProofStorage _proofStorage;
 
   /// The routine with AI photo descriptions switched on, if any.
-  final int? _aiRoutineId;
+  final Set<int> _aiRoutineIds;
   final AiProofDescriber? _describeProof;
   final Set<Future<void>> _describing = {};
   Future<void>? _backgroundSave;
@@ -722,7 +722,7 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
   ) {
     final describe = _describeProof;
     if (describe == null ||
-        _aiRoutineId != session.routineId ||
+        !_aiRoutineIds.contains(session.routineId) ||
         !aiPhotoStepIndexes(
           session.routineSnapshotSteps,
         ).contains(session.currentStepIndex)) {
@@ -805,7 +805,7 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
       ).timeout(timeout, onTimeout: () => const []);
     }
     final session = state.session;
-    if (!mounted || session == null || _aiRoutineId != session.routineId) {
+    if (!mounted || session == null || !_aiRoutineIds.contains(session.routineId)) {
       return const [];
     }
     final aiSteps = aiPhotoStepIndexes(session.routineSnapshotSteps);
@@ -983,7 +983,7 @@ final routinePlayerProvider = StateNotifierProvider.autoDispose
         proofStorage: ref.read(routineSessionProofStorageProvider),
         maxProofPhotosPerStep: maxProofPhotosPerStep,
         routineLimitPolicy: ref.watch(routineLimitPolicyProvider),
-        aiRoutineId: ref.watch(aiPhotoActiveRoutineIdProvider),
+        aiRoutineIds: ref.watch(aiPhotoActiveRoutineIdsProvider),
         describeProof: ref.read(aiProofDescriberProvider),
       );
     });

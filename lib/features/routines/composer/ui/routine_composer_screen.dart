@@ -138,7 +138,7 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
     final routineId = widget.config.routine?.id;
     final aiDescribesPhotos =
         routineId != null &&
-        ref.watch(aiPhotoActiveRoutineIdProvider) == routineId;
+        ref.watch(aiPhotoActiveRoutineIdsProvider).contains(routineId);
     final composerState = ref.watch(
       routineComposerViewModelProvider(widget.config),
     );

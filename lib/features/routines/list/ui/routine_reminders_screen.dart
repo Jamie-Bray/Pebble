@@ -1326,7 +1326,9 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
   /// Shown only while AI photo descriptions are on for this routine. Off
   /// unless the person turns it on here or answered "Add descriptions".
   Widget _buildAiDescriptionsToggle(ColorScheme cs) {
-    final isOn = ref.watch(aiPhotoControllerProvider).emailDescriptions == true;
+    final isOn = ref
+        .watch(aiPhotoControllerProvider)
+        .emailDescriptionsFor(widget.routine!.id);
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
       decoration: BoxDecoration(
@@ -1368,7 +1370,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
               value: isOn,
               onChanged: (include) => ref
                   .read(aiPhotoControllerProvider.notifier)
-                  .setEmailDescriptions(include),
+                  .setEmailDescriptions(widget.routine!.id, include),
               activeThumbColor: cs.primary,
             ),
           ),
@@ -2148,10 +2150,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            _weekdayLabel(day),
-            style: PebbleType.of(context).headline,
-          ),
+          Text(_weekdayLabel(day), style: PebbleType.of(context).headline),
           const SizedBox(height: 8),
           ...reminders.map((reminder) => _buildReminderCard(reminder, cs)),
         ],
