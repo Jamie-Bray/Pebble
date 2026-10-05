@@ -270,3 +270,35 @@ Deno.test('invite email failure is reported without provider details', async () 
   assert(res.status === 502 && res.body.code === 'emailFailed', '502');
   assert(!JSON.stringify(res.body).includes('boom'), 'no provider text');
 });
+
+Deno.test('AI photo descriptions: emailed only with consent, labelled as AI, filtered and capped', async () => {
+  const t = setup();
+  await t.invite();
+  assert(t.sent[0].text.includes('The photos themselves are never emailed.'), 'invite says photos are never emailed');
+  await t.confirm('accept', tokenFrom(t.sent[0].text, 'accept'));
+  const descriptions = [
+    'A white door with the handle pointing up.',
+    'The hob is switched off.',
+    '<b>Four</b> dials with the marker at the top.',
+    'three', 'four', 'five', 'six',
+  ];
+
+  // No AI consent on the server: descriptions are dropped, the email still goes.
+  assert((await t.finish('run-1', { descriptions })).body.sent === true, 'sent without descriptions');
+  assert(!t.sent[1].text.includes('Written by AI') && !t.sent[1].text.includes('white door'), 'not included without consent');
+
+  t.store.aiConsent.add(SENDER.id);
+  assert((await t.finish('run-2', { descriptions })).body.sent === true, 'sent');
+  const mail = t.sent[2];
+  assert(mail.text.includes("Written by AI from jamie@example.com's photos. The descriptions can be wrong."), 'AI line in text');
+  assert(mail.html.includes('Written by AI from jamie@example.com&#39;s photos.'), 'AI line in html');
+  assert(mail.text.indexOf('Written by AI') < mail.text.indexOf('Photo 1: A white door'), 'descriptions sit under the AI line');
+  assert(!mail.text.includes('switched off') && !mail.html.includes('switched off'), 'verdict dropped');
+  assert(mail.html.includes('&lt;b&gt;Four&lt;/b&gt;') && !mail.html.includes('<b>Four</b>'), 'escaped in html');
+  assert(mail.text.includes('Photo 4: four') && !mail.text.includes('five') && !mail.text.includes('six'), 'first five only');
+  assert(!JSON.stringify(t.store.events).includes('white door'), 'descriptions are not stored');
+
+  // Without the field nothing changes.
+  await t.finish('run-3');
+  assert(!t.sent[3].text.includes('Photo descriptions'), 'no section without descriptions');
+});

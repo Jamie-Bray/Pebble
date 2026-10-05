@@ -16,6 +16,7 @@ export class FakeStore implements SharedAlertStore {
   suppressions = new Set<string>();
   events: Event[] = [];
   premium = new Set<string>();
+  aiConsent = new Set<string>();
   private seq = 0;
   constructor(public clock: () => number) {}
 
@@ -28,6 +29,9 @@ export class FakeStore implements SharedAlertStore {
 
   hasActiveEntitlement(userId: string) {
     return Promise.resolve(this.premium.has(userId));
+  }
+  hasCurrentAiPhotoConsent(userId: string) {
+    return Promise.resolve(this.aiConsent.has(userId));
   }
   getContactForRoutine(ownerId: string, routineKey: string) {
     return Promise.resolve(this.contacts.find((c) => c.owner_user_id === ownerId && c.routine_key === routineKey) ?? null);

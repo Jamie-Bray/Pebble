@@ -61,6 +61,8 @@ export type NewEvent = {
 
 export interface SharedAlertStore {
   hasActiveEntitlement(userId: string): Promise<boolean>;
+  /** True when the account has an unwithdrawn AI photo consent for `version`. */
+  hasCurrentAiPhotoConsent(userId: string, version: string): Promise<boolean>;
 
   getContactForRoutine(ownerId: string, routineKey: string): Promise<ContactRow | null>;
   getContactById(id: string): Promise<ContactRow | null>;
@@ -128,6 +130,12 @@ export function supabaseSharedAlertStore(client: Client): SharedAlertStore {
         return false;
       }
       return data === true;
+    },
+
+    async hasCurrentAiPhotoConsent(userId, version) {
+      const row = check(await client.from('ai_photo_consents').select('owner_user_id')
+        .eq('owner_user_id', userId).eq('consent_version', version).is('withdrawn_at', null).maybeSingle());
+      return row !== null;
     },
 
     async getContactForRoutine(ownerId, routineKey) {
