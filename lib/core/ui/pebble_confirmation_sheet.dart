@@ -21,7 +21,7 @@ Future<bool?> showPebbleConfirmationSheet({
     ),
     builder: (context) {
       return SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(24, 18, 24, 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,

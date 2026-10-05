@@ -38,6 +38,28 @@ Policy.
   address, the sender's account email (shown in the email so the contact knows
   who it is from), the routine name unless the sender hides it, completion
   time and step counts.
+- Anthropic: AI photo descriptions, called only from the
+  `describe-proof-photo` Edge Function (`api.anthropic.com`,
+  `ANTHROPIC_API_KEY`, model `claude-haiku-4-5`). Off unless the
+  `AI_PHOTO_ENABLED` secret is `true`. Runs only for a signed-in Personal
+  Premium account with a current row in `ai_photo_consents`. Receives a
+  re-encoded JPEG of the photo (no EXIF or GPS, longest side about 1,000 px)
+  and a fixed prompt. Does not receive the account ID, email address, routine
+  name, step name, IP address or device identifiers. Returns one or two
+  sentences. Pebble's function holds the photo in memory for the one request
+  and never stores or logs the photo or the description. Provider retention:
+  the API default, deleted within 30 days (longer only for content flagged
+  for misuse investigations or legal duties); no model training on inputs;
+  no zero-retention agreement. Retention checked on 5 October 2026 against
+  https://privacy.claude.com/en/articles/7996866-how-long-do-you-store-my-organization-s-data.
+  Processor under Anthropic's Commercial Terms and Data Processing Addendum
+  (https://www.anthropic.com/legal/data-processing-addendum). **Owner to do
+  before switching on:** accept the terms on the account that owns the key,
+  save a dated copy of the DPA, and confirm which transfer safeguard applies.
+  The photo may show health details (medication), so this processing relies
+  on consent given on the in-app sheet.
+- Resend also receives AI photo descriptions in completion emails, only where
+  the sender chose to add them for that routine.
 - Sentry: crash reporting only, and only in builds where a `SENTRY_DSN`
   dart-define is supplied. Configured with PII sending off, no screenshots, no
   view hierarchy, no user identity, no tracing, and no session replay. Crash
@@ -64,8 +86,9 @@ Policy.
 - Supabase Storage bucket: `routine-proofs` (proof photos, and voice tip
   recordings under `users/<uid>/guidance_audio/`).
 - Supabase Edge Functions called by the app: `delete-account`,
-  `revenuecat-sync-entitlement`, `request-shared-alert-contact`, and
-  `send-routine-completion-alert`.
+  `revenuecat-sync-entitlement`, `request-shared-alert-contact`,
+  `send-routine-completion-alert`, and `describe-proof-photo` (which calls
+  `api.anthropic.com`).
 - Supabase Edge Functions called by the website: `request-account-deletion`
   (`web/delete-account.html`), and `shared-alert-accept`,
   `shared-alert-decline`, and `shared-alert-block`
@@ -75,7 +98,10 @@ Policy.
 - `verify-purchase` still exists under `supabase/functions/` but the app no
   longer calls it.
 - Supabase database tables written through Edge Functions only: the
-  `shared_alert_*` tables for completion emails.
+  `shared_alert_*` tables for completion emails, and the `ai_photo_*` tables
+  (consent record: account ID, consent wording version, provider, routine key,
+  app version, consented and withdrawn times; a per-account request count; a
+  monthly total; the off switch). None of them holds a photo or a description.
 - Google Play subscription management URL:
   `https://play.google.com/store/account/subscriptions`.
 - App Store subscription management URL:
@@ -100,6 +126,13 @@ Policy.
   their filename, duration, MIME type, and size. They are kept until the user
   replaces or removes the recording, deletes the routine or deletes the
   account; `cleanup-proof-retention` skips them.
+- Photos sent to Anthropic for AI descriptions when the user turns the
+  feature on. Not shared (processor). Not ephemeral, because the provider
+  keeps them for up to 30 days.
+- AI description text, as user content: in history, in backup and, if the
+  user chose it, in completion emails.
+- Health info: **not decided**. Record the decision here, with the date and
+  the reason, before the feature is switched on.
 - Photos/media library access because users can choose existing proof photos.
 - Camera and microphone permission usage.
 - Diagnostics: crash logs (stack traces, device model, OS version, app
@@ -113,5 +146,10 @@ Policy.
 ## Launch Checks
 
 - Keep this map aligned with `web/privacy.html` before every store submission.
+- Before changing the AI provider, model, prompt contents or retention
+  settings, change the consent version
+  (`lib/features/ai_photo/ai_photo_constants.dart` and
+  `supabase/functions/_shared/ai_photo.ts`), this map, `web/privacy.html` and
+  both store forms. Everyone is then asked again.
 - Re-run the scan whenever adding analytics, crash reporting, push messaging,
   purchase SDKs, storage providers, AI services, or new outbound endpoints.

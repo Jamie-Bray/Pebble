@@ -126,11 +126,11 @@ Added by the read-only audit in `docs/review/BACKEND_LIVE_AUDIT.md`. Nothing her
 
 ## Proposed (backup consent text, 5 Oct 2026; not yet agreed or done)
 
-Added with the legal accuracy pass (branch `fix/legal-accuracy`). Nothing here has been run, and no migration file has been added. The sections above are unchanged.
+Added with the legal accuracy pass (branch `fix/legal-accuracy`). Nothing here has been run. The matching migration is prepared as 022_voice_tip_backup_consent_text.sql. The sections above are unchanged.
 
 **Why.** Voice tip recordings are uploaded when backup is on, but the sentence people agree to did not mention them. The app's consent sentence now does, and the recorded policy versions are now the dates on the published privacy and terms pages. The database decides whether an account may write backup data in `public.has_current_cloud_backup_consent`, which has the old sentence's hash and the old policy dates written into it (migration 011). Until that function is updated, it does not recognise a consent given in the new app.
 
-**Proposed step: update the consent gate.** If agreed, save this as `supabase/migrations/021_voice_tip_backup_consent_text.sql`, apply it to staging first, then production, and point `test/features/subscription/cloud_backup_consent_hash_test.dart` at the migration file.
+**Proposed step: update the consent gate.** The SQL below is saved as `supabase/migrations/022_voice_tip_backup_consent_text.sql` (021 is used by AI descriptions). After approval, apply it to staging first, then production. The consent hash test checks the migration file.
 
 ```sql
 -- Keep the database write-access gate aligned with the in-app cloud-backup
@@ -172,3 +172,37 @@ $$;
 **Smoke check.** On a test account with Premium and the new build: turn on backup, then run `select public.has_current_cloud_backup_consent('<that account id>');` as the service role. Expect `true`, and `app_version` in `cloud_backup_consents` should show the real build (for example `1.0.0+35`), not `1.0.0+1`. Record a voice tip, wait for backup, and check an object appears under `users/<account id>/guidance_audio/`.
 
 **Roll back** by re-running `supabase/migrations/011_align_cloud_backup_consent_hash.sql`. Only do that together with rolling back the app build.
+
+## Proposed (AI photo descriptions, 5 Oct 2026; not yet agreed or done)
+
+Prepared during the Claude-to-Codex handover. **No live changes made.**
+Implementation and outstanding real-device checks: `docs/AI_PHOTO_STEPS.md`.
+
+1. Finish the earlier backend repair steps above. In staging, apply
+   `021_ai_photo_descriptions.sql` and `022_voice_tip_backup_consent_text.sql`.
+   022 must precede release of the app with the changed backup wording.
+2. Configure `ANTHROPIC_API_KEY` in function secrets, with
+   `AI_PHOTO_ENABLED=false`. Never put the key in Flutter build arguments.
+   Defaults are 20 requests/account/day and 5,000 reservations/month globally;
+   optional secrets are `AI_PHOTO_DAILY_LIMIT` and
+   `AI_PHOTO_MONTHLY_REQUEST_BUDGET`.
+3. Deploy `describe-proof-photo` and the updated
+   `send-routine-completion-alert`. Preserve JWT verification in config.toml.
+   With AI off, confirm feature discovery reports disabled and ordinary
+   completion emails continue working.
+4. In staging only, enable AI and test Premium/consent refusals, withdrawal,
+   image rejection, repeated photo IDs, concurrent requests at the allowance
+   boundary, real descriptions and optional email inclusion. Check the app's
+   new backup consent produces a true database gate and working uploads.
+5. Publish the privacy/terms changes and align store disclosures. Complete the
+   real-photo and real-phone checks in `docs/AI_PHOTO_STEPS.md`.
+6. After approval of this production step, apply the migrations and deploy the
+   functions with AI still disabled; verify ordinary flows, then enable AI.
+   Record dates, deployed versions and results here. No blanket migration push:
+   the existing production migration history needs the repairs above first.
+
+**Stop switch:** set `AI_PHOTO_ENABLED=false` or set the singleton
+`ai_photo_settings.paused` row to `true`. Requests already sent to Anthropic may
+finish. Existing descriptions remain in history. Withdrawal still works while
+AI is disabled. Keep the additive tables during rollback; do not delete history
+or roll back the backup-consent gate independently of the app.

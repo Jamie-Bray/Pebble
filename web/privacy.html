@@ -37,7 +37,8 @@
         <h1>What Pebble collects, and why</h1>
         <p class="lede">
           Pebble Routines keeps your routines, photos and history on your
-          phone unless you sign in, have Premium and turn on cloud backup. Some
+          phone unless you sign in, have Premium and turn on cloud backup or AI
+          photo descriptions. Some
           technical data, such as subscription checks and crash reports, is
           sent without an account. This page explains what and why.
         </p>
@@ -61,6 +62,7 @@
           <a href="#account">Accounts and backup</a>
           <a href="#subscriptions">Subscriptions</a>
           <a href="#completion-emails">Completion emails</a>
+          <a href="#ai-photo-descriptions">AI photo descriptions</a>
           <a href="#crash-reports">Crash reports</a>
           <a href="#content">Sensitive content</a>
           <a href="#permissions">Permissions</a>
@@ -181,13 +183,16 @@
               account email address, so the person knows who they are from. A
               completion email can include the routine name, completion time,
               and step count. The sender can hide the routine name. Photos and
-              checklist details are not included.
+              checklist details are not included. AI photo descriptions are
+              included only if the sender chooses to add them (see below).
+              Photos are never emailed.
             </p>
             <p>
               To do this, Pebble stores the contact's email address, invitation
               status, and email preferences, plus a log of emails sent
               (completion time, step counts, delivery status, and the routine
-              name only if it was shown). Emails are delivered by Resend.
+              name only if it was shown). AI photo descriptions are not kept
+              in that log. Emails are delivered by Resend.
             </p>
             <p>
               If a contact declines or stops the emails, the sender cannot invite
@@ -202,6 +207,54 @@
               received a Pebble email you did not expect, you can block it from
               the email or contact
               <a href="mailto:privacy@pebbleroutines.com">privacy@pebbleroutines.com</a>.
+            </p>
+          </section>
+
+          <section id="ai-photo-descriptions">
+            <h2>AI photo descriptions</h2>
+            <p>
+              AI photo descriptions are optional and off unless you turn them
+              on. Signed-in Premium users can turn them on for one routine at a
+              time, and turn them off at any time in that routine's settings.
+            </p>
+            <p>
+              When they are on, each photo you take on that routine's photo
+              steps (the first five, if there are more) is sent through
+              Pebble's server to Anthropic, an AI company in the USA. Anthropic
+              sends back one or two sentences saying what is in the photo.
+              Pebble sends the photo only. It does not send your name, email
+              address, account ID or the routine's name.
+            </p>
+            <p>
+              Pebble does not keep a copy of the photo for this. Anthropic
+              deletes the photo and the description within 30 days, unless it
+              has to keep them longer to deal with misuse or to meet a legal
+              duty, and does not use them to train its AI. Anthropic acts on
+              our instructions under its data processing terms.
+            </p>
+            <p>
+              The description is saved with the photo in your history on your
+              phone. If cloud backup is on, it is backed up with that history.
+              If you choose to add descriptions to a completion email, they are
+              sent to your contact by Resend. Photos are never emailed.
+            </p>
+            <p>
+              Photos can show private things, such as your home or your
+              medication. We send them only with your consent, which you give
+              when you turn the feature on. We keep a record of that consent:
+              when you gave it, the version of the wording you saw, the
+              provider named, and the routine. We also count how many
+              descriptions each account asks for, to keep within a daily limit.
+              That count does not include the photo or the description.
+            </p>
+            <p>
+              To withdraw consent, turn the feature off. Pebble stops sending
+              photos straight away. Descriptions you already have stay with
+              their photos until you delete the photo or the run.
+            </p>
+            <p>
+              Descriptions are written by AI and can be wrong. They cannot tell
+              you whether something is locked, switched off or done.
             </p>
           </section>
 
@@ -260,7 +313,7 @@
             </p>
             <ul class="clean-list">
               <li><strong>Contract:</strong> to provide sign-in, Premium, backup, restore, account deletion, and the features you ask for.</li>
-              <li><strong>Consent:</strong> for cloud backup of content you add (which may include health or other sensitive details) and for completion emails. You can withdraw consent at any time.</li>
+              <li><strong>Consent:</strong> for cloud backup of content you add (which may include health or other sensitive details), for AI photo descriptions (the photos may show the same kinds of detail) and for completion emails. You can withdraw consent at any time.</li>
               <li><strong>Legitimate interests:</strong> to keep Pebble secure, fix crashes, prevent purchase misuse, and stop unwanted invitation emails.</li>
               <li><strong>Legal obligation:</strong> to keep records we must keep for tax, accounting, or legal reasons.</li>
             </ul>
@@ -270,7 +323,7 @@
             <h2>Service providers</h2>
             <p>
               We use providers only where needed to run Pebble. Supabase,
-              RevenueCat, Sentry, and Resend process data on our behalf under
+              RevenueCat, Sentry, Resend, and Anthropic process data on our behalf under
               their data processing terms. Google and Apple handle sign-in and
               payments under their own privacy policies.
             </p>
@@ -281,6 +334,7 @@
               <li><strong>Apple</strong> for Sign in with Apple and App Store billing where available.</li>
               <li><strong>Sentry</strong> (USA) for crash reports, in builds where crash reporting is turned on.</li>
               <li><strong>Resend</strong> (USA) for delivering completion emails and their invitations.</li>
+              <li><strong>Anthropic</strong> (USA) for AI photo descriptions, only if you turn them on.</li>
               <li><strong>Email and support tools</strong> when you contact us, and the email service that sends sign-in codes.</li>
             </ul>
             <p>
@@ -294,7 +348,8 @@
             <h2>International transfers</h2>
             <p>
               Pebble is run from the United Kingdom. If you sign in, back up,
-              subscribe, send completion emails, or a crash report is sent, your
+              subscribe, send completion emails, use AI photo descriptions, or a
+              crash report is sent, your
               data is processed in the USA by the providers listed above.
             </p>
             <p>
@@ -344,6 +399,14 @@
                 <tr>
                   <td>Sent completion email log</td>
                   <td>90 days. Invitation links expire after 14 days; links in completion emails after 90 days</td>
+                </tr>
+                <tr>
+                  <td>Photos sent for AI photo descriptions</td>
+                  <td>No additional copy stored by Pebble for AI processing. Deleted by Anthropic within 30 days, except for misuse investigations or legal duties. The description is kept with the photo in your history, for as long as that history is kept</td>
+                </tr>
+                <tr>
+                  <td>AI photo description consent record and daily count</td>
+                  <td>The consent record while your account exists. Request records older than 2 days are removed when your account next requests a description, or when your account is deleted</td>
                 </tr>
                 <tr>
                   <td>Subscription and purchase-check records</td>

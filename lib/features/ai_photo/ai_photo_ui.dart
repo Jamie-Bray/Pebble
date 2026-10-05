@@ -83,7 +83,6 @@ String aiPhotoRowSubtitle({
   required bool hasPremium,
   required bool serverEnabled,
 }) {
-  if (!hasPremium) return 'Describe your photos, with Premium';
   if (settings.isOnFor(routine.id)) {
     if (!serverEnabled) return 'Unavailable right now';
     final photoSteps = photoStepCount(_stepsOf(routine));
@@ -91,6 +90,7 @@ String aiPhotoRowSubtitle({
         ? 'On for the first $aiPhotoMaxSteps of $photoSteps photo steps'
         : 'On for this routine';
   }
+  if (!hasPremium) return 'Describe your photos, with Premium';
   return settings.isOn
       ? 'On for "${settings.routineTitle ?? 'another routine'}"'
       : 'Off';
@@ -104,10 +104,6 @@ Future<void> openAiPhotoSettings(
   WidgetRef ref,
   Routine routine,
 ) async {
-  if (!ref.read(premiumFeaturePolicyProvider).hasActiveLocalPremium) {
-    unawaited(GoRouter.of(context).push(premiumRoute()));
-    return;
-  }
   if (!ref.read(authSessionProvider).isSignedIn) {
     ZenNotifications.showInfo(
       context,
@@ -145,6 +141,12 @@ Future<void> openAiPhotoSettings(
         );
       }
     }
+    return;
+  }
+
+  // Withdrawing consent must remain available after Premium expires.
+  if (!ref.read(premiumFeaturePolicyProvider).hasActiveLocalPremium) {
+    unawaited(GoRouter.of(context).push(premiumRoute()));
     return;
   }
 

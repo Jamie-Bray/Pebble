@@ -8,7 +8,7 @@
 // people are asked again.
 
 /// Recorded with each consent, with the time it was given.
-const aiPhotoConsentVersion = '2026-10-05';
+const aiPhotoConsentVersion = '2026-10-05.1';
 
 const aiPhotoProviderName = 'Anthropic';
 const aiPhotoProviderDescription = 'an AI company in the USA';
@@ -18,7 +18,8 @@ const aiPhotoProviderDescription = 'an AI company in the USA';
 /// training (LEGAL_PROCESSOR_MAP.md).
 const aiPhotoRetentionSentence =
     "Pebble doesn't keep a copy for this, and $aiPhotoProviderName deletes "
-    "it within 30 days and doesn't use it to train its AI.";
+    "it within 30 days, except where needed for misuse investigations or legal "
+    "duties. It doesn't use it to train its AI.";
 
 /// AI describes the photos from this many photo steps, counted from the top
 /// of the routine.

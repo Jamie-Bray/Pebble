@@ -34,14 +34,10 @@ void main() {
   });
 
   test('the database step for the consent gate matches the app', () {
-    // The database refuses backup writes unless its gate holds the same hash
-    // and policy versions as the app. Until the proposed step in
-    // DEPLOY_PLAN.md becomes a migration file, that section is the record of
-    // what the database must hold; check the migration here once it exists.
-    final plan = File('supabase/DEPLOY_PLAN.md').readAsStringSync();
-    final start = plan.indexOf('## Proposed (backup consent text');
-    expect(start, isNot(-1), reason: 'DEPLOY_PLAN.md lost the consent step');
-    final step = plan.substring(start);
+    // Check the executable migration, not just the proposed deployment prose.
+    final step = File(
+      'supabase/migrations/022_voice_tip_backup_consent_text.sql',
+    ).readAsStringSync();
 
     expect(step, contains("'$cloudBackupConsentTextHash'"));
     expect(

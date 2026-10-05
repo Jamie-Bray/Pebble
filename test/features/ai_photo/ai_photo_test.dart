@@ -797,6 +797,67 @@ void main() {
   });
 
   group('sheets', () {
+    testWidgets('consent can be withdrawn after Premium expires', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final service = _FakeAiService();
+      final controller = AiPhotoController(
+        prefs: prefs,
+        service: service,
+        userId: _userId,
+      );
+      await controller.turnOn(
+        routineId: 1,
+        routineTitle: 'Lock up',
+        routineKey: 'local:1',
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            aiPhotoControllerProvider.overrideWith((ref) => controller),
+            aiPhotoServerEnabledProvider.overrideWith((ref) async => false),
+            premiumFeaturePolicyProvider.overrideWithValue(
+              premiumFeaturePolicyForTier(UserTier.personalFree),
+            ),
+            authSessionProvider.overrideWithValue(
+              const AuthSessionSummary(
+                isSignedIn: true,
+                userId: _userId,
+                email: 'a@b.c',
+                provider: 'google',
+              ),
+            ),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: Consumer(
+                builder: (context, ref, _) => TextButton(
+                  onPressed: () => openAiPhotoSettings(
+                    context,
+                    ref,
+                    _routine(1, 'Lock up', const [_photo]),
+                  ),
+                  child: const Text('open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      expect(find.text('Turn off'), findsOneWidget);
+        await tester.ensureVisible(find.text('Turn off'));
+      await tester.tap(find.text('Turn off'));
+      await tester.pumpAndSettle();
+      expect(controller.state.isOn, isFalse);
+      expect(service.withdrawals, 1);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 5));
+    });
+
     Future<void> open(
       WidgetTester tester,
       Future<void> Function(BuildContext) show,

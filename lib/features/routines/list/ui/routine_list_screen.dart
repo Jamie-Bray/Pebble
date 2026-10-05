@@ -1595,7 +1595,8 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                                   serverEnabled: serverEnabled,
                                 ),
                                 accent: accent,
-                                premiumLocked: !hasPremium,
+                                premiumLocked:
+                                    !hasPremium && !ai.isOnFor(routine.id),
                                 onTap: () {
                                   Navigator.pop(sheetContext);
                                   openAiPhotoSettings(context, ref, routine);
