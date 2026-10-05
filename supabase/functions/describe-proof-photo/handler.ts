@@ -4,13 +4,14 @@
 // POST {action:'consent', consentVersion, routineKey?, appVersion?}
 //                                           -> {consented: true} | {consented: false, reason}
 // POST {action:'withdraw'}                  -> {withdrawn: true}
+// POST {action:'allowance'}                 -> {allowance: {limit, used, remaining, resetsAt}}
 // POST {action:'describe', idempotencyKey, imageBase64, stepLabel}
 //                                           -> {described: true, description}
 //                                            | {described: false, reason}
 //
-// `reason` is one of featureOff, noActiveEntitlement, noConsent, dailyLimit,
-// budgetExhausted, duplicate, couldNotDescribe. The app shows the same quiet
-// line for all of them; only featureOff changes what it offers.
+// `reason` includes featureOff, noActiveEntitlement, noConsent, dailyLimit,
+// monthlyLimit, budgetExhausted, duplicate, couldNotDescribe. Allowance refusals
+// explain when more are available; every refusal leaves the photo usable.
 //
 // Describe checks run in this order and every one fails closed, before any
 // call to the provider: feature switch, sign-in, Personal Premium, current
@@ -31,7 +32,8 @@ import { isValidRoutineKey } from '../_shared/shared_alert_policy.ts';
 import type { AuthUser } from '../_shared/shared_alert_runtime.ts';
 import type { DescribePhoto } from './provider.ts';
 
-export type Reservation = 'ok' | 'duplicate' | 'daily_limit' | 'budget_exhausted';
+export type Reservation = 'ok' | 'duplicate' | 'daily_limit' | 'monthly_limit' | 'budget_exhausted';
+export type AiPhotoAllowance = { limit: number; used: number; remaining: number; resetsAt: string };
 
 export interface AiPhotoStore {
   /** The database off switch (public.ai_photo_settings.paused). */
@@ -41,6 +43,7 @@ export interface AiPhotoStore {
   hasCurrentConsent(userId: string, version: string): Promise<boolean>;
   recordConsent(row: { userId: string; version: string; routineKey: string | null; appVersion: string | null }): Promise<void>;
   withdrawConsent(userId: string): Promise<void>;
+  allowance(userId: string): Promise<AiPhotoAllowance>;
   /** Atomically checks the idempotency key and both limits, and counts the call. */
   reserve(input: { userId: string; idempotencyKey: string; dailyLimit: number; monthlyLimit: number }): Promise<Reservation>;
 }
@@ -99,7 +102,7 @@ export function createAiPhotoHandler(deps: AiPhotoDeps) {
         return json({ error: 'Invalid JSON body' }, 400);
       }
       const action = body.action ?? 'describe';
-      if (action !== 'describe' && action !== 'consent' && action !== 'withdraw') {
+      if (action !== 'describe' && action !== 'consent' && action !== 'withdraw' && action !== 'allowance') {
         return json({ error: 'Unknown action' }, 400);
       }
       const refuse = (reason: string) => {
@@ -122,6 +125,10 @@ export function createAiPhotoHandler(deps: AiPhotoDeps) {
 
       // 3. Personal Premium, checked on the server.
       if (!await deps.store.hasActiveEntitlement(user.id)) return refuse('noActiveEntitlement');
+
+      if (action === 'allowance') {
+        return json({ allowance: await deps.store.allowance(user.id) });
+      }
 
       if (action === 'consent') {
         if (body.consentVersion !== AI_PHOTO_CONSENT_VERSION) {
@@ -161,6 +168,7 @@ export function createAiPhotoHandler(deps: AiPhotoDeps) {
       });
       if (reservation === 'duplicate') return refuse('duplicate');
       if (reservation === 'daily_limit') return refuse('dailyLimit');
+      if (reservation === 'monthly_limit') return refuse('monthlyLimit');
       if (reservation !== 'ok') return refuse('budgetExhausted');
 
       const result = await deps.describe!(body.imageBase64 as string, stepLabel);
@@ -229,6 +237,11 @@ export function supabaseAiPhotoStore(client: any): AiPhotoStore {
       check(await client.from('ai_photo_consents').update({ withdrawn_at: now, updated_at: now })
         .eq('owner_user_id', userId).is('withdrawn_at', null));
     },
+    async allowance(userId) {
+      const value = check(await client.rpc('get_ai_photo_allowance', { p_user_id: userId }));
+      if (!value || typeof value !== 'object') throw new Error('database');
+      return value as AiPhotoAllowance;
+    },
     async reserve({ userId, idempotencyKey, dailyLimit, monthlyLimit }) {
       const outcome = check(await client.rpc('reserve_ai_photo_description', {
         p_user_id: userId,
@@ -236,7 +249,7 @@ export function supabaseAiPhotoStore(client: any): AiPhotoStore {
         p_daily_limit: dailyLimit,
         p_monthly_limit: monthlyLimit,
       }));
-      return outcome === 'ok' || outcome === 'duplicate' || outcome === 'daily_limit' ? outcome : 'budget_exhausted';
+      return outcome === 'ok' || outcome === 'duplicate' || outcome === 'daily_limit' || outcome === 'monthly_limit' ? outcome : 'budget_exhausted';
     },
   };
 }

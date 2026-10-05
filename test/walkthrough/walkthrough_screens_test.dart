@@ -741,6 +741,9 @@ class _FakeAiPhotoService extends AiPhotoService {
   Future<bool> fetchEnabled() async => true;
 
   @override
+  Future<AiPhotoAllowance?> fetchAllowance() async => const AiPhotoAllowance(limit: 100, remaining: 97);
+
+  @override
   Future<void> recordConsent({required String routineKey}) async {}
 
   @override

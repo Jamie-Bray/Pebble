@@ -8,7 +8,7 @@
 // people are asked again.
 
 /// Recorded with each consent, with the time it was given.
-const aiPhotoConsentVersion = '2026-10-05.4';
+const aiPhotoConsentVersion = '2026-10-05.5';
 
 const aiPhotoProviderName = 'Anthropic';
 const aiPhotoProviderDescription = 'an AI company in the USA';
@@ -45,7 +45,18 @@ const aiPhotoConsentBody = <String>[
   _consentWhatHappens,
   _consentCanBeWrong,
   _consentOptional,
+  aiPhotoAllowanceDetail,
 ];
+
+const aiPhotoAllowanceDetail =
+    'Personal Premium includes 100 AI descriptions each calendar month, shared '
+    'across your phones. Each attempt uses one, even if no description comes '
+    'back. Your photos and checks still work when the allowance is used up.';
+const aiPhotoMonthlyLimitMessage =
+    'Your 100 AI descriptions for this month are used up. More are available '
+    'next month. Your photo is saved.';
+const aiPhotoDailyLimitMessage =
+    'Your daily AI allowance is used up. Try again later. Your photo is saved.';
 
 /// The sentence beside the box. Unchecked until the person checks it.
 const aiPhotoConsentCheckLabel =

@@ -10,7 +10,7 @@ Anthropic and explains the photo and step-title transfer, retention and limitati
 description can complete or fail a step. Failed descriptions leave the photo
 and routine usable. Switching off remains available after Premium expires.
 
-The app makes a JPEG copy with a longest side of 1,000 pixels and no EXIF.
+The app makes a JPEG copy with a longest side of 600 pixels and no EXIF.
 `describe-proof-photo` checks its switches, authentication, Premium, consent,
 image size and request allowance before calling Anthropic's Messages API with
 `claude-sonnet-5-5`. It sends the photo, step title and a fixed prompt. No account
@@ -34,17 +34,23 @@ filters the text again; email HTML escapes it. Photos are never emailed.
 
 - Both `AI_PHOTO_ENABLED=true` and `ai_photo_settings.paused=false` are needed.
   Missing configuration or a failed settings lookup leaves the feature off.
-- Default allowance: 20 requests per account per rolling 24 hours; 5,000
+- Personal Premium includes 100 attempts per account per UTC calendar month,
+  shared across phones. AI settings show the remaining allowance. Exhaustion
+  explains the limit without blocking photos or checks. Each reservation counts
+  even if the provider fails. Only AI photo requests count, not ordinary ticks.
+- Additional limits: 20 requests per account per rolling 24 hours; 5,000
   reservations across all accounts per UTC calendar month. Override with
   `AI_PHOTO_DAILY_LIMIT` and `AI_PHOTO_MONTHLY_REQUEST_BUDGET`.
 - Reservations are atomic, deduplicated by photo ID and not refunded. The
   provider may retry once for 429/5xx, so this is a request cap, not a precise
   monetary cap. Keep the provider's own spending controls in place.
-- Consent version: `2026-10-05.4`, in both Dart and TypeScript. Future changes
+- Consent version: `2026-10-05.5`, in both Dart and TypeScript. Future changes
   to provider, consent wording or transferred data require a new version.
 - AI tables contain consent and usage metadata only. No photo or description
   is written to those tables or logged by the Edge Function. Old request rows
-  are pruned on the account's next request, not by a daily deletion job.
+  older than both the current UTC month and the last two days are pruned on
+  the account's next new request, not by a daily deletion job. Inactive accounts
+  can retain older rows until another request or account deletion.
 - Routine selection is local to each phone. The server checks account consent
   and usage; it does not enforce one selected routine across multiple phones.
 
@@ -52,7 +58,8 @@ filters the text again; email HTML escapes it. Photos are never emailed.
 
 Follow the proposed AI section in `supabase/DEPLOY_PLAN.md`. The earlier backend
 repairs and backup-consent gate are dependencies. Migration 021 creates the AI
-tables; 022 aligns backup consent. Neither was applied during this handover.
+tables; 022 aligns backup consent; 023 enforces the account monthly allowance
+and exposes a service-only remaining-count RPC. None was applied here.
 Do not release the new app against the old backup-consent gate.
 
 Keep the API key in server secrets only. The local testing convention is
@@ -67,8 +74,10 @@ into GitHub, an app build or a chat. Jamie supplied a local provider key and
    handle directions are deliberately outside the caption brief.
 2. On a real phone, check camera orientation, JPEG compression, consent,
    switching off, offline use, account switching, Premium expiry and history.
-3. In staging, verify migration permissions and concurrent allowance requests
-   against PostgreSQL; the server tests use stand-in stores.
+3. In staging, verify concurrent allowance requests against PostgreSQL. Local
+   embedded PostgreSQL checks apply 021/023 and test permissions, the 100th/101st
+   attempt, duplicate IDs, independent accounts, daily/global limits, lazy
+   pruning and next-month reset date. They do not simulate concurrent sessions.
 4. Check a real accepted contact receives descriptions only when chosen, and
    that ordinary completion emails still work with AI switched off.
 5. Publish the updated privacy page and complete the matching store disclosures

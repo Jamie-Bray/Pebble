@@ -10,11 +10,13 @@
  * Change both when the provider, the retention sentence, the wording or the
  * data sent changes: every earlier consent then stops counting.
  */
-export const AI_PHOTO_CONSENT_VERSION = '2026-10-05.4';
+export const AI_PHOTO_CONSENT_VERSION = '2026-10-05.5';
 
 export const AI_PHOTO_LIMITS = {
   /** Descriptions one account can request in a rolling 24 hours. */
   dailyPerUser: 20,
+  /** Requests per account per UTC calendar month. Enforced in migration 023. */
+  monthlyPerUser: 100,
   /** Provider calls allowed across all accounts in a calendar month (UTC). */
   monthlyRequests: 5000,
   /** Decoded JPEG size cap. The app sends about 100-300 KB. */

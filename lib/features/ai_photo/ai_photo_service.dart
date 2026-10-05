@@ -11,11 +11,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:pebble_routines/core/config/app_version.dart';
 import 'package:pebble_routines/data/remote/supabase_client_provider.dart';
 import 'package:pebble_routines/features/ai_photo/ai_photo_constants.dart';
+import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
 
 /// Longest side, in pixels, of the copy sent to be described.
-const aiPhotoLongestSide = 1000;
+const aiPhotoLongestSide = 600;
 
 class AiPhotoException implements Exception {
   const AiPhotoException(this.message);
@@ -26,14 +27,42 @@ class AiPhotoException implements Exception {
 
 class AiDescribeResult {
   const AiDescribeResult.described(String this.description)
-    : featureOff = false;
-  const AiDescribeResult.failed({this.featureOff = false}) : description = null;
+    : featureOff = false,
+      allowanceMessage = null;
+  const AiDescribeResult.failed({
+    this.featureOff = false,
+    this.allowanceMessage,
+  }) : description = null;
 
   /// Null when the photo couldn't be described, for any reason.
   final String? description;
 
   /// The server said the feature is switched off for everyone.
   final bool featureOff;
+  final String? allowanceMessage;
+}
+
+class AiPhotoAllowance {
+  const AiPhotoAllowance({required this.limit, required this.remaining});
+  final int limit;
+  final int remaining;
+  factory AiPhotoAllowance.fromJson(Map data) {
+    final limit = data['limit'];
+    final remaining = data['remaining'];
+    if (limit is! int ||
+        remaining is! int ||
+        limit < 1 ||
+        remaining < 0 ||
+        remaining > limit) {
+      throw const FormatException('Invalid AI allowance');
+    }
+    return AiPhotoAllowance(limit: limit, remaining: remaining);
+  }
+}
+
+class AiPhotoAllowanceException implements Exception {
+  const AiPhotoAllowanceException(this.message);
+  final String message;
 }
 
 /// Talks to the `describe-proof-photo` Edge Function. The server decides
@@ -87,6 +116,17 @@ class AiPhotoService {
     }
   }
 
+  Future<AiPhotoAllowance?> fetchAllowance() async {
+    try {
+      final data = await _post({'action': 'allowance'}, failure: 'failed');
+      return data['allowance'] is Map
+          ? AiPhotoAllowance.fromJson(data['allowance'] as Map)
+          : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Never throws: a description must not get in the way of a routine.
   Future<AiDescribeResult> describe({
     required String idempotencyKey,
@@ -112,6 +152,11 @@ class AiPhotoService {
       }
       return AiDescribeResult.failed(
         featureOff: data['reason'] == 'featureOff',
+        allowanceMessage: switch (data['reason']) {
+          'monthlyLimit' => aiPhotoMonthlyLimitMessage,
+          'dailyLimit' => aiPhotoDailyLimitMessage,
+          _ => null,
+        },
       );
     } catch (_) {
       return const AiDescribeResult.failed();
@@ -151,6 +196,13 @@ final aiPhotoServiceProvider = Provider<AiPhotoService>(
   (ref) => AiPhotoService(ref.watch(supabaseClientProvider)),
 );
 
+final aiPhotoAllowanceProvider = FutureProvider.autoDispose<AiPhotoAllowance?>((
+  ref,
+) {
+  if (!ref.watch(authSessionProvider).isSignedIn) return null;
+  return ref.watch(aiPhotoServiceProvider).fetchAllowance();
+});
+
 /// The server's feature switch, which is the source of truth. Off until the
 /// server says otherwise, and after any failure to ask. A refresh keeps
 /// showing the last answer while it loads.
@@ -187,7 +239,8 @@ Future<Uint8List?> encodeAiPhotoJpeg(File file) async {
   );
 }
 
-/// Describes one saved proof photo, or returns null. Never throws.
+/// Describes one saved proof photo, or returns null. Allowance failures carry
+/// a message for the player; other failures remain quiet.
 typedef AiProofDescriber =
     Future<String?> Function(RoutineSessionProofAsset asset, String stepLabel);
 
@@ -207,10 +260,16 @@ final aiProofDescriberProvider = Provider<AiProofDescriber>((ref) {
             jpegBytes: jpeg,
             stepLabel: stepLabel,
           );
+      ref.invalidate(aiPhotoAllowanceProvider);
       if (result.featureOff) {
         ref.invalidate(aiPhotoServerEnabledProvider);
       }
+      if (result.allowanceMessage != null) {
+        throw AiPhotoAllowanceException(result.allowanceMessage!);
+      }
       return result.description;
+    } on AiPhotoAllowanceException {
+      rethrow;
     } catch (_) {
       return null;
     }

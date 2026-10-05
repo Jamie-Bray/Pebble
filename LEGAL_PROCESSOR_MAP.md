@@ -43,7 +43,7 @@ Policy.
   `ANTHROPIC_API_KEY`, model `claude-sonnet-5-5`). Off unless the
   `AI_PHOTO_ENABLED` secret is `true`. Runs only for a signed-in Personal
   Premium account with a current row in `ai_photo_consents`. Receives a
-  re-encoded JPEG of the photo (no EXIF or GPS, longest side about 1,000 px)
+  re-encoded JPEG of the photo (no EXIF or GPS, longest side at most 600 px)
   and the step title with a fixed prompt. Pebble does not add account details,
   routine name, user IP address or device identifiers. A user-written title
   can itself contain personal details. Returns one short caption.
@@ -103,6 +103,12 @@ Policy.
   (consent record: account ID, consent wording version, provider, routine key,
   app version, consented and withdrawn times; a per-account request count; a
   monthly total; the off switch). None of them holds a photo or a description.
+  Migration 023 retains request IDs/timestamps for the current UTC calendar
+  month and at least the last two days; older rows are removed on the account's
+  next new request or account deletion. Inactive accounts can retain older rows.
+  This enforces 100 monthly attempts shared across phones. The app reads its own
+  remaining count through an authenticated function; direct usage-table/RPC
+  access is reserved for the service role.
 - Google Play subscription management URL:
   `https://play.google.com/store/account/subscriptions`.
 - App Store subscription management URL:

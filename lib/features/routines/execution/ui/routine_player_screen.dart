@@ -1871,7 +1871,9 @@ class _ProofAiDescriptionLine extends StatelessWidget {
           ],
           Expanded(
             child: Text(
-              description.isPending ? 'Describing photo' : aiPhotoFailedMessage,
+              description.isPending
+                  ? 'Describing photo'
+                  : description.failureMessage ?? aiPhotoFailedMessage,
               style: TextStyle(fontSize: 13, height: 1.4, color: secondary),
             ),
           ),

@@ -153,3 +153,91 @@ phone and 1.6x text consent screens were inspected. The previously documented
 Windows Sandstone golden mismatch remains separate from those checks; no
 reference image was regenerated. Android compilation is checked by GitHub CI
 on the pushed branch, not by these local tests.
+
+## Image size, monthly economics and visible cues (5 October)
+
+Compared the same final short-caption prompt and Sonnet 5.5 on all 23 private
+photos at 600, 800 and the previous 1,000-pixel longest side. Copies used the
+same approximate native WebP-to-JPEG pipeline; originals' hashes are unchanged.
+No EXIF/ICC/XMP was sent. Each size returned 23 captions passing the parser;
+human review found the main objects useful. Acceptance counts are not accuracy
+scores. Totals and per-100 costs below use actual reported tokens at $2/M input
+and $10/M output; account billing was not reconciled.
+
+| Longest side | Total JPEG bytes (23 photos) | Average request USD | 100 requests | 150 requests | 300 requests |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 600 px | 786,579 | 0.002599 | 0.26 | 0.39 | 0.78 |
+| 800 px | 1,286,836 | 0.003113 | 0.31 | 0.47 | 0.93 |
+| 1,000 px | 1,918,721 | 0.003762 | 0.38 | 0.56 | 1.13 |
+
+600 pixels reduces average caption token cost by 30.9% and payload bytes by
+59%. It is now the broad-caption app setting; saved photos remain unchanged.
+Repeated ordinary photos still returned captions, three misleading titles
+still described actual objects, and both dark/blurred challenges returned
+`cannot_tell`. This size recommendation does not extend to reading small details.
+
+Jamie selected 100 monthly attempts. Migration 023 enforces 100 per account
+per UTC calendar month, shared across phones, with existing daily/global caps.
+Settings show the remaining count, and the player explains exhaustion while
+keeping the photo and step usable. Failed provider attempts consume one;
+duplicates/rejected requests do not. No quota message is saved as a caption or
+emailed. 150/300 are hypothetical cost comparisons, not included allowances.
+Five AI photos daily require 150 attempts in 30 days; ordinary checks do not
+spend AI allowance. Store fees, taxes, backend costs and retries are excluded.
+Consent wording version is now `2026-10-05.5`.
+
+### Optional visible-cue experiment
+
+Jamie questioned the value of captions that repeat the step's object name and
+suggested a setup field describing the intended visual evidence. Tested a
+separate experimental prompt, not shipped to the app, with eight cases at
+600 and 1,000 pixels (16 provider calls, estimated $0.04961). Same Sonnet model,
+no agent loop or external tools. Output contained an observation plus an
+experimental comparison with the desired visual cue, never a physical-state
+or safety verdict. Desired cues were explicitly treated as hypotheses, not
+evidence. The cases included a tap lever, washing-machine dial marker,
+patio lever with both opposite expectations, dark display, wrong expected
+object, near-black photo and heavily blurred photo.
+
+At 1,000 pixels, observations agreed with visual review of the requested cues:
+the tap lever was downward; the dial marker aligned towards its printed label;
+the patio lever was horizontal under both opposing expectations; the display
+was dark; the wrong-object and degraded inputs did not establish the desired
+cue. At 600 pixels, the display case confused printed programme labels with
+screen content and its comparison contradicted its own no-lit-digits
+observation. A match/difference label therefore needs independent evaluation
+and is not proposed for immediate release. Six photos plus two synthetic
+degradations do not establish general reliability, nor do opposite prompts
+substitute for actual photos of both physical positions.
+
+The eight detailed-cue calls averaged $0.003688 each at 1,000 pixels (about
+$0.37 per 100), compared with $0.002513 at 600 pixels. These are small-sample
+token estimates, excluding store fees, backend costs and retries.
+
+Recommendation: explore an optional "What should the photo show?" field with
+1,000-pixel copies for these detailed observations. Help users specify visible
+cues such as lever position or a dark display, rather than hidden conditions
+such as lock engagement or power state. Keep the photo visible and leave step
+completion to the person. Next evidence: new examples of both positions,
+different lighting/angles and ambiguous or occluded cues; compare with an
+optional user-captured reference photo before deciding whether that setup is
+worth its extra effort. A reference comparison is a proposal, not tested here.
+An agent is only justified if a particular tool (e.g. crop/zoom) demonstrates
+an improvement beyond a single image request; it does not create new evidence.
+
+Private report `artifacts/ai-photo-evaluation/report.html` now includes the
+size economics and every experimental cue reply for owner review. No private
+photos, raw replies, original filenames, API key or artifact runtime enters Git.
+The broad-caption prompt remains unchanged by this experiment.
+
+Local verification: Flutter analysis clean; 474 CI-equivalent non-golden app
+tests and 88 Deno server tests passed. Embedded PostgreSQL (PGlite, ignored
+local runtime only) applied the actual 021/023 migrations and passed
+`supabase/tests/ai_photo_monthly_allowance.sql`. That check verifies permissions,
+cap boundaries, duplicate IDs, independent accounts, daily/global caps,
+pruning and reset-date arithmetic. Multiple-session concurrency and real
+month rollover still need staging checks. No live backend change was made.
+The filtered walkthrough passed 28 scenarios (14 AI plus matching email/player
+scenes), with an empty layout-error report. Small-phone consent, large-text
+consent and the settings allowance count were inspected. Golden images were
+not regenerated; the previously documented Windows difference remains separate.

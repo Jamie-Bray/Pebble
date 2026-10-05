@@ -127,6 +127,29 @@ Future<void> _tick() => Future<void>.delayed(Duration.zero);
 
 void main() {
   group('wording and versions', () {
+    test(
+      'allowance parsing rejects invalid counts and consent states the cost of attempts',
+      () {
+        expect(
+          AiPhotoAllowance.fromJson({'limit': 100, 'remaining': 73}).remaining,
+          73,
+        );
+        for (final remaining in [-1, 101, '73', null]) {
+          expect(
+            () => AiPhotoAllowance.fromJson({
+              'limit': 100,
+              'remaining': remaining,
+            }),
+            throwsFormatException,
+          );
+        }
+        expect(
+          aiPhotoConsentBody.join(' '),
+          contains('100 AI descriptions each calendar month'),
+        );
+        expect(aiPhotoConsentBody.join(' '), contains('Each attempt uses one'));
+      },
+    );
     test('the app and the server expect the same consent version', () {
       final server = File(
         'supabase/functions/_shared/ai_photo.ts',
@@ -578,6 +601,30 @@ void main() {
     );
 
     test(
+      'monthly exhaustion explains the limit and keeps the photo out of AI emails',
+      () async {
+        await start(const [_photo]);
+        final controller = await player(
+          describe: (_, _) async {
+            throw const AiPhotoAllowanceException(aiPhotoMonthlyLimitMessage);
+          },
+        );
+        await controller.attachProof('/tmp/a.jpg');
+        await pumpEventQueue();
+        final asset = controller.state.proofAssets.single;
+        expect(
+          controller.state.aiDescriptionFor(asset)!.failureMessage,
+          aiPhotoMonthlyLimitMessage,
+        );
+        expect(controller.state.hasEnoughPhotos, isTrue);
+        expect(controller.state.isPrimaryEnabled, isTrue);
+        expect((await savedProof(asset.proofId)).aiDescription, isNull);
+        expect(await controller.aiDescriptionsForEmail(), isEmpty);
+        expect(await controller.completeCurrentStep(), isNotNull);
+      },
+    );
+
+    test(
       'a description that lands after the routine finished is saved onto the run',
       () async {
         await start(const [_photo]);
@@ -810,6 +857,37 @@ void main() {
   });
 
   group('sheets', () {
+    testWidgets(
+      'remaining allowance displays the latest count and handles unavailable reads',
+      (tester) async {
+        for (final remaining in [73, 0, null]) {
+          await tester.pumpWidget(
+            ProviderScope(
+              key: ValueKey(remaining),
+              overrides: [
+                aiPhotoAllowanceProvider.overrideWith(
+                  (ref) async => remaining == null
+                      ? null
+                      : AiPhotoAllowance(limit: 100, remaining: remaining),
+                ),
+              ],
+              child: const MaterialApp(
+                home: Scaffold(body: AiPhotoAllowanceText()),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(
+            find.text(
+              remaining == null
+                  ? 'Remaining allowance unavailable right now.'
+                  : '$remaining of 100 remaining this month.',
+            ),
+            findsOneWidget,
+          );
+        }
+      },
+    );
     testWidgets('consent can be withdrawn after Premium expires', (
       tester,
     ) async {
@@ -1038,9 +1116,9 @@ void main() {
     );
   });
 
-  test('resize bounds keep the longest side at 1,000 px', () {
-    expect(aiPhotoResizeBounds(800, 1067), (minWidth: 1, minHeight: 1000));
-    expect(aiPhotoResizeBounds(1422, 800), (minWidth: 1000, minHeight: 1));
+  test('resize bounds keep the longest side at 600 px', () {
+    expect(aiPhotoResizeBounds(800, 1067), (minWidth: 1, minHeight: 600));
+    expect(aiPhotoResizeBounds(1422, 800), (minWidth: 600, minHeight: 1));
     // The compressor scales by min(width / minWidth, height / minHeight).
     double scale(int w, int h) {
       final b = aiPhotoResizeBounds(w, h);
@@ -1051,8 +1129,8 @@ void main() {
       return s < 1 ? 1 : s;
     }
 
-    expect(800 / scale(800, 1733), closeTo(461.6, 0.1));
-    expect(1733 / scale(800, 1733), closeTo(1000, 0.01));
-    expect(scale(640, 480), 1, reason: 'small photos are not enlarged');
+    expect(800 / scale(800, 1733), closeTo(276.98, 0.1));
+    expect(1733 / scale(800, 1733), closeTo(600, 0.01));
+    expect(scale(480, 360), 1, reason: 'small photos are not enlarged');
   });
 }

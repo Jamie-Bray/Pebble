@@ -179,11 +179,15 @@ Prepared during the Claude-to-Codex handover. **No live changes made.**
 Implementation and outstanding real-device checks: `docs/AI_PHOTO_STEPS.md`.
 
 1. Finish the earlier backend repair steps above. In staging, apply
-   `021_ai_photo_descriptions.sql` and `022_voice_tip_backup_consent_text.sql`.
+   `021_ai_photo_descriptions.sql`, `022_voice_tip_backup_consent_text.sql`,
+   then `023_ai_photo_monthly_allowance.sql`.
    022 must precede release of the app with the changed backup wording.
 2. Configure `ANTHROPIC_API_KEY` in function secrets, with
    `AI_PHOTO_ENABLED=false`. Never put the key in Flutter build arguments.
-   Defaults are 20 requests/account/day and 5,000 reservations/month globally;
+   023 fixes the account allowance at 100 attempts/UTC calendar month across
+   phones; apply it before deploying the new allowance-reader action. The
+   existing four-argument reserve RPC remains compatible with older workers.
+   Defaults are also 20 requests/account/day and 5,000 reservations/month globally;
    optional secrets are `AI_PHOTO_DAILY_LIMIT` and
    `AI_PHOTO_MONTHLY_REQUEST_BUDGET`.
 3. Deploy `describe-proof-photo` and the updated
@@ -192,7 +196,8 @@ Implementation and outstanding real-device checks: `docs/AI_PHOTO_STEPS.md`.
    completion emails continue working.
 4. In staging only, enable AI and test Premium/consent refusals, withdrawal,
    image rejection, repeated photo IDs, concurrent requests at the allowance
-   boundary, real descriptions and optional email inclusion. Check the app's
+   boundary (including two requests for the 100th monthly place), own-account
+   allowance reads and month rollover, real descriptions and optional email inclusion. Check the app's
    new backup consent produces a true database gate and working uploads.
 5. Publish the privacy/terms changes and align store disclosures. Complete the
    real-photo and real-phone checks in `docs/AI_PHOTO_STEPS.md`.
@@ -204,5 +209,7 @@ Implementation and outstanding real-device checks: `docs/AI_PHOTO_STEPS.md`.
 **Stop switch:** set `AI_PHOTO_ENABLED=false` or set the singleton
 `ai_photo_settings.paused` row to `true`. Requests already sent to Anthropic may
 finish. Existing descriptions remain in history. Withdrawal still works while
-AI is disabled. Keep the additive tables during rollback; do not delete history
+AI is disabled. Keep migration 023 during worker rollback so the monthly cap
+still applies; older workers show a generic budget message for that refusal.
+Keep the additive tables during rollback; do not delete history
 or roll back the backup-consent gate independently of the app.

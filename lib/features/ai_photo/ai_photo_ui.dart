@@ -128,9 +128,11 @@ Future<void> openAiPhotoSettings(
         'On for "${routine.title}".',
         if (photoSteps > aiPhotoMaxSteps) _firstFiveNote(photoSteps),
         aiPhotoOnDetail,
+        aiPhotoAllowanceDetail,
       ].join('\n\n'),
       confirmLabel: 'Turn off',
       cancelLabel: 'Keep on',
+      extraBody: const AiPhotoAllowanceText(),
     );
     if (turnOff == true) {
       await controller.turnOff();
@@ -224,6 +226,27 @@ Future<void> openAiPhotoSettings(
     context,
     message: 'AI photo descriptions are on for "${routine.title}".',
   );
+}
+
+class AiPhotoAllowanceText extends ConsumerWidget {
+  const AiPhotoAllowanceText({super.key});
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final result = ref.watch(aiPhotoAllowanceProvider);
+    final allowance = result.valueOrNull;
+    return Text(
+      allowance != null
+          ? '${allowance.remaining} of ${allowance.limit} remaining this month.'
+          : result.isLoading
+          ? 'Checking remaining allowance…'
+          : 'Remaining allowance unavailable right now.',
+      style: TextStyle(
+        fontSize: 15,
+        height: 1.4,
+        color: context.darkFoundation.textSecondary,
+      ),
+    );
+  }
 }
 
 Future<T?> _showAiSheet<T>(

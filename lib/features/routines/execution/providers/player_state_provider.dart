@@ -42,12 +42,20 @@ enum RoutinePlayerOperation {
 /// Where the AI description of one photo has got to. The step never waits
 /// for it: a photo step is complete as soon as its photo is saved.
 class ProofAiDescription {
-  const ProofAiDescription.pending() : text = null, failed = false;
-  const ProofAiDescription.failed() : text = null, failed = true;
-  const ProofAiDescription.ready(String this.text) : failed = false;
+  const ProofAiDescription.pending()
+    : text = null,
+      failed = false,
+      failureMessage = null;
+  const ProofAiDescription.failed({this.failureMessage})
+    : text = null,
+      failed = true;
+  const ProofAiDescription.ready(String this.text)
+    : failed = false,
+      failureMessage = null;
 
   final String? text;
   final bool failed;
+  final String? failureMessage;
 
   bool get isPending => text == null && !failed;
 }
@@ -724,17 +732,20 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
     late final Future<void> work;
     work = () async {
       String? text;
+      String? failureMessage;
       try {
         final step =
             session.routineSnapshotSteps[session.currentStepIndex] as CheckStep;
         text = await describe(asset, step.label);
+      } on AiPhotoAllowanceException catch (error) {
+        failureMessage = error.message;
       } catch (_) {
         // Offline, refused or failed: the same quiet line, no retry.
       }
       _setAiDescription(
         asset.proofId,
         text == null
-            ? const ProofAiDescription.failed()
+            ? ProofAiDescription.failed(failureMessage: failureMessage)
             : ProofAiDescription.ready(text),
       );
       if (text != null) {

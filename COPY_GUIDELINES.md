@@ -217,6 +217,11 @@ descriptions, you can choose to add them. Photos are never emailed."
 
 ## AI Photo Descriptions
 
+Personal Premium includes 100 AI description attempts per UTC calendar month,
+shared across phones. State that unsuccessful attempts count and ordinary
+photos/checks still work after exhaustion. Show the remaining count in AI
+settings. Do not turn an allowance message into a saved photo description.
+
 Say what it does: it writes a short description of what is in a photo. Never
 say it checks, confirms, verifies or makes sure of anything, and never use
 medication as the example. Every description is labelled "AI description".

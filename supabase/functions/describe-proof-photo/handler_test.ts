@@ -25,6 +25,7 @@ class FakeAiStore implements AiPhotoStore {
   premium = new Set<string>([USER.id]);
   consents = new Map<string, { version: string; withdrawn: boolean; routineKey: string | null }>();
   keys = new Map<string, Set<string>>();
+  monthlyUsed = new Map<string, number>();
   monthCount = 0;
   failing = false;
 
@@ -48,12 +49,19 @@ class FakeAiStore implements AiPhotoStore {
     if (c) c.withdrawn = true;
     return Promise.resolve();
   }
+  allowance(userId: string) {
+    const used = this.monthlyUsed.get(userId) ?? 0;
+    return Promise.resolve({ limit: 100, used, remaining: Math.max(0, 100 - used), resetsAt: '2026-11-01T00:00:00Z' });
+  }
   reserve(input: { userId: string; idempotencyKey: string; dailyLimit: number; monthlyLimit: number }): Promise<Reservation> {
     const used = this.keys.get(input.userId) ?? new Set<string>();
     if (used.has(input.idempotencyKey)) return Promise.resolve('duplicate');
+    const monthly = this.monthlyUsed.get(input.userId) ?? 0;
+    if (monthly >= 100) return Promise.resolve('monthly_limit');
     if (used.size >= input.dailyLimit) return Promise.resolve('daily_limit');
     if (this.monthCount >= input.monthlyLimit) return Promise.resolve('budget_exhausted');
     this.monthCount += 1;
+    this.monthlyUsed.set(input.userId, monthly + 1);
     used.add(input.idempotencyKey);
     this.keys.set(input.userId, used);
     return Promise.resolve('ok');
@@ -130,6 +138,29 @@ Deno.test('describes a photo: image, step title and fixed prompt go to the provi
   assert(!t.logs.join('').includes(label), 'title never logged');
   assert(!t.calls[0].body.includes(USER.id) && !t.calls[0].body.includes('jamie@') && !t.calls[0].body.includes('local:1'), 'no account or routine details');
   assert(t.store.monthCount === 1, 'counted once');
+});
+
+Deno.test('100 monthly attempts: last place, duplicate, refusal and separate accounts', async () => {
+  const t = setup([], { daily: 200 });
+  t.store.monthlyUsed.set(USER.id, 99);
+  assert((await t.describe()).body.described === true, '100th allowed');
+  assert((await t.describe()).body.reason === 'duplicate', 'retry does not spend');
+  assert((await t.describe({ idempotencyKey: 'photo-0002' })).body.reason === 'monthlyLimit', '101st refused');
+  assert(t.calls.length === 1 && t.store.monthCount === 1, 'refusal never reaches provider or budget');
+  assert((await t.call('POST', { action: 'allowance', userId: 'someone-else' })).body.allowance.remaining === 0, 'caller cannot read another account');
+  assert((await t.store.allowance('another-account')).remaining === 100, 'accounts separate');
+});
+
+Deno.test('failed provider attempts consume allowance; reading it needs auth and Premium, not consent', async () => {
+  const t = setup([anthropicReply({ clarity: 'cannot_tell', description: '' })]);
+  await t.describe();
+  assert((await t.call('POST', { action: 'allowance' })).body.allowance.remaining === 99, 'failure counted');
+  t.store.consents.clear();
+  assert((await t.call('POST', { action: 'allowance' })).body.allowance.remaining === 99, 'can inspect before consent');
+  assert((await t.call('POST', { action: 'allowance' }, 'nobody')).status === 401, 'auth required');
+  t.store.premium.clear();
+  assert((await t.call('POST', { action: 'allowance' })).body.reason === 'noActiveEntitlement', 'Premium required');
+  assert(t.calls.length === 1 && t.store.monthCount === 1, 'reads spend nothing');
 });
 
 Deno.test('invalid step context is rejected without spending allowance or calling provider', async () => {
