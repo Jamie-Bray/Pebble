@@ -1,6 +1,6 @@
 # Deploy plan: backend fixes (October 2026)
 
-Target: `pebble-production` (`yncgjqbjjzbinqkpukug`). Nothing on this branch has been deployed.
+Target: `pebble-production` (`yncgjqbjjzbinqkpukug`). The website and Anthropic secret were updated on 5 October 2026; see the live preparation record below. Database migrations and Edge Functions were not deployed during that preparation.
 The live `verify_jwt` settings below were read with `list_edge_functions` on 3 Oct 2026, and `supabase/config.toml` now lists every function explicitly to match them.
 
 ## What changed
@@ -213,3 +213,57 @@ AI is disabled. Keep migration 023 during worker rollback so the monthly cap
 still applies; older workers show a generic budget message for that refusal.
 Keep the additive tables during rollback; do not delete history
 or roll back the backup-consent gate independently of the app.
+
+## Live preparation record — 5 October 2026 (Codex)
+
+Jamie asked Codex to carry out the owner setup tasks in Claude's pasted launch
+instructions. The following preparation is complete, with the current app
+source from merged PR #21 (`origin/main` at `3538694`, build 35):
+
+- Supabase CLI login completed under Jamie's account and the checkout linked
+  to production `yncgjqbjjzbinqkpukug`. `projects list` returned production
+  `ACTIVE_HEALTHY`; `migration list --linked` successfully read the database.
+- **Live change:** set `ANTHROPIC_API_KEY` on production from the existing
+  ignored local `.env.local` key. Verified the server-reported digest against
+  the local key; the value was not printed or committed. The temporary upload
+  file was removed. No other Supabase secret, AI switch, migration, database
+  history record or Edge Function was changed by Codex during this preparation.
+- **Live change:** manually published all 20 files from the current `web/`
+  folder to the existing Cloudflare Worker **`pebbleroutines-site`**. This is
+  a static-assets Worker, not a Pages project. The existing route is
+  `pebbleroutines.com/*`; its alternate address is
+  `https://pebbleroutines-site.jamiebray23.workers.dev`. New version prefix
+  **`4aeb8d39`**; previous version prefix **`316adc16`** remains in deployment
+  history. No DNS, route, paid plan or build integration was changed.
+- Website checks: `/shared-alert/confirm/`, `/privacy.html` and `/terms.html`
+  all returned HTTP 200 and their expected current wording. The confirm page
+  displayed **Allow completion emails?** with the dummy fragment from this
+  plan; no invitation was accepted and no email was sent. Privacy has the AI
+  section, and terms describe the current 200-attempt allowance from PR #21.
+
+Local signing preparation: copied `upload-keystore.jks` and `key.properties`
+from the owner's mounted Google Drive backup into `android/`, normalised only
+the local `storeFile` path to `upload-keystore.jks`, verified the keystore
+matches the backup and opens with the copied store password. Both files are
+ignored; no signing passwords or keys enter Git. Production build settings
+passed the existing script's dry run. No signed AAB was built in this step.
+
+Current local app checks: `flutter analyze` clean; 479 CI-equivalent non-golden
+tests passed. The latest GitHub checks on build 35 were prevented from starting
+by the account's billing/spending limit, rather than failing in analysis or
+compilation. The known Windows golden difference remains separate. Incidental
+local Flutter changes to the lockfile/generated platform files were restored.
+
+**Next:** Claude can now perform the approved backend deployment and build 35
+using the ordered plan above. Repair the migration history deliberately before
+any blanket `db push`: the read still showed `001`–`011` and timestamp versions
+`20260610083720`, `20260714194247`. This preparation did not change the database
+or supersede the audit of already-applied grants/revokes. Confirm cleanup-secret
+and migration prerequisites, deploy the data-protecting cleanup first, verify
+ordinary flows, then test and enable AI as in the owner's approved plan.
+Record each actual deployment separately; these prerequisites do not mean
+the AI feature or the signed app is ready/live.
+
+Handoff details: `docs/CLAUDE_LAUNCH_PREREQUISITES_2026-10-05.md`. Private
+verification logs and website screenshot are under ignored
+`artifacts/phone-build/`.
