@@ -1,5 +1,7 @@
 # Pebble Routines: Working Rules
 
+> **Picking up on or after 5 October 2026?** Read `docs/HANDOVER_2026-10-05.md` first.
+
 Pebble is a Flutter app (Android and iOS) with a Supabase backend and RevenueCat
 subscriptions. The owner is not a developer, so explain outcomes in plain English
 and handle git, tests and pushing yourself.
