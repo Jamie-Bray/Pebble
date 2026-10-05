@@ -1,5 +1,8 @@
 # Pebble Routines: Working Rules
 
+> **Returning after the Codex AI-photo work on 5 October 2026?** Read
+> `docs/HANDOVER_CODEX_TO_CLAUDE_2026-10-05.md` before resuming the AI task.
+
 Pebble is a Flutter app (Android and iOS) with a Supabase backend and RevenueCat
 subscriptions. The owner is not a developer, so explain outcomes in plain English
 and handle git, tests and pushing yourself.
