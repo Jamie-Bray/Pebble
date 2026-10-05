@@ -708,7 +708,10 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
   /// Asks for an AI description of a photo just saved on an AI step. Runs
   /// in the background and never throws: the step is already complete, and
   /// nothing about the routine depends on the answer.
-  void _startDescribing(RoutineSession session, RoutineSessionProofAsset asset) {
+  void _startDescribing(
+    RoutineSession session,
+    RoutineSessionProofAsset asset,
+  ) {
     final describe = _describeProof;
     if (describe == null ||
         _aiRoutineId != session.routineId ||
@@ -722,7 +725,9 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
     work = () async {
       String? text;
       try {
-        text = await describe(asset);
+        final step =
+            session.routineSnapshotSteps[session.currentStepIndex] as CheckStep;
+        text = await describe(asset, step.label);
       } catch (_) {
         // Offline, refused or failed: the same quiet line, no retry.
       }

@@ -149,7 +149,8 @@ void main() {
         expect(body, contains(aiPhotoRetentionSentence));
         expect(body, contains('deletes it within 30 days'));
         expect(body, contains("doesn't use it to train its AI"));
-        expect(body, contains('Nothing else is sent.'));
+        expect(body, contains('and the step title'));
+        expect(body, contains('No account details are added.'));
         expect(body, contains('The description can be wrong.'));
         expect(body, contains('you can turn it off any time'));
         expect(aiPhotoConsentCheckLabel, contains('Anthropic'));
@@ -489,9 +490,11 @@ void main() {
         await start(const [_photo, _plain]);
         final answer = Completer<String?>();
         final asked = <String>[];
+        final titles = <String>[];
         final controller = await player(
-          describe: (asset) {
+          describe: (asset, stepLabel) {
             asked.add(asset.proofId);
+            titles.add(stepLabel);
             return answer.future;
           },
         );
@@ -501,6 +504,7 @@ void main() {
           RoutinePlayerProofAttachResult.attached,
         );
         expect(asked, ['proof-1']);
+        expect(titles, ['Front door']);
         final asset = controller.state.proofAssets.single;
         expect(controller.state.aiDescriptionFor(asset)!.isPending, isTrue);
 
@@ -543,7 +547,7 @@ void main() {
         await start(const [_photo, _plain]);
         var calls = 0;
         final controller = await player(
-          describe: (_) async {
+          describe: (_, stepLabel) async {
             calls += 1;
             throw const SocketException('offline');
           },
@@ -578,7 +582,9 @@ void main() {
       () async {
         await start(const [_photo]);
         final answer = Completer<String?>();
-        final controller = await player(describe: (_) => answer.future);
+        final controller = await player(
+          describe: (_, stepLabel) => answer.future,
+        );
 
         await controller.attachProof('/tmp/a.jpg');
         final run = await controller.completeCurrentStep();
@@ -608,7 +614,8 @@ void main() {
       () async {
         await start(const [_photo]);
         final controller = await player(
-          describe: (_) async => 'Four dials with the marker at the top.',
+          describe: (_, stepLabel) async =>
+              'Four dials with the marker at the top.',
         );
         await controller.attachProof('/tmp/a.jpg');
         await pumpEventQueue();
@@ -625,7 +632,10 @@ void main() {
       () async {
         await start([for (var i = 0; i < 6; i++) _photo, _plain]);
         var calls = 0;
-        Future<String?> describe(RoutineSessionProofAsset _) async {
+        Future<String?> describe(
+          RoutineSessionProofAsset _,
+          String stepLabel,
+        ) async {
           calls += 1;
           return 'A door.';
         }
@@ -662,7 +672,9 @@ void main() {
       () async {
         await start(const [_photo, _plain]);
         final answer = Completer<String?>();
-        final controller = await player(describe: (_) => answer.future);
+        final controller = await player(
+          describe: (_, stepLabel) => answer.future,
+        );
         await controller.attachProof('/tmp/a.jpg');
         await controller.removeProof('proof-1');
         answer.complete('A white door.');
@@ -679,7 +691,8 @@ void main() {
         var n = 0;
         final slow = Completer<String?>();
         final controller = await player(
-          describe: (_) => ++n == 3 ? slow.future : Future.value('Photo $n.'),
+          describe: (_, stepLabel) =>
+              ++n == 3 ? slow.future : Future.value('Photo $n.'),
         );
         for (var step = 0; step < 3; step++) {
           await controller.attachProof('/tmp/a$step.jpg');
@@ -701,7 +714,7 @@ void main() {
         // If it never arrives, the email goes without it.
         final never = Completer<String?>();
         await start(const [_photo]);
-        final stuck = await player(describe: (_) => never.future);
+        final stuck = await player(describe: (_, stepLabel) => never.future);
         await stuck.attachProof('/tmp/z.jpg');
         expect(
           await stuck.aiDescriptionsForEmail(
@@ -849,7 +862,7 @@ void main() {
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
       expect(find.text('Turn off'), findsOneWidget);
-        await tester.ensureVisible(find.text('Turn off'));
+      await tester.ensureVisible(find.text('Turn off'));
       await tester.tap(find.text('Turn off'));
       await tester.pumpAndSettle();
       expect(controller.state.isOn, isFalse);

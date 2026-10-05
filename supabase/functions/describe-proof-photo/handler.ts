@@ -4,7 +4,7 @@
 // POST {action:'consent', consentVersion, routineKey?, appVersion?}
 //                                           -> {consented: true} | {consented: false, reason}
 // POST {action:'withdraw'}                  -> {withdrawn: true}
-// POST {action:'describe', idempotencyKey, imageBase64}
+// POST {action:'describe', idempotencyKey, imageBase64, stepLabel}
 //                                           -> {described: true, description}
 //                                            | {described: false, reason}
 //
@@ -140,6 +140,13 @@ export function createAiPhotoHandler(deps: AiPhotoDeps) {
       if (!isValidIdempotencyKey(body.idempotencyKey)) {
         return json({ error: 'idempotencyKey is required', code: 'idempotencyKey' }, 400);
       }
+      // Bound context before reserving allowance. Missing context is supported
+      // for callers that only need a general photo description.
+      if (body.stepLabel !== undefined &&
+          (typeof body.stepLabel !== 'string' || body.stepLabel.length > 1000)) {
+        return json({ error: 'stepLabel must be text of at most 1000 characters', code: 'stepLabel' }, 400);
+      }
+      const stepLabel = typeof body.stepLabel === 'string' ? body.stepLabel.trim() : undefined;
       const image = validateJpegBase64(body.imageBase64);
       if (!image.ok) {
         log({ event: 'invalid_image', code: image.code });
@@ -156,7 +163,7 @@ export function createAiPhotoHandler(deps: AiPhotoDeps) {
       if (reservation === 'daily_limit') return refuse('dailyLimit');
       if (reservation !== 'ok') return refuse('budgetExhausted');
 
-      const result = await deps.describe!(body.imageBase64 as string);
+      const result = await deps.describe!(body.imageBase64 as string, stepLabel);
       if (!result.ok) {
         log({ event: 'provider_failed', code: result.code, bytes: image.bytes });
         return json({ described: false, reason: 'couldNotDescribe' });

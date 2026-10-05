@@ -10,7 +10,7 @@
  * Change both when the provider, the retention sentence, the wording or the
  * data sent changes: every earlier consent then stops counting.
  */
-export const AI_PHOTO_CONSENT_VERSION = '2026-10-05.1';
+export const AI_PHOTO_CONSENT_VERSION = '2026-10-05.3';
 
 export const AI_PHOTO_LIMITS = {
   /** Descriptions one account can request in a rolling 24 hours. */
@@ -21,6 +21,7 @@ export const AI_PHOTO_LIMITS = {
   maxImageBytes: 1_500_000,
   /** A description is one or two sentences, at most 35 words. */
   maxDescriptionChars: 300,
+  maxDescriptionWords: 35,
   /** Descriptions one completion email can carry (five AI photo steps). */
   maxEmailDescriptions: 5,
 } as const;
@@ -106,6 +107,7 @@ export function cleanDescription(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const text = value.replace(CONTROL_OR_FORMAT, ' ').replace(/\s+/g, ' ').trim();
   if (!text || text.length > AI_PHOTO_LIMITS.maxDescriptionChars) return null;
+  if (text.split(/\s+/).length > AI_PHOTO_LIMITS.maxDescriptionWords) return null;
   if (containsVerdict(text)) return null;
   return text;
 }
@@ -147,5 +149,9 @@ export function parseProviderReply(reply: string): ParsedDescription {
   }
   if (containsVerdict(description)) return { ok: false, code: 'verdict' };
   const cleaned = cleanDescription(description);
-  return cleaned ? { ok: true, description: cleaned } : { ok: false, code: 'rejected' };
+  // A schema-valid reply can still end mid-sentence (for example "points
+  // to "). Do not show an incomplete observation as a finished description.
+  return cleaned && /[.!?]["'\u201d\u2019)]?$/.test(cleaned)
+    ? { ok: true, description: cleaned }
+    : { ok: false, code: 'rejected' };
 }

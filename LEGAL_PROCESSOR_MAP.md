@@ -44,10 +44,11 @@ Policy.
   `AI_PHOTO_ENABLED` secret is `true`. Runs only for a signed-in Personal
   Premium account with a current row in `ai_photo_consents`. Receives a
   re-encoded JPEG of the photo (no EXIF or GPS, longest side about 1,000 px)
-  and a fixed prompt. Does not receive the account ID, email address, routine
-  name, step name, IP address or device identifiers. Returns one or two
+  and the step title with a fixed prompt. Pebble does not add account details,
+  routine name, user IP address or device identifiers. A user-written title
+  can itself contain personal details. Returns one or two
   sentences. Pebble's function holds the photo in memory for the one request
-  and never stores or logs the photo or the description. Provider retention:
+  and never stores or logs the photo, step title or description. Provider retention:
   the API default, deleted within 30 days (longer only for content flagged
   for misuse investigations or legal duties); no model training on inputs;
   no zero-retention agreement. Retention checked on 5 October 2026 against

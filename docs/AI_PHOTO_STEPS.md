@@ -6,18 +6,22 @@ Updated 5 October 2026. Built for testing; **not deployed or enabled**.
 
 Signed-in Personal Premium users can enable descriptions for one routine on
 this phone. Its first five photo steps qualify. An unticked consent box names
-Anthropic and explains the photo transfer, retention and limitations. No
+Anthropic and explains the photo and step-title transfer, retention and limitations. No
 description can complete or fail a step. Failed descriptions leave the photo
 and routine usable. Switching off remains available after Premium expires.
 
 The app makes a JPEG copy with a longest side of 1,000 pixels and no EXIF.
 `describe-proof-photo` checks its switches, authentication, Premium, consent,
 image size and request allowance before calling Anthropic's Messages API with
-`claude-haiku-4-5`. It sends the photo and a fixed prompt, without account or
-routine details. The response parser rejects malformed replies, uncertainty
-marked `cannot_tell`, excessive length and listed verdict words. This filter
+`claude-haiku-4-5`. It sends the photo, step title and a fixed prompt. No account
+details or routine name are added. The title is untrusted context: it guides
+focus, but cannot establish what is present or whether the step is complete.
+Titles over 1,000 characters are refused before allowance is reserved.
+Structured JSON prevents malformed quotation marks. The response parser rejects malformed replies, uncertainty
+marked `cannot_tell`, incomplete sentences, over 35 words, excessive length and listed verdict words. This filter
 reduces unwanted conclusions; it cannot guarantee factual accuracy or catch
-every possible paraphrase. Real-photo evaluation is still required.
+every possible paraphrase. See the real-photo evaluation in
+`docs/review/AI_PHOTO_EVALUATION_2026-10-05.md` before enabling.
 
 Descriptions are saved with their photos in local history and included in
 normal cloud backup when enabled. Completion emails include up to five only
@@ -34,7 +38,7 @@ filters the text again; email HTML escapes it. Photos are never emailed.
 - Reservations are atomic, deduplicated by photo ID and not refunded. The
   provider may retry once for 429/5xx, so this is a request cap, not a precise
   monetary cap. Keep the provider's own spending controls in place.
-- Consent version: `2026-10-05.1`, in both Dart and TypeScript. Future changes
+- Consent version: `2026-10-05.3`, in both Dart and TypeScript. Future changes
   to provider, consent wording or transferred data require a new version.
 - AI tables contain consent and usage metadata only. No photo or description
   is written to those tables or logged by the Edge Function. Old request rows
@@ -51,13 +55,14 @@ Do not release the new app against the old backup-consent gate.
 
 Keep the API key in server secrets only. The local testing convention is
 `.env.local`; personal photos belong in ignored `ai_test_photos/`. Neither goes
-into GitHub, an app build or a chat. The key file was absent at review time.
+into GitHub, an app build or a chat. Jamie supplied a local provider key and
+23 private test photos after the initial handover review.
 
 ## Remaining evidence before enabling
 
-1. Evaluate real photos with the intended provider account: clear, blurred,
-   dark, ambiguous, text-heavy and misleading images. Check useful descriptions
-   as well as false conclusions. No real Anthropic call has been made here.
+1. Continue accuracy evaluation, especially small dial markers, handle
+   directions and mismatched step titles. Real provider tests have now run;
+   useful object descriptions still do not establish a reliable state check.
 2. On a real phone, check camera orientation, JPEG compression, consent,
    switching off, offline use, account switching, Premium expiry and history.
 3. In staging, verify migration permissions and concurrent allowance requests
@@ -93,4 +98,5 @@ informational, so a green CI run is not proof that this image comparison passed.
 
 The original AI branch's Android debug build also passed on GitHub. Follow-up
 branch CI is separate evidence and must be checked before merging. No live
-backend deployment, real provider call or real-phone test was performed.
+backend deployment or real-phone test was performed. Subsequent real provider
+evaluation and context changes are recorded in the evaluation report.

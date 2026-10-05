@@ -109,18 +109,35 @@ function setup(steps: FetchStep[] = [anthropicReply(GOOD)], options: { enabled?:
   return { store, calls, logs, call, describe, setEnabled: (value: boolean) => { enabled = value; } };
 }
 
-Deno.test('describes a photo: only the image and the fixed prompt go to the provider', async () => {
+Deno.test('describes a photo: image, step title and fixed prompt go to the provider', async () => {
   const t = setup();
-  const res = await t.describe();
+  const label = 'Check "front door" handle';
+  const res = await t.describe({ stepLabel: label });
   assert(res.status === 200 && res.body.described === true, 'described');
   assert(res.body.description === GOOD.description, 'description returned');
   assert(t.calls.length === 1 && t.calls[0].url === 'https://api.anthropic.com/v1/messages', 'one provider call');
   assert(t.calls[0].headers.get('x-api-key') === 'test-key' && t.calls[0].headers.get('anthropic-version') === '2023-06-01', 'headers');
   const sent = JSON.parse(t.calls[0].body);
   assert(sent.model === 'claude-haiku-4-5' && sent.max_tokens === 200, 'model and small max_tokens');
+  assert(sent.output_config.format.type === 'json_schema', 'constrained JSON requested');
+  const schema = sent.output_config.format.schema;
+  assert(schema.additionalProperties === false && schema.required.includes('clarity') && schema.required.includes('description'), 'both fields required');
+  assert(JSON.stringify(schema.properties.clarity.enum) === JSON.stringify(['clear', 'partly_unclear', 'cannot_tell']), 'only supported clarity values');
   assert(sent.messages[0].content[0].source.media_type === 'image/jpeg' && sent.messages[0].content[0].source.data === IMAGE, 'image sent');
+  assert(sent.messages[0].content[1].text.includes(JSON.stringify(label)), 'title quoted as untrusted context');
+  assert(sent.system.includes('Never assume the expected object'), 'context must not override image');
+  assert(!t.logs.join('').includes(label), 'title never logged');
   assert(!t.calls[0].body.includes(USER.id) && !t.calls[0].body.includes('jamie@') && !t.calls[0].body.includes('local:1'), 'no account or routine details');
   assert(t.store.monthCount === 1, 'counted once');
+});
+
+Deno.test('invalid step context is rejected without spending allowance or calling provider', async () => {
+  for (const stepLabel of [42, {}, 'x'.repeat(1001)]) {
+    const t = setup();
+    const res = await t.describe({ stepLabel });
+    assert(res.status === 400 && res.body.code === 'stepLabel', 'bad context rejected');
+    assert(t.store.monthCount === 0 && t.calls.length === 0, 'no allowance or provider call');
+  }
 });
 
 Deno.test('feature switch: off by secret, by missing key, by database pause, or when the pause cannot be read', async () => {
@@ -260,6 +277,7 @@ Deno.test('malformed, unsure, verdict or cut-short replies all become "could not
     anthropicReply({ clarity: 'clear', description: 'The front door is locked.' }),
     anthropicReply({ clarity: 'clear', description: 'The hob is switched off.' }),
     anthropicReply({ clarity: 'clear', description: 'word '.repeat(90) }),
+    anthropicReply({ clarity: 'clear', description: 'a '.repeat(36).trim() }),
     anthropicReply({ clarity: 'clear' }),
     anthropicReply(GOOD, 'max_tokens'),
     anthropicReply(GOOD, 'refusal'),

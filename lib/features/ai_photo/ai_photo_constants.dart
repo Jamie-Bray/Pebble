@@ -8,7 +8,7 @@
 // people are asked again.
 
 /// Recorded with each consent, with the time it was given.
-const aiPhotoConsentVersion = '2026-10-05.1';
+const aiPhotoConsentVersion = '2026-10-05.3';
 
 const aiPhotoProviderName = 'Anthropic';
 const aiPhotoProviderDescription = 'an AI company in the USA';
@@ -28,10 +28,11 @@ const aiPhotoMaxSteps = 5;
 String aiPhotoConsentTitle(String routineName) => 'Use AI on "$routineName"?';
 
 const _consentWhatHappens =
-    'When you take a photo on a photo step in this routine, Pebble sends it to '
+    'When you take a photo on a photo step in this routine, Pebble sends it '
+    'and the step title to '
     '$aiPhotoProviderName, $aiPhotoProviderDescription, which sends back a '
     "sentence or two saying what's in the photo. $aiPhotoRetentionSentence "
-    'Nothing else is sent.';
+    'No account details are added.';
 const _consentCanBeWrong =
     "The description can be wrong. It can't tell you whether something is "
     'locked, switched off or done, so look at the photo yourself if it '
@@ -48,7 +49,7 @@ const aiPhotoConsentBody = <String>[
 
 /// The sentence beside the box. Unchecked until the person checks it.
 const aiPhotoConsentCheckLabel =
-    "I'm happy for photos from this routine to be sent to "
+    "I'm happy for photos and step titles from this routine to be sent to "
     '$aiPhotoProviderName to be described.';
 
 const aiPhotoHowItWorksLabel = 'How AI descriptions work';
@@ -57,7 +58,7 @@ const aiPhotoHowItWorksUrl =
 
 /// Shown in the routine's AI settings while it is on.
 const aiPhotoOnDetail =
-    "Photos from this routine's photo steps are sent to $aiPhotoProviderName "
+    "Photos and step titles from this routine are sent to $aiPhotoProviderName "
     'to be described. Turn this off and Pebble stops sending them straight '
     'away. Descriptions you already have stay with their photos until you '
     'delete the photo or the run.';

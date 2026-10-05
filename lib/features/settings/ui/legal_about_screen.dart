@@ -93,7 +93,7 @@ class LegalAboutScreen extends StatelessWidget {
                         icon: LucideIcons.scanText,
                         title: 'AI photo descriptions are optional',
                         body:
-                            'They are off unless you turn them on for a routine. Then Pebble sends the photos from that routine\'s photo steps to $aiPhotoProviderName, $aiPhotoProviderDescription, to be described. $aiPhotoRetentionSentence',
+                            'They are off unless you turn them on for a routine. Then Pebble sends the photos and step titles from that routine\'s photo steps to $aiPhotoProviderName, $aiPhotoProviderDescription, to be described. $aiPhotoRetentionSentence',
                       ),
                       _LegalSection(
                         icon: LucideIcons.megaphoneOff,

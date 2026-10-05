@@ -91,6 +91,7 @@ class AiPhotoService {
   Future<AiDescribeResult> describe({
     required String idempotencyKey,
     required Uint8List jpegBytes,
+    required String stepLabel,
   }) async {
     try {
       final data = await _post(
@@ -98,6 +99,7 @@ class AiPhotoService {
           'action': 'describe',
           'idempotencyKey': idempotencyKey,
           'imageBase64': base64Encode(jpegBytes),
+          'stepLabel': stepLabel,
         },
         failure: 'failed',
         timeout: const Duration(seconds: 30),
@@ -187,10 +189,10 @@ Future<Uint8List?> encodeAiPhotoJpeg(File file) async {
 
 /// Describes one saved proof photo, or returns null. Never throws.
 typedef AiProofDescriber =
-    Future<String?> Function(RoutineSessionProofAsset asset);
+    Future<String?> Function(RoutineSessionProofAsset asset, String stepLabel);
 
 final aiProofDescriberProvider = Provider<AiProofDescriber>((ref) {
-  return (asset) async {
+  return (asset, stepLabel) async {
     try {
       final file = await ref
           .read(routineSessionProofStorageProvider)
@@ -200,7 +202,11 @@ final aiProofDescriberProvider = Provider<AiProofDescriber>((ref) {
       if (jpeg == null) return null;
       final result = await ref
           .read(aiPhotoServiceProvider)
-          .describe(idempotencyKey: asset.proofId, jpegBytes: jpeg);
+          .describe(
+            idempotencyKey: asset.proofId,
+            jpegBytes: jpeg,
+            stepLabel: stepLabel,
+          );
       if (result.featureOff) {
         ref.invalidate(aiPhotoServerEnabledProvider);
       }

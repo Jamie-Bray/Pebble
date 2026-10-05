@@ -72,6 +72,9 @@ Deno.test('cleanDescription: collapses whitespace, strips invisible characters, 
   assert(cleanDescription('  A  white\n door.\u202e ') === 'A white door.', 'cleaned');
   assert(cleanDescription('') === null && cleanDescription(42) === null, 'empty and non-string rejected');
   assert(cleanDescription('a'.repeat(AI_PHOTO_LIMITS.maxDescriptionChars + 1)) === null, 'too long rejected, not cut');
+  assert(cleanDescription('a '.repeat(35).trim()) !== null, '35 words allowed');
+  assert(cleanDescription('a '.repeat(36).trim()) === null, '36 words rejected even below character cap');
+  assert(cleanEmailDescriptions(['a '.repeat(36).trim()]).length === 0, 'email uses the same word limit');
   assert(cleanDescription('The door is locked.') === null, 'verdict rejected');
 });
 
@@ -97,6 +100,7 @@ Deno.test('parseProviderReply: everything else is a failure code', () => {
   assert(code('{"clarity":"clear","description":"The door is locked."}') === 'verdict', 'verdict');
   assert(code('{"clarity":"clear","description":"' + 'word '.repeat(80) + '"}') === 'rejected', 'too long');
   assert(code('{"clarity":"clear","description":""}') === 'rejected', 'empty');
+  assert(code('{"clarity":"clear","description":"The dial marker points to "}') === 'rejected', 'unfinished sentence rejected despite valid JSON');
   assert(code('A white door.') === 'malformed', 'not JSON');
   assert(code('{"clarity":"clear"') === 'malformed', 'truncated');
   assert(code('{"clarity":"great","description":"A door."}') === 'malformed', 'unknown clarity');
