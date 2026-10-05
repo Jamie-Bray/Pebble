@@ -90,7 +90,7 @@ void main() {
       userId: 'account-a',
       feature: cloudBackupConsentFeature,
       featureEnabled: true,
-      appVersion: cloudBackupConsentAppVersion,
+      appVersion: cloudBackupConsentUnknownAppVersion,
       privacyVersion: cloudBackupConsentPrivacyVersion,
       termsVersion: cloudBackupConsentTermsVersion,
       consentTextHash: cloudBackupConsentTextHash,

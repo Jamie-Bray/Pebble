@@ -5,17 +5,36 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:pebble_routines/core/config/app_version.dart';
 import 'package:pebble_routines/data/remote/supabase_client_provider.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
 
 const cloudBackupConsentFeature = 'personal_cloud_backup';
-const cloudBackupConsentAppVersion = '1.0.0+1';
-const cloudBackupConsentPrivacyVersion = '2026-05-04';
-const cloudBackupConsentTermsVersion = '2026-05-04';
+
+// What a user agrees to when they turn on backup. A stored consent only counts
+// while its text hash and both policy versions equal the three values below
+// (see [CloudBackupConsentRecord.isCurrentAccepted]), so changing any of them
+// asks everyone again.
+//
+// The database checks the same three values in
+// `public.has_current_cloud_backup_consent`, and rejects every backup write
+// until they match. Change them only together with the database step in
+// supabase/DEPLOY_PLAN.md. cloud_backup_consent_hash_test.dart fails if the
+// two drift apart.
+
+/// The "Last updated" date on web/privacy.html, as YYYY-MM-DD.
+const cloudBackupConsentPrivacyVersion = '2026-10-05';
+
+/// The "Last updated" date on web/terms.html, as YYYY-MM-DD.
+const cloudBackupConsentTermsVersion = '2026-10-05';
+
+/// Recorded as the app version when the platform can't report one.
+const cloudBackupConsentUnknownAppVersion = 'unknown';
+
 const cloudBackupConsentText =
-    'I understand Pebble backup may save routines, proof photos, '
-    'history, and related details that could reveal sensitive information about my '
+    'I understand Pebble backup may save routines, proof photos, voice tip '
+    'recordings, history, and related details that could reveal sensitive information about my '
     'health, home, family, workplace, habits, or personal circumstances. '
     'I want to turn on backup for this account.';
 
@@ -156,6 +175,10 @@ class CloudBackupConsentStore {
 
   bool get isRemoteAvailable => _client != null;
 
+  /// The build the user is running when they agree, such as `1.0.0+34`.
+  Future<String> _readAppVersion() async =>
+      await readAppVersion() ?? cloudBackupConsentUnknownAppVersion;
+
   String _cacheKey(String userId) => 'pebble.cloud_backup_consent.$userId';
   String _pendingEnableKey(String userId) =>
       'pebble.cloud_backup_consent_pending.$userId';
@@ -237,7 +260,7 @@ class CloudBackupConsentStore {
       userId: userId,
       feature: cloudBackupConsentFeature,
       featureEnabled: true,
-      appVersion: cloudBackupConsentAppVersion,
+      appVersion: await _readAppVersion(),
       privacyVersion: cloudBackupConsentPrivacyVersion,
       termsVersion: cloudBackupConsentTermsVersion,
       consentTextHash: cloudBackupConsentTextHash,
@@ -276,7 +299,7 @@ class CloudBackupConsentStore {
       userId: userId,
       feature: cloudBackupConsentFeature,
       featureEnabled: false,
-      appVersion: current?.appVersion ?? cloudBackupConsentAppVersion,
+      appVersion: current?.appVersion ?? await _readAppVersion(),
       privacyVersion:
           current?.privacyVersion ?? cloudBackupConsentPrivacyVersion,
       termsVersion: current?.termsVersion ?? cloudBackupConsentTermsVersion,

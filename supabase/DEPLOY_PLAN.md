@@ -123,3 +123,52 @@ Added by the read-only audit in `docs/review/BACKEND_LIVE_AUDIT.md`. Nothing her
 - **Proposed addition to Order step 5:** record both 016 and 020 as applied (`supabase migration repair --status applied 016 020 --linked`) after 020 has been run in full.
 - **Proposed smoke check for Order step 6:** `select jobname, schedule, active from cron.job;` should list three jobs: `cleanup-proof-retention-daily`, `reconcile-profile-tiers-daily`, `prune-shared-alert-data-daily`. Today only the first exists.
 - **Proposed test before launch:** one real billing-retry (grace period) case, to confirm the webhook keeps Premium on while the store is retrying payment. See risk 6 in the audit.
+
+## Proposed (backup consent text, 5 Oct 2026; not yet agreed or done)
+
+Added with the legal accuracy pass (branch `fix/legal-accuracy`). Nothing here has been run, and no migration file has been added. The sections above are unchanged.
+
+**Why.** Voice tip recordings are uploaded when backup is on, but the sentence people agree to did not mention them. The app's consent sentence now does, and the recorded policy versions are now the dates on the published privacy and terms pages. The database decides whether an account may write backup data in `public.has_current_cloud_backup_consent`, which has the old sentence's hash and the old policy dates written into it (migration 011). Until that function is updated, it does not recognise a consent given in the new app.
+
+**Proposed step: update the consent gate.** If agreed, save this as `supabase/migrations/021_voice_tip_backup_consent_text.sql`, apply it to staging first, then production, and point `test/features/subscription/cloud_backup_consent_hash_test.dart` at the migration file.
+
+```sql
+-- Keep the database write-access gate aligned with the in-app cloud-backup
+-- consent text, which now names voice tip recordings, and with the privacy
+-- and terms dates recorded with each consent.
+
+create or replace function public.has_current_cloud_backup_consent(user_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.cloud_backup_consents c
+    where c.owner_user_id = user_id
+      and c.feature = 'personal_cloud_backup'
+      and c.feature_enabled = true
+      and c.withdrawn_at is null
+      and c.privacy_version = '2026-10-05'
+      and c.terms_version = '2026-10-05'
+      and c.consent_text_hash =
+        '19e2a2c7f63deef9320b02fe2e5950245a1ff4c08259af5551f0a76058d27e4f'
+  );
+$$;
+```
+
+`create or replace` keeps the function's existing grants (012, 013), so nothing else changes. The three values must equal `cloudBackupConsentPrivacyVersion`, `cloudBackupConsentTermsVersion` and the SHA-256 of `cloudBackupConsentText` in `lib/features/subscription/providers/cloud_backup_consent_provider.dart`. The test named above fails if they differ from this section.
+
+**Order, and what happens if it is wrong.**
+
+- Apply this **before any build that contains the new consent sentence reaches a phone** (any build made from `integration/launch-pass` after this branch is merged).
+- New build, old database: the user turns on backup, the consent row is saved, and the database then refuses every backup write. Nothing is uploaded and nothing is lost, but backup does not work.
+- New database, old build (34 or earlier): the old build's uploads are refused in the same way until the phone is updated.
+- Once both are in place, every account that agreed to the old sentence is asked again the next time the new build checks its backup setting. Only test accounts exist today.
+- Any later change to the consent sentence, or to the dates in `web/privacy.html` or `web/terms.html` that the app records, needs this function updated again in the same release.
+
+**Smoke check.** On a test account with Premium and the new build: turn on backup, then run `select public.has_current_cloud_backup_consent('<that account id>');` as the service role. Expect `true`, and `app_version` in `cloud_backup_consents` should show the real build (for example `1.0.0+35`), not `1.0.0+1`. Record a voice tip, wait for backup, and check an object appears under `users/<account id>/guidance_audio/`.
+
+**Roll back** by re-running `supabase/migrations/011_align_cloud_backup_consent_hash.sql`. Only do that together with rolling back the app build.

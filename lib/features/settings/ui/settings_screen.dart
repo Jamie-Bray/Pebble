@@ -1,6 +1,7 @@
 // lib/features/settings/ui/settings_screen.dart
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
+import "package:pebble_routines/core/config/app_version.dart";
 import "package:pebble_routines/core/config/legal_links.dart";
 import "package:pebble_routines/core/theme/theme_provider.dart";
 import "package:pebble_routines/core/ui/zen_notifications.dart";
@@ -211,7 +212,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                         _FlowTile(
                           icon: LucideIcons.info,
                           title: 'About Pebble',
-                          subtitle: 'Version 1.0.0 · Privacy, terms, deletion',
+                          subtitle: _aboutSubtitle(
+                            ref.watch(appVersionProvider).valueOrNull,
+                          ),
                           onTap: () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
@@ -468,4 +471,12 @@ class _Hairline extends StatelessWidget {
       ),
     );
   }
+}
+
+/// "Version 1.0.0 · Privacy, terms, deletion", using the installed build's
+/// version. The version is left out until the platform has reported it.
+String _aboutSubtitle(String? appVersion) {
+  const links = 'Privacy, terms, deletion';
+  if (appVersion == null) return links;
+  return 'Version ${appVersion.split('+').first} · $links';
 }

@@ -710,9 +710,9 @@ class _PostPurchaseBackupSheetState
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Pebble backs up routines, history, and proof photos, '
-                  'which can include personal details. You can pause backup '
-                  'any time in Your account.',
+                  'Pebble backs up routines, history, proof photos and voice '
+                  'tips, which can include personal details. You can pause '
+                  'backup any time in Your account.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: foundation.textSecondary,

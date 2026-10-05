@@ -427,8 +427,9 @@ class _BackupOnSignInNote extends StatelessWidget {
         Expanded(
           child: Text(
             'Signing in turns on backup for this account. Pebble backs up '
-            'routines, history, and proof photos, which can include personal '
-            'details. You can pause backup any time in Your account.',
+            'routines, history, proof photos and voice tips, which can '
+            'include personal details. You can pause backup any time in Your '
+            'account.',
             style: PebbleFonts.sans(
               fontSize: 12,
               fontWeight: FontWeight.w300,

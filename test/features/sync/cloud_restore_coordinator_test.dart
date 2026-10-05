@@ -179,7 +179,7 @@ void main() {
           userId: '11111111-1111-1111-1111-111111111111',
           feature: cloudBackupConsentFeature,
           featureEnabled: true,
-          appVersion: cloudBackupConsentAppVersion,
+          appVersion: cloudBackupConsentUnknownAppVersion,
           privacyVersion: cloudBackupConsentPrivacyVersion,
           termsVersion: cloudBackupConsentTermsVersion,
           consentTextHash: cloudBackupConsentTextHash,

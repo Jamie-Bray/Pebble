@@ -1,7 +1,7 @@
 # Google Play Data Safety Answers
 
-Last updated: 3 October 2026. Based on the code at this commit, build
-1.0.0+31, including the iOS sign-in changes merged from
+Last updated: 5 October 2026. Based on the code at this commit, build
+1.0.0+34, including the iOS sign-in changes merged from
 `claude/sharp-keller-f6iiu2`.
 
 Play Console > Policy > App content > Data safety. Answers are listed in the
@@ -12,7 +12,9 @@ Ground rules used:
 
 - **Collected** means sent off the device to Pebble or to a provider working
   for Pebble. Data that only stays on the phone (local-only routines, local
-  photos, voice prompt recordings) is **not** collected.
+  photos, and voice prompt recordings while backup is off) is **not**
+  collected. Voice prompt recordings **are** collected when Premium cloud
+  backup is on.
 - **Shared** means given to a third party. Google does not count service
   providers acting for you (Supabase, RevenueCat, Sentry, Resend) as sharing.
   It also does not count transfers the user starts and would expect, such as
@@ -105,11 +107,11 @@ compliance, Personalisation, Account management.
 
 ### Audio files
 
-| Type | Collected | Notes |
-| --- | --- | --- |
-| Voice or sound recordings | **No** | Voice prompt recordings stay on the device (`guidance_audio_storage.dart`; `CURRENT_PRODUCT_OVERVIEW_PRD.md`). Backed-up routine steps can include the recording's filename, duration, MIME type and size, which counts as user-generated content metadata, not audio. **If audio backup is ever added, change this to Yes before release.** |
-| Music files | No | |
-| Other audio files | No | |
+| Type | Collected | Shared | Ephemeral | Required? | Purposes | Source and notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| Voice or sound recordings | **Yes** | No | No | Optional | App functionality | Only when Premium cloud backup is on (Premium + signed in + backup consent). Voice prompt recordings the user makes for routine steps are uploaded to `users/<uid>/guidance_audio/` in the private `routine-proofs` Supabase Storage bucket (`lib/features/sync/guidance_audio_cloud_backup.dart`, called from `cloud_sync_coordinator.dart`). They are kept until the user replaces or removes the recording, deletes the routine or deletes the account; the 21-day clean-up skips them (`supabase/functions/cleanup-proof-retention/plan.ts`). Recordings that stay on the device are not collected. |
+| Music files | No | | | | | |
+| Other audio files | No | | | | | |
 
 ### Files and docs
 
@@ -164,8 +166,8 @@ compliance, Personalisation, Account management.
 Use this to check what the form generates on the preview screen.
 
 **Data collected:** Name, Email address, User IDs, Purchase history,
-Photos, Other user-generated content, Crash logs, Diagnostics, Device or
-other IDs.
+Photos, Voice or sound recordings, Other user-generated content, Crash logs,
+Diagnostics, Device or other IDs.
 
 **Data shared:** None.
 
@@ -176,7 +178,7 @@ You can request that data be deleted.
 
 | Change | Update |
 | --- | --- |
-| Voice prompt audio is backed up | Audio > Voice or sound recordings: Yes |
+| Voice prompt audio backup is removed from the app | Audio > Voice or sound recordings: No |
 | Analytics SDK added (Firebase, PostHog and so on) | App interactions, Device IDs, and probably Shared |
 | Push notifications through FCM or APNs tokens | Device or other IDs purposes |
 | Location reminders | Approximate or precise location |

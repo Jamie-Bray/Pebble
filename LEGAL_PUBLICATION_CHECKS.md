@@ -37,8 +37,8 @@ store.
 - Location triggers are not in the current Android build. If launched later, update the permission flow, privacy policy, and store privacy forms before release.
 - Biometric app lock is not in the current dependency set. If launched later, update the policy and app-store disclosures before release.
 - Business Workspace/Growth/Enterprise should not launch on the consumer Terms alone. Create Business Terms and a Data Processing Addendum first.
-- Cloud backup of sensitive user-added content now has an in-app consent gate and Supabase consent record; confirm the deployed database includes migration `005_cloud_backup_consent_and_deletion_requests.sql`.
-- Guidance-audio files currently stay local. If audio-file cloud backup is introduced, update app UI, legal pages, store forms, and processor map first.
+- Cloud backup of sensitive user-added content now has an in-app consent gate and Supabase consent record; confirm the deployed database includes migration `005_cloud_backup_consent_and_deletion_requests.sql`. The database only accepts the consent text hash and policy versions written into `has_current_cloud_backup_consent`, so any change to the consent sentence or the policy dates in `cloud_backup_consent_provider.dart` needs the matching database step in `supabase/DEPLOY_PLAN.md`.
+- Guidance-audio (voice tip) files are uploaded when Premium cloud backup is on (`lib/features/sync/guidance_audio_cloud_backup.dart`, called from `cloud_sync_coordinator.dart`). They are kept until the user replaces or removes the recording, deletes the routine or deletes the account, and the 21-day clean-up skips them. Keep the app UI, backup consent text, legal pages, store forms, and processor map saying so.
 
 ### Store privacy form alignment
 
@@ -54,9 +54,9 @@ Likely categories include:
 - User content, including routines and routine history
 - Photos if proof-photo cloud backup is enabled
 - Photo/media library access because users can choose existing proof photos
-- Audio metadata, and audio files if audio backup is introduced later
-- App interactions or diagnostics if logging, crash reporting, or analytics are added later
-- Device identifiers if later used for security, entitlement checks, diagnostics, analytics, or crash reporting
+- Audio files (voice tip recordings) and their metadata when cloud backup is on
+- Crash logs and diagnostics (Sentry, in builds with `SENTRY_DSN`); app interactions if analytics are added later
+- Device identifiers (RevenueCat's anonymous app user ID and Sentry's random installation ID)
 
 ### Supporting audit docs
 

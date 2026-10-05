@@ -80,13 +80,13 @@ class LegalAboutScreen extends StatelessWidget {
                         icon: LucideIcons.cloud,
                         title: 'Cloud backup is optional',
                         body:
-                            'If you sign in, have Premium and turn on cloud backup, Pebble can back up your routine data, proof photos, sync records and account details to Supabase.',
+                            'If you sign in, have Premium and turn on cloud backup, Pebble backs up your routines, recent history, proof photos and voice tips to Supabase, along with the account details needed to do that.',
                       ),
                       _LegalSection(
                         icon: LucideIcons.fileCheck,
                         title: 'Asking before backup',
                         body:
-                            'Before backup uploads anything, Pebble asks you to confirm that it may include private details you added.',
+                            'Before backup uploads your routines, photos or voice tips, Pebble asks you to confirm that they may include sensitive details, such as information about your health or home.',
                       ),
                       _LegalSection(
                         icon: LucideIcons.megaphoneOff,
@@ -119,7 +119,7 @@ class LegalAboutScreen extends StatelessWidget {
                         icon: LucideIcons.userRound,
                         title: 'Accounts',
                         body:
-                            "Signing out pauses account features on that phone. It doesn't delete cloud data, cancel a subscription or remove anything stored on the phone.",
+                            "Signing out pauses account features on that phone. It doesn't delete cloud data, cancel a subscription or remove the routines and photos saved on the phone.",
                       ),
                       _LegalSection(
                         icon: LucideIcons.creditCard,
@@ -131,7 +131,7 @@ class LegalAboutScreen extends StatelessWidget {
                         icon: LucideIcons.archive,
                         title: 'Backup limits',
                         body:
-                            'Cloud backup lowers the risk of losing data, but it is not a permanent archive. Keep separate records of anything important for legal, medical, financial or work reasons.',
+                            'Cloud backup lowers some of the risk of losing data, but it is not a permanent archive. Keep separate records of anything important for legal, medical, financial or work reasons.',
                       ),
                       _LegalSection(
                         icon: LucideIcons.image,

@@ -1,6 +1,6 @@
 # Pebble Processor and Data-Flow Map
 
-Last scanned: July 14, 2026
+Last scanned: 5 October 2026
 
 This map is generated from the current codebase and should be used when filling
 Google Play Data safety, Apple privacy declarations, and the public Privacy
@@ -20,9 +20,10 @@ Policy.
 
 ## Third-Party Services Present In Code
 
-- Supabase: authentication, profiles, database tables, private proof-photo
-  storage, Edge Functions, account deletion, cloud-backup consent records, and
-  deletion request tickets.
+- Supabase: authentication, profiles, database tables, private storage for
+  proof photos and voice tip recordings (guidance audio), Edge Functions,
+  account deletion, cloud-backup consent records, and deletion request
+  tickets.
 - Google: Google sign-in and Google Play purchase processing through
   RevenueCat.
 - Apple: Sign in with Apple and App Store purchase processing through
@@ -41,8 +42,11 @@ Policy.
   dart-define is supplied. Configured with PII sending off, no screenshots, no
   view hierarchy, no user identity, no tracing, and no session replay. Crash
   events carry stack traces, device model, OS version, and app version/build.
-  `beforeSend` strips the user object as a defensive measure. Routine content,
-  photos, audio, and account identity are never attached.
+  `beforeSend` strips the user object from Dart crash events; it does not run
+  for native crashes, which carry Sentry's random installation ID. Print
+  breadcrumbs are off (`enablePrintBreadcrumbs = false`), because `debugPrint`
+  lines can contain the account ID. Crash reporting is set up so that routine
+  content, photos, audio, and account identity are not attached.
 
 ## Third-Party SDKs Not Found
 
@@ -57,9 +61,21 @@ Policy.
 - Supabase database tables: profiles, routines, routine reminders, routine
   runs, routine sessions, proof asset usage, entitlements, cloud backup
   consents, and deletion request tickets.
-- Supabase Storage bucket: `routine-proofs`.
-- Supabase Edge Functions: `delete-account`, `verify-purchase`,
-  `revenuecat-webhook`, and `request-account-deletion`.
+- Supabase Storage bucket: `routine-proofs` (proof photos, and voice tip
+  recordings under `users/<uid>/guidance_audio/`).
+- Supabase Edge Functions called by the app: `delete-account`,
+  `revenuecat-sync-entitlement`, `request-shared-alert-contact`, and
+  `send-routine-completion-alert`.
+- Supabase Edge Functions called by the website: `request-account-deletion`
+  (`web/delete-account.html`), and `shared-alert-accept`,
+  `shared-alert-decline`, and `shared-alert-block`
+  (`web/shared-alert/confirm/`, reached from links in completion emails).
+- Supabase Edge Functions called by other services: `revenuecat-webhook`
+  (RevenueCat) and `cleanup-proof-retention` (the daily database cron job).
+- `verify-purchase` still exists under `supabase/functions/` but the app no
+  longer calls it.
+- Supabase database tables written through Edge Functions only: the
+  `shared_alert_*` tables for completion emails.
 - Google Play subscription management URL:
   `https://play.google.com/store/account/subscriptions`.
 - App Store subscription management URL:
@@ -78,16 +94,19 @@ Policy.
   verification records.
 - User content: routines, steps, reminders, history, proof-photo records, and
   proof photos when cloud backup is enabled.
-- Audio details when routines containing guidance-audio details are backed up.
-  Guidance-audio files currently stay local unless a future build explicitly
-  adds audio-file cloud backup.
+- Audio: voice tip recordings (guidance-audio files) are uploaded when cloud
+  backup is on (`lib/features/sync/guidance_audio_cloud_backup.dart`,
+  called from `cloud_sync_coordinator.dart`), along with
+  their filename, duration, MIME type, and size. They are kept until the user
+  replaces or removes the recording, deletes the routine or deletes the
+  account; `cleanup-proof-retention` skips them.
 - Photos/media library access because users can choose existing proof photos.
 - Camera and microphone permission usage.
 - Diagnostics: crash logs (stack traces, device model, OS version, app
   version/build) sent to Sentry when crash reporting is enabled in the build.
   Declare under Play Data safety as "App activity / Diagnostics → Crash logs",
   collected, not shared for advertising, not linked to user identity.
-  `web/privacy.html` names Sentry, RevenueCat and Resend as of 3 October 2026.
+  `web/privacy.html` names Sentry, RevenueCat and Resend as of 5 October 2026.
   Field-by-field store answers: `docs/store/DATA_SAFETY_ANSWERS.md` and
   `docs/store/APP_PRIVACY_LABELS.md`.
 

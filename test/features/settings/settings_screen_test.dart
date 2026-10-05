@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pebble_routines/core/config/app_version.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
 import 'package:pebble_routines/features/settings/ui/appearance_screen.dart';
@@ -24,7 +25,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          appVersionProvider.overrideWith((ref) => '2.3.4+56'),
+        ],
         child: MaterialApp(
           theme: ThemeData(
             colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
@@ -55,6 +59,11 @@ void main() {
     );
     expect(find.text('Theme & colours'), findsOneWidget);
     expect(find.text('About Pebble'), findsOneWidget);
+    // The version comes from the installed build, not a fixed string.
+    expect(
+      find.text('Version 2.3.4 · Privacy, terms, deletion'),
+      findsOneWidget,
+    );
 
     // Account, backup and support are reachable from Settings too.
     expect(find.text('Your account'), findsOneWidget);
