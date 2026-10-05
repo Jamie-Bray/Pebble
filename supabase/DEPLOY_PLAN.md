@@ -184,7 +184,7 @@ Implementation and outstanding real-device checks: `docs/AI_PHOTO_STEPS.md`.
    022 must precede release of the app with the changed backup wording.
 2. Configure `ANTHROPIC_API_KEY` in function secrets, with
    `AI_PHOTO_ENABLED=false`. Never put the key in Flutter build arguments.
-   023 fixes the account allowance at 100 attempts/UTC calendar month across
+   023 fixes the account allowance at 200 attempts/UTC calendar month across
    phones; apply it before deploying the new allowance-reader action. The
    existing four-argument reserve RPC remains compatible with older workers.
    Defaults are also 20 requests/account/day and 5,000 reservations/month globally;

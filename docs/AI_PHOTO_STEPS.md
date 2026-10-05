@@ -49,7 +49,7 @@ filters the text again; email HTML escapes it. Photos are never emailed.
 
 - Both `AI_PHOTO_ENABLED=true` and `ai_photo_settings.paused=false` are needed.
   Missing configuration or a failed settings lookup leaves the feature off.
-- Personal Premium includes 100 attempts per account per UTC calendar month,
+- Personal Premium includes 200 attempts per account per UTC calendar month,
   shared across phones. AI settings show the remaining allowance. Exhaustion
   explains the limit without blocking photos or checks. Each reservation counts
   even if the provider fails. Only AI photo requests count, not ordinary ticks.
@@ -59,7 +59,7 @@ filters the text again; email HTML escapes it. Photos are never emailed.
 - Reservations are atomic, deduplicated by photo ID and not refunded. The
   provider may retry once for 429/5xx, so this is a request cap, not a precise
   monetary cap. Keep the provider's own spending controls in place.
-- Consent version: `2026-10-05.6`, in both Dart and TypeScript. Future changes
+- Consent version: `2026-10-05.7`, in both Dart and TypeScript. Future changes
   to provider, consent wording or transferred data require a new version.
 - AI tables contain consent and usage metadata only. No photo or description
   is written to those tables or logged by the Edge Function. Old request rows

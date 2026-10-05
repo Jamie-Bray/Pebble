@@ -21,6 +21,7 @@ class RoutineComposerStepRow extends StatelessWidget {
     required this.onPhotoPromptChanged,
     required this.onToggleAllowSkip,
     required this.onVoiceTip,
+    this.aiDescribesPhotos = false,
     super.key,
   });
 
@@ -39,6 +40,9 @@ class RoutineComposerStepRow extends StatelessWidget {
   final ValueChanged<String> onPhotoPromptChanged;
   final VoidCallback onToggleAllowSkip;
   final VoidCallback onVoiceTip;
+
+  /// AI photo descriptions are on for this routine.
+  final bool aiDescribesPhotos;
 
   @override
   Widget build(BuildContext context) {
@@ -110,7 +114,7 @@ class RoutineComposerStepRow extends StatelessWidget {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 8, 8),
+            padding: const EdgeInsets.fromLTRB(14, 10, 8, 0),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -172,6 +176,55 @@ class RoutineComposerStepRow extends StatelessWidget {
               ],
             ),
           ),
+          // The description reads as a quiet second line of the title, not a
+          // form field: no box, no label, and the counter only near the limit.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(47, 0, 14, 10),
+            child: TextFormField(
+              key: ValueKey('photo-prompt-${step.id}'),
+              initialValue: step.photoPrompt,
+              onChanged: onPhotoPromptChanged,
+              minLines: 1,
+              maxLines: 4,
+              maxLength: maxStepDescriptionChars,
+              buildCounter:
+                  (
+                    context, {
+                    required currentLength,
+                    required isFocused,
+                    required maxLength,
+                  }) => maxLength != null && currentLength >= maxLength - 50
+                  ? Text(
+                      '$currentLength/$maxLength',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: cs.onSurface.withValues(alpha: 0.58),
+                      ),
+                    )
+                  : null,
+              textCapitalization: TextCapitalization.sentences,
+              cursorColor: cs.primary,
+              style: TextStyle(
+                fontSize: 13.5,
+                height: 1.4,
+                color: cs.onSurface.withValues(alpha: 0.72),
+              ),
+              decoration: InputDecoration(
+                isDense: true,
+                filled: false,
+                hintText: 'Add a description (optional)',
+                hintStyle: TextStyle(
+                  fontSize: 13.5,
+                  height: 1.4,
+                  color: cs.onSurface.withValues(alpha: 0.42),
+                ),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 4),
+              ),
+            ),
+          ),
           Divider(height: 1, color: cs.outline.withValues(alpha: 0.62)),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
@@ -221,28 +274,6 @@ class RoutineComposerStepRow extends StatelessWidget {
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-            child: TextFormField(
-              key: ValueKey('photo-prompt-${step.id}'),
-              initialValue: step.photoPrompt,
-              onChanged: onPhotoPromptChanged,
-              minLines: 1,
-              maxLines: 3,
-              maxLength: maxStepDescriptionChars,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: InputDecoration(
-                labelText: 'Description (optional)',
-                hintText: step.requiresPhoto
-                    ? 'e.g. Small patio lever horizontal'
-                    : 'e.g. Wash, dry and put everything away',
-                helperText: step.requiresPhoto
-                    ? 'Shown during this step. AI uses it to focus on visible details in photos.'
-                    : 'Shown under the title during this step.',
-                helperMaxLines: 3,
-              ),
-            ),
-          ),
           if (step.requiresPhoto) ...[
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
@@ -257,7 +288,9 @@ class RoutineComposerStepRow extends StatelessWidget {
                   const SizedBox(width: 7),
                   Expanded(
                     child: Text(
-                      'Pebble asks for a photo before you can check off this step.',
+                      aiDescribesPhotos
+                          ? 'Pebble asks for a photo before you can check off this step. AI uses your description to know what to look for.'
+                          : 'Pebble asks for a photo before you can check off this step.',
                       style: TextStyle(
                         fontSize: 12,
                         height: 1.35,

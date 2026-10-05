@@ -10,18 +10,19 @@
  * Change both when the provider, the retention sentence, the wording or the
  * data sent changes: every earlier consent then stops counting.
  */
-export const AI_PHOTO_CONSENT_VERSION = '2026-10-05.6';
+export const AI_PHOTO_CONSENT_VERSION = '2026-10-05.7';
 
 export const AI_PHOTO_LIMITS = {
   /** Descriptions one account can request in a rolling 24 hours. */
   dailyPerUser: 20,
   /** Requests per account per UTC calendar month. Enforced in migration 023. */
-  monthlyPerUser: 100,
+  monthlyPerUser: 200,
   /** Provider calls allowed across all accounts in a calendar month (UTC). */
   monthlyRequests: 5000,
   /** Decoded JPEG size cap. The app sends about 100-300 KB. */
   maxImageBytes: 1_500_000,
-  maxPhotoDetailChars: 500,
+  /** The app allows 500 characters; an emoji can be several UTF-16 units here. */
+  maxPhotoDetailChars: 2000,
   /** A description is one or two sentences, at most 35 words. */
   maxDescriptionChars: 300,
   maxDescriptionWords: 35,

@@ -145,7 +145,7 @@ void main() {
         }
         expect(
           aiPhotoConsentBody.join(' '),
-          contains('100 AI descriptions each calendar month'),
+          contains('200 AI descriptions each calendar month'),
         );
         expect(aiPhotoConsentBody.join(' '), contains('Each attempt uses one'));
       },

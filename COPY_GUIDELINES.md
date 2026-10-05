@@ -224,7 +224,7 @@ Use visible examples such as a horizontal lever, rather than a hidden state
 such as a lock being engaged. Keep user instructions separate from the labelled
 AI description; neither adds a pass/fail badge.
 
-Personal Premium includes 100 AI description attempts per UTC calendar month,
+Personal Premium includes 200 AI description attempts per UTC calendar month,
 shared across phones. State that unsuccessful attempts count and ordinary
 photos/checks still work after exhaustion. Show the remaining count in AI
 settings. Do not turn an allowance message into a saved photo description.

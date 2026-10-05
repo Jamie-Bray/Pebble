@@ -1,6 +1,11 @@
 # AI allowance pricing proposal — 5 October 2026
 
-The implemented allowance remains **100 attempts per account per UTC month**.
+**Update, later on 5 October 2026:** Jamie chose **200 attempts per account per UTC
+month** on the single Personal Premium plan, with no Plus tier for now. Migration
+023, the server and the app copy use 200. Prices are still undecided; the app
+is not yet in either store. The rest of this note is the earlier proposal.
+
+At the time of writing the implemented allowance was 100 attempts per account per UTC month.
 The launch price recorded in START_HERE remains £1.99/month and £14.99/year.
 Jamie proposed £2.50/month with 200 attempts; no store price or live allowance
 was changed. The yearly offer needs a separate decision if the allowance rises.

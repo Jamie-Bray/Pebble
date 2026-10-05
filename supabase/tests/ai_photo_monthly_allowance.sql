@@ -15,12 +15,12 @@ begin
   assert not has_function_privilege('anon', 'public.reserve_ai_photo_description(uuid,text,integer,integer)', 'execute');
   assert has_function_privilege('service_role', 'public.get_ai_photo_allowance(uuid)', 'execute');
   assert not has_table_privilege('authenticated', 'public.ai_photo_requests', 'select');
-  assert public.get_ai_photo_allowance(u)->>'remaining' = '100';
+  assert public.get_ai_photo_allowance(u)->>'remaining' = '200';
   -- Seed earlier requests in this month, including ones outside the daily window.
   insert into public.ai_photo_requests(owner_user_id, idempotency_key, created_at)
     select u, 'monthly-' || lpad(i::text, 4, '0'),
       date_trunc('month', timezone('utc', now())) at time zone 'UTC'
-      from generate_series(1, 99) i;
+      from generate_series(1, 199) i;
   -- An older month does not count; very old rows are pruned lazily.
   insert into public.ai_photo_requests values (u, 'old-month', now() - interval '40 days');
   assert public.reserve_ai_photo_description(u, 'last-one', 200, 5000) = 'ok';
@@ -28,10 +28,10 @@ begin
   assert public.reserve_ai_photo_description(u, 'over-cap', 200, 5000) = 'monthly_limit';
   assert not exists(select 1 from public.ai_photo_requests where idempotency_key = 'old-month');
   a := public.get_ai_photo_allowance(u);
-  assert a->>'used' = '100' and a->>'remaining' = '0';
+  assert a->>'used' = '200' and a->>'remaining' = '0';
   assert (a->>'resetsAt')::timestamptz =
     (date_trunc('month', timezone('utc', now())) + interval '1 month') at time zone 'UTC';
-  assert public.get_ai_photo_allowance(other)->>'remaining' = '100';
+  assert public.get_ai_photo_allowance(other)->>'remaining' = '200';
   select requests into n from public.ai_photo_budget
     where month = date_trunc('month', timezone('utc', now()))::date;
   assert n = 1; -- Duplicate/refusal did not spend global budget.

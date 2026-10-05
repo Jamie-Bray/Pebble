@@ -156,7 +156,7 @@ export function createAiPhotoHandler(deps: AiPhotoDeps) {
       const stepLabel = typeof body.stepLabel === 'string' ? body.stepLabel.trim() : undefined;
       if (body.photoDetail !== undefined &&
           (typeof body.photoDetail !== 'string' || body.photoDetail.length > AI_PHOTO_LIMITS.maxPhotoDetailChars)) {
-        return json({ error: 'photoDetail must be text of at most 500 characters', code: 'photoDetail' }, 400);
+        return json({ error: 'photoDetail is too long', code: 'photoDetail' }, 400);
       }
       const photoDetail = typeof body.photoDetail === 'string' ? body.photoDetail.trim() || undefined : undefined;
       const image = validateJpegBase64(body.imageBase64);

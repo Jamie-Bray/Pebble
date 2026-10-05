@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
+import 'package:pebble_routines/features/ai_photo/ai_photo_settings.dart';
 import 'package:pebble_routines/features/routines/composer/data/guidance_audio_storage.dart';
 import 'package:pebble_routines/features/routines/composer/models/routine_composer_config.dart';
 import 'package:pebble_routines/features/routines/composer/models/routine_composer_mode.dart';
@@ -134,6 +135,10 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
       },
     );
 
+    final routineId = widget.config.routine?.id;
+    final aiDescribesPhotos =
+        routineId != null &&
+        ref.watch(aiPhotoActiveRoutineIdProvider) == routineId;
     final composerState = ref.watch(
       routineComposerViewModelProvider(widget.config),
     );
@@ -198,6 +203,7 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
                               composerState.steps[index].id,
                               value,
                             ),
+                            aiDescribesPhotos: aiDescribesPhotos,
                             onPhotoPromptChanged: (value) =>
                                 _viewModel.updatePhotoPrompt(
                                   composerState.steps[index].id,
@@ -376,18 +382,6 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
                     : () => _handleAddStep(state),
                 subdued: _shouldSubdueAddStep(state),
               ),
-              if (_shouldShowAddStepHint(state)) ...[
-                const SizedBox(height: 8),
-                Text(
-                  'Tap Add step for the next one',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurface.withValues(alpha: 0.48),
-                  ),
-                ),
-              ],
               if (!state.isPublishing &&
                   (state.isSavingDraft || state.showSavedConfirmation)) ...[
                 const SizedBox(height: 8),
@@ -411,10 +405,6 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
         .where((step) => step.text.trim().isNotEmpty)
         .length;
     return nonEmptyStepCount == 0 ? 'Add step' : 'Add next step';
-  }
-
-  bool _shouldShowAddStepHint(RoutineComposerState state) {
-    return _focusedStepId != null && !state.isPublishing;
   }
 
   Future<void> _handleBack(RoutineComposerState state) async {

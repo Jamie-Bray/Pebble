@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
+import 'package:pebble_routines/features/ai_photo/ai_photo_settings.dart';
 import 'package:pebble_routines/features/routines/composer/data/routine_composer_draft_repository.dart';
 
 import 'package:pebble_routines/features/routines/composer/ui/routine_composer_screen.dart';
@@ -39,6 +40,7 @@ void main() {
   ) {
     return [
       routineComposerDraftRepositoryProvider.overrideWithValue(repository),
+      aiPhotoActiveRoutineIdProvider.overrideWithValue(null),
       premiumFeaturePolicyProvider.overrideWithValue(
         premiumFeaturePolicyForTier(UserTier.personalPremium),
       ),
@@ -204,7 +206,6 @@ void main() {
     await tester.pump();
 
     expect(find.widgetWithText(FilledButton, 'Add next step'), findsOneWidget);
-    expect(find.text('Tap Add step for the next one'), findsOneWidget);
 
     await tester.tap(find.widgetWithText(FilledButton, 'Add next step'));
     await tester.pumpAndSettle();

@@ -182,7 +182,7 @@ Deno.test('desired photo detail is bounded, quoted as a hypothesis, never logged
   assert(sent.system.includes('Do not say the desired cue matches'), 'no comparison label');
   assert(sent.messages[0].content[1].text.includes(JSON.stringify(detail)), 'detail quoted');
   assert(!t.logs.join('').includes(detail), 'detail never logged');
-  for (const invalid of [42, {}, 'x'.repeat(501)]) {
+  for (const invalid of [42, {}, 'x'.repeat(2001)]) {
     const bad = setup();
     assert((await bad.describe({ photoDetail: invalid })).body.code === 'photoDetail', 'invalid detail');
     assert(bad.calls.length === 0 && bad.store.monthCount === 0, 'no spend');

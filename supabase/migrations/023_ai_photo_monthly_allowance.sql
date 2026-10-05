@@ -1,4 +1,4 @@
--- Personal Premium: 100 AI requests per UTC calendar month per account.
+-- Personal Premium: 200 AI requests per UTC calendar month per account.
 -- NOT APPLIED. Apply after 021, before enabling AI. No photos/descriptions
 -- are stored here. Preserve the existing four-argument RPC for older workers.
 
@@ -31,7 +31,7 @@ begin
 
   select count(*) into v_used from public.ai_photo_requests
     where owner_user_id = p_user_id and created_at >= v_start;
-  if v_used >= 100 then return 'monthly_limit'; end if;
+  if v_used >= 200 then return 'monthly_limit'; end if;
 
   select count(*) into v_used from public.ai_photo_requests
     where owner_user_id = p_user_id and created_at > now() - interval '24 hours';
@@ -65,7 +65,7 @@ as $$
     where owner_user_id = p_user_id and created_at >= period.start
   )
   select jsonb_build_object(
-    'limit', 100, 'used', used, 'remaining', greatest(0, 100 - used),
+    'limit', 200, 'used', used, 'remaining', greatest(0, 200 - used),
     'resetsAt', (period.start at time zone 'UTC' + interval '1 month') at time zone 'UTC'
   ) from usage, period;
 $$;

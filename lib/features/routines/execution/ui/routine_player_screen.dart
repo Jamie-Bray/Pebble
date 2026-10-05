@@ -1825,8 +1825,7 @@ class _PlayerPhotoSummary extends StatelessWidget {
               color: subtitleColor,
             ),
           ),
-          const SizedBox(height: 13),
-          _ProofCollage(cells: cells),
+          // Above the photo, so it is readable without scrolling past it.
           for (final asset in proofAssets)
             if (aiDescriptionFor(asset) case final description?)
               Padding(
@@ -1837,6 +1836,8 @@ class _PlayerPhotoSummary extends StatelessWidget {
                   reduceMotion: reduceMotion,
                 ),
               ),
+          const SizedBox(height: 13),
+          _ProofCollage(cells: cells),
         ],
       ),
     );
