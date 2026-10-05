@@ -40,14 +40,14 @@ Policy.
   time and step counts.
 - Anthropic: AI photo descriptions, called only from the
   `describe-proof-photo` Edge Function (`api.anthropic.com`,
-  `ANTHROPIC_API_KEY`, model `claude-haiku-4-5`). Off unless the
+  `ANTHROPIC_API_KEY`, model `claude-sonnet-5-5`). Off unless the
   `AI_PHOTO_ENABLED` secret is `true`. Runs only for a signed-in Personal
   Premium account with a current row in `ai_photo_consents`. Receives a
   re-encoded JPEG of the photo (no EXIF or GPS, longest side about 1,000 px)
   and the step title with a fixed prompt. Pebble does not add account details,
   routine name, user IP address or device identifiers. A user-written title
-  can itself contain personal details. Returns one or two
-  sentences. Pebble's function holds the photo in memory for the one request
+  can itself contain personal details. Returns one short caption.
+  Pebble's function holds the photo in memory for the one request
   and never stores or logs the photo, step title or description. Provider retention:
   the API default, deleted within 30 days (longer only for content flagged
   for misuse investigations or legal duties); no model training on inputs;

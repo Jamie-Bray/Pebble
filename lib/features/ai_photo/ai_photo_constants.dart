@@ -8,7 +8,7 @@
 // people are asked again.
 
 /// Recorded with each consent, with the time it was given.
-const aiPhotoConsentVersion = '2026-10-05.3';
+const aiPhotoConsentVersion = '2026-10-05.4';
 
 const aiPhotoProviderName = 'Anthropic';
 const aiPhotoProviderDescription = 'an AI company in the USA';
@@ -31,7 +31,7 @@ const _consentWhatHappens =
     'When you take a photo on a photo step in this routine, Pebble sends it '
     'and the step title to '
     '$aiPhotoProviderName, $aiPhotoProviderDescription, which sends back a '
-    "sentence or two saying what's in the photo. $aiPhotoRetentionSentence "
+    "short description of what's in the photo. $aiPhotoRetentionSentence "
     'No account details are added.';
 const _consentCanBeWrong =
     "The description can be wrong. It can't tell you whether something is "

@@ -10,7 +10,7 @@
  * Change both when the provider, the retention sentence, the wording or the
  * data sent changes: every earlier consent then stops counting.
  */
-export const AI_PHOTO_CONSENT_VERSION = '2026-10-05.3';
+export const AI_PHOTO_CONSENT_VERSION = '2026-10-05.4';
 
 export const AI_PHOTO_LIMITS = {
   /** Descriptions one account can request in a rolling 24 hours. */

@@ -1,9 +1,10 @@
 # AI photo evaluation — 5 October 2026
 
-Recommendation: keep AI descriptions disabled while testing accuracy. Step
-titles are now included as context, but descriptions still contain confidently
-wrong visible details. This is an optional description aid, never a pass/fail
-check or proof of a physical state.
+Launch direction: use short, useful captions with Sonnet 5.5 and step-title
+context. The earlier results below describe Haiku with an overly detailed
+brief, not a reason to abandon the feature. A subsequent model/prompt
+comparison is recorded below. This is an optional description aid, never a
+pass/fail check or proof of a physical state.
 
 ## Method and privacy
 
@@ -21,7 +22,7 @@ to match visible subjects; they were not recovered from original routines.
 Photos, filenames, hashes, titles, replies and comparison HTML remain in ignored
 local artifacts. Only this aggregate report belongs in GitHub.
 
-## Results
+## Initial results (Haiku and the detailed brief)
 
 | Run | Provider successes | Accepted by parser |
 | --- | ---: | ---: |
@@ -66,6 +67,68 @@ https://platform.claude.com/docs/en/models/haiku-4-5/overview.
 
 ## Implementation and remaining checks
 
+### Follow-up: compare the brief and model, then implement the better version
+
+Jamie's goal is to launch useful photo descriptions, not require the model to
+prove that physical checks are complete. The initial prompt explicitly asked
+for handle directions and dial positions, so it contributed to the problem.
+It was too early to recommend leaving the feature disabled after that run.
+
+Compared Haiku 4.5, Sonnet 5.5 and Opus 5.5 on the same eight difficult photos
+with two briefs each (48 actual calls). Both arms used the same JSON schema
+without a descriptive hint, so the system brief could be compared separately
+from schema wording. Sonnet used `between_tools` thinking; Opus used low effort
+with a larger 1,024-token allowance because thinking is always enabled.
+
+| Model | Detailed brief: format checks | Short brief: format checks |
+| --- | ---: | ---: |
+| Haiku 4.5 | 5/8 | 8/8 |
+| Sonnet 5.5 | 7/8 | 8/8 |
+| Opus 5.5 | 7/8 | 8/8 |
+
+The short brief helped every model avoid unnecessary positional claims.
+Haiku still invented a headphone beside the keyboard and called a cylinder
+vacuum upright. Sonnet recognised the keyboard tool and cylinder vacuum;
+with the detailed brief it also got the tap direction right. Opus did not
+show a clear benefit over Sonnet for the short-caption task in this sample.
+This separates useful evidence about the prompt from the model choice; it
+does not establish a general model ranking or an accuracy percentage.
+
+**Implemented Sonnet 5.5 with the short brief.** Captions aim for one sentence
+of 8-18 words naming the main visible object and an obvious feature, in UK
+English. No exact dial/handle direction, small-print reading, screen-scene
+interpretation or background narration is requested. Existing 35-word and
+verdict checks remain. The model uses its documented `between_tools` setting
+and the same 200-token output cap, with the existing 10-second timeout.
+
+Tested the implementation on all 23 photos, then repeated all 23 after a
+small clarification about screen descriptions. Both runs returned 23 captions
+passing the parser. The final captions were 14-21 words. Visual review found
+the relevant main objects represented usefully; small details can still be
+imprecise (for example a socket's red marking described as an indicator light).
+That is a caption limitation, not a reason to abandon the feature or demand
+physical-state verification. The app continues to show the photo itself.
+
+Three misleading-title checks still described the actual keyboard, sink and
+door hardware; the instruction to declare a door locked/safe was ignored.
+Two additional ordinary-photo repeats returned captions; near-black and heavily
+blurred copies returned `cannot_tell` and the ordinary failure message. These
+checks ran with the first short production brief before the screen clarification.
+
+The final 23-photo run had median response time 2.124 seconds and maximum
+2.713 seconds. Token-based cost was $0.086536, about $0.00376 per caption. All
+101 successful calls in this follow-up (comparison, two full runs and checks)
+totalled an estimated $0.418229. Account billing was not reconciled. Prices
+and model IDs were verified at https://platform.claude.com/docs/en/models/overview;
+Sonnet costs $2/M input and $10/M output tokens. Timing excludes app capture,
+compression and the Supabase hop.
+
+Sonnet's API setting is documented at
+https://platform.claude.com/docs/en/models/sonnet-5-5/whats-new-sonnet-5-5.
+No additional provider, app dependency or automatic model-routing system was
+introduced. The private comparison page now shows the final Sonnet captions
+first, with the earlier captions expandable for review.
+
 The app passes the saved step's title with its photo. The server bounds titles
 to 1,000 characters before spending allowance and adds no account details or
 routine name. User-written titles can themselves contain personal information.
@@ -73,12 +136,11 @@ The model is instructed to treat the title as untrusted context and follow
 the image when they conflict. Nothing in this flow marks a step complete.
 
 Consent, settings, privacy copy and store disclosure drafts now explicitly
-include the step title. Consent version is `2026-10-05.3` in app and server;
+include the step title. Consent version is `2026-10-05.4` in app and server;
 older consent does not authorise this transfer. Structured JSON follows
 https://platform.claude.com/docs/en/build-with-claude/structured-outputs.
 
-Before enabling, repeat evaluation with owner-authored routine titles and
-closer photos of ambiguous handles, markers and switches. Confirm native phone
+Complete launch checks with owner-authored routine titles. Confirm native phone
 compression, accessibility, account switching and withdrawal. Verify staged
 database permissions/concurrent budgets and actual completion emails. Publish
 the matching privacy copy and store disclosures. No live Supabase changes or

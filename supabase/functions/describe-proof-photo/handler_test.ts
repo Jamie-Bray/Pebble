@@ -118,7 +118,8 @@ Deno.test('describes a photo: image, step title and fixed prompt go to the provi
   assert(t.calls.length === 1 && t.calls[0].url === 'https://api.anthropic.com/v1/messages', 'one provider call');
   assert(t.calls[0].headers.get('x-api-key') === 'test-key' && t.calls[0].headers.get('anthropic-version') === '2023-06-01', 'headers');
   const sent = JSON.parse(t.calls[0].body);
-  assert(sent.model === 'claude-haiku-4-5' && sent.max_tokens === 200, 'model and small max_tokens');
+  assert(sent.model === 'claude-sonnet-5-5' && sent.max_tokens === 200, 'model and small max_tokens');
+  assert(sent.thinking.type === 'between_tools', 'supported low-latency Sonnet setting');
   assert(sent.output_config.format.type === 'json_schema', 'constrained JSON requested');
   const schema = sent.output_config.format.schema;
   assert(schema.additionalProperties === false && schema.required.includes('clarity') && schema.required.includes('description'), 'both fields required');

@@ -13,10 +13,12 @@ and routine usable. Switching off remains available after Premium expires.
 The app makes a JPEG copy with a longest side of 1,000 pixels and no EXIF.
 `describe-proof-photo` checks its switches, authentication, Premium, consent,
 image size and request allowance before calling Anthropic's Messages API with
-`claude-haiku-4-5`. It sends the photo, step title and a fixed prompt. No account
+`claude-sonnet-5-5`. It sends the photo, step title and a fixed prompt. No account
 details or routine name are added. The title is untrusted context: it guides
 focus, but cannot establish what is present or whether the step is complete.
-Titles over 1,000 characters are refused before allowance is reserved.
+Titles over 1,000 characters are refused before allowance is reserved. Captions
+aim for one sentence of 8-18 words naming the object and an obvious feature.
+The prompt omits precise handle/dial directions and background detail.
 Structured JSON prevents malformed quotation marks. The response parser rejects malformed replies, uncertainty
 marked `cannot_tell`, incomplete sentences, over 35 words, excessive length and listed verdict words. This filter
 reduces unwanted conclusions; it cannot guarantee factual accuracy or catch
@@ -38,7 +40,7 @@ filters the text again; email HTML escapes it. Photos are never emailed.
 - Reservations are atomic, deduplicated by photo ID and not refunded. The
   provider may retry once for 429/5xx, so this is a request cap, not a precise
   monetary cap. Keep the provider's own spending controls in place.
-- Consent version: `2026-10-05.3`, in both Dart and TypeScript. Future changes
+- Consent version: `2026-10-05.4`, in both Dart and TypeScript. Future changes
   to provider, consent wording or transferred data require a new version.
 - AI tables contain consent and usage metadata only. No photo or description
   is written to those tables or logged by the Edge Function. Old request rows
@@ -60,9 +62,9 @@ into GitHub, an app build or a chat. Jamie supplied a local provider key and
 
 ## Remaining evidence before enabling
 
-1. Continue accuracy evaluation, especially small dial markers, handle
-   directions and mismatched step titles. Real provider tests have now run;
-   useful object descriptions still do not establish a reliable state check.
+1. Review the revised Sonnet captions as a description aid. Real provider,
+   prompt and misleading-title comparisons have run. Exact dial markers and
+   handle directions are deliberately outside the caption brief.
 2. On a real phone, check camera orientation, JPEG compression, consent,
    switching off, offline use, account switching, Premium expiry and history.
 3. In staging, verify migration permissions and concurrent allowance requests

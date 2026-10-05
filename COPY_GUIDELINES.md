@@ -217,7 +217,7 @@ descriptions, you can choose to add them. Photos are never emailed."
 
 ## AI Photo Descriptions
 
-Say what it does: it writes a sentence or two about what is in a photo. Never
+Say what it does: it writes a short description of what is in a photo. Never
 say it checks, confirms, verifies or makes sure of anything, and never use
 medication as the example. Every description is labelled "AI description".
 
