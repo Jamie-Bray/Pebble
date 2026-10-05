@@ -9,6 +9,9 @@ import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:pebble_routines/core/ui/pebble_buttons.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
+import 'package:pebble_routines/features/ai_photo/ai_photo_service.dart';
+import 'package:pebble_routines/features/ai_photo/ai_photo_settings.dart';
+import 'package:pebble_routines/features/ai_photo/ai_photo_ui.dart';
 import 'package:pebble_routines/features/routines/creator/ui/routine_creation_choice_sheet.dart';
 import 'package:pebble_routines/features/routines/creator/ui/routine_style_picker_sheet.dart';
 import 'package:pebble_routines/features/routines/creator/ui/reorder_steps_screen.dart';
@@ -1474,6 +1477,9 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
     final hasPremiumStyleAccess = ref
         .read(premiumFeaturePolicyProvider)
         .canUsePremiumThemes;
+    // Ask the server again each time the actions open; the row keeps showing
+    // the last answer while this loads.
+    ref.invalidate(aiPhotoServerEnabledProvider);
     showModalBottomSheet(
       context: context,
       useRootNavigator: true,
@@ -1560,6 +1566,41 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                             onTap: () {
                               Navigator.pop(sheetContext);
                               _openRoutineEmail(routine);
+                            },
+                          ),
+                          // Shown only while the server has the feature
+                          // switched on, or to someone who already uses it.
+                          Consumer(
+                            builder: (rowContext, rowRef, _) {
+                              final ai = rowRef.watch(aiPhotoControllerProvider);
+                              final serverEnabled =
+                                  rowRef
+                                      .watch(aiPhotoServerEnabledProvider)
+                                      .valueOrNull ??
+                                  false;
+                              if (!serverEnabled && !ai.isOn) {
+                                return const SizedBox.shrink();
+                              }
+                              final hasPremium = rowRef
+                                  .watch(premiumFeaturePolicyProvider)
+                                  .hasActiveLocalPremium;
+                              return _buildMenuRow(
+                                sheetContext,
+                                icon: LucideIcons.scanText,
+                                label: 'AI photo descriptions',
+                                subtitle: aiPhotoRowSubtitle(
+                                  settings: ai,
+                                  routine: routine,
+                                  hasPremium: hasPremium,
+                                  serverEnabled: serverEnabled,
+                                ),
+                                accent: accent,
+                                premiumLocked: !hasPremium,
+                                onTap: () {
+                                  Navigator.pop(sheetContext);
+                                  openAiPhotoSettings(context, ref, routine);
+                                },
+                              );
                             },
                           ),
                           _buildMenuRow(
@@ -1997,6 +2038,10 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
   Future<void> _deleteRoutine(Routine routine) async {
     final management = ref.read(routineManagementProvider);
     await management.deleteRoutine(routine.id);
+    if (ref.read(aiPhotoControllerProvider).isOnFor(routine.id)) {
+      // Nothing is left to describe, so the consent is withdrawn with it.
+      unawaited(ref.read(aiPhotoControllerProvider.notifier).turnOff());
+    }
     if (!mounted) return;
 
     ZenNotifications.showInfo(

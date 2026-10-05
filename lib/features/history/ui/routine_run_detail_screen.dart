@@ -10,6 +10,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
+import 'package:pebble_routines/features/ai_photo/ai_photo_ui.dart';
 import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/ui/adaptive_layout.dart';
@@ -758,6 +759,11 @@ class RoutineRunDetailScreen extends ConsumerWidget {
     if (photos.isEmpty) {
       return const SizedBox.shrink();
     }
+    final assets = _proofAssetsByPath();
+    final descriptions = [
+      for (final path in photos)
+        if (assets[path]?.aiDescription case final description?) description,
+    ];
 
     return Container(
       margin: const EdgeInsets.only(top: 12),
@@ -806,6 +812,11 @@ class RoutineRunDetailScreen extends ConsumerWidget {
               ],
             ),
           ),
+          for (final description in descriptions)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: AiDescriptionText(description),
+            ),
         ],
       ),
     );

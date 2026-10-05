@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
+import 'package:pebble_routines/features/ai_photo/ai_photo_service.dart';
+import 'package:pebble_routines/features/ai_photo/ai_photo_settings.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/repositories/routine_session_repository.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
@@ -37,6 +39,19 @@ enum RoutinePlayerOperation {
   discarding,
 }
 
+/// Where the AI description of one photo has got to. The step never waits
+/// for it: a photo step is complete as soon as its photo is saved.
+class ProofAiDescription {
+  const ProofAiDescription.pending() : text = null, failed = false;
+  const ProofAiDescription.failed() : text = null, failed = true;
+  const ProofAiDescription.ready(String this.text) : failed = false;
+
+  final String? text;
+  final bool failed;
+
+  bool get isPending => text == null && !failed;
+}
+
 class RoutinePlayerCompletionSummary {
   const RoutinePlayerCompletionSummary({
     required this.routineTitle,
@@ -64,6 +79,7 @@ class RoutinePlayerUiState {
     this.session,
     this.completionSummary,
     this.errorMessage,
+    this.aiDescriptions = const {},
   });
 
   factory RoutinePlayerUiState.loading({
@@ -100,6 +116,17 @@ class RoutinePlayerUiState {
   final RoutinePlayerCompletionSummary? completionSummary;
   final String? errorMessage;
 
+  /// AI descriptions asked for in this sitting, by photo id.
+  final Map<String, ProofAiDescription> aiDescriptions;
+
+  /// The description to show under a photo: one asked for just now, or one
+  /// saved with the photo earlier. Null when there is nothing to show.
+  ProofAiDescription? aiDescriptionFor(RoutineSessionProofAsset asset) {
+    final saved = asset.aiDescription;
+    return aiDescriptions[asset.proofId] ??
+        (saved == null ? null : ProofAiDescription.ready(saved));
+  }
+
   RoutinePlayerUiState copyWith({
     RoutinePlayerScreenPhase? screenPhase,
     RoutineSession? session,
@@ -110,8 +137,10 @@ class RoutinePlayerUiState {
     bool clearCompletionSummary = false,
     String? errorMessage,
     bool clearErrorMessage = false,
+    Map<String, ProofAiDescription>? aiDescriptions,
   }) {
     return RoutinePlayerUiState(
+      aiDescriptions: aiDescriptions ?? this.aiDescriptions,
       screenPhase: screenPhase ?? this.screenPhase,
       session: session ?? this.session,
       maxProofPhotosPerStep:
@@ -314,9 +343,13 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
     required RoutineSessionProofStorage proofStorage,
     required int maxProofPhotosPerStep,
     required RoutineLimitPolicy routineLimitPolicy,
+    int? aiRoutineId,
+    AiProofDescriber? describeProof,
   }) : _sessionId = sessionId,
        _repository = repository,
        _proofStorage = proofStorage,
+       _aiRoutineId = aiRoutineId,
+       _describeProof = describeProof,
        super(
          RoutinePlayerUiState.loading(
            maxProofPhotosPerStep: maxProofPhotosPerStep,
@@ -329,6 +362,11 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
   final String _sessionId;
   final RoutineSessionRepository _repository;
   final RoutineSessionProofStorage _proofStorage;
+
+  /// The routine with AI photo descriptions switched on, if any.
+  final int? _aiRoutineId;
+  final AiProofDescriber? _describeProof;
+  final Set<Future<void>> _describing = {};
   Future<void>? _backgroundSave;
   int _mutationVersion = 0;
 
@@ -394,7 +432,9 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
       return;
     }
     try {
-      final saved = await _repository.saveSessionSnapshot(session);
+      final saved = await _repository.saveSessionSnapshot(
+        _withAiDescriptions(session),
+      );
       if (version == _mutationVersion &&
           !state.isForegroundBusy &&
           state.session?.sessionId == saved.sessionId) {
@@ -404,7 +444,7 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
 
       final latest = state.session;
       if (latest != null && latest.isActive && latest.sessionId == _sessionId) {
-        await _repository.saveSessionSnapshot(latest);
+        await _repository.saveSessionSnapshot(_withAiDescriptions(latest));
       }
     } catch (_) {
       if (version == _mutationVersion && !state.isForegroundBusy) {
@@ -484,11 +524,13 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
       completedAt: now,
     );
 
-    final updatedSession = session.copyWith(
-      stepStates: updatedStates,
-      currentStepIndex: session.isFinalStep
-          ? session.currentStepIndex
-          : session.currentStepIndex + 1,
+    final updatedSession = _withAiDescriptions(
+      session.copyWith(
+        stepStates: updatedStates,
+        currentStepIndex: session.isFinalStep
+            ? session.currentStepIndex
+            : session.currentStepIndex + 1,
+      ),
     );
 
     if (!session.isFinalStep) {
@@ -565,11 +607,13 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
       completedAt: now,
     );
 
-    final updatedSession = session.copyWith(
-      stepStates: updatedStates,
-      currentStepIndex: session.isFinalStep
-          ? session.currentStepIndex
-          : session.currentStepIndex + 1,
+    final updatedSession = _withAiDescriptions(
+      session.copyWith(
+        stepStates: updatedStates,
+        currentStepIndex: session.isFinalStep
+            ? session.currentStepIndex
+            : session.currentStepIndex + 1,
+      ),
     );
 
     if (!session.isFinalStep) {
@@ -651,6 +695,7 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
       );
 
       await _persistSession(session.copyWith(stepStates: updatedStates));
+      _startDescribing(session, proofAsset);
       return RoutinePlayerProofAttachResult.attached;
     } catch (_) {
       state = state.copyWith(
@@ -658,6 +703,102 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
       );
       return RoutinePlayerProofAttachResult.notAttached;
     }
+  }
+
+  /// Asks for an AI description of a photo just saved on an AI step. Runs
+  /// in the background and never throws: the step is already complete, and
+  /// nothing about the routine depends on the answer.
+  void _startDescribing(RoutineSession session, RoutineSessionProofAsset asset) {
+    final describe = _describeProof;
+    if (describe == null ||
+        _aiRoutineId != session.routineId ||
+        !aiPhotoStepIndexes(
+          session.routineSnapshotSteps,
+        ).contains(session.currentStepIndex)) {
+      return;
+    }
+    _setAiDescription(asset.proofId, const ProofAiDescription.pending());
+    late final Future<void> work;
+    work = () async {
+      String? text;
+      try {
+        text = await describe(asset);
+      } catch (_) {
+        // Offline, refused or failed: the same quiet line, no retry.
+      }
+      _setAiDescription(
+        asset.proofId,
+        text == null
+            ? const ProofAiDescription.failed()
+            : ProofAiDescription.ready(text),
+      );
+      if (text != null) {
+        try {
+          await _repository.saveProofDescription(
+            sessionId: _sessionId,
+            proofId: asset.proofId,
+            description: text,
+          );
+        } catch (_) {
+          // Still held in memory and written with the next save.
+        }
+      }
+    }().whenComplete(() => _describing.remove(work));
+    _describing.add(work);
+  }
+
+  void _setAiDescription(String proofId, ProofAiDescription description) {
+    if (!mounted) return;
+    state = state.copyWith(
+      aiDescriptions: {...state.aiDescriptions, proofId: description},
+    );
+  }
+
+  /// Copies descriptions that have arrived onto their photos, so that a
+  /// snapshot taken before one arrived can't overwrite it when saved.
+  RoutineSession _withAiDescriptions(RoutineSession session) {
+    final ready = {
+      for (final entry in state.aiDescriptions.entries)
+        if (entry.value.text != null) entry.key: entry.value.text!,
+    };
+    if (ready.isEmpty) return session;
+    return session.copyWith(
+      stepStates: [
+        for (final stepState in session.stepStates)
+          stepState.copyWith(
+            proofAssets: [
+              for (final asset in stepState.proofAssets)
+                ready.containsKey(asset.proofId)
+                    ? asset.copyWith(aiDescription: ready[asset.proofId])
+                    : asset,
+            ],
+          ),
+      ],
+    );
+  }
+
+  /// The descriptions for this run's completion email, in step order: only
+  /// photos from the AI steps, at most five. Waits up to [timeout] for any
+  /// still on their way, because the email goes out as the routine finishes.
+  Future<List<String>> aiDescriptionsForEmail({
+    Duration timeout = const Duration(seconds: 12),
+  }) async {
+    if (_describing.isNotEmpty) {
+      await Future.wait(
+        _describing.toList(),
+      ).timeout(timeout, onTimeout: () => const []);
+    }
+    final session = state.session;
+    if (!mounted || session == null || _aiRoutineId != session.routineId) {
+      return const [];
+    }
+    final aiSteps = aiPhotoStepIndexes(session.routineSnapshotSteps);
+    return [
+      for (final stepState in _withAiDescriptions(session).stepStates)
+        if (aiSteps.contains(stepState.stepIndex))
+          for (final asset in stepState.proofAssets)
+            if (asset.aiDescription != null) asset.aiDescription!,
+    ].take(5).toList();
   }
 
   Future<void> removeProof(String proofId) {
@@ -777,6 +918,7 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
   }
 
   Future<RoutineSession> _persistSession(RoutineSession session) async {
+    session = _withAiDescriptions(session);
     final optimistic = session.copyWith(updatedAt: DateTime.now());
     state = state.copyWith(
       screenPhase: optimistic.totalStepCount == 0
@@ -825,6 +967,8 @@ final routinePlayerProvider = StateNotifierProvider.autoDispose
         proofStorage: ref.read(routineSessionProofStorageProvider),
         maxProofPhotosPerStep: maxProofPhotosPerStep,
         routineLimitPolicy: ref.watch(routineLimitPolicyProvider),
+        aiRoutineId: ref.watch(aiPhotoActiveRoutineIdProvider),
+        describeProof: ref.read(aiProofDescriberProvider),
       );
     });
 

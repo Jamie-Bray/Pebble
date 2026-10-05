@@ -296,6 +296,7 @@ class SharedReminderPreferencesRepository {
     required int completedSteps,
     required int totalSteps,
     String? routineCloudId,
+    List<String> descriptions = const [],
     Duration retryDelay = const Duration(seconds: 4),
   }) async {
     final client = _client;
@@ -313,6 +314,7 @@ class SharedReminderPreferencesRepository {
       completedAt: completedAt,
       completedSteps: completedSteps,
       totalSteps: totalSteps,
+      descriptions: descriptions,
     );
     var result = await _sendCompletionOnce(client, body);
     if (!result.sent &&
@@ -419,6 +421,9 @@ class SharedReminderPreferencesRepository {
 
 /// Request body for `send-routine-completion-alert`. The time is sent in UTC
 /// with the device's offset, so the email shows the sender's local time.
+///
+/// [descriptions] are AI photo descriptions, passed only when the person
+/// chose to add them to this routine's email. Photos are never sent.
 Map<String, dynamic> completionRequestBody({
   required String routineKey,
   required String routineTitle,
@@ -427,8 +432,10 @@ Map<String, dynamic> completionRequestBody({
   required DateTime completedAt,
   required int completedSteps,
   required int totalSteps,
+  List<String> descriptions = const [],
 }) {
   return {
+    if (descriptions.isNotEmpty) 'descriptions': descriptions,
     'routineKey': routineKey,
     'routineTitle': routineTitle,
     'runId': runId,

@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:pebble_routines/features/ai_photo/ai_photo_service.dart';
+import 'package:pebble_routines/features/ai_photo/ai_photo_settings.dart';
 import 'package:pebble_routines/core/ui/pebble_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -654,8 +656,11 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
           cs,
           icon: LucideIcons.shieldCheck,
           title: "What's in the email",
+          // The AI sentence shows only where the feature is offered, so
+          // nobody reads about something they can't find.
           body:
-              'The routine name (you can hide it), completion time and step count. Photos and checklist details are not included.',
+              'The routine name (you can hide it), completion time and step count. Photos and checklist details are not included.'
+              '${(ref.watch(aiPhotoServerEnabledProvider).valueOrNull ?? false) || ref.watch(aiPhotoControllerProvider).isOn ? ' If you use AI photo descriptions, you can choose to add them. Photos are never emailed.' : ''}',
         ),
       ],
     );
@@ -823,6 +828,13 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
           if (contact.status == SharedReminderContactStatus.accepted ||
               contact.status == SharedReminderContactStatus.pending) ...[
             _buildRoutineNameToggle(cs, contact),
+            if (widget.routine != null &&
+                ref
+                    .watch(aiPhotoControllerProvider)
+                    .isOnFor(widget.routine!.id)) ...[
+              const SizedBox(height: 10),
+              _buildAiDescriptionsToggle(cs),
+            ],
             const SizedBox(height: 14),
           ],
           _buildInlineMessage(
@@ -1303,6 +1315,60 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
               onChanged: _isSharedContactSaving || _isSharedContactRefreshing
                   ? null
                   : (enabled) => _setRoutineNameShown(contact, enabled),
+              activeThumbColor: cs.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Shown only while AI photo descriptions are on for this routine. Off
+  /// unless the person turns it on here or answered "Add descriptions".
+  Widget _buildAiDescriptionsToggle(ColorScheme cs) {
+    final isOn = ref.watch(aiPhotoControllerProvider).emailDescriptions == true;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+      decoration: BoxDecoration(
+        color: cs.surface.withValues(alpha: 0.68),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.08)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Add AI photo descriptions',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  isOn
+                      ? 'The email includes what AI wrote about your photos. The photos are never emailed.'
+                      : 'The email leaves the descriptions out.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.35,
+                    color: cs.onSurface.withValues(alpha: 0.62),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Semantics(
+            label: 'Add AI photo descriptions',
+            child: Switch(
+              value: isOn,
+              onChanged: (include) => ref
+                  .read(aiPhotoControllerProvider.notifier)
+                  .setEmailDescriptions(include),
               activeThumbColor: cs.primary,
             ),
           ),

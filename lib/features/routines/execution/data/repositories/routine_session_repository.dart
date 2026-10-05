@@ -27,6 +27,17 @@ abstract class RoutineSessionRepository {
   Future<void> discardSession(String sessionId);
   Future<RoutineRun> completeSessionAndWriteRun(RoutineSession sessionSnapshot);
 
+  /// Saves what AI wrote about one photo, with the photo: on the session and,
+  /// if the run has already been written, on the run too. The description
+  /// can arrive at any point after the photo is taken, so this reads and
+  /// writes the stored rows rather than a snapshot held in memory. Does
+  /// nothing if the photo has since been removed.
+  Future<void> saveProofDescription({
+    required String sessionId,
+    required String proofId,
+    required String description,
+  });
+
   Future<List<RoutineSessionResumeSummary>> listActiveSessionsForHomeResume();
 
   Stream<RoutineSession?> watchSession(String sessionId);
@@ -291,6 +302,102 @@ class RoutineSessionRepositoryImpl implements RoutineSessionRepository {
     });
     await _scheduleCloudSync();
     return run;
+  }
+
+  @override
+  Future<void> saveProofDescription({
+    required String sessionId,
+    required String proofId,
+    required String description,
+  }) async {
+    final runChanged = await _database.transaction(() async {
+      final row = await _database.routineSessionDao.getSessionById(sessionId);
+      if (row == null) {
+        return false;
+      }
+      final session = _mapRowToEntity(row);
+      var found = false;
+      final stepStates = [
+        for (final stepState in session.stepStates)
+          stepState.copyWith(
+            proofAssets: [
+              for (final asset in stepState.proofAssets)
+                if (asset.proofId == proofId)
+                  asset.copyWith(aiDescription: description)
+                else
+                  asset,
+            ],
+          ),
+      ];
+      for (final stepState in session.stepStates) {
+        found = found || stepState.proofAssets.any((a) => a.proofId == proofId);
+      }
+      if (!found) {
+        return false;
+      }
+      final updated = session.copyWith(
+        stepStates: stepStates,
+        syncMetadata: _buildSyncMetadataForSave(
+          session: session,
+          storageScope: session.storageScope,
+        ),
+      );
+      await _database.routineSessionDao.insertOrUpdateSession(
+        _mapEntityToRow(updated),
+      );
+      await _enqueueSessionSync(updated, SyncOperation.upsert);
+
+      final runId = session.syncMetadata?.completedRunId;
+      final run = runId == null
+          ? null
+          : await _database.routineRunDao.getRunById(runId);
+      final decoded = run?.stepCompletionData == null
+          ? null
+          : jsonDecode(run!.stepCompletionData!);
+      if (run == null || decoded is! Map || decoded['steps'] is! List) {
+        return false;
+      }
+      for (final step in decoded['steps'] as List) {
+        final assets = step is Map ? step['proofAssets'] : null;
+        if (assets is! List) continue;
+        for (final asset in assets) {
+          if (asset is Map && asset['proofId'] == proofId) {
+            asset['aiDescription'] = description;
+          }
+        }
+      }
+      final canQueue =
+          run.ownerUserId != null &&
+          run.ownerUserId!.isNotEmpty &&
+          _ref.read(cloudAccessPolicyProvider).canQueuePersonalSync;
+      await _database.routineRunDao.insertOrUpdateRun(
+        RoutineRun(
+          id: run.id,
+          routineId: run.routineId,
+          routineTitle: run.routineTitle,
+          finishedAt: run.finishedAt,
+          stepCompletionData: jsonEncode(decoded),
+          ownerUserId: run.ownerUserId,
+          syncStatus: canQueue ? 'pendingUpload' : run.syncStatus,
+          lastSyncedAt: run.lastSyncedAt,
+          syncMetadataJson: run.syncMetadataJson,
+          updatedAt: DateTime.now(),
+        ),
+      );
+      if (canQueue) {
+        await _ref
+            .read(syncOutboxRepositoryProvider)
+            .enqueue(
+              entityType: SyncEntityType.run,
+              entityId: run.id,
+              operation: SyncOperation.upsert,
+            );
+      }
+      return canQueue;
+    });
+    if (runChanged) {
+      await _scheduleCloudSync();
+    }
   }
 
   @override

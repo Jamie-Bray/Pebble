@@ -1508,6 +1508,13 @@ class _FakeRoutineSessionRepository implements RoutineSessionRepository {
   RoutineSession? completedSession;
 
   @override
+  Future<void> saveProofDescription({
+    required String sessionId,
+    required String proofId,
+    required String description,
+  }) async {}
+
+  @override
   Future<RoutineRun> completeSessionAndWriteRun(
     RoutineSession sessionSnapshot,
   ) async {
@@ -1583,6 +1590,13 @@ class _BlockingSaveRoutineSessionRepository
   void releaseNextSave() {
     _pendingSaves.removeAt(0).complete();
   }
+
+  @override
+  Future<void> saveProofDescription({
+    required String sessionId,
+    required String proofId,
+    required String description,
+  }) async {}
 
   @override
   Future<RoutineRun> completeSessionAndWriteRun(

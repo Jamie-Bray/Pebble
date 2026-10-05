@@ -27,6 +27,9 @@ import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/core/ui/pebble_photo_gallery_viewer.dart';
+import 'package:pebble_routines/features/ai_photo/ai_photo_constants.dart';
+import 'package:pebble_routines/features/ai_photo/ai_photo_settings.dart';
+import 'package:pebble_routines/features/ai_photo/ai_photo_ui.dart';
 import 'package:pebble_routines/features/history/ui/routine_run_detail_screen.dart';
 import 'package:pebble_routines/features/routines/data/shared_reminder_preferences_repository.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
@@ -527,6 +530,7 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
     final photoSummary = showPhotoSummary && !isStepLocked
         ? _PlayerPhotoSummary(
             proofAssets: playerState.proofAssets,
+            aiDescriptionFor: playerState.aiDescriptionFor,
             capturedPhotoCount: playerState.capturedPhotoCount,
             maxPhotoCount: playerState.maxProofPhotosPerStep,
             isFreeTier: isFreeTier,
@@ -1116,7 +1120,15 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
           .read(localDbProvider)
           .routineDao
           .getRoutineById(session.routineId);
+      // Only when the person chose to add them for this routine. The
+      // server filters them again and never emails a photo.
+      final ai = ref.read(aiPhotoControllerProvider);
+      final descriptions =
+          ai.isOnFor(session.routineId) && ai.emailDescriptions == true
+          ? await _playerController.aiDescriptionsForEmail()
+          : const <String>[];
       final result = await sharedReminders.sendCompletionReminder(
+        descriptions: descriptions,
         routineId: session.routineId,
         routineCloudId: routine?.cloudId,
         routineTitle: session.routineTitleSnapshot,
@@ -1136,16 +1148,24 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
     }
   }
 
-  void _openVault() {
+  Future<void> _openVault() async {
     final summary = ref
         .read(routinePlayerProvider(widget.sessionId))
         .completionSummary;
     if (summary == null) {
       return;
     }
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => RoutineRunDetailScreen(run: summary.run),
+    // Read the run again: an AI description can be saved onto it after the
+    // routine finished.
+    final run =
+        await ref.read(localDbProvider).routineRunDao.getRunById(
+          summary.run.id,
+        ) ??
+        summary.run;
+    if (!mounted) return;
+    unawaited(
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => RoutineRunDetailScreen(run: run)),
       ),
     );
   }
@@ -1683,6 +1703,7 @@ class _PlayerGuidanceAudioCard extends StatelessWidget {
 class _PlayerPhotoSummary extends StatelessWidget {
   const _PlayerPhotoSummary({
     required this.proofAssets,
+    required this.aiDescriptionFor,
     required this.capturedPhotoCount,
     required this.maxPhotoCount,
     required this.isFreeTier,
@@ -1694,6 +1715,8 @@ class _PlayerPhotoSummary extends StatelessWidget {
   });
 
   final List<RoutineSessionProofAsset> proofAssets;
+  final ProofAiDescription? Function(RoutineSessionProofAsset asset)
+  aiDescriptionFor;
   final int capturedPhotoCount;
   final int maxPhotoCount;
   final bool isFreeTier;
@@ -1794,6 +1817,64 @@ class _PlayerPhotoSummary extends StatelessWidget {
           ),
           const SizedBox(height: 13),
           _ProofCollage(cells: cells),
+          for (final asset in proofAssets)
+            if (aiDescriptionFor(asset) case final description?)
+              Padding(
+                key: ValueKey('ai-description-${asset.proofId}'),
+                padding: const EdgeInsets.only(top: 12),
+                child: _ProofAiDescriptionLine(
+                  description: description,
+                  reduceMotion: reduceMotion,
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Under the photo on an AI step: a quiet "Describing photo" while the
+/// answer is on its way, then the description or the failure line. Announced
+/// to screen readers when it changes. It never affects the step.
+class _ProofAiDescriptionLine extends StatelessWidget {
+  const _ProofAiDescriptionLine({
+    required this.description,
+    required this.reduceMotion,
+  });
+
+  final ProofAiDescription description;
+  final bool reduceMotion;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = description.text;
+    if (text != null) {
+      return Semantics(liveRegion: true, child: AiDescriptionText(text));
+    }
+    final secondary = context.readableSecondaryText;
+    return Semantics(
+      liveRegion: true,
+      child: Row(
+        children: [
+          if (description.isPending && !reduceMotion) ...[
+            SizedBox(
+              width: 12,
+              height: 12,
+              child: ExcludeSemantics(
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.6,
+                  color: secondary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+          Expanded(
+            child: Text(
+              description.isPending ? 'Describing photo' : aiPhotoFailedMessage,
+              style: TextStyle(fontSize: 13, height: 1.4, color: secondary),
+            ),
+          ),
         ],
       ),
     );
