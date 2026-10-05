@@ -91,7 +91,8 @@ String aiPhotoRowSubtitle({
         ? 'On for the first $aiPhotoMaxSteps of $photoSteps photo steps'
         : 'On for this routine';
   }
-  if (settings.isOn) return 'On for "${settings.routineTitle ?? 'another routine'}"';
+  if (settings.isOn)
+    return 'On for "${settings.routineTitle ?? 'another routine'}"';
   return 'Off';
 }
 

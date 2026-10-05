@@ -347,10 +347,22 @@ class RoutineSessionRepositoryImpl implements RoutineSessionRepository {
       );
       await _enqueueSessionSync(updated, SyncOperation.upsert);
 
-      final runId = session.syncMetadata?.completedRunId;
-      final run = runId == null
-          ? null
-          : await _database.routineRunDao.getRunById(runId);
+      // The run written for this session, if it has finished. Sessions kept
+      // only on this phone don't record their run id, so match on the
+      // session id the run carries.
+      // ponytail: scans the stored runs; history is capped at 21 days. Add
+      // a session id column to routine_runs if that cap ever goes.
+      RoutineRun? run;
+      for (final candidate in await _database.routineRunDao.getAllRuns()) {
+        if (candidate.routineId == session.routineId.toString() &&
+            (candidate.stepCompletionData?.contains(
+                  '"sessionId":"$sessionId"',
+                ) ??
+                false)) {
+          run = candidate;
+          break;
+        }
+      }
       final decoded = run?.stepCompletionData == null
           ? null
           : jsonDecode(run!.stepCompletionData!);

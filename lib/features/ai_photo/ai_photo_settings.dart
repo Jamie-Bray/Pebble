@@ -109,7 +109,9 @@ class AiPhotoController extends StateNotifier<AiPhotoSettings> {
     if (userId == null) return AiPhotoSettings.off;
     try {
       final decoded = jsonDecode(prefs.getString(_key(userId)) ?? '');
-      return AiPhotoSettings.fromJson(Map<String, dynamic>.from(decoded as Map));
+      return AiPhotoSettings.fromJson(
+        Map<String, dynamic>.from(decoded as Map),
+      );
     } catch (_) {
       return AiPhotoSettings.off;
     }
