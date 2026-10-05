@@ -1039,7 +1039,7 @@ void _capture(
               if (ai || aiOnForHero) ...[
                 aiPhotoServiceProvider.overrideWithValue(_FakeAiPhotoService()),
                 aiProofDescriberProvider.overrideWithValue(
-                  (asset, stepLabel) async => aiDescription,
+                  (asset, stepLabel, photoDetail) async => aiDescription,
                 ),
               ],
               purchaseRepositoryProvider.overrideWith(
@@ -1508,6 +1508,36 @@ void main() {
   }
 
   // ---- Reminders ---------------------------------------------------------
+  for (final (prefix, device, scale) in [
+    ('', _iphone, 1.0), ('small_', _small, 1.6),
+  ]) {
+    _capture('${prefix}step description', device: device, textScale: scale,
+      account: _Account.signedInPremium, (env) async {
+        final routine = (await env.db.routineDao.getRoutineById(1))!;
+        await env.db.routineDao.insertOrUpdateRoutine(routine.copyWith(
+          stepsJson: jsonEncode(const [
+            RoutineStep.check(label: 'Do the dishes',
+              photoPrompt: 'Wash, dry and put everything away. Use the draining rack for the plates and leave the worktop clear.'),
+            RoutineStep.check(label: 'Check patio door', requiresPhoto: true,
+              photoPrompt: 'Look for the small lever in a horizontal position.'),
+          ].map((step) => step.toJson()).toList())));
+        await env.push('/edit/1');
+        await env.tapText('Do the dishes');
+        await env.shot('${prefix}step_description_composer');
+        await env.scrollDown(250);
+        await env.shot('${prefix}step_description_composer_scrolled');
+        await env.go('/');
+        await _openPlayer(env, 1);
+        await env.shot('${prefix}step_description_player');
+        if (prefix == 'small_') {
+          await env.scrollDown(250);
+          await env.shot('${prefix}step_description_player_scrolled');
+        }
+        await _tapPrimary(env);
+        await env.shot('${prefix}step_description_photo_player');
+      });
+  }
+
   _capture('reminders', (env) async {
     await env.push('/reminders');
     await env.realWait(8);

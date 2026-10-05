@@ -515,7 +515,7 @@ void main() {
         final asked = <String>[];
         final titles = <String>[];
         final controller = await player(
-          describe: (asset, stepLabel) {
+          describe: (asset, stepLabel, photoDetail) {
             asked.add(asset.proofId);
             titles.add(stepLabel);
             return answer.future;
@@ -565,12 +565,40 @@ void main() {
     );
 
     test(
+      'the saved step description guides AI and survives session JSON',
+      () async {
+        const step = RoutineStep.check(
+          label: 'Patio door',
+          requiresPhoto: true,
+          photoPrompt: 'Small lever horizontal',
+        );
+        await start(const [step]);
+        String? detail;
+        final controller = await player(
+          describe: (_, title, description) async {
+            expect(title, 'Patio door');
+            detail = description;
+            return 'The small lever appears horizontal.';
+          },
+        );
+        await controller.attachProof('/tmp/a.jpg');
+        await pumpEventQueue();
+        expect(detail, 'Small lever horizontal');
+        expect(
+          controller.state.session!.routineSnapshotSteps.single.stepDescription,
+          detail,
+        );
+        expect(controller.state.isPrimaryEnabled, isTrue);
+      },
+    );
+
+    test(
       'a failure shows the quiet line once, never retries and never blocks or undoes the step',
       () async {
         await start(const [_photo, _plain]);
         var calls = 0;
         final controller = await player(
-          describe: (_, stepLabel) async {
+          describe: (_, stepLabel, photoDetail) async {
             calls += 1;
             throw const SocketException('offline');
           },
@@ -605,7 +633,7 @@ void main() {
       () async {
         await start(const [_photo]);
         final controller = await player(
-          describe: (_, _) async {
+          describe: (_, _, _) async {
             throw const AiPhotoAllowanceException(aiPhotoMonthlyLimitMessage);
           },
         );
@@ -630,7 +658,7 @@ void main() {
         await start(const [_photo]);
         final answer = Completer<String?>();
         final controller = await player(
-          describe: (_, stepLabel) => answer.future,
+          describe: (_, stepLabel, photoDetail) => answer.future,
         );
 
         await controller.attachProof('/tmp/a.jpg');
@@ -661,7 +689,7 @@ void main() {
       () async {
         await start(const [_photo]);
         final controller = await player(
-          describe: (_, stepLabel) async =>
+          describe: (_, stepLabel, photoDetail) async =>
               'Four dials with the marker at the top.',
         );
         await controller.attachProof('/tmp/a.jpg');
@@ -682,6 +710,7 @@ void main() {
         Future<String?> describe(
           RoutineSessionProofAsset _,
           String stepLabel,
+          String? photoDetail,
         ) async {
           calls += 1;
           return 'A door.';
@@ -720,7 +749,7 @@ void main() {
         await start(const [_photo, _plain]);
         final answer = Completer<String?>();
         final controller = await player(
-          describe: (_, stepLabel) => answer.future,
+          describe: (_, stepLabel, photoDetail) => answer.future,
         );
         await controller.attachProof('/tmp/a.jpg');
         await controller.removeProof('proof-1');
@@ -738,7 +767,7 @@ void main() {
         var n = 0;
         final slow = Completer<String?>();
         final controller = await player(
-          describe: (_, stepLabel) =>
+          describe: (_, stepLabel, photoDetail) =>
               ++n == 3 ? slow.future : Future.value('Photo $n.'),
         );
         for (var step = 0; step < 3; step++) {
@@ -761,7 +790,9 @@ void main() {
         // If it never arrives, the email goes without it.
         final never = Completer<String?>();
         await start(const [_photo]);
-        final stuck = await player(describe: (_, stepLabel) => never.future);
+        final stuck = await player(
+          describe: (_, stepLabel, photoDetail) => never.future,
+        );
         await stuck.attachProof('/tmp/z.jpg');
         expect(
           await stuck.aiDescriptionsForEmail(
@@ -1117,6 +1148,10 @@ void main() {
   });
 
   test('resize bounds keep the longest side at 600 px', () {
+    expect(
+      aiPhotoResizeBounds(750, 1000, longestSide: aiPhotoDetailLongestSide),
+      (minWidth: 1, minHeight: 1000),
+    );
     expect(aiPhotoResizeBounds(800, 1067), (minWidth: 1, minHeight: 600));
     expect(aiPhotoResizeBounds(1422, 800), (minWidth: 600, minHeight: 1));
     // The compressor scales by min(width / minWidth, height / minHeight).

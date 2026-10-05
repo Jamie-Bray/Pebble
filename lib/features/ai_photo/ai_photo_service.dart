@@ -17,6 +17,7 @@ import 'package:pebble_routines/features/routines/execution/data/services/routin
 
 /// Longest side, in pixels, of the copy sent to be described.
 const aiPhotoLongestSide = 600;
+const aiPhotoDetailLongestSide = 1000;
 
 class AiPhotoException implements Exception {
   const AiPhotoException(this.message);
@@ -132,6 +133,7 @@ class AiPhotoService {
     required String idempotencyKey,
     required Uint8List jpegBytes,
     required String stepLabel,
+    String? photoDetail,
   }) async {
     try {
       final data = await _post(
@@ -140,6 +142,7 @@ class AiPhotoService {
           'idempotencyKey': idempotencyKey,
           'imageBase64': base64Encode(jpegBytes),
           'stepLabel': stepLabel,
+          if (photoDetail != null) 'photoDetail': photoDetail,
         },
         failure: 'failed',
         timeout: const Duration(seconds: 30),
@@ -214,20 +217,28 @@ final aiPhotoServerEnabledProvider = FutureProvider<bool>(
 /// of a [width] x [height] photo comes out at [aiPhotoLongestSide] or less.
 /// The compressor scales by the smaller of width/minWidth and
 /// height/minHeight and never enlarges.
-({int minWidth, int minHeight}) aiPhotoResizeBounds(int width, int height) {
+({int minWidth, int minHeight}) aiPhotoResizeBounds(
+  int width,
+  int height, {
+  int longestSide = aiPhotoLongestSide,
+}) {
   return width >= height
-      ? (minWidth: aiPhotoLongestSide, minHeight: 1)
-      : (minWidth: 1, minHeight: aiPhotoLongestSide);
+      ? (minWidth: longestSide, minHeight: 1)
+      : (minWidth: 1, minHeight: longestSide);
 }
 
 /// An upright JPEG copy of a saved proof photo, small enough to send. Saved
 /// proofs are already re-encoded without EXIF or location data
 /// ([LocalRoutineSessionProofStorage.persistCapturedProof]), and this
 /// re-encodes again.
-Future<Uint8List?> encodeAiPhotoJpeg(File file) async {
+Future<Uint8List?> encodeAiPhotoJpeg(File file, {bool detailed = false}) async {
   final buffer = await ui.ImmutableBuffer.fromFilePath(file.path);
   final descriptor = await ui.ImageDescriptor.encoded(buffer);
-  final bounds = aiPhotoResizeBounds(descriptor.width, descriptor.height);
+  final bounds = aiPhotoResizeBounds(
+    descriptor.width,
+    descriptor.height,
+    longestSide: detailed ? aiPhotoDetailLongestSide : aiPhotoLongestSide,
+  );
   descriptor.dispose();
   buffer.dispose();
   return FlutterImageCompress.compressWithFile(
@@ -242,16 +253,24 @@ Future<Uint8List?> encodeAiPhotoJpeg(File file) async {
 /// Describes one saved proof photo, or returns null. Allowance failures carry
 /// a message for the player; other failures remain quiet.
 typedef AiProofDescriber =
-    Future<String?> Function(RoutineSessionProofAsset asset, String stepLabel);
+    Future<String?> Function(
+      RoutineSessionProofAsset asset,
+      String stepLabel,
+      String? photoDetail,
+    );
 
 final aiProofDescriberProvider = Provider<AiProofDescriber>((ref) {
-  return (asset, stepLabel) async {
+  return (asset, stepLabel, photoDetail) async {
     try {
       final file = await ref
           .read(routineSessionProofStorageProvider)
           .resolveStoredFile(asset.localRelativePath);
       if (file == null) return null;
-      final jpeg = await encodeAiPhotoJpeg(file);
+      final detail = photoDetail?.trim();
+      final cue = detail == null || detail.isEmpty || detail == 'Take a photo'
+          ? null
+          : detail;
+      final jpeg = await encodeAiPhotoJpeg(file, detailed: cue != null);
       if (jpeg == null) return null;
       final result = await ref
           .read(aiPhotoServiceProvider)
@@ -259,6 +278,7 @@ final aiProofDescriberProvider = Provider<AiProofDescriber>((ref) {
             idempotencyKey: asset.proofId,
             jpegBytes: jpeg,
             stepLabel: stepLabel,
+            photoDetail: cue,
           );
       ref.invalidate(aiPhotoAllowanceProvider);
       if (result.featureOff) {

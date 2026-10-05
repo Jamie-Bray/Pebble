@@ -736,7 +736,7 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
       try {
         final step =
             session.routineSnapshotSteps[session.currentStepIndex] as CheckStep;
-        text = await describe(asset, step.label);
+        text = await describe(asset, step.label, step.stepDescription);
       } on AiPhotoAllowanceException catch (error) {
         failureMessage = error.message;
       } catch (_) {

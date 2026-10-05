@@ -77,6 +77,39 @@ void main() {
     expect(firstStepField.focusNode?.hasFocus, isTrue);
   });
 
+  testWidgets(
+    'an optional description saves multiline instructions without creating extra steps',
+    (tester) async {
+      final repository = FakeRoutineComposerDraftRepository();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: composerOverrides(repository),
+          child: MaterialApp(home: RoutineComposerScreen.newDraft()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(findAnyStepField().first, 'Do the dishes');
+      final detail = find.byType(TextFormField);
+      await tester.ensureVisible(detail);
+      await tester.enterText(
+        detail,
+        'Wash, dry and put away.\nUse the draining rack.',
+      );
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 650));
+      final saved = repository.savedSnapshots.last.steps.single;
+      expect(saved.text, 'Do the dishes');
+      expect(
+        saved.photoPrompt,
+        'Wash, dry and put away.\nUse the draining rack.',
+      );
+      expect(saved.requiresPhoto, isFalse);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 3));
+    },
+  );
+
   testWidgets('submit on a step adds a new row and moves focus forward', (
     tester,
   ) async {

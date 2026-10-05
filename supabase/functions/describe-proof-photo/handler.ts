@@ -154,6 +154,11 @@ export function createAiPhotoHandler(deps: AiPhotoDeps) {
         return json({ error: 'stepLabel must be text of at most 1000 characters', code: 'stepLabel' }, 400);
       }
       const stepLabel = typeof body.stepLabel === 'string' ? body.stepLabel.trim() : undefined;
+      if (body.photoDetail !== undefined &&
+          (typeof body.photoDetail !== 'string' || body.photoDetail.length > AI_PHOTO_LIMITS.maxPhotoDetailChars)) {
+        return json({ error: 'photoDetail must be text of at most 500 characters', code: 'photoDetail' }, 400);
+      }
+      const photoDetail = typeof body.photoDetail === 'string' ? body.photoDetail.trim() || undefined : undefined;
       const image = validateJpegBase64(body.imageBase64);
       if (!image.ok) {
         log({ event: 'invalid_image', code: image.code });
@@ -171,7 +176,7 @@ export function createAiPhotoHandler(deps: AiPhotoDeps) {
       if (reservation === 'monthly_limit') return refuse('monthlyLimit');
       if (reservation !== 'ok') return refuse('budgetExhausted');
 
-      const result = await deps.describe!(body.imageBase64 as string, stepLabel);
+      const result = await deps.describe!(body.imageBase64 as string, stepLabel, photoDetail);
       if (!result.ok) {
         log({ event: 'provider_failed', code: result.code, bytes: image.bytes });
         return json({ described: false, reason: 'couldNotDescribe' });

@@ -184,7 +184,11 @@ class FakeRoutineComposerDraftRepository
                 requiresPhoto: step.requiresPhoto,
                 allowSkip: step.allowSkip,
                 photoCount: step.requiresPhoto ? 1 : 0,
-                photoPrompt: step.requiresPhoto ? 'Take a photo' : null,
+                photoPrompt: step.photoPrompt.trim().isNotEmpty
+                    ? step.photoPrompt.trim()
+                    : step.requiresPhoto
+                    ? 'Take a photo'
+                    : null,
                 guidanceAudio: step.guidanceAudio,
               ).toJson(),
             )

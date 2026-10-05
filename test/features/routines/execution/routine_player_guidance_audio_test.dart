@@ -109,6 +109,30 @@ void main() {
     expect(find.text('Voice tip'), findsNothing);
   });
 
+  testWidgets(
+    'optional descriptions appear under check titles without requiring photos or Premium',
+    (tester) async {
+      final repository = _FakeRoutineSessionRepository();
+      await pumpPlayer(
+        tester,
+        const RoutineStep.check(
+          label: 'Do the dishes',
+          photoPrompt: 'Wash, dry and put everything away.',
+        ),
+        repository,
+        tier: UserTier.personalFree,
+        textScale: 1.6,
+      );
+      expect(find.text('Do the dishes'), findsOneWidget);
+      expect(find.text('Wash, dry and put everything away.'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('routine-step-description')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('text step renders centered redesign surface', (tester) async {
     final repository = _FakeRoutineSessionRepository();
     await pumpPlayer(

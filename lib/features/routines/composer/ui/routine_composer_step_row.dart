@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/theme/pebble_fonts.dart';
+import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/features/routines/composer/models/routine_composer_step_draft.dart';
 
 class RoutineComposerStepRow extends StatelessWidget {
@@ -17,6 +18,7 @@ class RoutineComposerStepRow extends StatelessWidget {
     required this.onSubmitted,
     required this.onDelete,
     required this.onToggleRequiresPhoto,
+    required this.onPhotoPromptChanged,
     required this.onToggleAllowSkip,
     required this.onVoiceTip,
     super.key,
@@ -34,6 +36,7 @@ class RoutineComposerStepRow extends StatelessWidget {
   final VoidCallback onSubmitted;
   final VoidCallback onDelete;
   final VoidCallback onToggleRequiresPhoto;
+  final ValueChanged<String> onPhotoPromptChanged;
   final VoidCallback onToggleAllowSkip;
   final VoidCallback onVoiceTip;
 
@@ -216,6 +219,28 @@ class RoutineComposerStepRow extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+            child: TextFormField(
+              key: ValueKey('photo-prompt-${step.id}'),
+              initialValue: step.photoPrompt,
+              onChanged: onPhotoPromptChanged,
+              minLines: 1,
+              maxLines: 3,
+              maxLength: maxStepDescriptionChars,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: InputDecoration(
+                labelText: 'Description (optional)',
+                hintText: step.requiresPhoto
+                    ? 'e.g. Small patio lever horizontal'
+                    : 'e.g. Wash, dry and put everything away',
+                helperText: step.requiresPhoto
+                    ? 'Shown during this step. AI uses it to focus on visible details in photos.'
+                    : 'Shown under the title during this step.',
+                helperMaxLines: 3,
+              ),
             ),
           ),
           if (step.requiresPhoto) ...[

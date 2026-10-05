@@ -579,6 +579,16 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
             ),
           ),
         ),
+        if (currentStep.stepDescription != null && !isStepLocked) ...[
+          const SizedBox(height: PebbleSpacing.md),
+          Text(
+            currentStep.stepDescription!,
+            key: const ValueKey('routine-step-description'),
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 16, height: 1.45,
+                color: context.readableSecondaryText),
+          ),
+        ],
         // Guidance audio sits above the proof card: it tells you how to do
         // the step, the photos record what you did. Keeping it here also
         // means a growing photo mosaic never pushes the recording out of

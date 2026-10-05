@@ -43,12 +43,12 @@ Policy.
   `ANTHROPIC_API_KEY`, model `claude-sonnet-5-5`). Off unless the
   `AI_PHOTO_ENABLED` secret is `true`. Runs only for a signed-in Personal
   Premium account with a current row in `ai_photo_consents`. Receives a
-  re-encoded JPEG of the photo (no EXIF or GPS, longest side at most 600 px)
-  and the step title with a fixed prompt. Pebble does not add account details,
+  re-encoded JPEG of the photo (no EXIF or GPS, longest side 600 px, or 1,000 px when a step description supplies a visible detail)
+  and the step title, plus any optional step description, with a fixed prompt. Pebble does not add account details,
   routine name, user IP address or device identifiers. A user-written title
   can itself contain personal details. Returns one short caption.
   Pebble's function holds the photo in memory for the one request
-  and never stores or logs the photo, step title or description. Provider retention:
+  and never stores or logs the photo, step title, step description or AI description. Provider retention:
   the API default, deleted within 30 days (longer only for content flagged
   for misuse investigations or legal duties); no model training on inputs;
   no zero-retention agreement. Retention checked on 5 October 2026 against

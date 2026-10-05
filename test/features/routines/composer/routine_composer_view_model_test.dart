@@ -12,6 +12,48 @@ import 'fake_routine_composer_draft_repository.dart';
 
 void main() {
   group('RoutineComposerViewModel', () {
+    test(
+      'descriptions survive draft JSON, editing and removing the photo requirement',
+      () async {
+        const words = 'Wash, dry and put everything away.';
+        final repository = FakeRoutineComposerDraftRepository();
+        final routine = _routine(
+          id: 44,
+          title: 'Kitchen',
+          steps: const [
+            RoutineStep.check(
+              label: 'Do the dishes',
+              photoPrompt: words,
+              requiresPhoto: true,
+            ),
+            RoutineStep.check(
+              label: 'Wipe surfaces',
+              photoPrompt: 'Take a photo',
+            ),
+          ],
+        );
+        final model = RoutineComposerViewModel(
+          repository,
+          RoutineComposerConfig.edit(routine: routine),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        expect(model.state.steps.first.photoPrompt, words);
+        expect(model.state.steps.last.photoPrompt, isEmpty);
+        final first = model.state.steps.first;
+        expect(RoutineComposerStepDraft.fromJson(first.toJson()), first);
+        model.toggleRequiresPhoto(first.id);
+        await model.flushDraft();
+        expect(repository.savedSnapshots.last.steps.first.photoPrompt, words);
+        final saved = await model.publish();
+        final step = RoutineStep.fromJson(
+          (jsonDecode(saved!.stepsJson) as List).first as Map<String, dynamic>,
+        );
+        expect(step.stepDescription, words);
+        expect(step.hasPhotoRequirement, isFalse);
+        expect(RoutineStep.fromJson(step.toJson()).stepDescription, words);
+        model.dispose();
+      },
+    );
     test('loads a blank create draft with an initial empty step', () async {
       final repository = FakeRoutineComposerDraftRepository();
       final viewModel = RoutineComposerViewModel(

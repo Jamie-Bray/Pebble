@@ -6,19 +6,34 @@ Updated 5 October 2026. Built for testing; **not deployed or enabled**.
 
 Signed-in Personal Premium users can enable descriptions for one routine on
 this phone. Its first five photo steps qualify. An unticked consent box names
-Anthropic and explains the photo and step-title transfer, retention and limitations. No
+Anthropic and explains the photo, step-title and optional step-description transfer, retention and limitations. No
 description can complete or fail a step. Failed descriptions leave the photo
 and routine usable. Switching off remains available after Premium expires.
 
-The app makes a JPEG copy with a longest side of 600 pixels and no EXIF.
+Any check step can have a **Description (optional)**, up to 500 characters,
+entered in its expanded composer card and shown under its title in the player.
+This works without photos, AI or Premium. Existing `photoPrompt` storage is
+reused, including draft autosave, session recovery and backup; the historical
+default "Take a photo" is hidden. No database migration is needed for this field.
+
+The app makes a JPEG copy with a longest side of 600 pixels and no EXIF,
+or 1,000 pixels when the step has a description to focus on visible detail.
 `describe-proof-photo` checks its switches, authentication, Premium, consent,
 image size and request allowance before calling Anthropic's Messages API with
-`claude-sonnet-5-5`. It sends the photo, step title and a fixed prompt. No account
+`claude-sonnet-5-5`. It sends the photo, step title, optional step description and a fixed prompt. No account
 details or routine name are added. The title is untrusted context: it guides
 focus, but cannot establish what is present or whether the step is complete.
 Titles over 1,000 characters are refused before allowance is reserved. Captions
 aim for one sentence of 8-18 words naming the object and an obvious feature.
-The prompt omits precise handle/dial directions and background detail.
+The broad-caption prompt omits precise handle/dial directions and background detail.
+When a step description is supplied, a separate brief asks for one 12-25-word
+observation of the requested visible feature, still capped at 35 words. It can
+describe a lever position, dial marker or unlit display, but cannot establish
+lock engagement, power state or completion. The description is an untrusted
+hypothesis; an absent expected object must not be invented. The server bounds
+this field to 500 characters before reserving allowance. A readable printed
+"Off" label may be quoted as a label; claims that an appliance is off remain
+blocked. There are no match/difference badges or automatic step completion.
 Structured JSON prevents malformed quotation marks. The response parser rejects malformed replies, uncertainty
 marked `cannot_tell`, incomplete sentences, over 35 words, excessive length and listed verdict words. This filter
 reduces unwanted conclusions; it cannot guarantee factual accuracy or catch
@@ -44,7 +59,7 @@ filters the text again; email HTML escapes it. Photos are never emailed.
 - Reservations are atomic, deduplicated by photo ID and not refunded. The
   provider may retry once for 429/5xx, so this is a request cap, not a precise
   monetary cap. Keep the provider's own spending controls in place.
-- Consent version: `2026-10-05.5`, in both Dart and TypeScript. Future changes
+- Consent version: `2026-10-05.6`, in both Dart and TypeScript. Future changes
   to provider, consent wording or transferred data require a new version.
 - AI tables contain consent and usage metadata only. No photo or description
   is written to those tables or logged by the Edge Function. Old request rows
@@ -70,8 +85,9 @@ into GitHub, an app build or a chat. Jamie supplied a local provider key and
 ## Remaining evidence before enabling
 
 1. Review the revised Sonnet captions as a description aid. Real provider,
-   prompt and misleading-title comparisons have run. Exact dial markers and
-   handle directions are deliberately outside the caption brief.
+   prompt and misleading-title comparisons have run. Optional step descriptions
+   now focus observations on a visible feature; five final detail cases were
+   checked, including a misleading object expectation and deliberate blur.
 2. On a real phone, check camera orientation, JPEG compression, consent,
    switching off, offline use, account switching, Premium expiry and history.
 3. In staging, verify concurrent allowance requests against PostgreSQL. Local

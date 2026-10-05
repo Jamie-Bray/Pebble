@@ -118,6 +118,18 @@ class RoutineComposerViewModel extends StateNotifier<RoutineComposerState> {
     _applyDraftMutation(steps: updatedSteps);
   }
 
+  void updatePhotoPrompt(String stepId, String value) {
+    if (state.isLoading) return;
+    _applyDraftMutation(
+      steps: state.steps
+          .map(
+            (step) =>
+                step.id == stepId ? step.copyWith(photoPrompt: value) : step,
+          )
+          .toList(growable: false),
+    );
+  }
+
   void setExpandedStep(String? stepId) {
     if (state.expandedStepId == stepId) return;
     state = state.copyWith(expandedStepId: stepId, clearErrorMessage: true);
@@ -400,6 +412,9 @@ class RoutineComposerViewModel extends StateNotifier<RoutineComposerState> {
                       id: _uuid.v4(),
                       text: label,
                       requiresPhoto: requiresPhoto,
+                      photoPrompt: photoPrompt == 'Take a photo'
+                          ? ''
+                          : photoPrompt ?? '',
                       allowSkip: allowSkip,
                       guidanceAudio: guidanceAudio,
                       sortOrder: index,

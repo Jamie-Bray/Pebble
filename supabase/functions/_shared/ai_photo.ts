@@ -10,7 +10,7 @@
  * Change both when the provider, the retention sentence, the wording or the
  * data sent changes: every earlier consent then stops counting.
  */
-export const AI_PHOTO_CONSENT_VERSION = '2026-10-05.5';
+export const AI_PHOTO_CONSENT_VERSION = '2026-10-05.6';
 
 export const AI_PHOTO_LIMITS = {
   /** Descriptions one account can request in a rolling 24 hours. */
@@ -21,6 +21,7 @@ export const AI_PHOTO_LIMITS = {
   monthlyRequests: 5000,
   /** Decoded JPEG size cap. The app sends about 100-300 KB. */
   maxImageBytes: 1_500_000,
+  maxPhotoDetailChars: 500,
   /** A description is one or two sentences, at most 35 words. */
   maxDescriptionChars: 300,
   maxDescriptionWords: 35,
@@ -91,7 +92,10 @@ const VERDICT_PATTERNS: RegExp[] = [
 ];
 
 export function containsVerdict(text: string): boolean {
-  return VERDICT_PATTERNS.some((pattern) => pattern.test(text));
+  // A printed label is visible text, not a power-state conclusion. Only this
+  // explicit quotation is exempt; a second "off" elsewhere still fails.
+  const observed = text.replace(/\bprinted\s+(?:label|word|marking)\s+["'“‘]off["'”’]|\bprinted\s+["'“‘]off["'”’]\s+(?:label|word|marking)\b/gi, 'printed label');
+  return VERDICT_PATTERNS.some((pattern) => pattern.test(observed));
 }
 
 // ---------------------------------------------------------------------------

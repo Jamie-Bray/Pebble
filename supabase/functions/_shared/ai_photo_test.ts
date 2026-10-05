@@ -68,6 +68,21 @@ Deno.test('verdict filter: plain descriptions of what is visible pass', () => {
   for (const text of visible) assert(!containsVerdict(text), `should pass: ${text}`);
 });
 
+Deno.test('explicit printed Off labels are observations; appliance state claims remain refused', () => {
+  for (const text of [
+    'The marker points towards the printed "Off" label.',
+    "The marker points towards the printed label 'Off'.",
+  ]) {
+    assert(!containsVerdict(text) && cleanDescription(text) === text, 'visible printing allowed');
+    assert(cleanEmailDescriptions([text])[0] === text, 'email uses the same rule');
+  }
+  for (const text of [
+    'The appliance is "Off".',
+    'The appliance is off; its printed "Off" label is visible.',
+    'The appliance is switched off.',
+  ]) assert(containsVerdict(text), 'state remains blocked');
+});
+
 Deno.test('cleanDescription: collapses whitespace, strips invisible characters, caps length', () => {
   assert(cleanDescription('  A  white\n door.\u202e ') === 'A white door.', 'cleaned');
   assert(cleanDescription('') === null && cleanDescription(42) === null, 'empty and non-string rejected');

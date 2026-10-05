@@ -198,6 +198,11 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
                               composerState.steps[index].id,
                               value,
                             ),
+                            onPhotoPromptChanged: (value) =>
+                                _viewModel.updatePhotoPrompt(
+                                  composerState.steps[index].id,
+                                  value,
+                                ),
                             onSubmitted: () => _handleStepSubmitted(
                               composerState,
                               composerState.steps[index],

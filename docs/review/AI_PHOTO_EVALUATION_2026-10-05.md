@@ -230,6 +230,45 @@ size economics and every experimental cue reply for owner review. No private
 photos, raw replies, original filenames, API key or artifact runtime enters Git.
 The broad-caption prompt remains unchanged by this experiment.
 
+## Optional step descriptions implemented
+
+Jamie chose a general optional step description, useful for instructions even
+without photos or AI. The composer now offers **Description (optional)** on
+each check step, limited to 500 characters; the player shows it under the title.
+Existing `photoPrompt` JSON storage is reused, including draft autosave,
+published routines, recovery and backup. The old "Take a photo" default is
+hidden. Descriptions do not require Premium, and changing photo requirements
+does not discard them.
+
+For AI-enabled photo steps only, the description travels with the title and
+a 1,000-pixel metadata-free copy. The server bounds it before spending allowance.
+A separate production brief reports the requested visible feature without
+match/difference labels or completion verdicts. Consent version .6, privacy
+copy and store drafts include this additional context. Broad captions still
+use 600 pixels when no description was added.
+
+Five final calls used the actual production provider and parser: dial-marker
+alignment with a readable printed label, a patio lever, an unlit display, a
+keyboard under a misleading towel/bag expectation, and deliberate blur. Four
+returned observations; the blur returned `cannot_tell`. This is a small sanity
+check, not an accuracy score. An earlier dial response was too long and used
+"off vertical", triggering the verdict filter; the brief was shortened and
+clarified before the final calls. Only a narrowly recognised printed "Off"
+label is exempted, never an appliance-state claim.
+
+Final five-call token cost: $0.021012, averaging $0.0042024 each, about $0.42
+per 100 attempts. Account billing was not reconciled. The earlier $0.37/100
+cue experiment used a different prompt. Proposed £2.50/200 economics and the
+yearly-price implication are in `docs/AI_PHOTO_PRICING.md`; the implemented
+allowance remains 100 and no store pricing was changed.
+
+Verification: Flutter analysis clean; 478 CI-equivalent non-golden Flutter
+tests and 90 Deno tests passed. Two focused walkthrough scenarios cover
+composer/player descriptions on an iPhone-sized screen and a 360px-wide phone
+at 1.6x text, without layout errors. No further broad photo sweep was needed.
+The existing Windows golden difference remains separate. No live deployment
+or real-phone test was performed.
+
 Local verification: Flutter analysis clean; 474 CI-equivalent non-golden app
 tests and 88 Deno server tests passed. Embedded PostgreSQL (PGlite, ignored
 local runtime only) applied the actual 021/023 migrations and passed
