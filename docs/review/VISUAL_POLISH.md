@@ -102,6 +102,11 @@ Ranked by impact for effort. "Current" and "mock" images are in
 `docs/review/beauty/proposals/`. The mock code was reverted and is not in any
 commit.
 
+**Update:** proposals 1 to 3 are now applied (branch `feat/art-direction`).
+Before and after captures for iPhone light, Pebble Dark, the small phone and
+1.6x text are in `docs/review/beauty/art-direction/`. Proposals 4 to 6 are
+still open.
+
 1. **Completion: make the time and the cairn the picture.** *Mocked.*
    Weak now: the time is the hero of the whole app, but at 64 it is only a
    little bigger than a page title, and the cairn (120) reads as an icon.

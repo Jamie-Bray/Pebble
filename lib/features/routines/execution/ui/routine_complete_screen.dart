@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -191,6 +192,26 @@ class _RoutineCompleteScreenState extends State<RoutineCompleteScreen>
     return curve.transform(t.clamp(0.0, 1.0));
   }
 
+  /// The cairn (168) and the time (88) at full size when there is room, and
+  /// down to half on short screens, large text or the taller photo receipt, so
+  /// the screen fits without scrolling. An estimate: the scroll view behind
+  /// it catches whatever this misses.
+  double _heroScale(BuildContext context, double available) {
+    final ts = MediaQuery.textScalerOf(context).scale(1);
+    double row(int lines) => math.max(56.0, 24 + 22 * ts * lines) + 1;
+    // Everything except the cairn and the time: gaps and card padding, the
+    // two text lines, the receipt rows and the email note. "3 of 4 · 1
+    // skipped" wraps to a second line at large text.
+    final rest =
+        88 +
+        38 * ts +
+        row(widget.skippedSteps > 0 && ts > 1.3 ? 2 : 1) +
+        row(1) +
+        (widget.showPhotoSummary ? math.max(73.0, row(1)) : 0) +
+        (widget.completionEmailNote == null ? 0 : 16 + 44 * ts);
+    return ((available - rest) / (168 + 88 * ts)).clamp(0.5, 1.0);
+  }
+
   @override
   Widget build(BuildContext context) {
     final type = PebbleType.of(context);
@@ -235,12 +256,7 @@ class _RoutineCompleteScreenState extends State<RoutineCompleteScreen>
           PebbleMotion.standard,
           PebbleMotion.enter,
         );
-        final button = _phase(
-          elapsed,
-          360,
-          PebbleMotion.quick,
-          Curves.easeOut,
-        );
+        final button = _phase(elapsed, 360, PebbleMotion.quick, Curves.easeOut);
 
         return Padding(
           padding: EdgeInsets.fromLTRB(
@@ -253,132 +269,138 @@ class _RoutineCompleteScreenState extends State<RoutineCompleteScreen>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
-                child: Center(
-                  child: SingleChildScrollView(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 520),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Hero(
-                            tag: 'cairn-${widget.routineId ?? routineName}',
-                            child: PebbleCairn(
-                              total: _total,
-                              skipped: skipped,
-                              drops: drops,
-                              compress: compress,
+                child: LayoutBuilder(
+                  builder: (context, box) => Center(
+                    child: SingleChildScrollView(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 520),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Hero(
+                              tag: 'cairn-${widget.routineId ?? routineName}',
+                              child: PebbleCairn(
+                                total: _total,
+                                skipped: skipped,
+                                size: 168 * _heroScale(context, box.maxHeight),
+                                drops: drops,
+                                compress: compress,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: PebbleSpacing.xl),
-                          _Rise(
-                            t: headline,
-                            distance: 12,
-                            child: Column(
-                              children: [
-                                Semantics(
-                                  header: true,
-                                  label:
-                                      RoutineCompleteScreen.headerSemanticsLabel,
-                                  child: Text(
-                                    overline.toUpperCase(),
-                                    textAlign: TextAlign.center,
-                                    style: type.overline.copyWith(
-                                      color: context.readableAccentText(
-                                        context.done,
+                            const SizedBox(height: PebbleSpacing.xl),
+                            _Rise(
+                              t: headline,
+                              distance: 12,
+                              child: Column(
+                                children: [
+                                  Semantics(
+                                    header: true,
+                                    label: RoutineCompleteScreen
+                                        .headerSemanticsLabel,
+                                    child: Text(
+                                      overline.toUpperCase(),
+                                      textAlign: TextAlign.center,
+                                      style: type.overline.copyWith(
+                                        color: context.readableAccentText(
+                                          context.done,
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(height: PebbleSpacing.xs),
-                                FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: PebbleBigTime(
-                                    at: _finishedAt,
+                                  const SizedBox(height: PebbleSpacing.xs),
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: PebbleBigTime(
+                                      at: _finishedAt,
+                                      textAlign: TextAlign.center,
+                                      style: type.displayXL.copyWith(
+                                        fontSize:
+                                            88 *
+                                            _heroScale(context, box.maxHeight),
+                                        height: 1,
+                                        color: foundation.textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: PebbleSpacing.xs),
+                                  Text(
+                                    '$routineName · $dateLabel',
                                     textAlign: TextAlign.center,
-                                    style: type.displayXL.copyWith(
-                                      fontSize: 64,
-                                      height: 1,
-                                      color: foundation.textPrimary,
+                                    style: type.body.copyWith(
+                                      color: context.readableSecondaryText,
                                     ),
                                   ),
-                                ),
-                                const SizedBox(height: PebbleSpacing.xs),
-                                Text(
-                                  '$routineName · $dateLabel',
-                                  textAlign: TextAlign.center,
-                                  style: type.body.copyWith(
-                                    color: context.readableSecondaryText,
-                                  ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: PebbleSpacing.xxl),
-                          _Rise(
-                            t: receipt,
-                            distance: 16,
-                            child: _ReceiptCard(
-                              checked: checked,
-                              total: _total,
-                              skipped: skipped,
-                              showPhotos: widget.showPhotoSummary,
-                              photoCount: widget.totalPhotosSaved,
-                              photos: widget.photos,
-                              storage: widget.storage,
-                              onOpenPhoto: widget.onOpenPhoto,
+                            const SizedBox(height: PebbleSpacing.xxl),
+                            _Rise(
+                              t: receipt,
+                              distance: 16,
+                              child: _ReceiptCard(
+                                checked: checked,
+                                total: _total,
+                                skipped: skipped,
+                                showPhotos: widget.showPhotoSummary,
+                                photoCount: widget.totalPhotosSaved,
+                                photos: widget.photos,
+                                storage: widget.storage,
+                                onOpenPhoto: widget.onOpenPhoto,
+                              ),
                             ),
-                          ),
-                          AnimatedSwitcher(
-                            duration: PebbleMotion.standard,
-                            child: widget.completionEmailNote == null
-                                ? const SizedBox.shrink()
-                                : Padding(
-                                    key: ValueKey(widget.completionEmailNote),
-                                    padding: const EdgeInsets.only(
-                                      top: PebbleSpacing.md,
-                                    ),
-                                    child: Semantics(
-                                      liveRegion: true,
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                              top: 2,
-                                            ),
-                                            child: Icon(
-                                              LucideIcons.mail,
-                                              size: 16,
-                                              color:
-                                                  context.readableSecondaryText,
-                                            ),
-                                          ),
-                                          const SizedBox(
-                                            width: PebbleSpacing.xs,
-                                          ),
-                                          Flexible(
-                                            child: Text(
-                                              widget.completionEmailNote!,
-                                              style: type.body.copyWith(
+                            AnimatedSwitcher(
+                              duration: PebbleMotion.standard,
+                              child: widget.completionEmailNote == null
+                                  ? const SizedBox.shrink()
+                                  : Padding(
+                                      key: ValueKey(widget.completionEmailNote),
+                                      padding: const EdgeInsets.only(
+                                        top: PebbleSpacing.md,
+                                      ),
+                                      child: Semantics(
+                                        liveRegion: true,
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                top: 2,
+                                              ),
+                                              child: Icon(
+                                                LucideIcons.mail,
+                                                size: 16,
                                                 color: context
                                                     .readableSecondaryText,
                                               ),
                                             ),
-                                          ),
-                                        ],
+                                            const SizedBox(
+                                              width: PebbleSpacing.xs,
+                                            ),
+                                            Flexible(
+                                              child: Text(
+                                                widget.completionEmailNote!,
+                                                style: type.body.copyWith(
+                                                  color: context
+                                                      .readableSecondaryText,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
-                                  ),
-                          ),
-                        ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
+              const SizedBox(height: PebbleSpacing.sm),
               SafeArea(
                 top: false,
                 child: Opacity(
@@ -570,11 +592,7 @@ class _ReceiptRow extends StatelessWidget {
       ),
     );
     if (semanticsValue == null) return row;
-    return Semantics(
-      label: label,
-      value: semanticsValue,
-      child: row,
-    );
+    return Semantics(label: label, value: semanticsValue, child: row);
   }
 }
 

@@ -221,6 +221,37 @@ void main() {
     expect(reviewedRoutine, isTrue);
   });
 
+  testWidgets('completion cairn is 168 on a phone and shrinks on a short '
+      'screen instead of scrolling', (tester) async {
+    addTearDown(tester.view.reset);
+    tester.view.devicePixelRatio = 1;
+    for (final (size, full) in [
+      (const Size(390, 844), true),
+      (const Size(360, 600), false),
+    ]) {
+      tester.view.physicalSize = size;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: RoutineCompleteScreen(
+              routineName: 'Evening close down',
+              totalStepsCompleted: 4,
+              totalPhotosSaved: 0,
+              showPhotoSummary: false,
+              onBackToHome: () {},
+              onReviewRoutine: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final cairn = tester.getSize(find.byType(PebbleCairn)).height;
+      expect(cairn, full ? 168 : inExclusiveRange(84, 168), reason: '$size');
+      final scroll = tester.state<ScrollableState>(find.byType(Scrollable));
+      expect(scroll.position.maxScrollExtent, 0, reason: '$size');
+    }
+  });
+
   testWidgets('completion with skipped steps stays honest', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
