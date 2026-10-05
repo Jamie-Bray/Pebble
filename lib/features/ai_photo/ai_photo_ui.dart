@@ -91,9 +91,9 @@ String aiPhotoRowSubtitle({
         ? 'On for the first $aiPhotoMaxSteps of $photoSteps photo steps'
         : 'On for this routine';
   }
-  if (settings.isOn)
-    return 'On for "${settings.routineTitle ?? 'another routine'}"';
-  return 'Off';
+  return settings.isOn
+      ? 'On for "${settings.routineTitle ?? 'another routine'}"'
+      : 'Off';
 }
 
 /// Everything behind the "AI photo descriptions" row: the Premium gate, the
@@ -194,10 +194,6 @@ Future<void> openAiPhotoSettings(
     return;
   }
   if (!context.mounted) return;
-  ZenNotifications.showSuccess(
-    context,
-    message: 'AI photo descriptions are on for "${routine.title}".',
-  );
 
   // One more question, only when this routine emails someone.
   SharedReminderContact? contact;
@@ -209,19 +205,23 @@ Future<void> openAiPhotoSettings(
   } catch (_) {
     // No contact found, or offline: the choice stays in the email settings.
   }
-  if (contact == null ||
-      !context.mounted ||
-      (contact.status != SharedReminderContactStatus.accepted &&
-          contact.status != SharedReminderContactStatus.pending)) {
-    return;
+  if (!context.mounted) return;
+  if (contact != null &&
+      (contact.status == SharedReminderContactStatus.accepted ||
+          contact.status == SharedReminderContactStatus.pending)) {
+    final include = await showAiPhotoEmailQuestionSheet(
+      context,
+      contactEmail: contact.recipientEmail,
+    );
+    if (include != null) {
+      await controller.setEmailDescriptions(include);
+    }
+    if (!context.mounted) return;
   }
-  final include = await showAiPhotoEmailQuestionSheet(
+  ZenNotifications.showSuccess(
     context,
-    contactEmail: contact.recipientEmail,
+    message: 'AI photo descriptions are on for "${routine.title}".',
   );
-  if (include != null) {
-    await controller.setEmailDescriptions(include);
-  }
 }
 
 Future<T?> _showAiSheet<T>(
