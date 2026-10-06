@@ -234,7 +234,7 @@ void main() {
     expect(find.text('4 of 4'), findsOneWidget);
     expect(find.text('Photos'), findsOneWidget);
     expect(find.byType(PhotoThumb), findsNWidgets(2));
-    expect(find.text('Saved on this phone'), findsOneWidget);
+    expect(find.text('This check is saved on this phone'), findsOneWidget);
     // One primary action.
     expect(find.byType(FilledButton), findsOneWidget);
 

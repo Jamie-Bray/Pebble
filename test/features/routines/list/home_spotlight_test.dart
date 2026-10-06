@@ -992,8 +992,8 @@ void _checkedTests() {
       findsOneWidget,
     );
     expect(find.text('Leaving the house · all 5 steps'), findsOneWidget);
-    // Run again is tonal: no filled Start competing with the answer.
-    expect(find.text('Run again'), findsOneWidget);
+    // Check again is tonal: no filled Start competing with the answer.
+    expect(find.text('Check again'), findsOneWidget);
     expect(find.text('Start'), findsNothing);
     expect(find.text('UP NEXT'), findsNothing);
     expect(tester.takeException(), isNull);
@@ -1037,13 +1037,13 @@ void _checkedTests() {
       ],
       latestRun: _runWithSteps(routineId: 1, finishedAt: finishedAt, total: 1),
     );
-    expect(find.text('Run again'), findsOneWidget);
+    expect(find.text('Check again'), findsOneWidget);
 
     now = DateTime(2026, 10, 3, 14, 5);
     await tester.pump(const Duration(minutes: 5));
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('Run again'), findsNothing);
+    expect(find.text('Check again'), findsNothing);
     expect(find.text('Start'), findsOneWidget);
     expect(find.text('UP NEXT'), findsOneWidget);
   });

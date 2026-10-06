@@ -243,8 +243,8 @@ void main() {
     expect(find.widgetWithText(FilledButton, 'Add step'), findsOneWidget);
     expect(find.text('Save routine'), findsNothing);
 
-    final doneButton = tester.widget<TextButton>(
-      find.widgetWithText(TextButton, 'Done'),
+    final doneButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Done'),
     );
     expect(doneButton.onPressed, isNull);
 
@@ -254,8 +254,8 @@ void main() {
     await tester.enterText(firstStepFieldFinder, 'Check doors');
     await tester.pump();
 
-    final enabledDoneButton = tester.widget<TextButton>(
-      find.widgetWithText(TextButton, 'Done'),
+    final enabledDoneButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Done'),
     );
     expect(enabledDoneButton.onPressed, isNotNull);
   });
@@ -296,7 +296,7 @@ void main() {
       isTrue,
     );
 
-    await tester.tap(find.widgetWithText(TextButton, 'Done'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Done'));
     await tester.pumpAndSettle();
 
     expect(saveCompleted, isTrue);

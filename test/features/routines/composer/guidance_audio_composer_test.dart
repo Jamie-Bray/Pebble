@@ -65,9 +65,9 @@ void main() {
 
     await tester.tap(find.text('Voice tip'));
     await tester.pumpAndSettle();
-    expect(find.text('Upgrade for voice tips'), findsOneWidget);
+    expect(find.text('View Personal Premium'), findsOneWidget);
 
-    await tester.tap(find.text('Upgrade for voice tips'));
+    await tester.tap(find.text('View Personal Premium'));
     await tester.pumpAndSettle();
     expect(find.text('Paywall'), findsOneWidget);
   });

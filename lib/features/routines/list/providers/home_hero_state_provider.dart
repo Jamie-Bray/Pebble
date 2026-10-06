@@ -96,6 +96,18 @@ final homeHeroStateProvider = Provider.autoDispose
       return HomeHeroState(kind: HomeHeroKind.ready, latestRun: run);
     });
 
+/// The few checks before the latest one, newest first, for the "Earlier"
+/// lines under the Checked card. History still holds everything.
+final earlierRoutineRunsProvider = StreamProvider.autoDispose
+    .family<List<RoutineRun>, int>((ref, routineId) {
+      final db = ref.watch(localDbProvider);
+      final query = db.select(db.routineRuns)
+        ..where((r) => r.routineId.equals(routineId.toString()))
+        ..orderBy([(r) => OrderingTerm.desc(r.finishedAt)])
+        ..limit(4);
+      return query.watch().map((runs) => runs.skip(1).toList());
+    });
+
 /// The next time a routine's enabled reminders fire, for the Home meta line
 /// ("5 steps · 1 photo · Reminder 8:15 AM"). Null when it has none.
 final routineNextReminderProvider = StreamProvider.autoDispose

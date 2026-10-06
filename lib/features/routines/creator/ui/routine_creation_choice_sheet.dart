@@ -44,76 +44,77 @@ class _RoutineCreationChoiceSheet extends StatelessWidget {
     final foundation = context.darkFoundation;
     final cs = Theme.of(context).colorScheme;
 
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(22, 14, 22, 24),
-          decoration: BoxDecoration(
-            color: foundation.surfaceLow,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-            border: Border(top: BorderSide(color: foundation.borderSubtle)),
-            boxShadow: [
-              BoxShadow(
-                color: foundation.shadowSoft,
-                blurRadius: 30,
-                offset: const Offset(0, -10),
-              ),
-            ],
+    // The sheet's own surface runs to the bottom edge; the system inset is
+    // padding inside it, not a see-through gap underneath.
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        22,
+        14,
+        22,
+        24 + MediaQuery.paddingOf(context).bottom,
+      ),
+      decoration: BoxDecoration(
+        color: foundation.surfaceLow,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border(top: BorderSide(color: foundation.borderSubtle)),
+        boxShadow: [
+          BoxShadow(
+            color: foundation.shadowSoft,
+            blurRadius: 30,
+            offset: const Offset(0, -10),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: foundation.borderSubtle,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: foundation.borderSubtle,
+                borderRadius: BorderRadius.circular(999),
               ),
-              const SizedBox(height: 22),
-              Text(
-                'Create a routine',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: foundation.textPrimary,
-                  fontWeight: FontWeight.w800,
-                  height: 1.08,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Use a ready-made checklist, or make your own.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: foundation.textSecondary,
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 20),
-              _CreationChoiceTile(
-                icon: LucideIcons.layoutTemplate,
-                title: 'Start from a template',
-                subtitle: 'Pick one and change it later.',
-                accent: cs.primary,
-                onTap: () =>
-                    Navigator.of(context).pop(RoutineCreationChoice.template),
-              ),
-              const SizedBox(height: 10),
-              _CreationChoiceTile(
-                icon: LucideIcons.plus,
-                title: 'Create from scratch',
-                subtitle: 'Name it, add your own steps, and save.',
-                accent: cs.secondary,
-                onTap: () =>
-                    Navigator.of(context).pop(RoutineCreationChoice.scratch),
-              ),
-            ],
+            ),
           ),
-        ),
+          const SizedBox(height: 22),
+          Text(
+            'Create a routine',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              color: foundation.textPrimary,
+              fontWeight: FontWeight.w800,
+              height: 1.08,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Use a ready-made checklist, or make your own.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: foundation.textSecondary,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 20),
+          _CreationChoiceTile(
+            icon: LucideIcons.layoutTemplate,
+            title: 'Start from a template',
+            subtitle: 'Pick one and change it later.',
+            accent: cs.primary,
+            onTap: () =>
+                Navigator.of(context).pop(RoutineCreationChoice.template),
+          ),
+          const SizedBox(height: 10),
+          _CreationChoiceTile(
+            icon: LucideIcons.plus,
+            title: 'Create from scratch',
+            subtitle: 'Name it, add your own steps, and save.',
+            accent: cs.secondary,
+            onTap: () =>
+                Navigator.of(context).pop(RoutineCreationChoice.scratch),
+          ),
+        ],
       ),
     );
   }

@@ -635,7 +635,9 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
           revealing: outgoing?.stepIndex,
           reveal: timeline?.trailReveal ?? 1,
           revealOpacity: timeline?.trailOpacity ?? 1,
-          visibleRows: textScale >= 1.6 ? 1 : 2,
+          // A photo step already has the photo card to show, so the trail
+          // keeps to one row there.
+          visibleRows: textScale >= 1.6 || photoSummary != null ? 1 : 2,
           maxExpandedHeight: MediaQuery.sizeOf(context).height * 0.4,
         );
       },
@@ -1837,7 +1839,7 @@ class _PlayerPhotoSummary extends StatelessWidget {
                 ),
               ),
           const SizedBox(height: 13),
-          _ProofCollage(cells: cells),
+          _ProofCollage(cells: cells, compact: !hasPhotos),
         ],
       ),
     );
@@ -1968,11 +1970,12 @@ class _ProofPhotoHeaderAction extends StatelessWidget {
 /// and a quartered grid for four. The height responds to available width but
 /// stays fixed while photos land, so the surrounding player does not jump.
 class _ProofCollage extends StatelessWidget {
-  const _ProofCollage({required this.cells});
+  const _ProofCollage({required this.cells, this.compact = false});
 
   static const double _gap = 8;
 
   final List<Widget> cells;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -1981,7 +1984,11 @@ class _ProofCollage extends StatelessWidget {
     }
     return LayoutBuilder(
       builder: (context, constraints) {
-        final height = (constraints.maxWidth * 0.58).clamp(156.0, 208.0);
+        // The empty invitation is a slim strip: the Take photo button is
+        // right below it, so a full-size empty frame only adds clutter.
+        final height = compact
+            ? 76.0
+            : (constraints.maxWidth * 0.58).clamp(156.0, 208.0);
         return SizedBox(
           height: height,
           width: double.infinity,

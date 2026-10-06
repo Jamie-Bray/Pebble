@@ -29,6 +29,7 @@ import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
 import 'package:pebble_routines/features/history/providers/routine_history_vm.dart';
+import 'package:pebble_routines/features/history/ui/routine_run_detail_screen.dart';
 import 'package:pebble_routines/features/history/ui/styled_history_screen.dart';
 import 'package:pebble_routines/core/navigation/app_shell.dart';
 import 'package:pebble_routines/core/ui/pebble_confirmation_sheet.dart';
@@ -1310,32 +1311,13 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                     ),
                   ),
                 ),
-                PopupMenuButton<String>(
-                  tooltip: 'More options',
-                  icon: Icon(
-                    LucideIcons.ellipsis,
-                    size: 20,
-                    color: context.readableSecondaryText,
+                TextButton(
+                  onPressed: () => _confirmDiscardResumeSession(session),
+                  style: TextButton.styleFrom(
+                    foregroundColor: context.readableSecondaryText,
+                    minimumSize: const Size(48, 48),
                   ),
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: PebbleRadius.mdAll,
-                  ),
-                  onSelected: (value) {
-                    if (value == 'discard') {
-                      _confirmDiscardResumeSession(session);
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    PopupMenuItem<String>(
-                      value: 'discard',
-                      child: Text(
-                        'Discard progress',
-                        style: type.body.copyWith(
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                      ),
-                    ),
-                  ],
+                  child: const Text('Discard'),
                 ),
               ],
             ),
@@ -1572,7 +1554,9 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                           // switched on, or to someone who already uses it.
                           Consumer(
                             builder: (rowContext, rowRef, _) {
-                              final ai = rowRef.watch(aiPhotoControllerProvider);
+                              final ai = rowRef.watch(
+                                aiPhotoControllerProvider,
+                              );
                               final serverEnabled =
                                   rowRef
                                       .watch(aiPhotoServerEnabledProvider)
@@ -2222,11 +2206,32 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
             key: const ValueKey('home_hero_cta'),
             onPressed: widget.onBegin,
             icon: LucideIcons.rotateCcw,
-            label: 'Run again',
+            label: 'Check again',
           ),
         ),
         SizedBox(height: metrics.ctaMetaGap),
         Align(alignment: Alignment.centerLeft, child: metaLine),
+        Consumer(
+          builder: (context, ref, _) {
+            final earlier =
+                ref
+                    .watch(earlierRoutineRunsProvider(widget.routine.id))
+                    .valueOrNull ??
+                const <RoutineRun>[];
+            if (earlier.isEmpty) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(top: PebbleSpacing.lg),
+              child: HomeEarlierChecks(
+                runs: earlier,
+                onOpen: (run) => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => RoutineRunDetailScreen(run: run),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
         SizedBox(height: metrics.bottomInset),
       ],
     );
@@ -2278,9 +2283,7 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
         ),
         SizedBox(height: metrics.titleMetaGap),
         Align(alignment: Alignment.centerLeft, child: metaLine),
-        SizedBox(
-          height: metrics.titlePreviewGap - metrics.titleMetaGap - 40,
-        ),
+        SizedBox(height: metrics.titlePreviewGap - metrics.titleMetaGap - 40),
         _HomeHeroPreviewCard(
           steps: widget.steps,
           height: metrics.previewHeight,
@@ -2451,9 +2454,7 @@ class _HomeHeroPreviewHeader extends StatelessWidget {
                   child: Icon(
                     LucideIcons.chevronDown,
                     size: 16,
-                    color: isExpanded
-                        ? accentColor
-                        : foundation.textSecondary,
+                    color: isExpanded ? accentColor : foundation.textSecondary,
                   ),
                 ),
                 style: IconButton.styleFrom(
