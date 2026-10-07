@@ -1,12 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Re-rendered every 30 minutes (no app wake-up: onUpdate only reads the
-     saved data) so a "Checked" subtitle drops once its cut-off passes. -->
+     saved data) so a "Checked" subtitle drops once its cut-off passes.
+     previewLayout is used on Android 12+, previewImage below that. -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_description"
     android:initialLayout="@layout/pebble_routine_widget"
     android:minWidth="180dp"
-    android:minHeight="40dp"
+    android:minHeight="48dp"
+    android:minResizeWidth="140dp"
+    android:minResizeHeight="48dp"
+    android:previewImage="@drawable/pebble_widget_preview"
+    android:previewLayout="@layout/pebble_routine_widget_preview"
+    android:resizeMode="horizontal|vertical"
     android:targetCellWidth="3"
     android:targetCellHeight="1"
-    android:resizeMode="horizontal"
-    android:widgetCategory="home_screen"
-    android:updatePeriodMillis="1800000" />
+    android:updatePeriodMillis="1800000"
+    android:widgetCategory="home_screen" />
