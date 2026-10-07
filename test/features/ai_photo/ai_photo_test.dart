@@ -996,7 +996,7 @@ void main() {
     }
 
     testWidgets(
-      'consent: Turn on is disabled until the box is checked; closing is not consent',
+      'consent: short sheet shows the agreed statement; closing is not consent',
       (tester) async {
         bool? result;
         await open(tester, (context) async {
@@ -1006,22 +1006,13 @@ void main() {
           );
         });
 
-        expect(find.text('Use AI on "Leaving the house"?'), findsOneWidget);
+        expect(find.text(aiPhotoConsentShortTitle), findsOneWidget);
+        expect(find.textContaining('Leaving the house'), findsOneWidget);
+        // The statement is shown word for word above "Turn on".
         expect(find.text(aiPhotoConsentCheckLabel), findsOneWidget);
-        expect(find.text(aiPhotoHowItWorksLabel), findsOneWidget);
-        expect(
-          tester.widget<CheckboxListTile>(find.byType(CheckboxListTile)).value,
-          isFalse,
-        );
-        FilledButton turnOn() => tester.widget<FilledButton>(
-          find.widgetWithText(FilledButton, 'Turn on'),
-        );
-        expect(turnOn().onPressed, isNull);
-
-        await tester.ensureVisible(find.text(aiPhotoConsentCheckLabel));
-        await tester.tap(find.text(aiPhotoConsentCheckLabel));
-        await tester.pumpAndSettle();
-        expect(turnOn().onPressed, isNotNull);
+        expect(find.text('More details'), findsOneWidget);
+        // The long explanation is not on the sheet itself.
+        expect(find.text(aiPhotoConsentBody.first), findsNothing);
 
         await tester.ensureVisible(find.text('Not now'));
         await tester.tap(find.text('Not now'));
@@ -1030,7 +1021,7 @@ void main() {
       },
     );
 
-    testWidgets('consent: checking the box then Turn on returns true', (
+    testWidgets('consent: Turn on returns true; details hold the full text', (
       tester,
     ) async {
       bool? result;
@@ -1041,13 +1032,19 @@ void main() {
           photoSteps: 7,
         );
       });
+      await tester.ensureVisible(find.text('More details'));
+      await tester.tap(find.text('More details'));
+      await tester.pumpAndSettle();
+      for (final paragraph in aiPhotoConsentBody) {
+        expect(find.text(paragraph), findsOneWidget);
+      }
       expect(
         find.textContaining('This routine has 7 photo steps'),
         findsOneWidget,
       );
-      await tester.ensureVisible(find.text(aiPhotoConsentCheckLabel));
-      await tester.tap(find.text(aiPhotoConsentCheckLabel));
+      await tester.pageBack();
       await tester.pumpAndSettle();
+
       await tester.ensureVisible(find.text('Turn on'));
       await tester.tap(find.text('Turn on'));
       await tester.pumpAndSettle();

@@ -19,8 +19,8 @@ enum HomeHeroKind {
   /// A run of this routine is saved part-way: Resume.
   inProgress,
 
-  /// The latest run finished today, less than six hours ago: the answer to
-  /// "did I do it?" is the first thing on screen.
+  /// The latest run is still "current": it finished after the routine was
+  /// last due (see [checkedUntil]), so "did I do it?" is answered first.
   checked,
 }
 
@@ -58,42 +58,79 @@ final homeClockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 
 /// The hero state for one routine. Re-evaluates itself at the "Checked"
 /// cut-off, so Home goes back to Start on its own while it is open.
-final homeHeroStateProvider = Provider.autoDispose
-    .family<HomeHeroState, int>((ref, routineId) {
-      final run = ref.watch(latestRoutineRunProvider(routineId)).valueOrNull;
-      final sessions =
-          ref.watch(activeRoutineSessionsProvider).valueOrNull ??
-          const <RoutineSessionResumeSummary>[];
-      final now = ref.watch(homeClockProvider)();
+final homeHeroStateProvider = Provider.autoDispose.family<HomeHeroState, int>((
+  ref,
+  routineId,
+) {
+  final run = ref.watch(latestRoutineRunProvider(routineId)).valueOrNull;
+  final sessions =
+      ref.watch(activeRoutineSessionsProvider).valueOrNull ??
+      const <RoutineSessionResumeSummary>[];
+  final now = ref.watch(homeClockProvider)();
 
-      RoutineSessionResumeSummary? session;
-      for (final candidate in sessions) {
-        if (candidate.routineId == routineId) {
-          session = candidate;
-          break;
-        }
-      }
-      if (session != null) {
-        return HomeHeroState(
-          kind: HomeHeroKind.inProgress,
-          latestRun: run,
-          session: session,
-        );
-      }
+  RoutineSessionResumeSummary? session;
+  for (final candidate in sessions) {
+    if (candidate.routineId == routineId) {
+      session = candidate;
+      break;
+    }
+  }
+  if (session != null) {
+    return HomeHeroState(
+      kind: HomeHeroKind.inProgress,
+      latestRun: run,
+      session: session,
+    );
+  }
 
-      if (run != null) {
-        final until = checkedUntil(run.finishedAt, now);
-        if (until != null) {
-          final timer = Timer(until.difference(now), ref.invalidateSelf);
-          ref.onDispose(timer.cancel);
-          return HomeHeroState(
-            kind: HomeHeroKind.checked,
-            latestRun: run,
-            checkedUntil: until,
-          );
-        }
-      }
-      return HomeHeroState(kind: HomeHeroKind.ready, latestRun: run);
+  if (run != null) {
+    final reminders =
+        ref.watch(routineReminderSlotsProvider(routineId)).valueOrNull ??
+        const <(int, String)>[];
+    final until = checkedUntil(
+      run.finishedAt,
+      now,
+      nextReminder: nextReminderAt(
+        reminders,
+        run.finishedAt.add(kCheckedReminderGrace),
+      ),
+    );
+    if (until != null) {
+      final timer = Timer(until.difference(now), ref.invalidateSelf);
+      ref.onDispose(timer.cancel);
+      return HomeHeroState(
+        kind: HomeHeroKind.checked,
+        latestRun: run,
+        checkedUntil: until,
+      );
+    }
+  }
+  return HomeHeroState(kind: HomeHeroKind.ready, latestRun: run);
+});
+
+/// The few checks before the latest one, newest first, for the "Earlier"
+/// lines under the Checked card. History still holds everything.
+final earlierRoutineRunsProvider = StreamProvider.autoDispose
+    .family<List<RoutineRun>, int>((ref, routineId) {
+      final db = ref.watch(localDbProvider);
+      final query = db.select(db.routineRuns)
+        ..where((r) => r.routineId.equals(routineId.toString()))
+        ..orderBy([(r) => OrderingTerm.desc(r.finishedAt)])
+        ..limit(4);
+      return query.watch().map((runs) => runs.skip(1).toList());
+    });
+
+/// A routine's enabled reminders as (weekday 1-7, "8:15 AM") pairs, so the
+/// Checked card can end when the routine is next due.
+final routineReminderSlotsProvider = StreamProvider.autoDispose
+    .family<List<(int, String)>, int>((ref, routineId) {
+      final db = ref.watch(localDbProvider);
+      final query = db.select(
+        db.routineReminders,
+      )..where((r) => r.routineId.equals(routineId) & r.isEnabled.equals(true));
+      return query.watch().map(
+        (rows) => [for (final row in rows) (row.dayOfWeek, row.time)],
+      );
     });
 
 /// The next time a routine's enabled reminders fire, for the Home meta line
@@ -101,15 +138,13 @@ final homeHeroStateProvider = Provider.autoDispose
 final routineNextReminderProvider = StreamProvider.autoDispose
     .family<DateTime?, int>((ref, routineId) {
       final db = ref.watch(localDbProvider);
-      final query = db.select(db.routineReminders)
-        ..where(
-          (r) => r.routineId.equals(routineId) & r.isEnabled.equals(true),
-        );
+      final query = db.select(
+        db.routineReminders,
+      )..where((r) => r.routineId.equals(routineId) & r.isEnabled.equals(true));
       return query.watch().map(
-        (rows) => nextReminderAt(
-          [for (final row in rows) (row.dayOfWeek, row.time)],
-          DateTime.now(),
-        ),
+        (rows) => nextReminderAt([
+          for (final row in rows) (row.dayOfWeek, row.time),
+        ], DateTime.now()),
       );
     });
 

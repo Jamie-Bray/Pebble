@@ -1,28 +1,43 @@
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/features/history/domain/run_step_tally.dart';
 
-/// How long Home (and the home-screen widget) keep showing "Checked" after
-/// a run (DESIGN_DIRECTION.md Moment 3). A constant for now; it can become a
-/// setting if people ask.
-const Duration kCheckedWindow = Duration(hours: 6);
+/// The hour a "day" starts for the Checked card. A check at 23:50 still
+/// reads as done that evening; at 04:00 Home goes back to Start.
+const int kCheckedDayStartHour = 4;
+
+/// A reminder this soon after a run belongs to that run (it was done a little
+/// early), so it doesn't end the Checked card a few minutes later.
+const Duration kCheckedReminderGrace = Duration(hours: 2);
+
+/// When Pebble starts a new "day" after [finishedAt]: the next 04:00.
+DateTime checkedDayEnd(DateTime finishedAt) {
+  final f = finishedAt.toLocal();
+  final sameDay = DateTime(f.year, f.month, f.day, kCheckedDayStartHour);
+  return sameDay.isAfter(f)
+      ? sameDay
+      : DateTime(f.year, f.month, f.day + 1, kCheckedDayStartHour);
+}
 
 /// Until when a run that finished at [finishedAt] still reads as "Checked"
-/// at [now]: the run ended today, less than [kCheckedWindow] ago. Returns
-/// null once that has passed (or for a run from an earlier day).
+/// at [now], or null once that has passed.
 ///
-/// The cut-off is the earlier of six hours after the run and the next local
-/// midnight, so a 23:30 check never shows as "Checked" the next morning.
-DateTime? checkedUntil(DateTime finishedAt, DateTime now) {
-  final finished = finishedAt.toLocal();
+/// The rule, in plain words: Home shows "Checked" until the routine is next
+/// due. That is the routine's next reminder (one at least
+/// [kCheckedReminderGrace] after the run), or, with no reminder before then,
+/// the start of the next day ([kCheckedDayStartHour]).
+DateTime? checkedUntil(
+  DateTime finishedAt,
+  DateTime now, {
+  DateTime? nextReminder,
+}) {
   final local = now.toLocal();
-  final sameDay =
-      finished.year == local.year &&
-      finished.month == local.month &&
-      finished.day == local.day;
-  if (!sameDay) return null;
-  final windowEnd = finished.add(kCheckedWindow);
-  final midnight = DateTime(finished.year, finished.month, finished.day + 1);
-  final until = windowEnd.isBefore(midnight) ? windowEnd : midnight;
+  var until = checkedDayEnd(finishedAt);
+  final reminder = nextReminder?.toLocal();
+  if (reminder != null &&
+      reminder.isAfter(finishedAt.toLocal()) &&
+      reminder.isBefore(until)) {
+    until = reminder;
+  }
   return local.isBefore(until) ? until : null;
 }
 

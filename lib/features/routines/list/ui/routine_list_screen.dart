@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:pebble_routines/core/ui/pebble_buttons.dart';
+import 'package:pebble_routines/core/ui/pebble_time.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/features/ai_photo/ai_photo_service.dart';
 import 'package:pebble_routines/features/ai_photo/ai_photo_settings.dart';
@@ -29,6 +30,7 @@ import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
 import 'package:pebble_routines/features/history/providers/routine_history_vm.dart';
+import 'package:pebble_routines/features/history/ui/routine_run_detail_screen.dart';
 import 'package:pebble_routines/features/history/ui/styled_history_screen.dart';
 import 'package:pebble_routines/core/navigation/app_shell.dart';
 import 'package:pebble_routines/core/ui/pebble_confirmation_sheet.dart';
@@ -1310,32 +1312,13 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                     ),
                   ),
                 ),
-                PopupMenuButton<String>(
-                  tooltip: 'More options',
-                  icon: Icon(
-                    LucideIcons.ellipsis,
-                    size: 20,
-                    color: context.readableSecondaryText,
+                TextButton(
+                  onPressed: () => _confirmDiscardResumeSession(session),
+                  style: TextButton.styleFrom(
+                    foregroundColor: context.readableSecondaryText,
+                    minimumSize: const Size(48, 48),
                   ),
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: PebbleRadius.mdAll,
-                  ),
-                  onSelected: (value) {
-                    if (value == 'discard') {
-                      _confirmDiscardResumeSession(session);
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    PopupMenuItem<String>(
-                      value: 'discard',
-                      child: Text(
-                        'Discard progress',
-                        style: type.body.copyWith(
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                      ),
-                    ),
-                  ],
+                  child: const Text('Discard'),
                 ),
               ],
             ),
@@ -1572,7 +1555,9 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                           // switched on, or to someone who already uses it.
                           Consumer(
                             builder: (rowContext, rowRef, _) {
-                              final ai = rowRef.watch(aiPhotoControllerProvider);
+                              final ai = rowRef.watch(
+                                aiPhotoControllerProvider,
+                              );
                               final serverEnabled =
                                   rowRef
                                       .watch(aiPhotoServerEnabledProvider)
@@ -2215,18 +2200,57 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
           compact: metrics.compact,
         ),
         SizedBox(height: metrics.previewCtaGap),
+        // The answer is the card; nothing here should invite re-checking.
+        // Two quiet actions: look at this check, or run the routine again.
         SizedBox(
           key: const ValueKey('home_hero_cta_box'),
           width: double.infinity,
-          child: PebbleButton.secondary(
-            key: const ValueKey('home_hero_cta'),
-            onPressed: widget.onBegin,
-            icon: LucideIcons.rotateCcw,
-            label: 'Run again',
+          child: Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              PebbleButton.tertiary(
+                key: const ValueKey('home_hero_view_check'),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => RoutineRunDetailScreen(run: run),
+                  ),
+                ),
+                trailingIcon: LucideIcons.chevronRight,
+                label: 'See this check',
+              ),
+              PebbleButton.tertiary(
+                key: const ValueKey('home_hero_cta'),
+                onPressed: widget.onBegin,
+                icon: LucideIcons.rotateCcw,
+                label: 'Run again',
+              ),
+            ],
           ),
         ),
         SizedBox(height: metrics.ctaMetaGap),
         Align(alignment: Alignment.centerLeft, child: metaLine),
+        Consumer(
+          builder: (context, ref, _) {
+            final earlier =
+                ref
+                    .watch(earlierRoutineRunsProvider(widget.routine.id))
+                    .valueOrNull ??
+                const <RoutineRun>[];
+            if (earlier.isEmpty) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(top: PebbleSpacing.lg),
+              child: HomeEarlierChecks(
+                runs: earlier,
+                onOpen: (run) => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => RoutineRunDetailScreen(run: run),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
         SizedBox(height: metrics.bottomInset),
       ],
     );
@@ -2278,9 +2302,7 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
         ),
         SizedBox(height: metrics.titleMetaGap),
         Align(alignment: Alignment.centerLeft, child: metaLine),
-        SizedBox(
-          height: metrics.titlePreviewGap - metrics.titleMetaGap - 40,
-        ),
+        SizedBox(height: metrics.titlePreviewGap - metrics.titleMetaGap - 40),
         _HomeHeroPreviewCard(
           steps: widget.steps,
           height: metrics.previewHeight,
@@ -2314,13 +2336,19 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
     );
   }
 
+  /// "Last checked today, 13:27" rather than "10h ago": the clock time is
+  /// what someone checking on themselves wants to see.
   String _lastRunText(DateTime finishedAt) {
-    final diff = DateTime.now().difference(finishedAt);
-    if (diff.inMinutes < 1) return 'Last completed just now';
-    if (diff.inHours < 1) return 'Last completed ${diff.inMinutes}m ago';
-    if (diff.inDays < 1) return 'Last completed ${diff.inHours}h ago';
-    if (diff.inDays == 1) return 'Last completed yesterday';
-    return 'Last completed ${DateFormat.MMMd().format(finishedAt)}';
+    final at = finishedAt.toLocal();
+    final now = ref.read(homeClockProvider)().toLocal();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(at.year, at.month, at.day);
+    final time = formatCheckTime(context, at);
+    if (day == today) return 'Last checked today, $time';
+    if (day == today.subtract(const Duration(days: 1))) {
+      return 'Last checked yesterday, $time';
+    }
+    return 'Last checked ${DateFormat.MMMd().format(at)}';
   }
 
   TextSpan _titleSpan(String title, Color accent) {
@@ -2451,9 +2479,7 @@ class _HomeHeroPreviewHeader extends StatelessWidget {
                   child: Icon(
                     LucideIcons.chevronDown,
                     size: 16,
-                    color: isExpanded
-                        ? accentColor
-                        : foundation.textSecondary,
+                    color: isExpanded ? accentColor : foundation.textSecondary,
                   ),
                 ),
                 style: IconButton.styleFrom(

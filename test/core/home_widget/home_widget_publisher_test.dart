@@ -114,8 +114,8 @@ void main() {
       final finished = run(1, DateTime(2026, 10, 3, 8, 4));
       final checked = widgetCheckedState(finished, DateTime(2026, 10, 3, 9));
       expect(checked?.label, 'Checked · 8:04 AM');
-      expect(checked?.until, DateTime(2026, 10, 3, 14, 4));
-      expect(widgetCheckedState(finished, DateTime(2026, 10, 3, 15)), isNull);
+      expect(checked?.until, DateTime(2026, 10, 4, 4));
+      expect(widgetCheckedState(finished, DateTime(2026, 10, 4, 4)), isNull);
       expect(widgetCheckedState(null, DateTime(2026, 10, 3, 9)), isNull);
     });
   });

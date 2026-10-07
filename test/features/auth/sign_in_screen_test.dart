@@ -164,6 +164,12 @@ void main() {
               body: Center(child: Text('Account hub reached')),
             ),
           ),
+          GoRoute(
+            path: '/cloud-backup',
+            builder: (context, state) => const Scaffold(
+              body: Center(child: Text('Backup reached')),
+            ),
+          ),
         ],
       );
       addTearDown(router.dispose);
@@ -213,7 +219,9 @@ void main() {
       await tester.tap(find.text('Continue with Google'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Account hub reached'), findsOneWidget);
+      // With Premium, sign-in carries straight on to Backup (on top of the
+      // account hub) to offer "Turn on backup?".
+      expect(find.text('Backup reached'), findsOneWidget);
       expect(find.text('Preparing your backup...'), findsNothing);
       expect(purchaseRepository.waitedForServerMirror, isTrue);
     },

@@ -301,7 +301,7 @@ void main() {
     expect(find.text('3 of 4 · 1 skipped'), findsOneWidget);
     expect(find.text('3 / 3'), findsNothing);
     expect(find.text('Photos'), findsNothing);
-    expect(find.text('Backed up'), findsOneWidget);
+    expect(find.text('Saved · backed up'), findsOneWidget);
     expect(
       find.bySemanticsLabel('3 of 4 steps checked, 1 skipped'),
       findsOneWidget,

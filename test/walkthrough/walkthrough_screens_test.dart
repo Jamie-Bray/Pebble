@@ -1178,7 +1178,7 @@ void main() {
     env,
   ) async {
     final explore = find.byWidgetPredicate(
-      (w) => w is Text && (w.data ?? '').contains('What can Pebble do'),
+      (w) => w is Text && (w.data ?? '').contains('what Pebble can do'),
     );
     if (explore.evaluate().isNotEmpty) {
       await env.tapFinder(explore.first);
