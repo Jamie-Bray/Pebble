@@ -1489,6 +1489,7 @@ void main() {
                 showPhotoSummary: false,
                 onBackToHome: () {},
                 onReviewRoutine: () {},
+                onShare: (_) {},
               ),
             ),
           ),

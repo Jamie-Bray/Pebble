@@ -8,6 +8,8 @@ import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:pebble_routines/core/ui/pebble_buttons.dart';
 import 'package:pebble_routines/core/ui/pebble_time.dart';
+import 'package:pebble_routines/core/share/pebble_share.dart';
+import 'package:pebble_routines/core/share/share_messages.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/home_widget/home_widget_publisher.dart';
 import 'package:pebble_routines/core/home_widget/home_widget_setup.dart';
@@ -1670,6 +1672,22 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                             onTap: () {
                               Navigator.pop(sheetContext);
                               _duplicateRoutine(routine);
+                            },
+                          ),
+                          _buildMenuRow(
+                            sheetContext,
+                            icon: LucideIcons.share,
+                            label: 'Share routine',
+                            subtitle: 'Send the steps as a checklist',
+                            accent: accent,
+                            onTap: () {
+                              Navigator.pop(sheetContext);
+                              ref
+                                  .read(pebbleShareProvider)
+                                  .shareText(
+                                    context,
+                                    ShareMessages.routineChecklistFor(routine),
+                                  );
                             },
                           ),
                           const SizedBox(height: 18),

@@ -111,6 +111,7 @@ class RoutineCompleteScreen extends StatefulWidget {
     this.onOpenPhoto,
     required this.onBackToHome,
     required this.onReviewRoutine,
+    this.onShare,
   });
 
   final String routineName;
@@ -155,6 +156,10 @@ class RoutineCompleteScreen extends StatefulWidget {
 
   /// "See details": opens the run detail.
   final VoidCallback onReviewRoutine;
+
+  /// "Share": opens the share sheet with this run's steps and times. Given
+  /// the tapped button, which iPads anchor the sheet to. Null hides it.
+  final void Function(BuildContext buttonContext)? onShare;
 
   /// The semantics label of the header, kept from the previous screen.
   static const String headerSemanticsLabel = 'Routine complete';
@@ -514,11 +519,36 @@ class _RoutineCompleteScreenState extends State<RoutineCompleteScreen>
                         label: 'Done',
                       ),
                       const SizedBox(height: PebbleSpacing.xxs),
-                      PebbleButton.tertiary(
-                        expand: true,
-                        onPressed: widget.onReviewRoutine,
-                        label: 'See details',
-                      ),
+                      if (widget.onShare == null)
+                        PebbleButton.tertiary(
+                          expand: true,
+                          onPressed: widget.onReviewRoutine,
+                          label: 'See details',
+                        )
+                      else
+                        Row(
+                          children: [
+                            Expanded(
+                              child: PebbleButton.tertiary(
+                                expand: true,
+                                onPressed: widget.onReviewRoutine,
+                                label: 'See details',
+                              ),
+                            ),
+                            Expanded(
+                              child: Builder(
+                                builder: (buttonContext) =>
+                                    PebbleButton.tertiary(
+                                      expand: true,
+                                      icon: LucideIcons.share,
+                                      onPressed: () =>
+                                          widget.onShare!(buttonContext),
+                                      label: 'Share',
+                                    ),
+                              ),
+                            ),
+                          ],
+                        ),
                     ],
                   ),
                 ),

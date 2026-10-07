@@ -9,12 +9,15 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
+import 'package:pebble_routines/core/share/pebble_share.dart';
+import 'package:pebble_routines/core/share/share_messages.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/features/ai_photo/ai_photo_ui.dart';
 import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/ui/adaptive_layout.dart';
 import 'package:pebble_routines/core/ui/pebble_photo_gallery_viewer.dart';
+import 'package:pebble_routines/core/ui/pebble_time.dart';
 import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/features/account_backup/providers/account_status_mapper.dart';
 import 'package:pebble_routines/features/history/domain/run_step_tally.dart';
@@ -35,6 +38,15 @@ class RoutineRunDetailScreen extends ConsumerWidget {
       run: currentRun,
       proofStorage: proofStorage,
       showSyncState: backupStatus.showRunSyncState,
+      onShare: (button) {
+        final text = ShareMessages.runSummary(
+          routineTitle: currentRun.routineTitle,
+          finishedAt: currentRun.finishedAt,
+          steps: ShareMessages.stepsFromRun(currentRun),
+          formatTime: (at) => formatCheckTime(button, at),
+        );
+        ref.read(pebbleShareProvider).shareText(button, text);
+      },
     );
   }
 }
@@ -44,11 +56,15 @@ class _RunTimeline extends StatelessWidget {
     required this.run,
     required this.proofStorage,
     required this.showSyncState,
+    this.onShare,
   });
 
   final RoutineRun run;
   final RoutineSessionProofStorage proofStorage;
   final bool showSyncState;
+
+  /// Shares this run's steps and times, given the tapped button.
+  final void Function(BuildContext buttonContext)? onShare;
 
   @override
   Widget build(BuildContext context) {
@@ -119,6 +135,17 @@ class _RunTimeline extends StatelessWidget {
               const Spacer(),
               if (photoRefs.isNotEmpty)
                 _buildPhotoShortcutButton(context, steps, proofStorage),
+              if (onShare != null) ...[
+                const SizedBox(width: 10),
+                Builder(
+                  builder: (buttonContext) => PebbleGlassIconButton(
+                    key: const ValueKey('run_detail_share'),
+                    icon: LucideIcons.share,
+                    tooltip: 'Share',
+                    onPressed: () => onShare!(buttonContext),
+                  ),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 18),

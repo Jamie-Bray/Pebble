@@ -4,6 +4,8 @@ import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:pebble_routines/core/config/app_version.dart";
 import "package:pebble_routines/core/config/legal_links.dart";
 import "package:pebble_routines/core/home_widget/home_widget_setup.dart";
+import "package:pebble_routines/core/share/pebble_share.dart";
+import "package:pebble_routines/core/share/share_messages.dart";
 import "package:pebble_routines/core/theme/theme_provider.dart";
 import "package:pebble_routines/core/ui/zen_notifications.dart";
 import "package:url_launcher/url_launcher.dart";
@@ -232,6 +234,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                               ),
                             );
                           },
+                        ),
+                        const _Hairline(),
+                        Builder(
+                          builder: (tileContext) => _FlowTile(
+                            icon: LucideIcons.share,
+                            title: 'Tell a friend about Pebble',
+                            subtitle: 'Send them a link to the app',
+                            onTap: () => ref
+                                .read(pebbleShareProvider)
+                                .shareText(
+                                  tileContext,
+                                  ShareMessages.appInvite,
+                                ),
+                          ),
                         ),
                         const _Hairline(),
                         _FlowTile(
