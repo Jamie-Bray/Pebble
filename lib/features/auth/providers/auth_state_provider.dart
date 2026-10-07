@@ -232,6 +232,8 @@ class AuthController extends StateNotifier<AuthState> {
       message = message.substring('Bad state: '.length).trim();
     }
     if (error is AuthException) {
+      final friendly = friendlyAuthApiError(error);
+      if (friendly != null) return friendly;
       message = error.message.trim();
     }
     if (message.isEmpty ||
@@ -559,6 +561,34 @@ class AuthController extends StateNotifier<AuthState> {
     }
     state = state.copyWith(status: AuthStatus.signedOut);
   }
+}
+
+/// Plain wording for the Supabase errors people actually meet while
+/// signing in with an email code. Anything else keeps Supabase's text.
+String? friendlyAuthApiError(AuthException error) {
+  final code = error.code ?? '';
+  final message = error.message.toLowerCase();
+  if (code == 'otp_expired' ||
+      message.contains('token has expired') ||
+      (message.contains('invalid') && message.contains('token'))) {
+    return "That code didn't work. Check it, or send a new one.";
+  }
+  if (code.contains('rate_limit') ||
+      error.statusCode == '429' ||
+      message.contains('for security purposes') ||
+      message.contains('rate limit')) {
+    return 'Please wait a minute before asking for another code.';
+  }
+  if (code == 'email_address_invalid' ||
+      message.contains('invalid format') ||
+      message.contains('unable to validate email')) {
+    return 'Enter a valid email address.';
+  }
+  if (message.contains('error sending')) {
+    return "We couldn't send the email just now. Try again in a few "
+        'minutes.';
+  }
+  return null;
 }
 
 final authControllerProvider = StateNotifierProvider<AuthController, AuthState>(

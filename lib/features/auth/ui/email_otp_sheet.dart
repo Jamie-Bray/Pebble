@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
 
@@ -8,6 +9,7 @@ Future<void> showEmailOtpSheet(BuildContext context, WidgetRef ref) {
   var otpRequested = false;
   var isBusy = false;
   String? inlineError;
+  String? inlineNotice;
 
   return showModalBottomSheet<void>(
     context: context,
@@ -74,10 +76,24 @@ Future<void> showEmailOtpSheet(BuildContext context, WidgetRef ref) {
                         ),
                       ),
                     ],
+                    if (inlineError == null && inlineNotice != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        inlineNotice!,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: colorScheme.primary,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 18),
                     TextField(
                       controller: emailController,
                       keyboardType: TextInputType.emailAddress,
+                      autofillHints: const [AutofillHints.email],
+                      autocorrect: false,
+                      textInputAction: TextInputAction.done,
                       enabled: !otpRequested,
                       decoration: const InputDecoration(
                         labelText: 'Email address',
@@ -88,6 +104,12 @@ Future<void> showEmailOtpSheet(BuildContext context, WidgetRef ref) {
                       TextField(
                         controller: codeController,
                         keyboardType: TextInputType.number,
+                        // Lets iPhone offer the code straight from Mail.
+                        autofillHints: const [AutofillHints.oneTimeCode],
+                        autofocus: true,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
                         decoration: const InputDecoration(
                           labelText: 'One-time code',
                         ),
@@ -104,7 +126,10 @@ Future<void> showEmailOtpSheet(BuildContext context, WidgetRef ref) {
                             ? null
                             : () async {
                                 final email = emailController.text.trim();
-                                final code = codeController.text.trim();
+                                final code = codeController.text.replaceAll(
+                                  RegExp(r'\s'),
+                                  '',
+                                );
                                 if (!otpRequested && !_looksLikeEmail(email)) {
                                   setState(
                                     () => inlineError =
@@ -123,6 +148,7 @@ Future<void> showEmailOtpSheet(BuildContext context, WidgetRef ref) {
                                 setState(() {
                                   isBusy = true;
                                   inlineError = null;
+                                  inlineNotice = null;
                                 });
 
                                 final authController = ref.read(
@@ -180,10 +206,43 @@ Future<void> showEmailOtpSheet(BuildContext context, WidgetRef ref) {
                         child: TextButton(
                           onPressed: isBusy
                               ? null
+                              : () async {
+                                  setState(() {
+                                    isBusy = true;
+                                    inlineError = null;
+                                    inlineNotice = null;
+                                  });
+                                  final sent = await ref
+                                      .read(authControllerProvider.notifier)
+                                      .requestEmailOtp(
+                                        emailController.text.trim(),
+                                      );
+                                  if (!context.mounted) return;
+                                  setState(() {
+                                    isBusy = false;
+                                    if (sent) {
+                                      codeController.clear();
+                                      inlineNotice =
+                                          'We\'ve sent a new code. Use the '
+                                          'newest email.';
+                                    } else {
+                                      inlineError = _authError(ref);
+                                    }
+                                  });
+                                },
+                          child: const Text('Send a new code'),
+                        ),
+                      ),
+                      SizedBox(
+                        width: double.infinity,
+                        child: TextButton(
+                          onPressed: isBusy
+                              ? null
                               : () {
                                   setState(() {
                                     otpRequested = false;
                                     inlineError = null;
+                                    inlineNotice = null;
                                     codeController.clear();
                                   });
                                 },
