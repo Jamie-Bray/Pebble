@@ -1453,11 +1453,10 @@ void main() {
         await _tapPrimary(env);
         await env.realWait(2);
         // First photo from the primary (camera) button, the second from the
-        // proof card's "Add photo" action.
+        // photo's "Add photo" pill.
         await _tapPrimary(env);
         await env.realWait(12);
-        await env.tapText('Add photo');
-        await env.realWait(12);
+        await _addPhoto(env);
         await _tapPrimary(env);
         await env.realWait(3);
         await env.tapText('Skip step');

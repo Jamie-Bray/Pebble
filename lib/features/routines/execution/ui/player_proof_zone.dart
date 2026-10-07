@@ -848,7 +848,25 @@ class _ProofStripState extends State<_ProofStrip> {
   @override
   void didUpdateWidget(_ProofStrip oldWidget) {
     super.didUpdateWidget(oldWidget);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updateFade());
+    final added = widget.assets.length > oldWidget.assets.length;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // A new photo is picked straight away, so bring it into view.
+      if (added && mounted && _scroll.hasClients) {
+        final end = _scroll.position.maxScrollExtent;
+        if (widget.reduceMotion) {
+          _scroll.jumpTo(end);
+        } else {
+          unawaited(
+            _scroll.animateTo(
+              end,
+              duration: PebbleMotion.standard,
+              curve: PebbleMotion.enter,
+            ),
+          );
+        }
+      }
+      _updateFade();
+    });
   }
 
   void _updateFade() {
