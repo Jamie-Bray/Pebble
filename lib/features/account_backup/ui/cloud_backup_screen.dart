@@ -44,25 +44,44 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
   bool _linkLocalDataInFlight = false;
   bool _verificationInFlight = false;
 
+  late final StateController<bool> _turnOnPrompt;
+
   @override
   void initState() {
     super.initState();
+    _turnOnPrompt = ref.read(backupTurnOnPromptProvider.notifier);
     ref.listenManual<BackupStatus>(backupStatusProvider, (previous, next) {
-      if (!ref.read(backupTurnOnPromptProvider)) return;
+      if (!_turnOnPrompt.state) return;
+      // Provider state can't change mid-build (this fires from initState),
+      // so the flag is cleared, and the sheet opened, after the frame.
+      void settle({required bool offer}) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!_turnOnPrompt.state) return;
+          _turnOnPrompt.state = false;
+          if (offer && mounted) _showCloudBackupConsentDialog();
+        });
+      }
+
       switch (next.phase) {
         case BackupPhase.off:
-          ref.read(backupTurnOnPromptProvider.notifier).state = false;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _showCloudBackupConsentDialog();
-          });
+          settle(offer: true);
         case BackupPhase.checking:
         case BackupPhase.signedOut:
           return; // Still confirming the account; wait.
         default:
           // Already on, not included, or needs another choice first.
-          ref.read(backupTurnOnPromptProvider.notifier).state = false;
+          settle(offer: false);
       }
     }, fireImmediately: true);
+  }
+
+  @override
+  void dispose() {
+    // The offer belongs to this visit only: leaving Backup before the account
+    // was confirmed must not pop the sheet on a later, unrelated visit.
+    final prompt = _turnOnPrompt;
+    Future.microtask(() => prompt.state = false);
+    super.dispose();
   }
 
   void _exitBackup() {

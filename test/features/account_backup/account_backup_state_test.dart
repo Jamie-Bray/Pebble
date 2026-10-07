@@ -1730,6 +1730,61 @@ void main() {
       },
     );
 
+    testWidgets(
+      '/cloud-backup offers the turn-on sheet by itself right after sign-in',
+      (tester) async {
+        final harness = _buildUiContainer(
+          auth: const AuthSessionSummary(
+            isSignedIn: true,
+            userId: 'user-1',
+            email: 'jamie@example.com',
+            provider: 'google',
+          ),
+          entitlement: const EntitlementState(
+            personalTier: UserTier.personalPremium,
+            source: EntitlementSource.serverVerified,
+            lastCheckedAt: null,
+            isRefreshing: false,
+            lastError: null,
+            status: EntitlementStatus.personalPremium,
+          ),
+          cloudAccess: const PersonalCloudAccessState(
+            status: PersonalCloudAccessStatus.consentRequired,
+            label: 'Review cloud backup',
+            detail: 'Consent needed.',
+          ),
+          account: const SubscriptionAccountState(
+            entitlementTier: UserTier.personalPremium,
+            entitlementStatus: EntitlementStatus.personalPremium,
+            entitlementSource: EntitlementSource.serverVerified,
+            pendingTier: null,
+            bootstrapStatus: BootstrapStatus.idle,
+            userId: 'user-1',
+            email: 'jamie@example.com',
+            authProvider: 'google',
+            lastBootstrapAt: null,
+            lastSyncAt: null,
+            lastSyncError: null,
+          ),
+          pendingCount: 0,
+        );
+        addTearDown(() async {
+          harness.container.dispose();
+          await harness.database.close();
+        });
+        await _primeUiState(harness.container);
+
+        harness.container.read(backupTurnOnPromptProvider.notifier).state =
+            true;
+        await _pumpAccountWidget(tester, harness, const CloudBackupScreen());
+        await tester.pumpAndSettle();
+
+        // No tap needed: the sheet is already open, once.
+        expect(find.text(cloudBackupConsentText), findsOneWidget);
+        expect(harness.container.read(backupTurnOnPromptProvider), isFalse);
+      },
+    );
+
     testWidgets('/cloud-backup shows active backup and manual sync action', (
       tester,
     ) async {
