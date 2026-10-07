@@ -197,9 +197,13 @@ class PebbleDetailsPage extends StatelessWidget {
     super.key,
     required this.title,
     required this.sections,
+    this.footer,
   });
 
   final String title;
+
+  /// Optional extra at the end, such as a link to the privacy policy.
+  final Widget? footer;
 
   /// (heading, paragraph) pairs. A null heading is a plain paragraph.
   final List<(String?, String)> sections;
@@ -208,10 +212,12 @@ class PebbleDetailsPage extends StatelessWidget {
     BuildContext context, {
     required String title,
     required List<(String?, String)> sections,
+    Widget? footer,
   }) {
-    return Navigator.of(context).push(
+    return Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute<void>(
-        builder: (_) => PebbleDetailsPage(title: title, sections: sections),
+        builder: (_) =>
+            PebbleDetailsPage(title: title, sections: sections, footer: footer),
       ),
     );
   }
@@ -248,6 +254,7 @@ class PebbleDetailsPage extends StatelessWidget {
               ),
               const SizedBox(height: PebbleSpacing.lg),
             ],
+            ?footer,
           ],
         ),
       ),
