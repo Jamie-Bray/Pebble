@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:pebble_routines/core/ui/pebble_buttons.dart';
+import 'package:pebble_routines/core/ui/pebble_time.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/features/ai_photo/ai_photo_service.dart';
 import 'package:pebble_routines/features/ai_photo/ai_photo_settings.dart';
@@ -2199,14 +2200,32 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
           compact: metrics.compact,
         ),
         SizedBox(height: metrics.previewCtaGap),
+        // The answer is the card; nothing here should invite re-checking.
+        // Two quiet actions: look at this check, or run the routine again.
         SizedBox(
           key: const ValueKey('home_hero_cta_box'),
           width: double.infinity,
-          child: PebbleButton.secondary(
-            key: const ValueKey('home_hero_cta'),
-            onPressed: widget.onBegin,
-            icon: LucideIcons.rotateCcw,
-            label: 'Check again',
+          child: Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              PebbleButton.tertiary(
+                key: const ValueKey('home_hero_view_check'),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => RoutineRunDetailScreen(run: run),
+                  ),
+                ),
+                trailingIcon: LucideIcons.chevronRight,
+                label: 'See this check',
+              ),
+              PebbleButton.tertiary(
+                key: const ValueKey('home_hero_cta'),
+                onPressed: widget.onBegin,
+                icon: LucideIcons.rotateCcw,
+                label: 'Run again',
+              ),
+            ],
           ),
         ),
         SizedBox(height: metrics.ctaMetaGap),
@@ -2317,13 +2336,19 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
     );
   }
 
+  /// "Last checked today, 13:27" rather than "10h ago": the clock time is
+  /// what someone checking on themselves wants to see.
   String _lastRunText(DateTime finishedAt) {
-    final diff = DateTime.now().difference(finishedAt);
-    if (diff.inMinutes < 1) return 'Last completed just now';
-    if (diff.inHours < 1) return 'Last completed ${diff.inMinutes}m ago';
-    if (diff.inDays < 1) return 'Last completed ${diff.inHours}h ago';
-    if (diff.inDays == 1) return 'Last completed yesterday';
-    return 'Last completed ${DateFormat.MMMd().format(finishedAt)}';
+    final at = finishedAt.toLocal();
+    final now = ref.read(homeClockProvider)().toLocal();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(at.year, at.month, at.day);
+    final time = formatCheckTime(context, at);
+    if (day == today) return 'Last checked today, $time';
+    if (day == today.subtract(const Duration(days: 1))) {
+      return 'Last checked yesterday, $time';
+    }
+    return 'Last checked ${DateFormat.MMMd().format(at)}';
   }
 
   TextSpan _titleSpan(String title, Color accent) {

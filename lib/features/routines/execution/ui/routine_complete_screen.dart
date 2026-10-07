@@ -561,6 +561,15 @@ class _ReceiptRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final type = PebbleType.of(context);
     final foundation = context.darkFoundation;
+    final labelText = Text(
+      label,
+      style: type.body.copyWith(
+        color: icon != null
+            ? context.readableSecondaryText
+            : foundation.textPrimary,
+        fontWeight: icon != null ? FontWeight.w400 : FontWeight.w500,
+      ),
+    );
     final row = ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 56),
       child: Padding(
@@ -571,20 +580,12 @@ class _ReceiptRow extends StatelessWidget {
               Icon(icon, size: 18, color: context.readableSecondaryText),
               const SizedBox(width: PebbleSpacing.sm),
             ],
-            Expanded(
-              child: Text(
-                label,
-                style: type.body.copyWith(
-                  color: icon != null
-                      ? context.readableSecondaryText
-                      : foundation.textPrimary,
-                  fontWeight: icon != null ? FontWeight.w400 : FontWeight.w500,
-                ),
-              ),
-            ),
+            // A short label ("Steps", "Photos") keeps its natural width so
+            // the value, such as the photo strip, gets the rest of the row.
+            if (trailing == null) Expanded(child: labelText) else labelText,
             if (trailing != null) ...[
-              const SizedBox(width: PebbleSpacing.sm),
-              Flexible(
+              const SizedBox(width: PebbleSpacing.md),
+              Expanded(
                 child: Align(alignment: Alignment.centerRight, child: trailing),
               ),
             ],
@@ -605,25 +606,45 @@ class _ThumbStrip extends StatelessWidget {
   final int count;
   final void Function(int index)? onOpen;
 
+  static const double _size = 48;
+  static const double _gap = PebbleSpacing.xs;
+
+  /// How many thumbnails fit in [width], never more than [max]. The last one
+  /// shown carries a "+N" label for the rest, so four or more photos never
+  /// run off the edge of the card on a narrow phone or with large text.
+  static int fitting(double width, int available) {
+    if (!width.isFinite) return available.clamp(0, max);
+    final slots = ((width + _gap) / (_size + _gap)).floor();
+    return available.clamp(0, slots.clamp(1, max));
+  }
+
   @override
   Widget build(BuildContext context) {
-    final shown = photos.take(max).toList();
-    final extra = count - shown.length;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (var i = 0; i < shown.length; i++) ...[
-          if (i > 0) const SizedBox(width: PebbleSpacing.xs),
-          PhotoThumb(
-            key: ValueKey('completion-photo-${shown[i].id}'),
-            load: shown[i].load,
-            size: 48,
-            overlayLabel: i == shown.length - 1 && extra > 0 ? '+$extra' : null,
-            semanticsLabel: 'Photo ${i + 1} of $count',
-            onTap: onOpen == null ? null : () => onOpen!(i),
-          ),
-        ],
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final shown = photos
+            .take(fitting(constraints.maxWidth, photos.length))
+            .toList();
+        final extra = count - shown.length;
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < shown.length; i++) ...[
+              if (i > 0) const SizedBox(width: _gap),
+              PhotoThumb(
+                key: ValueKey('completion-photo-${shown[i].id}'),
+                load: shown[i].load,
+                size: _size,
+                overlayLabel: i == shown.length - 1 && extra > 0
+                    ? '+$extra'
+                    : null,
+                semanticsLabel: 'Photo ${i + 1} of $count',
+                onTap: onOpen == null ? null : () => onOpen!(i),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 }

@@ -899,12 +899,12 @@ void main() {
   });
 
   testWidgets('home last-run line reports skipped steps', (tester) async {
-    final finishedAt = DateTime.now().subtract(const Duration(hours: 3));
+    final finishedAt = DateTime(2026, 10, 3, 13, 27);
     await _pumpHome(
       tester,
       surfaceSize: const Size(390, 844),
       // Past the Checked window, so the hero is back to Start.
-      clock: () => finishedAt.add(const Duration(days: 1)),
+      clock: () => DateTime(2026, 10, 4, 9),
       routines: [
         _routine(
           id: 1,
@@ -931,7 +931,10 @@ void main() {
       ),
     );
 
-    expect(find.text('Last completed 3h ago'), findsOneWidget);
+    expect(
+      find.textContaining(RegExp(r'^Last checked yesterday, (13:27|1:27\s?PM)$')),
+      findsOneWidget,
+    );
     expect(find.text('3 of 4 steps · 1 skipped'), findsOneWidget);
     expect(find.text('4 of 4 steps'), findsNothing);
   });
@@ -939,30 +942,61 @@ void main() {
   _checkedTests();
 }
 
-
 void _checkedTests() {
   group('checkedUntil (the Checked reset rule)', () {
     final at = DateTime(2026, 10, 3, 8, 4);
 
-    test('a run from earlier today, under six hours ago, is Checked', () {
-      expect(checkedUntil(at, DateTime(2026, 10, 3, 9)), at.add(kCheckedWindow));
-      expect(checkedUntil(at, DateTime(2026, 10, 3, 14, 3)), isNotNull);
+    test('with no reminder, a check stays Checked until 4am next day', () {
+      expect(
+        checkedUntil(at, DateTime(2026, 10, 3, 9)),
+        DateTime(2026, 10, 4, 4),
+      );
+      expect(checkedUntil(at, DateTime(2026, 10, 3, 20)), isNotNull);
+      expect(checkedUntil(at, DateTime(2026, 10, 4, 3, 59)), isNotNull);
+      expect(checkedUntil(at, DateTime(2026, 10, 4, 4)), isNull);
     });
 
-    test('six hours after the run it is back to Start', () {
-      expect(checkedUntil(at, DateTime(2026, 10, 3, 14, 4)), isNull);
-      expect(checkedUntil(at, DateTime(2026, 10, 3, 20)), isNull);
+    test('the next reminder ends Checked: the routine is due again', () {
+      final reminder = DateTime(2026, 10, 3, 18);
+      expect(
+        checkedUntil(at, DateTime(2026, 10, 3, 17), nextReminder: reminder),
+        reminder,
+      );
+      expect(
+        checkedUntil(at, DateTime(2026, 10, 3, 18), nextReminder: reminder),
+        isNull,
+      );
     });
 
-    test('a late check never carries over past midnight', () {
+    test('a reminder after the day boundary does not extend Checked', () {
+      expect(
+        checkedUntil(
+          at,
+          DateTime(2026, 10, 3, 9),
+          nextReminder: DateTime(2026, 10, 4, 8),
+        ),
+        DateTime(2026, 10, 4, 4),
+      );
+    });
+
+    test('a late check carries over to the small hours, not the morning', () {
       final late = DateTime(2026, 10, 3, 23, 30);
-      expect(checkedUntil(late, DateTime(2026, 10, 3, 23, 50)),
-          DateTime(2026, 10, 4));
-      expect(checkedUntil(late, DateTime(2026, 10, 4, 0, 10)), isNull);
+      expect(
+        checkedUntil(late, DateTime(2026, 10, 4, 0, 10)),
+        DateTime(2026, 10, 4, 4),
+      );
+      expect(checkedUntil(late, DateTime(2026, 10, 4, 8)), isNull);
     });
 
-    test('a run from another day is never Checked', () {
-      expect(checkedUntil(at, DateTime(2026, 10, 4, 8)), isNull);
+    test('nextReminderAt skips a reminder inside the grace period', () {
+      // Done at 07:55 for an 08:00 reminder: Checked lasts until the
+      // next one, not five minutes.
+      final done = DateTime(2026, 10, 5, 7, 55); // a Monday
+      final next = nextReminderAt([
+        (1, '8:00 AM'),
+        (1, '6:00 PM'),
+      ], done.add(kCheckedReminderGrace));
+      expect(next, DateTime(2026, 10, 5, 18));
     });
   });
 
@@ -982,7 +1016,10 @@ void _checkedTests() {
       latestRun: _runWithSteps(routineId: 1, finishedAt: finishedAt, total: 5),
     );
 
-    expect(find.byKey(const ValueKey('home_hero_checked_card')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('home_hero_checked_card')),
+      findsOneWidget,
+    );
     expect(find.text('CHECKED'), findsOneWidget);
     // The time is the hero, in the big serif.
     expect(
@@ -992,8 +1029,9 @@ void _checkedTests() {
       findsOneWidget,
     );
     expect(find.text('Leaving the house · all 5 steps'), findsOneWidget);
-    // Check again is tonal: no filled Start competing with the answer.
-    expect(find.text('Check again'), findsOneWidget);
+    // Quiet actions only: no filled Start competing with the answer.
+    expect(find.text('See this check'), findsOneWidget);
+    expect(find.text('Run again'), findsOneWidget);
     expect(find.text('Start'), findsNothing);
     expect(find.text('UP NEXT'), findsNothing);
     expect(tester.takeException(), isNull);
@@ -1027,7 +1065,7 @@ void _checkedTests() {
     tester,
   ) async {
     final finishedAt = DateTime(2026, 10, 3, 8, 4);
-    var now = DateTime(2026, 10, 3, 14);
+    var now = DateTime(2026, 10, 4, 3, 55);
     await _pumpHome(
       tester,
       surfaceSize: const Size(390, 844),
@@ -1037,13 +1075,13 @@ void _checkedTests() {
       ],
       latestRun: _runWithSteps(routineId: 1, finishedAt: finishedAt, total: 1),
     );
-    expect(find.text('Check again'), findsOneWidget);
+    expect(find.text('Run again'), findsOneWidget);
 
-    now = DateTime(2026, 10, 3, 14, 5);
+    now = DateTime(2026, 10, 4, 4);
     await tester.pump(const Duration(minutes: 5));
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('Check again'), findsNothing);
+    expect(find.text('Run again'), findsNothing);
     expect(find.text('Start'), findsOneWidget);
     expect(find.text('UP NEXT'), findsOneWidget);
   });
@@ -1137,7 +1175,9 @@ void _checkedTests() {
       HomeBackupDot.paused,
     );
     expect(
-      homeBackupDotFor(chip('Needs attention', AccountBackupChipTone.attention)),
+      homeBackupDotFor(
+        chip('Needs attention', AccountBackupChipTone.attention),
+      ),
       HomeBackupDot.paused,
     );
   });
