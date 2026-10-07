@@ -1,8 +1,13 @@
 # Pebble Routines CI.
 #
-# Runs on every push and pull request. Green tick = the app analyses, the
-# tests pass and Android still compiles. Red cross = something broke; open
-# the run on GitHub to see which step failed.
+# Runs on pull requests. Green tick = the app analyses and the tests pass.
+# Red cross = something broke; open the run on GitHub to see which step
+# failed.
+#
+# To save the free monthly Actions minutes, CI does not run on plain pushes
+# (a push to a PR branch already triggers the pull_request run), and the slow
+# Android debug build only runs when started by hand: Actions tab -> CI ->
+# Run workflow. Codemagic still builds Android for every release.
 #
 # No secrets are used here. Release builds (signed AAB, TestFlight) happen on
 # Codemagic; see codemagic.yaml and docs/BUILD_AND_RELEASE.md.
@@ -10,8 +15,8 @@
 name: CI
 
 on:
-  push:
   pull_request:
+  workflow_dispatch:
 
 # A newer push to the same branch/PR cancels the older, still-running build.
 concurrency:
@@ -73,6 +78,8 @@ jobs:
 
   android-debug-build:
     name: Android debug build
+    # Manual runs only (see the note at the top of this file).
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

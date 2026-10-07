@@ -6,7 +6,7 @@ There are two robots:
 
 | Robot | What it does | When it runs | Cost |
 |---|---|---|---|
-| **GitHub CI** (`.github/workflows/ci.yml`) | Checks the code: analysis, tests, and a test Android build. Shows a green tick or a red cross. | Automatically, on every change pushed to GitHub. | Free (see limits below) |
+| **GitHub CI** (`.github/workflows/ci.yml`) | Checks the code: analysis and tests, plus a test Android build when started by hand. Shows a green tick or a red cross. | Automatically, on every pull request. | Free (see limits below) |
 | **Codemagic** (`codemagic.yaml`) | Makes the real, signed builds: iPhone to TestFlight, Android `.aab` for Google Play. | Only when you press **Start new build**. | Free tier (see limits below) |
 
 ---
@@ -23,7 +23,7 @@ There are two robots:
 
 **GitHub Actions** (the CI checks):
 - Public repositories are free with no limit.
-- Private repositories get **2,000 Linux minutes a month** on the Free plan. One CI run uses about 10–15 minutes, because two checks run side by side.
+- Private repositories get **2,000 Linux minutes a month** on the Free plan. The test Android build is the slowest check, so it only runs when started by hand (Actions tab → **CI** → **Run workflow**).
 - With no payment method, GitHub stops running checks when the minutes run out. It doesn't charge you.
 
 ---
@@ -181,7 +181,7 @@ You don't need to answer any encryption questions on upload. The app already dec
   - **yellow dot**: still running
 - Tap the icon → **Details**, or open the **Actions** tab, to see which check failed:
   - **Analyze and test**: code analysis plus the automated tests.
-  - **Android debug build**: makes sure the Android project still compiles. It's not a release build and uses no secrets.
+  - **Android debug build**: makes sure the Android project still compiles. It's not a release build and uses no secrets. It only runs when started by hand (Actions tab → **CI** → **Run workflow**), so on pull requests it shows as skipped.
 - On a pull request, the same checks appear at the bottom under **Checks**.
 - GitHub emails whoever pushed the change when a check fails.
 - **Golden tests (informational):** these compare screenshots pixel by pixel and depend on the computer they were recorded on. If they fail, that one step shows as failed inside the run, but the run itself stays green.
