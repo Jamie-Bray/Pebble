@@ -42,6 +42,12 @@
 			</array>
 		</dict>
 	</array>
+	<!-- Pebble opens routines from notifications in Dart, never from URLs
+	     pushed to the router. Keep Flutter's deep linking off so a URL the app
+	     receives (such as the Google Sign-In redirect, which the plugin
+	     handles) is never treated as a page to open. -->
+	<key>FlutterDeepLinkingEnabled</key>
+	<false/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
