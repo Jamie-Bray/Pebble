@@ -22,6 +22,7 @@ import 'core/config/app_runtime_config.dart';
 import 'core/config/pebble_locale.dart';
 import 'core/monitoring/crash_reporting.dart';
 import 'core/navigation/app_shell.dart';
+import 'core/navigation/external_location.dart';
 import 'data/remote/supabase_client_provider.dart';
 import 'features/templates/ui/template_detail_screen.dart';
 import 'features/templates/ui/templates_gallery_screen.dart';
@@ -176,6 +177,10 @@ final _routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
     redirect: (context, state) {
+      // Widget launch URIs (pebble://play/<id>, or just "/<id>") must reach
+      // the player, never the error page.
+      final external = externalLocationRedirect(state.uri);
+      if (external != null) return external;
       final hasCompletedOnboarding =
           prefs.getBool('has_completed_onboarding') ?? false;
       final isGoingToOnboarding = state.uri.path == '/onboarding';
@@ -312,9 +317,8 @@ final _routerProvider = Provider<GoRouter>((ref) {
         path: '/play/:id',
         builder: (context, state) {
           final idStr = state.pathParameters['id'];
-          if (idStr == null) return const SizedBox.shrink();
-          final id = int.tryParse(idStr);
-          if (id == null) return const SizedBox.shrink();
+          final id = int.tryParse(idStr ?? '');
+          if (id == null) return const PageNotAvailableScreen();
           return Consumer(
             builder: (context, ref, _) {
               final async = ref.watch(routineSessionEntryProvider(id));
@@ -339,6 +343,7 @@ final _routerProvider = Provider<GoRouter>((ref) {
         },
       ),
     ],
+    errorBuilder: pebbleRouterErrorBuilder,
     debugLogDiagnostics: !runtimeConfig.isProduction,
     initialLocation: '/',
   );
