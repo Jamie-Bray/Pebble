@@ -578,11 +578,8 @@ class _AccountSignInCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final title = hasPremium ? 'Sign in to back up' : 'Already have Premium?';
     final body = hasPremium
-        ? 'Premium is active on this phone. Sign in so Pebble can back up '
-              'your routines and restore them on a new phone.'
-        : 'Sign in with the account you used before. Pebble brings back '
-              "your Premium and your backup. If Premium doesn't appear, use "
-              'Restore purchase below.';
+        ? 'Keep your routines safe and get them back on a new phone.'
+        : 'Sign in to bring back your Premium and your backup.';
     return _AccountSurface(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -658,8 +655,7 @@ class _AccountUpgradeCard extends StatelessWidget {
           ),
           const SizedBox(height: 7),
           Text(
-            'Get 21 days of history, unlimited routines and steps, and '
-            'cloud backup when you choose to turn it on.',
+            'Unlimited routines, 21 days of history and backup.',
             style: PebbleFonts.sans(
               color: colorScheme.onSurface.withValues(alpha: 0.66),
               fontSize: 13.5,
