@@ -26,6 +26,11 @@ import 'package:pebble_routines/features/sync/cloud_restore_coordinator.dart';
 import 'package:pebble_routines/features/sync/cloud_sync_coordinator.dart';
 import 'package:pebble_routines/features/sync/local_data_ownership_guard.dart';
 
+/// Set just before opening Backup straight after sign-in: the screen then
+/// offers "Turn on backup?" by itself as soon as the account is confirmed,
+/// so signing in and turning on backup feel like one step.
+final backupTurnOnPromptProvider = StateProvider<bool>((ref) => false);
+
 class CloudBackupScreen extends ConsumerStatefulWidget {
   const CloudBackupScreen({super.key});
 
@@ -38,6 +43,27 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
   bool _consentInFlight = false;
   bool _linkLocalDataInFlight = false;
   bool _verificationInFlight = false;
+
+  @override
+  void initState() {
+    super.initState();
+    ref.listenManual<BackupStatus>(backupStatusProvider, (previous, next) {
+      if (!ref.read(backupTurnOnPromptProvider)) return;
+      switch (next.phase) {
+        case BackupPhase.off:
+          ref.read(backupTurnOnPromptProvider.notifier).state = false;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _showCloudBackupConsentDialog();
+          });
+        case BackupPhase.checking:
+        case BackupPhase.signedOut:
+          return; // Still confirming the account; wait.
+        default:
+          // Already on, not included, or needs another choice first.
+          ref.read(backupTurnOnPromptProvider.notifier).state = false;
+      }
+    }, fireImmediately: true);
+  }
 
   void _exitBackup() {
     if (!mounted) {
