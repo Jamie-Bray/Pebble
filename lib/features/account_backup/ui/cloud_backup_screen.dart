@@ -637,7 +637,6 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
               key: const ValueKey('backup_whats_included'),
               icon: LucideIcons.listChecks,
               label: "What's backed up",
-              value: 'Routines, history, photos',
               onTap: () => _showWhatsBackedUp(presentation),
             ),
             if (presentation.dataItemsLive)
@@ -750,6 +749,7 @@ class BackupStatusCard extends StatelessWidget {
                     Switch.adaptive(
                       key: const ValueKey('backup_switch'),
                       value: switchValue,
+                      activeTrackColor: Theme.of(context).colorScheme.primary,
                       onChanged: onSwitchChanged,
                     ),
                 ],
@@ -866,13 +866,11 @@ class _LinkRow extends StatelessWidget {
     super.key,
     required this.icon,
     required this.label,
-    this.value,
     required this.onTap,
   });
 
   final IconData icon;
   final String label;
-  final String? value;
   final VoidCallback onTap;
 
   @override
@@ -897,18 +895,6 @@ class _LinkRow extends StatelessWidget {
                   style: type.body.copyWith(color: foundation.textPrimary),
                 ),
               ),
-              if (value != null) ...[
-                const SizedBox(width: PebbleSpacing.xs),
-                Flexible(
-                  child: Text(
-                    value!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.end,
-                    style: type.caption.copyWith(color: secondary),
-                  ),
-                ),
-              ],
               const SizedBox(width: PebbleSpacing.xxs),
               Icon(LucideIcons.chevronRight, size: 18, color: secondary),
             ],
