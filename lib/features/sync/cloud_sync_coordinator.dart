@@ -300,14 +300,17 @@ class CloudSyncCoordinator {
   static const _maxRoundsPerPass = 5;
 
   /// Longest "Back up now" waits for a pass that is already running.
-  static const manualWaitLimit = Duration(minutes: 2);
+  /// Not final only so tests can shorten it.
+  static Duration manualWaitLimit = const Duration(minutes: 2);
 
   /// Longest a single row write to the server may take before it counts as
   /// failed (and retries), so a stalled connection cannot hang a pass.
-  static const rowWriteTimeout = Duration(seconds: 30);
+  /// Not final only so tests can shorten it.
+  static Duration rowWriteTimeout = const Duration(seconds: 30);
 
   /// Longest a single file upload (photo, voice prompt) may take.
-  static const fileUploadTimeout = Duration(seconds: 90);
+  /// Not final only so tests can shorten it.
+  static Duration fileUploadTimeout = const Duration(seconds: 90);
 
   /// Routines uploaded (or tried) in the current pass.
   final Set<int> _routinesTriedThisPass = {};
