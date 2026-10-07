@@ -741,7 +741,8 @@ class _FakeAiPhotoService extends AiPhotoService {
   Future<bool> fetchEnabled() async => true;
 
   @override
-  Future<AiPhotoAllowance?> fetchAllowance() async => const AiPhotoAllowance(limit: 100, remaining: 97);
+  Future<AiPhotoAllowance?> fetchAllowance() async =>
+      const AiPhotoAllowance(limit: 100, remaining: 97);
 
   @override
   Future<void> recordConsent({required String routineKey}) async {}
@@ -933,6 +934,8 @@ void _capture(
   bool ai = false,
   bool aiOnForHero = false,
   String? aiDescription = _aiSampleDescription,
+  // Replaces the fixed answer, for scenes that need a caption on its way.
+  AiProofDescriber? aiDescriber,
 }) {
   final skip =
       !_enabled ||
@@ -1038,7 +1041,8 @@ void _capture(
               if (ai || aiOnForHero) ...[
                 aiPhotoServiceProvider.overrideWithValue(_FakeAiPhotoService()),
                 aiProofDescriberProvider.overrideWithValue(
-                  (asset, stepLabel, photoDetail, _) async => aiDescription,
+                  aiDescriber ??
+                      (asset, stepLabel, photoDetail, _) async => aiDescription,
                 ),
               ],
               purchaseRepositoryProvider.overrideWith(
@@ -1131,6 +1135,37 @@ Future<void> _runLeavingHouseToHome(_Env env) async {
   await env.realWait(10);
   await env.settle(20);
   await env.realWait(4);
+}
+
+/// Photo 1 is held "Describing…" forever, photo 3 fails (so it offers
+/// "Try again"), every other photo is described straight away.
+AiProofDescriber _stagedDescriber() {
+  var n = 0;
+  return (asset, stepLabel, photoDetail, key) async {
+    n += 1;
+    if (n == 1) return Completer<String?>().future;
+    if (n == 3) return null;
+    return n.isEven
+        ? 'A grey back door with the lever handle pointing up.'
+        : 'A brass key in a white door lock, seen close up.';
+  };
+}
+
+/// Adds one more photo from the proof area: the "Add photo" pill on a single
+/// photo, or the "+" tile in the strip, then "Take photo" in the sheet when
+/// the step allows library photos.
+Future<void> _addPhoto(_Env env) async {
+  final pill = find.text('Add photo');
+  if (pill.evaluate().isNotEmpty) {
+    await env.tapFinder(pill.first);
+  } else {
+    await env.tapFinder(find.byKey(const ValueKey('proof-add-tile')));
+  }
+  final sheetCamera = find.widgetWithText(ListTile, 'Take photo');
+  if (sheetCamera.evaluate().isNotEmpty) {
+    await env.tapFinder(sheetCamera.first);
+  }
+  await env.realWait(12);
 }
 
 Future<void> _tapPrimary(_Env env) async {
@@ -1508,18 +1543,35 @@ void main() {
 
   // ---- Reminders ---------------------------------------------------------
   for (final (prefix, device, scale) in [
-    ('', _iphone, 1.0), ('small_', _small, 1.6),
+    ('', _iphone, 1.0),
+    ('small_', _small, 1.6),
   ]) {
-    _capture('${prefix}step description', device: device, textScale: scale,
-      account: _Account.signedInPremium, (env) async {
+    _capture(
+      '${prefix}step description',
+      device: device,
+      textScale: scale,
+      account: _Account.signedInPremium,
+      (env) async {
         final routine = (await env.db.routineDao.getRoutineById(1))!;
-        await env.db.routineDao.insertOrUpdateRoutine(routine.copyWith(
-          stepsJson: jsonEncode(const [
-            RoutineStep.check(label: 'Do the dishes',
-              photoPrompt: 'Wash, dry and put everything away. Use the draining rack for the plates and leave the worktop clear.'),
-            RoutineStep.check(label: 'Check patio door', requiresPhoto: true,
-              photoPrompt: 'Look for the small lever in a horizontal position.'),
-          ].map((step) => step.toJson()).toList())));
+        await env.db.routineDao.insertOrUpdateRoutine(
+          routine.copyWith(
+            stepsJson: jsonEncode(
+              const [
+                RoutineStep.check(
+                  label: 'Do the dishes',
+                  photoPrompt:
+                      'Wash, dry and put everything away. Use the draining rack for the plates and leave the worktop clear.',
+                ),
+                RoutineStep.check(
+                  label: 'Check patio door',
+                  requiresPhoto: true,
+                  photoPrompt:
+                      'Look for the small lever in a horizontal position.',
+                ),
+              ].map((step) => step.toJson()).toList(),
+            ),
+          ),
+        );
         await env.push('/edit/1');
         await env.tapText('Do the dishes');
         await env.shot('${prefix}step_description_composer');
@@ -1534,7 +1586,8 @@ void main() {
         }
         await _tapPrimary(env);
         await env.shot('${prefix}step_description_photo_player');
-      });
+      },
+    );
   }
 
   _capture('reminders', (env) async {
@@ -1783,6 +1836,56 @@ void main() {
       },
     );
   }
+  // The photo step's states, one scene each: the empty tile, one photo
+  // being described, then three and four photos with one caption slot.
+  for (final (prefix, theme, device, scale) in [
+    ('', ThemeId.highNoon, _iphone, 1.0),
+    ('dark_', ThemeId.nordicNight, _iphone, 1.0),
+    ('small_', ThemeId.highNoon, _small, 1.0),
+    ('a11y2.0x_', ThemeId.highNoon, _iphone, 2.0),
+  ]) {
+    _capture(
+      '${prefix}ai player photo states',
+      theme: theme,
+      device: device,
+      textScale: scale,
+      account: _Account.signedInPremium,
+      aiOnForHero: true,
+      extraPrefs: const {'has_seen_camera_rationale': true},
+      aiDescriber: _stagedDescriber(),
+      (env) async {
+        await _openPlayer(env, 1);
+        for (var i = 0; i < 3; i++) {
+          await _tapPrimary(env);
+          await env.realWait(2);
+        }
+        await env.shot('${prefix}ai_photo_step_empty');
+        // Photo 1 stays "Describing…" (the staged describer holds it).
+        await _tapPrimary(env);
+        await env.realWait(12);
+        await env.shot('${prefix}ai_photo_one_describing');
+        await _addPhoto(env);
+        await _addPhoto(env);
+        await env.shot('${prefix}ai_photo_three_selected_newest');
+        // Picking the second thumbnail shows its own caption.
+        await env.tapFinder(find.byKey(const ValueKey('proof-strip-1')));
+        await env.realWait(2);
+        await env.shot('${prefix}ai_photo_three_second_selected');
+        await _addPhoto(env);
+        await env.shot('${prefix}ai_photo_four');
+        await env.tapFinder(find.byKey(const ValueKey('proof-strip-2')));
+        await env.realWait(2);
+        await env.shot('${prefix}ai_photo_four_failed_retry');
+        // Finish: the completion screen counts the descriptions.
+        await _tapPrimary(env);
+        await env.realWait(2);
+        await _tapPrimary(env);
+        await env.realWait(10);
+        await env.settle(20);
+        await env.shot('${prefix}ai_complete_with_descriptions');
+      },
+    );
+  }
   _capture(
     'ai on settings',
     account: _Account.signedInPremium,
@@ -1792,14 +1895,21 @@ void main() {
       await env.shot('ai_on_settings_sheet');
     },
   );
-  _capture('ai text scale', textScale: 1.6, account: _Account.signedInPremium, ai: true, (
-    env,
-  ) async {
-    await _openRoutineAction(env, 'AI photo descriptions');
-    await env.shot('a11y1_6_ai_consent_sheet');
-    await env.scrollDown(600, within: find.byType(SingleChildScrollView).last);
-    await env.shot('a11y1_6_ai_consent_sheet_scrolled');
-  });
+  _capture(
+    'ai text scale',
+    textScale: 1.6,
+    account: _Account.signedInPremium,
+    ai: true,
+    (env) async {
+      await _openRoutineAction(env, 'AI photo descriptions');
+      await env.shot('a11y1_6_ai_consent_sheet');
+      await env.scrollDown(
+        600,
+        within: find.byType(SingleChildScrollView).last,
+      );
+      await env.shot('a11y1_6_ai_consent_sheet_scrolled');
+    },
+  );
 
   // ---- Extra flows -------------------------------------------------------
   _capture('home actions', (env) async {

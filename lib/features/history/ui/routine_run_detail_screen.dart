@@ -761,8 +761,9 @@ class RoutineRunDetailScreen extends ConsumerWidget {
     }
     final assets = _proofAssetsByPath();
     final descriptions = [
-      for (final path in photos)
-        if (assets[path]?.aiDescription case final description?) description,
+      for (var i = 0; i < photos.length; i++)
+        if (assets[photos[i]]?.aiDescription case final description?)
+          (index: i, text: description),
     ];
 
     return Container(
@@ -815,7 +816,33 @@ class RoutineRunDetailScreen extends ConsumerWidget {
           for (final description in descriptions)
             Padding(
               padding: const EdgeInsets.only(top: 10),
-              child: AiDescriptionText(description),
+              child: photos.length > 1
+                  ? Semantics(
+                      label: 'Photo ${description.index + 1}',
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ExcludeSemantics(
+                            child: SizedBox(
+                              width: 22,
+                              child: Builder(
+                                builder: (context) => Text(
+                                  '${description.index + 1}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    height: 1.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: context.readableSecondaryText,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Expanded(child: AiDescriptionText(description.text)),
+                        ],
+                      ),
+                    )
+                  : AiDescriptionText(description.text),
             ),
         ],
       ),
@@ -839,6 +866,10 @@ class RoutineRunDetailScreen extends ConsumerWidget {
           ],
           initialIndex: photoIndex,
           resolvePhotoFile: (path) => _resolveRunPhoto(proofStorage, path),
+          captionBuilder: (context, index) {
+            final text = _proofAssetsByPath()[stepPhotos[index]]?.aiDescription;
+            return text == null ? null : AiDescriptionText(text);
+          },
         ),
         child: Container(
           width: 80,

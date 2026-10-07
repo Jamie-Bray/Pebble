@@ -17,10 +17,17 @@ import 'package:pebble_routines/core/ui/readable_colors.dart';
 /// A photo taken this run, loaded lazily for the receipt.
 @immutable
 class CompletionPhoto {
-  const CompletionPhoto({required this.id, required this.load});
+  const CompletionPhoto({
+    required this.id,
+    required this.load,
+    this.hasAiDescription = false,
+  });
 
   final String id;
   final Future<File?> Function() load;
+
+  /// AI wrote a description of this photo (shown when it is opened).
+  final bool hasAiDescription;
 }
 
 /// Where this run's record lives, in the words of COPY_GUIDELINES.md.
@@ -69,6 +76,8 @@ class RoutineCompleteScreen extends StatefulWidget {
     this.photos = const [],
     this.storage = CompletionStorage.device,
     this.completionEmailNote,
+    this.aiDescribedCount = 0,
+    this.aiDescribingCount = 0,
     this.haptics = false,
     this.onLanded,
     this.onOpenPhoto,
@@ -99,6 +108,12 @@ class RoutineCompleteScreen extends StatefulWidget {
   /// For example "Completion email sent to sam@example.com." Shown under the
   /// receipt once the send finishes; null shows nothing.
   final String? completionEmailNote;
+
+  /// This run's photos with an AI description, and those still being
+  /// described. One quiet line under the receipt; the descriptions
+  /// themselves show when a photo is opened.
+  final int aiDescribedCount;
+  final int aiDescribingCount;
 
   /// Feel each pebble land (the "Buzz on step complete" setting).
   final bool haptics;
@@ -185,6 +200,27 @@ class _RoutineCompleteScreenState extends State<RoutineCompleteScreen>
     super.dispose();
   }
 
+  /// "2 AI descriptions · Tap a photo to read them", "Describing 1 photo…",
+  /// or null when AI wasn't used on this run.
+  String? get _aiLine {
+    final describing = widget.aiDescribingCount;
+    final described = widget.aiDescribedCount;
+    if (widget.photos.isEmpty) return null;
+    final count = described == 1
+        ? '1 AI description'
+        : '$described AI descriptions';
+    if (described > 0 && describing > 0) {
+      return '$count · $describing more on the way';
+    }
+    if (describing > 0) {
+      return 'Describing $describing photo${describing == 1 ? '' : 's'}…';
+    }
+    if (described <= 0) return null;
+    return described == 1
+        ? '$count · Tap a photo to read it'
+        : '$count · Tap a photo to read them';
+  }
+
   /// 0→1 progress of a phase that starts [startMs] after [_settleAt].
   double _phase(Duration elapsed, int startMs, Duration length, Curve curve) {
     final t =
@@ -209,7 +245,8 @@ class _RoutineCompleteScreenState extends State<RoutineCompleteScreen>
         row(widget.skippedSteps > 0 && ts > 1.3 ? 2 : 1) +
         row(1) +
         (widget.showPhotoSummary ? math.max(73.0, row(1)) : 0) +
-        (widget.completionEmailNote == null ? 0 : 16 + 44 * ts);
+        (widget.completionEmailNote == null ? 0 : 16 + 44 * ts) +
+        (_aiLine == null ? 0 : 12 + 20 * ts);
     return ((available - rest) / (168 + 88 * ts)).clamp(0.5, 1.0);
   }
 
@@ -349,6 +386,41 @@ class _RoutineCompleteScreenState extends State<RoutineCompleteScreen>
                                 onOpenPhoto: widget.onOpenPhoto,
                               ),
                             ),
+                            if (_aiLine case final line?)
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  top: PebbleSpacing.sm,
+                                ),
+                                child: Semantics(
+                                  liveRegion: true,
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      ExcludeSemantics(
+                                        child: Icon(
+                                          LucideIcons.sparkles,
+                                          size: 14,
+                                          color: context.readableSecondaryText,
+                                        ),
+                                      ),
+                                      const SizedBox(width: PebbleSpacing.xs),
+                                      Flexible(
+                                        child: Text(
+                                          line,
+                                          key: const ValueKey(
+                                            'completion-ai-line',
+                                          ),
+                                          textAlign: TextAlign.center,
+                                          style: type.caption.copyWith(
+                                            color:
+                                                context.readableSecondaryText,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             AnimatedSwitcher(
                               duration: PebbleMotion.standard,
                               child: widget.completionEmailNote == null
@@ -638,7 +710,9 @@ class _ThumbStrip extends StatelessWidget {
                 overlayLabel: i == shown.length - 1 && extra > 0
                     ? '+$extra'
                     : null,
-                semanticsLabel: 'Photo ${i + 1} of $count',
+                semanticsLabel: shown[i].hasAiDescription
+                    ? 'Photo ${i + 1} of $count, with an AI description'
+                    : 'Photo ${i + 1} of $count',
                 onTap: onOpen == null ? null : () => onOpen!(i),
               ),
             ],
