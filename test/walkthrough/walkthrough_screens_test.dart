@@ -741,7 +741,8 @@ class _FakeAiPhotoService extends AiPhotoService {
   Future<bool> fetchEnabled() async => true;
 
   @override
-  Future<AiPhotoAllowance?> fetchAllowance() async => const AiPhotoAllowance(limit: 100, remaining: 97);
+  Future<AiPhotoAllowance?> fetchAllowance() async =>
+      const AiPhotoAllowance(limit: 100, remaining: 97);
 
   @override
   Future<void> recordConsent({required String routineKey}) async {}
@@ -1508,18 +1509,35 @@ void main() {
 
   // ---- Reminders ---------------------------------------------------------
   for (final (prefix, device, scale) in [
-    ('', _iphone, 1.0), ('small_', _small, 1.6),
+    ('', _iphone, 1.0),
+    ('small_', _small, 1.6),
   ]) {
-    _capture('${prefix}step description', device: device, textScale: scale,
-      account: _Account.signedInPremium, (env) async {
+    _capture(
+      '${prefix}step description',
+      device: device,
+      textScale: scale,
+      account: _Account.signedInPremium,
+      (env) async {
         final routine = (await env.db.routineDao.getRoutineById(1))!;
-        await env.db.routineDao.insertOrUpdateRoutine(routine.copyWith(
-          stepsJson: jsonEncode(const [
-            RoutineStep.check(label: 'Do the dishes',
-              photoPrompt: 'Wash, dry and put everything away. Use the draining rack for the plates and leave the worktop clear.'),
-            RoutineStep.check(label: 'Check patio door', requiresPhoto: true,
-              photoPrompt: 'Look for the small lever in a horizontal position.'),
-          ].map((step) => step.toJson()).toList())));
+        await env.db.routineDao.insertOrUpdateRoutine(
+          routine.copyWith(
+            stepsJson: jsonEncode(
+              const [
+                RoutineStep.check(
+                  label: 'Do the dishes',
+                  photoPrompt:
+                      'Wash, dry and put everything away. Use the draining rack for the plates and leave the worktop clear.',
+                ),
+                RoutineStep.check(
+                  label: 'Check patio door',
+                  requiresPhoto: true,
+                  photoPrompt:
+                      'Look for the small lever in a horizontal position.',
+                ),
+              ].map((step) => step.toJson()).toList(),
+            ),
+          ),
+        );
         await env.push('/edit/1');
         await env.tapText('Do the dishes');
         await env.shot('${prefix}step_description_composer');
@@ -1534,7 +1552,8 @@ void main() {
         }
         await _tapPrimary(env);
         await env.shot('${prefix}step_description_photo_player');
-      });
+      },
+    );
   }
 
   _capture('reminders', (env) async {
@@ -1635,6 +1654,12 @@ void main() {
     await env.shot('appearance_scrolled');
     await env.scrollDown(900);
     await env.shot('appearance_end');
+  });
+  // Only Android has a home-screen widget, so only it shows the row.
+  _capture('home widget setup', device: _small, (env) async {
+    await env.push('/settings');
+    await env.tapText('Home screen widget');
+    await env.shot('home_widget_setup_sheet');
   });
   _capture('settings premium', account: _Account.signedInPremium, (env) async {
     await env.push('/settings');
@@ -1792,14 +1817,21 @@ void main() {
       await env.shot('ai_on_settings_sheet');
     },
   );
-  _capture('ai text scale', textScale: 1.6, account: _Account.signedInPremium, ai: true, (
-    env,
-  ) async {
-    await _openRoutineAction(env, 'AI photo descriptions');
-    await env.shot('a11y1_6_ai_consent_sheet');
-    await env.scrollDown(600, within: find.byType(SingleChildScrollView).last);
-    await env.shot('a11y1_6_ai_consent_sheet_scrolled');
-  });
+  _capture(
+    'ai text scale',
+    textScale: 1.6,
+    account: _Account.signedInPremium,
+    ai: true,
+    (env) async {
+      await _openRoutineAction(env, 'AI photo descriptions');
+      await env.shot('a11y1_6_ai_consent_sheet');
+      await env.scrollDown(
+        600,
+        within: find.byType(SingleChildScrollView).last,
+      );
+      await env.shot('a11y1_6_ai_consent_sheet_scrolled');
+    },
+  );
 
   // ---- Extra flows -------------------------------------------------------
   _capture('home actions', (env) async {
