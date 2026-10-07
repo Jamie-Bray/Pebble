@@ -275,9 +275,9 @@ class CloudBackupConsentStore {
       'privacy_version': record.privacyVersion,
       'terms_version': record.termsVersion,
       'consent_text_hash': record.consentTextHash,
-      'consented_at': record.consentedAt!.toIso8601String(),
+      'consented_at': record.consentedAt!.toUtc().toIso8601String(),
       'withdrawn_at': null,
-      'updated_at': now.toIso8601String(),
+      'updated_at': now.toUtc().toIso8601String(),
     }, onConflict: 'owner_user_id,feature');
     await cacheRecord(record);
     return record;
@@ -315,9 +315,9 @@ class CloudBackupConsentStore {
       'privacy_version': record.privacyVersion,
       'terms_version': record.termsVersion,
       'consent_text_hash': record.consentTextHash,
-      'consented_at': record.consentedAt?.toIso8601String(),
-      'withdrawn_at': now.toIso8601String(),
-      'updated_at': now.toIso8601String(),
+      'consented_at': record.consentedAt?.toUtc().toIso8601String(),
+      'withdrawn_at': now.toUtc().toIso8601String(),
+      'updated_at': now.toUtc().toIso8601String(),
     }, onConflict: 'owner_user_id,feature');
     await cacheRecord(record);
     return record;
@@ -408,8 +408,7 @@ class CloudBackupConsentController
       state = CloudBackupConsentState(
         isLoading: false,
         record: localRecord,
-        lastError:
-            "Pebble couldn't check your backup setting. Try again.",
+        lastError: "Pebble couldn't check your backup setting. Try again.",
         isRemoteConfirmed: false,
       );
     }

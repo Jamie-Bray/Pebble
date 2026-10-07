@@ -745,10 +745,10 @@ class CloudSyncCoordinator {
       'icon_key': routine.emoji,
       'color_hex': _toSignedInt32(routine.colorHex),
       'is_pinned': routine.isPinned,
-      'pinned_at': routine.pinnedAt?.toIso8601String(),
+      'pinned_at': routine.pinnedAt?.toUtc().toIso8601String(),
       'version': routine.version,
-      'created_at': routine.createdAt.toIso8601String(),
-      'updated_at': routine.updatedAt.toIso8601String(),
+      'created_at': routine.createdAt.toUtc().toIso8601String(),
+      'updated_at': routine.updatedAt.toUtc().toIso8601String(),
     };
     await _remoteRoutineDataSource.upsert(payload);
     await _database.routineDao.markRoutineSynced(
@@ -862,8 +862,8 @@ class CloudSyncCoordinator {
       'day_of_week': reminder.dayOfWeek,
       'time': reminder.time,
       'is_enabled': reminder.isEnabled,
-      'created_at': reminder.createdAt.toIso8601String(),
-      'updated_at': reminder.updatedAt.toIso8601String(),
+      'created_at': reminder.createdAt.toUtc().toIso8601String(),
+      'updated_at': reminder.updatedAt.toUtc().toIso8601String(),
     });
     await _database.routineReminderDao.markReminderSynced(
       reminderId: reminder.id,
@@ -926,9 +926,9 @@ class CloudSyncCoordinator {
           ? null
           : routineCloudId,
       'routine_title': syncedRun.routineTitle,
-      'finished_at': syncedRun.finishedAt.toIso8601String(),
+      'finished_at': syncedRun.finishedAt.toUtc().toIso8601String(),
       'step_completion_data': syncedRun.stepCompletionData,
-      'updated_at': syncedRun.updatedAt.toIso8601String(),
+      'updated_at': syncedRun.updatedAt.toUtc().toIso8601String(),
     };
     await _remoteRunDataSource.upsert(payload);
     await _database.routineRunDao.markRunSynced(
@@ -971,7 +971,7 @@ class CloudSyncCoordinator {
       'id': remoteSessionId,
       'owner_user_id': ownerUserId,
       'payload_json': syncedSession.toJson(),
-      'updated_at': syncedSession.updatedAt.toIso8601String(),
+      'updated_at': syncedSession.updatedAt.toUtc().toIso8601String(),
     };
     await _remoteSessionDataSource.upsert(remotePayload);
     final syncedMetadata =
@@ -1145,8 +1145,8 @@ class CloudSyncCoordinator {
       'workspaceId': row.workspaceId,
       'ownerUserId': row.ownerUserId,
       'storageScope': row.storageScope,
-      'startedAt': row.startedAt.toIso8601String(),
-      'updatedAt': row.updatedAt.toIso8601String(),
+      'startedAt': row.startedAt.toUtc().toIso8601String(),
+      'updatedAt': row.updatedAt.toUtc().toIso8601String(),
       'status': row.status,
       'currentStepIndex': row.currentStepIndex,
       'totalStepCount': row.totalStepCount,
@@ -1156,8 +1156,8 @@ class CloudSyncCoordinator {
       'syncMetadata': row.syncMetadataJson == null
           ? null
           : jsonDecode(row.syncMetadataJson!),
-      'completedAt': row.completedAt?.toIso8601String(),
-      'discardedAt': row.discardedAt?.toIso8601String(),
+      'completedAt': row.completedAt?.toUtc().toIso8601String(),
+      'discardedAt': row.discardedAt?.toUtc().toIso8601String(),
     });
   }
 

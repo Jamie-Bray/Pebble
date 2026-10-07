@@ -88,10 +88,10 @@ class RemoteProofAssetDataSource {
       'byte_size': byteSize,
       'content_type': contentType,
       'captured_at': capturedAt.toUtc().toIso8601String(),
-      'expires_at': now.add(retention).toIso8601String(),
+      'expires_at': now.add(retention).toUtc().toIso8601String(),
       'deleted_at': null,
-      'created_at': now.toIso8601String(),
-      'updated_at': now.toIso8601String(),
+      'created_at': now.toUtc().toIso8601String(),
+      'updated_at': now.toUtc().toIso8601String(),
     }, onConflict: 'object_key');
   }
 
