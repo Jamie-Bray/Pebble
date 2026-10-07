@@ -42,7 +42,6 @@ class RoutineRunDao extends DatabaseAccessor<LocalDb>
         syncStatus: const Value('synced'),
         lastSyncedAt: Value(syncedAt),
         syncMetadataJson: Value(syncMetadataJson),
-        updatedAt: Value(syncedAt),
       ),
     );
   }
