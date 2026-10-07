@@ -1596,6 +1596,10 @@ class _FakeRoutineSessionRepository implements RoutineSessionRepository {
   }
 
   @override
+  Future<RoutineRun?> findRunForSession(RoutineSession session) async =>
+      null;
+
+  @override
   Stream<RoutineSession?> watchSession(String sessionId) {
     return Stream.value(session);
   }
@@ -1672,6 +1676,10 @@ class _BlockingSaveRoutineSessionRepository
   Stream<List<RoutineSessionResumeSummary>> watchActiveSessionsForHomeResume() {
     return const Stream<List<RoutineSessionResumeSummary>>.empty();
   }
+
+  @override
+  Future<RoutineRun?> findRunForSession(RoutineSession session) async =>
+      null;
 
   @override
   Stream<RoutineSession?> watchSession(String sessionId) {

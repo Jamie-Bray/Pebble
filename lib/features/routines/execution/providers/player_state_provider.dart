@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:pebble_routines/core/database/local_db.dart';
@@ -7,8 +10,12 @@ import 'package:pebble_routines/features/ai_photo/ai_photo_settings.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/repositories/routine_session_repository.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
+import 'package:pebble_routines/features/routines/execution/providers/ai_caption_store.dart';
 import 'package:pebble_routines/features/subscription/domain/routine_limit_policy.dart';
 import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
+
+export 'package:pebble_routines/features/routines/execution/providers/ai_caption_store.dart'
+    show ProofAiDescription, AiCaptionStore, aiCaptionStoreProvider;
 
 enum RoutinePlayerScreenPhase {
   loading,
@@ -39,27 +46,6 @@ enum RoutinePlayerOperation {
   discarding,
 }
 
-/// Where the AI description of one photo has got to. The step never waits
-/// for it: a photo step is complete as soon as its photo is saved.
-class ProofAiDescription {
-  const ProofAiDescription.pending()
-    : text = null,
-      failed = false,
-      failureMessage = null;
-  const ProofAiDescription.failed({this.failureMessage})
-    : text = null,
-      failed = true;
-  const ProofAiDescription.ready(String this.text)
-    : failed = false,
-      failureMessage = null;
-
-  final String? text;
-  final bool failed;
-  final String? failureMessage;
-
-  bool get isPending => text == null && !failed;
-}
-
 class RoutinePlayerCompletionSummary {
   const RoutinePlayerCompletionSummary({
     required this.routineTitle,
@@ -88,6 +74,7 @@ class RoutinePlayerUiState {
     this.completionSummary,
     this.errorMessage,
     this.aiDescriptions = const {},
+    this.aiRoutineActive = false,
   });
 
   factory RoutinePlayerUiState.loading({
@@ -124,15 +111,42 @@ class RoutinePlayerUiState {
   final RoutinePlayerCompletionSummary? completionSummary;
   final String? errorMessage;
 
-  /// AI descriptions asked for in this sitting, by photo id.
+  /// AI descriptions asked for since the app started, by photo id
+  /// ([AiCaptionStore]).
   final Map<String, ProofAiDescription> aiDescriptions;
+
+  /// AI photo descriptions are switched on for this routine.
+  final bool aiRoutineActive;
+
+  /// Photos taken on the current step are sent to be described.
+  bool get describesCurrentStep =>
+      aiRoutineActive &&
+      session != null &&
+      aiPhotoStepIndexes(steps).contains(currentStepIndex);
 
   /// The description to show under a photo: one asked for just now, or one
   /// saved with the photo earlier. Null when there is nothing to show.
   ProofAiDescription? aiDescriptionFor(RoutineSessionProofAsset asset) {
     final saved = asset.aiDescription;
-    return aiDescriptions[asset.proofId] ??
-        (saved == null ? null : ProofAiDescription.ready(saved));
+    final asked = aiDescriptions[asset.proofId];
+    if (asked != null && (asked.text != null || saved == null)) return asked;
+    return saved == null ? asked : ProofAiDescription.ready(saved);
+  }
+
+  /// How many of this run's photos have a description, and how many are
+  /// still being described.
+  ({int described, int describing}) get runAiDescriptionCounts {
+    var described = 0;
+    var describing = 0;
+    for (final stepState
+        in session?.stepStates ?? const <RoutineSessionStepState>[]) {
+      for (final asset in stepState.proofAssets) {
+        final description = aiDescriptionFor(asset);
+        if (description?.text != null) described += 1;
+        if (description?.isPending == true) describing += 1;
+      }
+    }
+    return (described: described, describing: describing);
   }
 
   RoutinePlayerUiState copyWith({
@@ -146,9 +160,11 @@ class RoutinePlayerUiState {
     String? errorMessage,
     bool clearErrorMessage = false,
     Map<String, ProofAiDescription>? aiDescriptions,
+    bool? aiRoutineActive,
   }) {
     return RoutinePlayerUiState(
       aiDescriptions: aiDescriptions ?? this.aiDescriptions,
+      aiRoutineActive: aiRoutineActive ?? this.aiRoutineActive,
       screenPhase: screenPhase ?? this.screenPhase,
       session: session ?? this.session,
       maxProofPhotosPerStep:
@@ -353,17 +369,24 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
     required RoutineLimitPolicy routineLimitPolicy,
     Set<int> aiRoutineIds = const {},
     AiProofDescriber? describeProof,
+    AiCaptionStore? captionStore,
   }) : _sessionId = sessionId,
        _repository = repository,
        _proofStorage = proofStorage,
        _aiRoutineIds = aiRoutineIds,
-       _describeProof = describeProof,
+       _ownsCaptions = captionStore == null,
+       _captions =
+           captionStore ??
+           AiCaptionStore(describe: describeProof, repository: repository),
        super(
          RoutinePlayerUiState.loading(
            maxProofPhotosPerStep: maxProofPhotosPerStep,
            routineLimitPolicy: routineLimitPolicy,
          ),
        ) {
+    _removeCaptionListener = _captions.addListener((captions) {
+      state = state.copyWith(aiDescriptions: captions);
+    });
     _load();
   }
 
@@ -371,37 +394,100 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
   final RoutineSessionRepository _repository;
   final RoutineSessionProofStorage _proofStorage;
 
-  /// The routine with AI photo descriptions switched on, if any.
-  final Set<int> _aiRoutineIds;
-  final AiProofDescriber? _describeProof;
-  final Set<Future<void>> _describing = {};
+  /// The routines with AI photo descriptions switched on.
+  Set<int> _aiRoutineIds;
+
+  /// Descriptions live here rather than in this controller, so one that
+  /// arrives after this controller has gone still reaches the photo.
+  final AiCaptionStore _captions;
+  final bool _ownsCaptions;
+  late final void Function() _removeCaptionListener;
   Future<void>? _backgroundSave;
   int _mutationVersion = 0;
+
+  @override
+  void dispose() {
+    _removeCaptionListener();
+    if (_ownsCaptions) _captions.dispose();
+    super.dispose();
+  }
+
+  /// Applies a Premium change mid-run (photo allowance, locked steps, AI)
+  /// without rebuilding the controller: a rebuild would reload the session
+  /// from storage and drop whatever is in flight.
+  void updatePolicies({
+    int? maxProofPhotosPerStep,
+    RoutineLimitPolicy? routineLimitPolicy,
+    Set<int>? aiRoutineIds,
+  }) {
+    if (!mounted) return;
+    if (aiRoutineIds != null) _aiRoutineIds = aiRoutineIds;
+    final session = state.session;
+    state = state.copyWith(
+      maxProofPhotosPerStep: maxProofPhotosPerStep,
+      routineLimitPolicy: routineLimitPolicy,
+      aiRoutineActive:
+          session != null && _aiRoutineIds.contains(session.routineId),
+    );
+  }
 
   Future<void> _load() async {
     try {
       final session = await _repository.getSessionById(_sessionId);
+      if (!mounted) return;
       if (session == null) {
         throw StateError('Routine session not found.');
       }
+      if (session.status == RoutineSessionStatus.completed) {
+        // Finished already (for example on this same page a moment ago):
+        // show its completion screen, never an error.
+        await _showCompleted(session);
+        return;
+      }
       if (!session.isActive) {
-        throw StateError('This routine session is no longer resumable.');
+        throw StateError(
+          'This run has ended. Start the routine again from Home.',
+        );
       }
       state = state.copyWith(
         screenPhase: session.totalStepCount == 0
             ? RoutinePlayerScreenPhase.empty
             : RoutinePlayerScreenPhase.ready,
         session: session,
+        aiRoutineActive: _aiRoutineIds.contains(session.routineId),
         clearErrorMessage: true,
         clearCompletionSummary: true,
       );
     } catch (error) {
+      if (!mounted) return;
       state = RoutinePlayerUiState.error(
         maxProofPhotosPerStep: state.maxProofPhotosPerStep,
         routineLimitPolicy: state.routineLimitPolicy,
-        errorMessage: error.toString(),
-      );
+        errorMessage: error is StateError ? error.message : error.toString(),
+      ).copyWith(aiDescriptions: state.aiDescriptions);
     }
+  }
+
+  Future<void> _showCompleted(RoutineSession session) async {
+    final run = await _repository.findRunForSession(session);
+    if (!mounted) return;
+    state = state.copyWith(
+      screenPhase: RoutinePlayerScreenPhase.completion,
+      session: session,
+      aiRoutineActive: _aiRoutineIds.contains(session.routineId),
+      activeOperation: RoutinePlayerOperation.none,
+      completionSummary: run == null
+          ? null
+          : RoutinePlayerCompletionSummary(
+              routineTitle: session.routineTitleSnapshot,
+              photoCount: _countPhotos(session),
+              completedSteps: session.completedStepsCount,
+              skippedSteps: session.skippedStepsCount,
+              run: run,
+            ),
+      clearCompletionSummary: run == null,
+      clearErrorMessage: true,
+    );
   }
 
   Future<void> refresh() => _load();
@@ -574,6 +660,7 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
       );
       return run;
     } catch (error) {
+      debugPrint("Routine player: couldn't finish (${error.runtimeType})");
       state = state.copyWith(
         screenPhase: RoutinePlayerScreenPhase.ready,
         session: updatedSession,
@@ -656,7 +743,8 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
         clearErrorMessage: true,
       );
       return run;
-    } catch (_) {
+    } catch (error) {
+      debugPrint("Routine player: couldn't finish (${error.runtimeType})");
       state = state.copyWith(
         screenPhase: RoutinePlayerScreenPhase.ready,
         session: updatedSession,
@@ -718,56 +806,48 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
   /// nothing about the routine depends on the answer.
   void _startDescribing(
     RoutineSession session,
-    RoutineSessionProofAsset asset,
-  ) {
-    final describe = _describeProof;
-    if (describe == null ||
+    RoutineSessionProofAsset asset, {
+    int? stepIndex,
+    bool retry = false,
+  }) {
+    final index = stepIndex ?? session.currentStepIndex;
+    if (!_captions.canDescribe ||
         !_aiRoutineIds.contains(session.routineId) ||
-        !aiPhotoStepIndexes(
-          session.routineSnapshotSteps,
-        ).contains(session.currentStepIndex)) {
+        !aiPhotoStepIndexes(session.routineSnapshotSteps).contains(index)) {
       return;
     }
-    _setAiDescription(asset.proofId, const ProofAiDescription.pending());
-    late final Future<void> work;
-    work = () async {
-      String? text;
-      String? failureMessage;
-      try {
-        final step =
-            session.routineSnapshotSteps[session.currentStepIndex] as CheckStep;
-        text = await describe(asset, step.label, step.stepDescription);
-      } on AiPhotoAllowanceException catch (error) {
-        failureMessage = error.message;
-      } catch (_) {
-        // Offline, refused or failed: the same quiet line, no retry.
-      }
-      _setAiDescription(
-        asset.proofId,
-        text == null
-            ? ProofAiDescription.failed(failureMessage: failureMessage)
-            : ProofAiDescription.ready(text),
-      );
-      if (text != null) {
-        try {
-          await _repository.saveProofDescription(
-            sessionId: _sessionId,
-            proofId: asset.proofId,
-            description: text,
-          );
-        } catch (_) {
-          // Still held in memory and written with the next save.
-        }
-      }
-    }().whenComplete(() => _describing.remove(work));
-    _describing.add(work);
+    final step = session.routineSnapshotSteps[index];
+    if (step is! CheckStep) return;
+    unawaited(
+      _captions.describe(
+        sessionId: session.sessionId,
+        asset: asset,
+        stepLabel: step.label,
+        photoDetail: step.stepDescription,
+        retry: retry,
+      ),
+    );
   }
 
-  void _setAiDescription(String proofId, ProofAiDescription description) {
-    if (!mounted) return;
-    state = state.copyWith(
-      aiDescriptions: {...state.aiDescriptions, proofId: description},
-    );
+  /// "Try again" under a photo whose description didn't come back. Only ever
+  /// on a tap: nothing is retried on its own.
+  void retryAiDescription(String proofId) {
+    final session = state.session;
+    if (session == null) return;
+    for (final stepState in session.stepStates) {
+      for (final asset in stepState.proofAssets) {
+        if (asset.proofId != proofId) continue;
+        final current = state.aiDescriptionFor(asset);
+        if (current == null || !current.failed || !current.canRetry) return;
+        _startDescribing(
+          session,
+          asset,
+          stepIndex: stepState.stepIndex,
+          retry: true,
+        );
+        return;
+      }
+    }
   }
 
   /// Copies descriptions that have arrived onto their photos, so that a
@@ -799,13 +879,11 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
   Future<List<String>> aiDescriptionsForEmail({
     Duration timeout = const Duration(seconds: 12),
   }) async {
-    if (_describing.isNotEmpty) {
-      await Future.wait(
-        _describing.toList(),
-      ).timeout(timeout, onTimeout: () => const []);
-    }
+    await _captions.waitForSession(_sessionId, timeout: timeout);
     final session = state.session;
-    if (!mounted || session == null || !_aiRoutineIds.contains(session.routineId)) {
+    if (!mounted ||
+        session == null ||
+        !_aiRoutineIds.contains(session.routineId)) {
       return const [];
     }
     final aiSteps = aiPhotoStepIndexes(session.routineSnapshotSteps);
@@ -853,6 +931,7 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
             .toList(),
       );
 
+      _captions.forget(proofId);
       await _proofStorage.deleteProofAsset(asset);
       await _persistSession(session.copyWith(stepStates: updatedStates));
     } catch (_) {
@@ -976,16 +1055,32 @@ final routinePlayerProvider = StateNotifierProvider.autoDispose
       ref,
       sessionId,
     ) {
-      final maxProofPhotosPerStep = ref.watch(maxProofPhotosPerStepProvider);
-      return RoutinePlayerController(
+      // One controller for the whole run. Nothing here is watched: a rebuild
+      // would dispose the controller mid-run (Premium and sign-in state are
+      // refreshed every time the app comes back from the camera), so policy
+      // changes are passed in with updatePolicies instead.
+      final controller = RoutinePlayerController(
         sessionId: sessionId,
         repository: ref.read(routineSessionRepositoryProvider),
         proofStorage: ref.read(routineSessionProofStorageProvider),
-        maxProofPhotosPerStep: maxProofPhotosPerStep,
-        routineLimitPolicy: ref.watch(routineLimitPolicyProvider),
-        aiRoutineIds: ref.watch(aiPhotoActiveRoutineIdsProvider),
-        describeProof: ref.read(aiProofDescriberProvider),
+        maxProofPhotosPerStep: ref.read(maxProofPhotosPerStepProvider),
+        routineLimitPolicy: ref.read(routineLimitPolicyProvider),
+        aiRoutineIds: ref.read(aiPhotoActiveRoutineIdsProvider),
+        captionStore: ref.read(aiCaptionStoreProvider.notifier),
       );
+      ref.listen<int>(
+        maxProofPhotosPerStepProvider,
+        (_, next) => controller.updatePolicies(maxProofPhotosPerStep: next),
+      );
+      ref.listen<RoutineLimitPolicy>(
+        routineLimitPolicyProvider,
+        (_, next) => controller.updatePolicies(routineLimitPolicy: next),
+      );
+      ref.listen<Set<int>>(
+        aiPhotoActiveRoutineIdsProvider,
+        (_, next) => controller.updatePolicies(aiRoutineIds: next),
+      );
+      return controller;
     });
 
 final maxProofPhotosPerStepProvider = Provider<int>((ref) {

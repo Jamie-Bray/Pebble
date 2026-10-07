@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -38,6 +39,9 @@ abstract class RoutineSessionRepository {
     required String description,
   });
 
+  /// The run written when [session] finished, or null if there isn't one.
+  Future<RoutineRun?> findRunForSession(RoutineSession session);
+
   Future<List<RoutineSessionResumeSummary>> listActiveSessionsForHomeResume();
 
   Stream<RoutineSession?> watchSession(String sessionId);
@@ -59,8 +63,36 @@ class RoutineSessionRepositoryImpl implements RoutineSessionRepository {
   final LocalDb _database;
   final RoutineSessionProofStorage _proofStorage;
 
+  /// The start (or resume) still running for each routine. Two at once for
+  /// one routine (a double tap, or a rebuild while the first is running)
+  /// could otherwise both find no active session and create two.
+  final Map<int, Future<void>> _startQueue = {};
+
   @override
   Future<RoutineSession> startOrResumeSession({
+    required Routine routine,
+    required SessionRoutingContext routingContext,
+  }) {
+    final previous = _startQueue[routine.id] ?? Future<void>.value();
+    final result = previous.then(
+      (_) => _startOrResumeSession(
+        routine: routine,
+        routingContext: routingContext,
+      ),
+    );
+    final done = result.then<void>((_) {}, onError: (Object _) {});
+    _startQueue[routine.id] = done;
+    unawaited(
+      done.whenComplete(() {
+        if (identical(_startQueue[routine.id], done)) {
+          _startQueue.remove(routine.id);
+        }
+      }),
+    );
+    return result;
+  }
+
+  Future<RoutineSession> _startOrResumeSession({
     required Routine routine,
     required SessionRoutingContext routingContext,
   }) async {
@@ -139,19 +171,64 @@ class RoutineSessionRepositoryImpl implements RoutineSessionRepository {
 
   @override
   Future<RoutineSession> saveSessionSnapshot(RoutineSession session) async {
-    final now = DateTime.now();
-    final normalized = session.copyWith(
-      updatedAt: now,
-      syncMetadata: _buildSyncMetadataForSave(
-        session: session,
-        storageScope: session.storageScope,
-      ),
+    final saved = await _database.transaction(() async {
+      final row = await _database.routineSessionDao.getSessionById(
+        session.sessionId,
+      );
+      final stored = row == null ? null : _mapRowToEntity(row);
+      // A snapshot taken while the run was still going must never bring a
+      // finished or discarded run back to life.
+      if (stored != null && !stored.isActive && session.isActive) {
+        return (session: stored, written: false);
+      }
+      final now = DateTime.now();
+      final normalized = _carryOverAiDescriptions(session, from: stored)
+          .copyWith(
+            updatedAt: now,
+            syncMetadata: _buildSyncMetadataForSave(
+              session: session,
+              storageScope: session.storageScope,
+            ),
+          );
+      await _database.routineSessionDao.insertOrUpdateSession(
+        _mapEntityToRow(normalized),
+      );
+      return (session: normalized, written: true);
+    });
+    if (saved.written) {
+      await _enqueueSessionSync(saved.session, SyncOperation.upsert);
+    }
+    return saved.session;
+  }
+
+  /// [session] with the AI descriptions already stored for its photos. A
+  /// description is saved onto the stored row the moment it arrives
+  /// ([saveProofDescription]), so a snapshot taken before that must not
+  /// write over it.
+  RoutineSession _carryOverAiDescriptions(
+    RoutineSession session, {
+    required RoutineSession? from,
+  }) {
+    if (from == null) return session;
+    final stored = <String, String>{
+      for (final stepState in from.stepStates)
+        for (final asset in stepState.proofAssets)
+          if (asset.aiDescription != null) asset.proofId: asset.aiDescription!,
+    };
+    if (stored.isEmpty) return session;
+    return session.copyWith(
+      stepStates: [
+        for (final stepState in session.stepStates)
+          stepState.copyWith(
+            proofAssets: [
+              for (final asset in stepState.proofAssets)
+                asset.aiDescription == null && stored[asset.proofId] != null
+                    ? asset.copyWith(aiDescription: stored[asset.proofId])
+                    : asset,
+            ],
+          ),
+      ],
     );
-    await _database.routineSessionDao.insertOrUpdateSession(
-      _mapEntityToRow(normalized),
-    );
-    await _enqueueSessionSync(normalized, SyncOperation.upsert);
-    return normalized;
   }
 
   @override
@@ -216,9 +293,10 @@ class RoutineSessionRepositoryImpl implements RoutineSessionRepository {
       }
 
       final now = DateTime.now();
-      final terminalSession = sessionSnapshot.copyWith(
-        status: RoutineSessionStatus.active,
-      );
+      final terminalSession = _carryOverAiDescriptions(
+        sessionSnapshot,
+        from: session,
+      ).copyWith(status: RoutineSessionStatus.active);
       final runId = completedRunId ?? _uuid.v4();
       final completedSession = terminalSession.copyWith(
         status: RoutineSessionStatus.completed,
@@ -347,22 +425,7 @@ class RoutineSessionRepositoryImpl implements RoutineSessionRepository {
       );
       await _enqueueSessionSync(updated, SyncOperation.upsert);
 
-      // The run written for this session, if it has finished. Sessions kept
-      // only on this phone don't record their run id, so match on the
-      // session id the run carries.
-      // ponytail: scans the stored runs; history is capped at 21 days. Add
-      // a session id column to routine_runs if that cap ever goes.
-      RoutineRun? run;
-      for (final candidate in await _database.routineRunDao.getAllRuns()) {
-        if (candidate.routineId == session.routineId.toString() &&
-            (candidate.stepCompletionData?.contains(
-                  '"sessionId":"$sessionId"',
-                ) ??
-                false)) {
-          run = candidate;
-          break;
-        }
-      }
+      final run = await findRunForSession(session);
       final decoded = run?.stepCompletionData == null
           ? null
           : jsonDecode(run!.stepCompletionData!);
@@ -410,6 +473,29 @@ class RoutineSessionRepositoryImpl implements RoutineSessionRepository {
     if (runChanged) {
       await _scheduleCloudSync();
     }
+  }
+
+  @override
+  Future<RoutineRun?> findRunForSession(RoutineSession session) async {
+    final runId = session.syncMetadata?.completedRunId;
+    if (runId != null) {
+      final run = await _database.routineRunDao.getRunById(runId);
+      if (run != null) return run;
+    }
+    // Sessions kept only on this phone don't record their run id, so match
+    // on the session id the run carries.
+    // ponytail: scans the stored runs; history is capped at 21 days. Add a
+    // session id column to routine_runs if that cap ever goes.
+    for (final candidate in await _database.routineRunDao.getAllRuns()) {
+      if (candidate.routineId == session.routineId.toString() &&
+          (candidate.stepCompletionData?.contains(
+                '"sessionId":"${session.sessionId}"',
+              ) ??
+              false)) {
+        return candidate;
+      }
+    }
+    return null;
   }
 
   @override

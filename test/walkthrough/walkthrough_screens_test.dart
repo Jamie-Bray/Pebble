@@ -1038,7 +1038,7 @@ void _capture(
               if (ai || aiOnForHero) ...[
                 aiPhotoServiceProvider.overrideWithValue(_FakeAiPhotoService()),
                 aiProofDescriberProvider.overrideWithValue(
-                  (asset, stepLabel, photoDetail) async => aiDescription,
+                  (asset, stepLabel, photoDetail, _) async => aiDescription,
                 ),
               ],
               purchaseRepositoryProvider.overrideWith(

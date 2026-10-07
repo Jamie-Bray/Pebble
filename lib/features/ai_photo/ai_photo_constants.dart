@@ -79,3 +79,14 @@ const aiPhotoOnDetail =
 const aiPhotoUnavailableMessage = 'AI descriptions are unavailable right now.';
 const aiPhotoFailedMessage = "Couldn't describe this photo.";
 const aiPhotoLabel = 'AI description';
+
+// Lines under a photo in the player when no description came back. Short,
+// because they sit in a two-line caption slot.
+const aiPhotoDescribingLabel = 'Describing…';
+const aiPhotoRetryFailedShort = "Couldn't describe";
+const aiPhotoRetryAction = 'Try again';
+const aiPhotoSignedOutMessage = 'Sign in to use AI descriptions.';
+const aiPhotoNeedsPremiumMessage =
+    'AI descriptions need Personal Premium on this account.';
+const aiPhotoNeedsConsentMessage =
+    "Turn AI descriptions on again in this routine's settings.";

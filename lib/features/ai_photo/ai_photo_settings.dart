@@ -204,21 +204,40 @@ class AiPhotoController extends StateNotifier<AiPhotoSettings> {
 
 final aiPhotoControllerProvider =
     StateNotifierProvider<AiPhotoController, AiPhotoSettings>((ref) {
-      final auth = ref.watch(authSessionProvider);
+      // Only the signed-in account matters here. Watching the whole auth
+      // summary rebuilt this controller (and everything below it, including
+      // the routine player) every time the app came back to the front.
+      final userId = ref.watch(
+        authSessionProvider.select(
+          (auth) => auth.isSignedIn ? auth.userId : null,
+        ),
+      );
       return AiPhotoController(
         prefs: ref.watch(sharedPreferencesProvider),
         service: ref.watch(aiPhotoServiceProvider),
-        userId: auth.isSignedIn ? auth.userId : null,
+        userId: userId,
       );
     });
 
 /// The routines whose photo steps are described right now. Needs the
 /// switch, a signed-in account and Personal Premium on this phone; the server
 /// checks all three again on every photo.
+///
+/// Only changes when the set of ids really changes: both inputs are read
+/// through `select` on plain values, because a new but equal Set would
+/// otherwise count as a change for everything watching this.
 final aiPhotoActiveRoutineIdsProvider = Provider<Set<int>>((ref) {
-  final settings = ref.watch(aiPhotoControllerProvider);
-  final policy = ref.watch(premiumFeaturePolicyProvider);
-  return settings.isOn && policy.hasActiveLocalPremium
-      ? settings.routineIds
-      : const {};
+  final ids = ref.watch(
+    aiPhotoControllerProvider.select(
+      (settings) =>
+          settings.isOn ? (settings.routineIds.toList()..sort()).join(',') : '',
+    ),
+  );
+  final premium = ref.watch(
+    premiumFeaturePolicyProvider.select(
+      (policy) => policy.hasActiveLocalPremium,
+    ),
+  );
+  if (!premium || ids.isEmpty) return const {};
+  return {for (final id in ids.split(',')) int.parse(id)};
 });
