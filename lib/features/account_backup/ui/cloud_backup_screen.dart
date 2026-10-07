@@ -56,6 +56,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
       // so the flag is cleared, and the sheet opened, after the frame.
       void settle({required bool offer}) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
           if (!_turnOnPrompt.state) return;
           _turnOnPrompt.state = false;
           if (offer && mounted) _showCloudBackupConsentDialog();
@@ -80,7 +81,9 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
     // The offer belongs to this visit only: leaving Backup before the account
     // was confirmed must not pop the sheet on a later, unrelated visit.
     final prompt = _turnOnPrompt;
-    Future.microtask(() => prompt.state = false);
+    Future.microtask(() {
+      if (prompt.mounted) prompt.state = false;
+    });
     super.dispose();
   }
 
@@ -372,7 +375,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
       builder: (sheetContext) => PebbleSimpleSheet(
         icon: LucideIcons.cloudUpload,
         title: 'Turn on backup?',
-        body: 'Keep your routines, history and photos safe in your account.',
+        body: 'Back up your routines, history and photos to your account.',
         content: const PebbleStatementBox(text: cloudBackupConsentText),
         primaryLabel: 'Turn on backup',
         onPrimary: () async {
@@ -724,7 +727,6 @@ class BackupStatusCard extends StatelessWidget {
     final (icon, tint) = backupPhaseIcon(context, status);
     return Semantics(
       container: true,
-      label: '${status.headline}. ${status.line(now)}',
       child: Container(
         key: const ValueKey('backup_status_card'),
         padding: const EdgeInsets.all(PebbleSpacing.lg),
@@ -737,67 +739,68 @@ class BackupStatusCard extends StatelessWidget {
                   color: foundation.textPrimary.withValues(alpha: 0.10),
                 ),
         ),
-        child: ExcludeSemantics(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: tint.withValues(alpha: 0.14),
-                      shape: BoxShape.circle,
-                    ),
-                    alignment: Alignment.center,
-                    child:
-                        status.phase == BackupPhase.backingUp ||
-                            status.phase == BackupPhase.checking
-                        ? SizedBox.square(
-                            dimension: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: tint,
-                            ),
-                          )
-                        : Icon(icon, size: 24, color: tint),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: tint.withValues(alpha: 0.14),
+                    shape: BoxShape.circle,
                   ),
-                  const Spacer(),
-                  if (onSwitchChanged != null)
-                    Switch.adaptive(
+                  alignment: Alignment.center,
+                  child:
+                      status.phase == BackupPhase.backingUp ||
+                          status.phase == BackupPhase.checking
+                      ? SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: tint,
+                          ),
+                        )
+                      : Icon(icon, size: 24, color: tint),
+                ),
+                const Spacer(),
+                if (onSwitchChanged != null)
+                  Semantics(
+                    label: 'Backup',
+                    child: Switch.adaptive(
                       key: const ValueKey('backup_switch'),
                       value: switchValue,
                       activeTrackColor: Theme.of(context).colorScheme.primary,
                       onChanged: onSwitchChanged,
                     ),
-                ],
-              ),
-              const SizedBox(height: PebbleSpacing.md),
-              Text(
-                status.headline,
-                key: const ValueKey('backup_status_headline'),
-                style: type.title1.copyWith(color: foundation.textPrimary),
-              ),
-              const SizedBox(height: PebbleSpacing.xxs),
-              Text(
-                status.line(now),
-                key: const ValueKey('backup_status_line'),
-                style: type.body.copyWith(color: context.readableSecondaryText),
-              ),
-              if (email != null) ...[
-                const SizedBox(height: PebbleSpacing.sm),
-                Text(
-                  email!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: type.caption.copyWith(
-                    color: context.readableSecondaryText,
                   ),
-                ),
               ],
+            ),
+            const SizedBox(height: PebbleSpacing.md),
+            Text(
+              status.headline,
+              key: const ValueKey('backup_status_headline'),
+              style: type.title1.copyWith(color: foundation.textPrimary),
+            ),
+            const SizedBox(height: PebbleSpacing.xxs),
+            Text(
+              status.line(now),
+              key: const ValueKey('backup_status_line'),
+              style: type.body.copyWith(color: context.readableSecondaryText),
+            ),
+            if (email != null) ...[
+              const SizedBox(height: PebbleSpacing.sm),
+              Text(
+                email!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: type.caption.copyWith(
+                  color: context.readableSecondaryText,
+                ),
+              ),
             ],
-          ),
+          ],
         ),
       ),
     );

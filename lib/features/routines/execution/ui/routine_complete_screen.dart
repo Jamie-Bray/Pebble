@@ -13,6 +13,7 @@ import 'package:pebble_routines/core/ui/pebble_buttons.dart';
 import 'package:pebble_routines/core/ui/pebble_cairn.dart';
 import 'package:pebble_routines/core/ui/pebble_time.dart';
 import 'package:pebble_routines/core/ui/readable_colors.dart';
+import 'package:pebble_routines/features/sync/backup_status.dart';
 
 /// A photo taken this run, loaded lazily for the receipt.
 @immutable
@@ -38,6 +39,9 @@ enum CompletionStorage {
   /// Saved here and queued for backup: "Saved on this device · Backup is on".
   deviceBackupOn,
 
+  waiting,
+  needsAttention,
+
   /// "Backed up".
   backedUp;
 
@@ -48,9 +52,34 @@ enum CompletionStorage {
         _ => CompletionStorage.device,
       };
 
+  static CompletionStorage fromBackupStatus(
+    String? syncStatus,
+    BackupStatus backup,
+  ) {
+    // The run row can be uploaded before its photos. Only a clean backup
+    // confirms the whole receipt; a row's sync flag alone cannot do that.
+    if (syncStatus == 'synced' && backup.phase == BackupPhase.upToDate) {
+      return CompletionStorage.backedUp;
+    }
+    if (syncStatus != 'pendingUpload' && syncStatus != 'synced') {
+      return CompletionStorage.device;
+    }
+    return switch (backup.phase) {
+      BackupPhase.backingUp => CompletionStorage.deviceBackupOn,
+      BackupPhase.waiting ||
+      BackupPhase.checking ||
+      BackupPhase.upToDate => CompletionStorage.waiting,
+      BackupPhase.needsAttention => CompletionStorage.needsAttention,
+      _ => CompletionStorage.device,
+    };
+  }
+
   String get label => switch (this) {
     CompletionStorage.device => 'Saved on this phone',
     CompletionStorage.deviceBackupOn => 'Saved · backing up now',
+    CompletionStorage.waiting => 'Saved on this phone · backup waiting',
+    CompletionStorage.needsAttention =>
+      'Saved on this phone · backup needs attention',
     CompletionStorage.backedUp => 'Saved · backed up',
   };
 }

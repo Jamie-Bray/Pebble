@@ -294,6 +294,7 @@ class _ProofCaptionSlotState extends State<ProofCaptionSlot> {
         liveRegion: true,
         button: true,
         label: '$prefix$aiPhotoLabel: $text',
+        onTap: () => setState(() => _expanded = !_expanded),
         excludeSemantics: true,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
@@ -346,6 +347,7 @@ class _ProofCaptionSlotState extends State<ProofCaptionSlot> {
         liveRegion: true,
         button: widget.onRetry != null,
         label: "$prefix$aiPhotoFailedMessage $aiPhotoRetryAction",
+        onTap: widget.onRetry,
         excludeSemantics: true,
         child: InkWell(
           borderRadius: PebbleRadius.xsAll,
@@ -382,6 +384,7 @@ class _ProofCaptionSlotState extends State<ProofCaptionSlot> {
       child = Semantics(
         liveRegion: true,
         label: '$prefix$message',
+        onTap: () => setState(() => _expanded = !_expanded),
         excludeSemantics: true,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
@@ -727,6 +730,7 @@ class _RoundIconButton extends StatelessWidget {
       child: Semantics(
         button: true,
         label: semanticLabel,
+        onTap: onTap,
         excludeSemantics: true,
         child: Material(
           type: MaterialType.transparency,
@@ -768,6 +772,7 @@ class _CornerPill extends StatelessWidget {
     return Semantics(
       button: true,
       label: action.semanticLabel,
+      onTap: action.onTap,
       excludeSemantics: true,
       child: Material(
         color: foundation.bgBase.withValues(alpha: 0.92),
@@ -988,6 +993,7 @@ class _AddTile extends StatelessWidget {
         child: Semantics(
           button: true,
           label: 'Add another proof photo',
+          onTap: () => unawaited(onTap()),
           excludeSemantics: true,
           child: Material(
             type: MaterialType.transparency,

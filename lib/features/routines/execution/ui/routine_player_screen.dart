@@ -29,6 +29,8 @@ import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/core/ui/pebble_photo_gallery_viewer.dart';
 import 'package:pebble_routines/features/ai_photo/ai_photo_settings.dart';
 import 'package:pebble_routines/features/history/ui/routine_run_detail_screen.dart';
+import 'package:pebble_routines/features/history/providers/routine_history_vm.dart';
+import 'package:pebble_routines/features/sync/backup_status.dart';
 import 'package:pebble_routines/features/routines/data/shared_reminder_preferences_repository.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_player_photo_picker.dart';
@@ -399,6 +401,11 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
 
   Widget _buildCompletion(RoutinePlayerUiState playerState) {
     final summary = playerState.completionSummary;
+    final run = summary == null
+        ? null
+        : ref.watch(routineRunProvider(summary.run.id)).valueOrNull ??
+              summary.run;
+    final backup = ref.watch(backupStatusProvider);
     final session = playerState.session;
     final proofStorage = ref.read(routineSessionProofStorageProvider);
     final settings = ref.read(playerSettingsControllerProvider);
@@ -433,7 +440,7 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
             hasAiDescription: playerState.aiDescriptionFor(proof)?.text != null,
           ),
       ],
-      storage: CompletionStorage.fromSyncStatus(summary?.run.syncStatus),
+      storage: CompletionStorage.fromBackupStatus(run?.syncStatus, backup),
       completionEmailNote: _completionEmailNote,
       haptics: settings.stepCompleteHaptic,
       onLanded: settings.stepCompleteSound ? _playCompletionSound : null,

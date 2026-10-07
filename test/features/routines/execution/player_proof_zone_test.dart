@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:pebble_routines/features/ai_photo/ai_photo_constants.dart';
@@ -6,6 +7,7 @@ import 'package:pebble_routines/features/routines/execution/data/models/routine_
 import 'package:pebble_routines/features/routines/execution/providers/ai_caption_store.dart';
 import 'package:pebble_routines/features/routines/execution/ui/player_proof_zone.dart';
 import 'package:pebble_routines/features/routines/execution/ui/routine_complete_screen.dart';
+import 'package:pebble_routines/features/routines/execution/ui/step_check_off.dart';
 
 RoutineSessionProofAsset _asset(String id) => RoutineSessionProofAsset(
   proofId: id,
@@ -52,6 +54,96 @@ Future<void> _pump(
 }
 
 void main() {
+  testWidgets('screen readers can expand and collapse the compact trail', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: StepTrail(
+            compact: true,
+            entries: [
+              StepTrailEntry(
+                stepIndex: 0,
+                label: 'Door',
+                timeLabel: '8:00 AM',
+                skipped: false,
+              ),
+              StepTrailEntry(
+                stepIndex: 1,
+                label: 'Window',
+                timeLabel: '8:01 AM',
+                skipped: false,
+              ),
+              StepTrailEntry(
+                stepIndex: 2,
+                label: 'Lights',
+                timeLabel: '8:02 AM',
+                skipped: false,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    for (final label in [
+      'Show all checked steps',
+      'Show fewer checked steps',
+    ]) {
+      final node = tester.getSemantics(find.bySemanticsLabel(RegExp(label)));
+      expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+      tester.binding.performSemanticsAction(
+        SemanticsActionEvent(
+          nodeId: node.id,
+          type: SemanticsAction.tap,
+          viewId: tester.view.viewId,
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+    expect(
+      find.bySemanticsLabel(RegExp('Show all checked steps')),
+      findsOneWidget,
+    );
+    semantics.dispose();
+  });
+
+  testWidgets('screen readers can retry a caption and use photo actions', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final retried = <String>[];
+    await _pump(
+      tester,
+      assets: [_asset('p1')],
+      captions: const {'p1': ProofAiDescription.failed(canRetry: true)},
+      onRetry: retried.add,
+    );
+    final retry = tester.getSemantics(
+      find.bySemanticsLabel('$aiPhotoFailedMessage $aiPhotoRetryAction'),
+    );
+    expect(retry.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+    tester.binding.performSemanticsAction(
+      SemanticsActionEvent(
+        nodeId: retry.id,
+        type: SemanticsAction.tap,
+        viewId: tester.view.viewId,
+      ),
+    );
+    expect(retried, ['p1']);
+    for (final label in ['Remove proof photo 1', 'Add another proof photo']) {
+      expect(
+        tester
+            .getSemantics(find.bySemanticsLabel(label))
+            .getSemanticsData()
+            .hasAction(SemanticsAction.tap),
+        isTrue,
+      );
+    }
+    semantics.dispose();
+  });
+
   testWidgets('no photo: one tile that takes the photo, no caption slot', (
     tester,
   ) async {

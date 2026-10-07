@@ -595,6 +595,7 @@ class _CompactTrailLine extends StatelessWidget {
             Semantics(
               button: true,
               label: 'Show all checked steps',
+              onTap: onExpand,
               excludeSemantics: true,
               child: InkWell(
                 borderRadius: PebbleRadius.pillAll,
@@ -677,6 +678,7 @@ class _TrailPill extends StatelessWidget {
           label: expanded
               ? 'Show fewer checked steps'
               : 'Show all checked steps',
+          onTap: onTap,
           excludeSemantics: true,
           child: Material(
             color: foundation.textPrimary.withValues(alpha: 0.06),

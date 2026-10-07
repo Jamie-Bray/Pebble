@@ -11,6 +11,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:pebble_routines/core/config/app_version.dart';
 import 'package:pebble_routines/data/remote/supabase_client_provider.dart';
 import 'package:pebble_routines/features/ai_photo/ai_photo_constants.dart';
+import 'package:pebble_routines/features/ai_photo/ai_photo_settings.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
@@ -318,10 +319,38 @@ typedef AiProofDescriber =
 
 final aiProofDescriberProvider = Provider<AiProofDescriber>((ref) {
   return (asset, stepLabel, photoDetail, idempotencyKey) async {
+    final auth = ref.read(authSessionProvider);
+    final userId = auth.isSignedIn ? auth.userId : null;
+    final activeIds = ref.read(aiPhotoActiveRoutineIdsProvider);
+    void checkPermission() {
+      final current = ref.read(authSessionProvider);
+      final client = ref.read(supabaseClientProvider);
+      if (userId == null ||
+          !current.isSignedIn ||
+          current.userId != userId ||
+          (client != null && client.auth.currentUser?.id != userId)) {
+        throw const AiPhotoDescribeException(
+          aiPhotoSignedOutMessage,
+          reason: 'signedOut',
+        );
+      }
+      // No routine id travels with a proof asset. If any original selection
+      // was withdrawn while preparing the image, stop rather than send it.
+      if (activeIds.isEmpty ||
+          !ref.read(aiPhotoActiveRoutineIdsProvider).containsAll(activeIds)) {
+        throw const AiPhotoDescribeException(
+          aiPhotoNeedsConsentMessage,
+          reason: 'noConsent',
+        );
+      }
+    }
+
     try {
+      checkPermission();
       final file = await ref
           .read(routineSessionProofStorageProvider)
           .resolveStoredFile(asset.localRelativePath);
+      checkPermission();
       if (file == null) {
         debugPrint('AI photo: not described (photoMissing)');
         return null;
@@ -331,6 +360,7 @@ final aiProofDescriberProvider = Provider<AiProofDescriber>((ref) {
           ? null
           : detail;
       final jpeg = await encodeAiPhotoJpeg(file, detailed: cue != null);
+      checkPermission();
       if (jpeg == null) {
         debugPrint('AI photo: not described (encodeFailed)');
         return null;

@@ -18,6 +18,7 @@ import 'package:pebble_routines/core/ui/pebble_photo_gallery_viewer.dart';
 import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/features/account_backup/providers/account_status_mapper.dart';
 import 'package:pebble_routines/features/history/domain/run_step_tally.dart';
+import 'package:pebble_routines/features/history/providers/routine_history_vm.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
 
@@ -29,18 +30,28 @@ class RoutineRunDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final proofStorage = ref.watch(routineSessionProofStorageProvider);
     final backupStatus = ref.watch(accountStatusPresentationProvider);
-    return _buildTimelineScreen(
-      context,
-      proofStorage,
+    final currentRun = ref.watch(routineRunProvider(run.id)).valueOrNull ?? run;
+    return _RunTimeline(
+      run: currentRun,
+      proofStorage: proofStorage,
       showSyncState: backupStatus.showRunSyncState,
     );
   }
+}
 
-  Widget _buildTimelineScreen(
-    BuildContext context,
-    RoutineSessionProofStorage proofStorage, {
-    required bool showSyncState,
-  }) {
+class _RunTimeline extends StatelessWidget {
+  const _RunTimeline({
+    required this.run,
+    required this.proofStorage,
+    required this.showSyncState,
+  });
+
+  final RoutineRun run;
+  final RoutineSessionProofStorage proofStorage;
+  final bool showSyncState;
+
+  @override
+  Widget build(BuildContext context) {
     final completionData = _parseCompletionData();
     final steps = _stepsFromCompletionData(completionData);
 

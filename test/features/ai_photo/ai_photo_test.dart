@@ -96,6 +96,13 @@ class _FakeProofStorage implements RoutineSessionProofStorage {
   dynamic noSuchMethod(Invocation invocation) async {}
 }
 
+class _PausedProofStorage extends _FakeProofStorage {
+  final file = Completer<File?>();
+
+  @override
+  Future<File?> resolveStoredFile(String storedPath) => file.future;
+}
+
 const _unlocked = RoutineLimitPolicy(
   hasPremiumRoutineAccess: true,
   isInGrace: false,
@@ -126,6 +133,69 @@ const _plain = RoutineStep.check(label: 'Keys in bag');
 Future<void> _tick() => Future<void>.delayed(Duration.zero);
 
 void main() {
+  for (final accountChanged in [true, false]) {
+    test(
+      'photo preparation stops when ${accountChanged ? 'the account changes' : 'routine consent is withdrawn'}',
+      () async {
+        final auth = StateProvider(
+          (ref) => const AuthSessionSummary(
+            isSignedIn: true,
+            userId: _userId,
+            email: null,
+            provider: null,
+          ),
+        );
+        final activeIds = StateProvider<Set<int>>((ref) => {1, 2});
+        final storage = _PausedProofStorage();
+        final container = ProviderContainer(
+          overrides: [
+            authSessionProvider.overrideWith((ref) => ref.watch(auth)),
+            aiPhotoActiveRoutineIdsProvider.overrideWith(
+              (ref) => ref.watch(activeIds),
+            ),
+            routineSessionProofStorageProvider.overrideWithValue(storage),
+          ],
+        );
+        addTearDown(container.dispose);
+        final request = container.read(aiProofDescriberProvider)(
+          RoutineSessionProofAsset(
+            proofId: 'proof-test',
+            localRelativePath: 'proofs/test.webp',
+            remoteObjectKey: null,
+            uploadStatus: ProofUploadStatus.localOnly,
+            capturedAt: DateTime(2026, 10, 7),
+          ),
+          'Door',
+          null,
+          'proof-test',
+        );
+        if (accountChanged) {
+          container.read(auth.notifier).state = const AuthSessionSummary(
+            isSignedIn: true,
+            userId: 'another-user',
+            email: null,
+            provider: null,
+          );
+        } else {
+          // Another routine remains opted in; global consent is still on.
+          container.read(activeIds.notifier).state = {2};
+        }
+        final assertion = expectLater(
+          request,
+          throwsA(
+            isA<AiPhotoDescribeException>().having(
+              (error) => error.reason,
+              'reason',
+              accountChanged ? 'signedOut' : 'noConsent',
+            ),
+          ),
+        );
+        storage.file.complete(File('/unused/test.webp'));
+        await assertion;
+      },
+    );
+  }
+
   group('wording and versions', () {
     test(
       'allowance parsing rejects invalid counts and consent states the cost of attempts',

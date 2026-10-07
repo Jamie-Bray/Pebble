@@ -9,6 +9,7 @@ import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/features/account_backup/providers/account_status_mapper.dart';
 import 'package:pebble_routines/features/history/domain/run_step_tally.dart';
+import 'package:pebble_routines/features/history/providers/routine_history_vm.dart';
 import 'package:pebble_routines/features/history/ui/routine_run_detail_screen.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
 
@@ -60,6 +61,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            routineRunProvider(run.id).overrideWith((ref) => Stream.value(run)),
             routineSessionProofStorageProvider.overrideWithValue(
               _NoopProofStorage(),
             ),
@@ -94,6 +96,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          routineRunProvider(run.id).overrideWith((ref) => Stream.value(run)),
           routineSessionProofStorageProvider.overrideWithValue(
             _NoopProofStorage(),
           ),
