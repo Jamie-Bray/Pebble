@@ -60,13 +60,11 @@ class CheckOffTimeline {
       reduced ? t : _interval(620, 1100, PebbleMotion.settleCurve);
 
   /// The checked step's opacity while it leaves.
-  double get outgoingOpacity => reduced
-      ? 1 - t
-      : 1 - _interval(620, 780, Curves.easeOutCubic);
+  double get outgoingOpacity =>
+      reduced ? 1 - t : 1 - _interval(620, 780, Curves.easeOutCubic);
 
   /// The next step entering.
-  double get incoming =>
-      reduced ? t : _interval(720, 1000, PebbleMotion.enter);
+  double get incoming => reduced ? t : _interval(720, 1000, PebbleMotion.enter);
 
   /// The new trail row growing into place.
   double get trailReveal =>
@@ -238,7 +236,10 @@ class CheckTimeChip extends StatelessWidget {
           );
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 5, 12, 5),
-      decoration: BoxDecoration(color: fill, borderRadius: PebbleRadius.pillAll),
+      decoration: BoxDecoration(
+        color: fill,
+        borderRadius: PebbleRadius.pillAll,
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -328,6 +329,7 @@ class StepTrail extends StatefulWidget {
     this.revealOpacity = 1,
     this.visibleRows = 2,
     this.maxExpandedHeight = 320,
+    this.compact = false,
   });
 
   final List<StepTrailEntry> entries;
@@ -338,6 +340,10 @@ class StepTrail extends StatefulWidget {
   final double revealOpacity;
   final int visibleRows;
   final double maxExpandedHeight;
+
+  /// One quiet centred line with the latest check only ("✓ Front door ·
+  /// 08:12") and "+2" to unfold the rest, for screens that need the room.
+  final bool compact;
 
   @override
   State<StepTrail> createState() => _StepTrailState();
@@ -358,6 +364,24 @@ class _StepTrailState extends State<StepTrail> {
         widget.reveal < 1;
     final visible = math.max(1, widget.visibleRows);
     final n = entries.length;
+
+    if (widget.compact && !_expanded) {
+      final line = _CompactTrailLine(
+        entry: entries.last,
+        hidden: n - 1,
+        onExpand: n > 1 ? () => setState(() => _expanded = true) : null,
+      );
+      return Semantics(
+        container: true,
+        label: 'Checked so far',
+        child: revealingEntry
+            ? Opacity(
+                opacity: widget.revealOpacity.clamp(0.0, 1.0),
+                child: line,
+              )
+            : line,
+      );
+    }
 
     final rows = <Widget>[];
     Widget? pill;
@@ -542,6 +566,93 @@ class _TrailRow extends StatelessWidget {
   }
 }
 
+class _CompactTrailLine extends StatelessWidget {
+  const _CompactTrailLine({
+    required this.entry,
+    required this.hidden,
+    this.onExpand,
+  });
+
+  final StepTrailEntry entry;
+  final int hidden;
+  final VoidCallback? onExpand;
+
+  @override
+  Widget build(BuildContext context) {
+    final type = PebbleType.of(context);
+    final secondary = context.readableSecondaryText;
+    final style = type.caption.copyWith(
+      color: secondary,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    final detail = entry.skipped ? 'Skipped' : entry.timeLabel;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 40),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (onExpand != null) ...[
+            Semantics(
+              button: true,
+              label: 'Show all checked steps',
+              excludeSemantics: true,
+              child: InkWell(
+                borderRadius: PebbleRadius.pillAll,
+                onTap: onExpand,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: PebbleSpacing.xs,
+                    vertical: PebbleSpacing.xs,
+                  ),
+                  child: Text(
+                    '+$hidden',
+                    style: style.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: PebbleSpacing.xxs),
+          ],
+          Flexible(
+            child: Semantics(
+              label: entry.semanticsLabel,
+              excludeSemantics: true,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  entry.skipped
+                      ? _HollowRing(color: secondary, size: 10)
+                      : SizedBox.square(
+                          dimension: 13,
+                          child: CustomPaint(
+                            painter: PebbleCheckPainter(
+                              progress: 1,
+                              color: context.done,
+                              strokeWidth: 1.8,
+                            ),
+                          ),
+                        ),
+                  const SizedBox(width: PebbleSpacing.xs),
+                  Flexible(
+                    child: Text(
+                      detail == null || detail.isEmpty
+                          ? entry.label
+                          : '${entry.label} · $detail',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: style,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _TrailPill extends StatelessWidget {
   const _TrailPill({
     required this.label,
@@ -563,7 +674,9 @@ class _TrailPill extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: PebbleSpacing.xxs),
         child: Semantics(
           button: true,
-          label: expanded ? 'Show fewer checked steps' : 'Show all checked steps',
+          label: expanded
+              ? 'Show fewer checked steps'
+              : 'Show all checked steps',
           excludeSemantics: true,
           child: Material(
             color: foundation.textPrimary.withValues(alpha: 0.06),

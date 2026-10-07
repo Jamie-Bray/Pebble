@@ -509,7 +509,7 @@ void main() {
         final asked = <String>[];
         final titles = <String>[];
         final controller = await player(
-          describe: (asset, stepLabel, photoDetail) {
+          describe: (asset, stepLabel, photoDetail, _) {
             asked.add(asset.proofId);
             titles.add(stepLabel);
             return answer.future;
@@ -569,7 +569,7 @@ void main() {
         await start(const [step]);
         String? detail;
         final controller = await player(
-          describe: (_, title, description) async {
+          describe: (_, title, description, _) async {
             expect(title, 'Patio door');
             detail = description;
             return 'The small lever appears horizontal.';
@@ -592,7 +592,7 @@ void main() {
         await start(const [_photo, _plain]);
         var calls = 0;
         final controller = await player(
-          describe: (_, stepLabel, photoDetail) async {
+          describe: (_, stepLabel, photoDetail, _) async {
             calls += 1;
             throw const SocketException('offline');
           },
@@ -627,7 +627,7 @@ void main() {
       () async {
         await start(const [_photo]);
         final controller = await player(
-          describe: (_, _, _) async {
+          describe: (_, _, _, _) async {
             throw const AiPhotoAllowanceException(aiPhotoMonthlyLimitMessage);
           },
         );
@@ -652,7 +652,7 @@ void main() {
         await start(const [_photo]);
         final answer = Completer<String?>();
         final controller = await player(
-          describe: (_, stepLabel, photoDetail) => answer.future,
+          describe: (_, stepLabel, photoDetail, _) => answer.future,
         );
 
         await controller.attachProof('/tmp/a.jpg');
@@ -683,7 +683,7 @@ void main() {
       () async {
         await start(const [_photo]);
         final controller = await player(
-          describe: (_, stepLabel, photoDetail) async =>
+          describe: (_, stepLabel, photoDetail, _) async =>
               'Four dials with the marker at the top.',
         );
         await controller.attachProof('/tmp/a.jpg');
@@ -705,6 +705,7 @@ void main() {
           RoutineSessionProofAsset _,
           String stepLabel,
           String? photoDetail,
+          String _,
         ) async {
           calls += 1;
           return 'A door.';
@@ -743,7 +744,7 @@ void main() {
         await start(const [_photo, _plain]);
         final answer = Completer<String?>();
         final controller = await player(
-          describe: (_, stepLabel, photoDetail) => answer.future,
+          describe: (_, stepLabel, photoDetail, _) => answer.future,
         );
         await controller.attachProof('/tmp/a.jpg');
         await controller.removeProof('proof-1');
@@ -761,7 +762,7 @@ void main() {
         var n = 0;
         final slow = Completer<String?>();
         final controller = await player(
-          describe: (_, stepLabel, photoDetail) =>
+          describe: (_, stepLabel, photoDetail, _) =>
               ++n == 3 ? slow.future : Future.value('Photo $n.'),
         );
         for (var step = 0; step < 3; step++) {
@@ -785,7 +786,7 @@ void main() {
         final never = Completer<String?>();
         await start(const [_photo]);
         final stuck = await player(
-          describe: (_, stepLabel, photoDetail) => never.future,
+          describe: (_, stepLabel, photoDetail, _) => never.future,
         );
         await stuck.attachProof('/tmp/z.jpg');
         expect(

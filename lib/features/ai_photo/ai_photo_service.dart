@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -29,10 +29,12 @@ class AiPhotoException implements Exception {
 class AiDescribeResult {
   const AiDescribeResult.described(String this.description)
     : featureOff = false,
-      allowanceMessage = null;
+      allowanceMessage = null,
+      reason = null;
   const AiDescribeResult.failed({
     this.featureOff = false,
     this.allowanceMessage,
+    this.reason = 'failed',
   }) : description = null;
 
   /// Null when the photo couldn't be described, for any reason.
@@ -41,7 +43,33 @@ class AiDescribeResult {
   /// The server said the feature is switched off for everyone.
   final bool featureOff;
   final String? allowanceMessage;
+
+  /// Why there is no description: the server's `reason` (featureOff,
+  /// noActiveEntitlement, noConsent, duplicate, budgetExhausted,
+  /// couldNotDescribe, dailyLimit, monthlyLimit), `signedOut`, or `failed`
+  /// when the server couldn't be reached or gave an unexpected answer.
+  final String? reason;
 }
+
+/// A photo that wasn't described for a reason asking again can't fix, with
+/// the line to show under it. The step itself is never affected.
+class AiPhotoDescribeException implements Exception {
+  const AiPhotoDescribeException(this.message, {this.reason});
+  final String message;
+  final String? reason;
+  @override
+  String toString() => 'AiPhotoDescribeException($reason)';
+}
+
+/// The line shown under a photo for a refusal that a retry can't fix. Null
+/// means a retry might work, so "Couldn't describe · Try again" is shown.
+String? aiPhotoRefusalMessage(String? reason) => switch (reason) {
+  'featureOff' || 'budgetExhausted' => aiPhotoUnavailableMessage,
+  'noActiveEntitlement' => aiPhotoNeedsPremiumMessage,
+  'noConsent' => aiPhotoNeedsConsentMessage,
+  'signedOut' => aiPhotoSignedOutMessage,
+  _ => null,
+};
 
 class AiPhotoAllowance {
   const AiPhotoAllowance({required this.limit, required this.remaining});
@@ -153,15 +181,28 @@ class AiPhotoService {
           description.trim().isNotEmpty) {
         return AiDescribeResult.described(description.trim());
       }
+      final reason = data['reason'] is String
+          ? data['reason'] as String
+          : 'unexpectedReply';
+      // Outcome codes only: never the photo or the description.
+      debugPrint('AI photo: not described ($reason)');
       return AiDescribeResult.failed(
-        featureOff: data['reason'] == 'featureOff',
-        allowanceMessage: switch (data['reason']) {
+        featureOff: reason == 'featureOff',
+        reason: reason,
+        allowanceMessage: switch (reason) {
           'monthlyLimit' => aiPhotoMonthlyLimitMessage,
           'dailyLimit' => aiPhotoDailyLimitMessage,
           _ => null,
         },
       );
-    } catch (_) {
+    } on AiPhotoException catch (error) {
+      final reason = error.message == aiPhotoSignedOutMessage
+          ? 'signedOut'
+          : 'failed';
+      debugPrint('AI photo: not described ($reason)');
+      return AiDescribeResult.failed(reason: reason);
+    } catch (error) {
+      debugPrint('AI photo: not described (${error.runtimeType})');
       return const AiDescribeResult.failed();
     }
   }
@@ -173,7 +214,7 @@ class AiPhotoService {
   }) async {
     final client = _client;
     if (client == null || client.auth.currentSession == null) {
-      throw const AiPhotoException('Sign in to use AI descriptions.');
+      throw const AiPhotoException(aiPhotoSignedOutMessage);
     }
     try {
       final response = await client.functions
@@ -181,15 +222,23 @@ class AiPhotoService {
           .timeout(timeout);
       final data = response.data;
       if (data is Map) return Map<String, dynamic>.from(data);
+      debugPrint('AI photo: unexpected reply (${data.runtimeType})');
     } on FunctionException catch (error) {
       final details = error.details;
+      final code = details is Map && details['code'] is String
+          ? ' ${details['code']}'
+          : '';
+      debugPrint('AI photo: server answered ${error.status}$code');
       if (details is Map && details['code'] == 'consentVersion') {
         throw const AiPhotoException(
           'Update Pebble to turn on AI descriptions.',
         );
       }
-    } catch (_) {
-      // Offline, timed out or an unexpected reply: the same line either way.
+    } on TimeoutException {
+      debugPrint('AI photo: request timed out');
+    } catch (error) {
+      // Offline or an unexpected reply: the same line either way.
+      debugPrint('AI photo: request failed (${error.runtimeType})');
     }
     throw AiPhotoException(failure);
   }
@@ -250,32 +299,46 @@ Future<Uint8List?> encodeAiPhotoJpeg(File file, {bool detailed = false}) async {
   );
 }
 
-/// Describes one saved proof photo, or returns null. Allowance failures carry
-/// a message for the player; other failures remain quiet.
+/// Describes one saved proof photo. Returns the description, or null when
+/// it couldn't be described and asking again might help. Throws
+/// [AiPhotoAllowanceException] or [AiPhotoDescribeException], each with a
+/// line for the person, when the server refused for a reason a retry can't
+/// fix.
+///
+/// [idempotencyKey] is the photo's id on the first attempt and a new key on
+/// each retry: the server answers a key it has already seen with `duplicate`
+/// and never describes it a second time.
 typedef AiProofDescriber =
     Future<String?> Function(
       RoutineSessionProofAsset asset,
       String stepLabel,
       String? photoDetail,
+      String idempotencyKey,
     );
 
 final aiProofDescriberProvider = Provider<AiProofDescriber>((ref) {
-  return (asset, stepLabel, photoDetail) async {
+  return (asset, stepLabel, photoDetail, idempotencyKey) async {
     try {
       final file = await ref
           .read(routineSessionProofStorageProvider)
           .resolveStoredFile(asset.localRelativePath);
-      if (file == null) return null;
+      if (file == null) {
+        debugPrint('AI photo: not described (photoMissing)');
+        return null;
+      }
       final detail = photoDetail?.trim();
       final cue = detail == null || detail.isEmpty || detail == 'Take a photo'
           ? null
           : detail;
       final jpeg = await encodeAiPhotoJpeg(file, detailed: cue != null);
-      if (jpeg == null) return null;
+      if (jpeg == null) {
+        debugPrint('AI photo: not described (encodeFailed)');
+        return null;
+      }
       final result = await ref
           .read(aiPhotoServiceProvider)
           .describe(
-            idempotencyKey: asset.proofId,
+            idempotencyKey: idempotencyKey,
             jpegBytes: jpeg,
             stepLabel: stepLabel,
             photoDetail: cue,
@@ -287,10 +350,17 @@ final aiProofDescriberProvider = Provider<AiProofDescriber>((ref) {
       if (result.allowanceMessage != null) {
         throw AiPhotoAllowanceException(result.allowanceMessage!);
       }
+      final refusal = aiPhotoRefusalMessage(result.reason);
+      if (result.description == null && refusal != null) {
+        throw AiPhotoDescribeException(refusal, reason: result.reason);
+      }
       return result.description;
     } on AiPhotoAllowanceException {
       rethrow;
-    } catch (_) {
+    } on AiPhotoDescribeException {
+      rethrow;
+    } catch (error) {
+      debugPrint('AI photo: not described (${error.runtimeType})');
       return null;
     }
   };

@@ -12,7 +12,6 @@ import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
-import 'package:pebble_routines/core/ui/pebble_buttons.dart';
 import 'package:pebble_routines/core/ui/pebble_photo_gallery_viewer.dart';
 import 'package:pebble_routines/features/routines/composer/data/guidance_audio_storage.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
@@ -20,6 +19,7 @@ import 'package:pebble_routines/features/routines/execution/data/repositories/ro
 import 'package:pebble_routines/features/routines/execution/data/services/routine_player_photo_picker.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
 import 'package:pebble_routines/features/routines/execution/providers/player_state_provider.dart';
+import 'package:pebble_routines/features/routines/execution/ui/player_proof_zone.dart';
 import 'package:pebble_routines/features/routines/execution/ui/routine_player_screen.dart';
 import 'package:pebble_routines/features/routines/execution/ui/step_check_off.dart';
 import 'package:pebble_routines/core/ui/pebble_cairn.dart';
@@ -141,8 +141,10 @@ void main() {
       repository,
     );
 
-    expect(find.text('Test routine · 1 of 1'), findsOneWidget);
-    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    // Top bar: the routine name, one segment per step and "1 of 1".
+    expect(find.text('Test routine'), findsOneWidget);
+    expect(find.text('1 of 1'), findsOneWidget);
+    expect(find.byTooltip('Leave routine'), findsOneWidget);
     expect(find.text('Text Step'), findsNothing);
     expect(find.text('Lock the door'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Finish routine'), findsOneWidget);
@@ -334,7 +336,9 @@ void main() {
 
     // No staggered entrance: the Done button is fully there at once.
     final opacity = tester.widget<Opacity>(
-      find.ancestor(of: find.text('Done'), matching: find.byType(Opacity)).first,
+      find
+          .ancestor(of: find.text('Done'), matching: find.byType(Opacity))
+          .first,
     );
     expect(opacity.opacity, 1);
     expect(landed, 1);
@@ -357,10 +361,14 @@ void main() {
     );
 
     expect(tester.takeException(), isNull);
-    final instruction = find.text('Add one photo to complete this step');
-    expect(instruction, findsOneWidget);
-    // It wraps onto more lines rather than being sliced by a fixed box.
-    expect(tester.getSize(instruction).height, greaterThan(17 * 2.0));
+    final title = find.text('Back door locked');
+    expect(title, findsOneWidget);
+    // The empty photo tile grows with the text rather than clipping it.
+    expect(find.text('Take photo'), findsNWidgets(2));
+    expect(
+      tester.getSize(find.text('Take photo').first).height,
+      greaterThan(17 * 2.0),
+    );
     expect(find.widgetWithText(FilledButton, 'Take photo'), findsOneWidget);
   });
 
@@ -410,16 +418,14 @@ void main() {
       );
 
       expect(find.byType(AnimatedVisualAnchor), findsNothing);
-      expect(find.text('Proof photo'), findsOneWidget);
-      expect(find.text('Add one photo to complete this step'), findsOneWidget);
+      // One large tile: camera on tap, the library as a small link in it.
+      expect(find.text('Take photo'), findsNWidgets(2));
+      expect(find.text('Choose from library'), findsOneWidget);
       expect(find.text('Add more'), findsNothing);
       expect(find.text('Add photo'), findsNothing);
-
-      // The thumb never leaves the footer: capture is the primary button and
-      // the gallery route sits beside it, so the card offers no Add tile.
-      expect(find.text('Add'), findsNothing);
-      expect(find.text('Choose from library'), findsNothing);
-      expect(find.text('From library'), findsOneWidget);
+      // No counters or footer library button any more.
+      expect(find.text('From library'), findsNothing);
+      expect(find.textContaining('photo added'), findsNothing);
 
       // Capture is offered instead of a dead "Complete step".
       expect(find.widgetWithText(FilledButton, 'Complete step'), findsNothing);
@@ -444,8 +450,8 @@ void main() {
       repository,
     );
 
+    expect(find.text('Choose from library'), findsNothing);
     expect(find.text('From library'), findsNothing);
-    expect(find.text('Add'), findsNothing);
     expect(find.widgetWithText(FilledButton, 'Take photo'), findsOneWidget);
   });
 
@@ -466,7 +472,7 @@ void main() {
       photoPicker: photoPicker,
     );
 
-    await tester.tap(find.text('From library'));
+    await tester.tap(find.text('Choose from library'));
     await tester.pumpAndSettle();
 
     expect(photoPicker.sources, [ImageSource.gallery]);
@@ -499,12 +505,12 @@ void main() {
     await tester.pumpAndSettle();
 
     // With the one-photo requirement met, completion becomes primary and the
-    // optional Premium capture remains a compact action inside the card.
+    // optional Premium capture is a small pill on the photo.
     final complete = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Complete step'),
     );
     expect(complete.onPressed, isNotNull);
-    expect(find.widgetWithText(TextButton, 'Add photo'), findsOneWidget);
+    expect(find.text('Add photo'), findsOneWidget);
     expect(find.byType(OutlinedButton), findsNothing);
   });
 
@@ -642,7 +648,7 @@ void main() {
       photoPicker: photoPicker,
     );
 
-    expect(find.text('Proof photo'), findsOneWidget);
+    expect(find.byType(PlayerProofZone), findsOneWidget);
     expect(
       repository
           .session
@@ -673,7 +679,7 @@ void main() {
       photoPicker: photoPicker,
     );
 
-    expect(find.text('Proof photo'), findsOneWidget);
+    expect(find.byType(PlayerProofZone), findsOneWidget);
     expect(repository.session?.stepStates.single.proofAssets, isEmpty);
   });
 
@@ -732,8 +738,7 @@ void main() {
 
     // The single photo stands alone. Only now does a compact, locked route to
     // more photos appear; no empty Premium cells imply unfinished work.
-    expect(find.text('1 photo added'), findsOneWidget);
-    expect(find.widgetWithText(TextButton, 'Add more'), findsOneWidget);
+    expect(find.text('Add more'), findsOneWidget);
     expect(find.text('Add photo'), findsNothing);
     expect(find.byType(OutlinedButton), findsNothing);
   });
@@ -777,12 +782,17 @@ void main() {
       session: _sessionForStepWithProofs(step, [_proofAsset('first')]),
     );
 
-    await tester.tap(find.widgetWithText(TextButton, 'Add photo'));
+    await tester.tap(find.text('Add photo'));
+    await tester.pumpAndSettle();
+    // The step allows library photos, so the add pill asks which.
+    await tester.tap(find.widgetWithText(ListTile, 'Take photo'));
     await tester.pumpAndSettle();
 
     expect(photoPicker.sources, [ImageSource.camera]);
     expect(repository.session?.stepStates.single.proofAssets, hasLength(2));
-    expect(find.text('2 photos added'), findsOneWidget);
+    // Two photos become a strip with a "+" tile at the end.
+    expect(find.byKey(const ValueKey('proof-strip-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('proof-add-tile')), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Finish routine'), findsOneWidget);
   });
 
@@ -836,11 +846,11 @@ void main() {
     );
 
     expect(find.text('Voice tip'), findsOneWidget);
-    expect(find.text('3 photos added'), findsOneWidget);
-    expect(find.widgetWithText(TextButton, 'Add photo'), findsOneWidget);
+    expect(find.byKey(const ValueKey('proof-strip-2')), findsOneWidget);
+    expect(find.byKey(const ValueKey('proof-add-tile')), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Complete step'), findsOneWidget);
     expect(find.text('Previous'), findsOneWidget);
-    expect(find.text('From library'), findsOneWidget);
+    expect(find.text('From library'), findsNothing);
     expect(find.text('Skip step'), findsOneWidget);
   });
 
@@ -861,7 +871,7 @@ void main() {
       session: _sessionForStepWithProofs(step, [_proofAsset('proof-1')]),
     );
 
-    expect(find.bySemanticsLabel('Open proof photo 1 of 1'), findsOneWidget);
+    expect(find.bySemanticsLabel('Open proof photo'), findsOneWidget);
     expect(find.bySemanticsLabel('Remove proof photo 1'), findsOneWidget);
     expect(find.bySemanticsLabel('Add another proof photo'), findsOneWidget);
     semantics.dispose();
@@ -909,14 +919,13 @@ void main() {
 
     // One photo satisfies the step regardless of the legacy authored count;
     // Premium capacity is optional and never presented as an owed total.
-    expect(find.text('1 photo added'), findsOneWidget);
     expect(find.textContaining('required'), findsNothing);
     expect(find.textContaining('of 4'), findsNothing);
     final primary = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Finish routine'),
     );
     expect(primary.onPressed, isNotNull);
-    expect(find.widgetWithText(TextButton, 'Add photo'), findsOneWidget);
+    expect(find.text('Add photo'), findsOneWidget);
   });
 
   testWidgets('premium at the cap shows a calm full subtitle, no upsell', (
@@ -938,7 +947,8 @@ void main() {
       ),
     );
 
-    expect(find.text('4 photos added'), findsOneWidget);
+    expect(find.byKey(const ValueKey('proof-strip-3')), findsOneWidget);
+    expect(find.byKey(const ValueKey('proof-add-tile')), findsNothing);
     expect(find.text('Add more'), findsNothing);
     expect(find.text('Add photo'), findsNothing);
     expect(find.text('Choose from library'), findsNothing);
@@ -998,8 +1008,10 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
       await tester.tap(find.widgetWithText(FilledButton, 'Complete step'));
       await tester.pump();
-      expect(repository.session!.stepStates[1].status,
-          SessionStepStatus.completed);
+      expect(
+        repository.session!.stepStates[1].status,
+        SessionStepStatus.completed,
+      );
       expect(repository.session!.currentStepIndex, 2);
       await tester.pumpAndSettle();
       expect(find.text('Front door locked'), findsOneWidget);
@@ -1064,8 +1076,10 @@ void main() {
       await tester.tap(find.text('Skip step'));
       await tester.pump(const Duration(milliseconds: 200));
 
-      expect(repository.session!.stepStates[1].status,
-          SessionStepStatus.skipped);
+      expect(
+        repository.session!.stepStates[1].status,
+        SessionStepStatus.skipped,
+      );
       final anchor = tester.widget<AnimatedVisualAnchor>(
         find.byType(AnimatedVisualAnchor),
       );
@@ -1139,15 +1153,16 @@ void main() {
 
     testWidgets('each check is announced to screen readers', (tester) async {
       final announcements = <String>[];
-      tester.binding.defaultBinaryMessenger.setMockDecodedMessageHandler<
-        dynamic
-      >(SystemChannels.accessibility, (message) async {
-        final map = message as Map<dynamic, dynamic>;
-        if (map['type'] == 'announce') {
-          announcements.add((map['data'] as Map)['message'] as String);
-        }
-        return null;
-      });
+      tester.binding.defaultBinaryMessenger
+          .setMockDecodedMessageHandler<dynamic>(SystemChannels.accessibility, (
+            message,
+          ) async {
+            final map = message as Map<dynamic, dynamic>;
+            if (map['type'] == 'announce') {
+              announcements.add((map['data'] as Map)['message'] as String);
+            }
+            return null;
+          });
       addTearDown(
         () => tester.binding.defaultBinaryMessenger
             .setMockDecodedMessageHandler<dynamic>(
@@ -1234,13 +1249,18 @@ void main() {
       expect(find.text('Photo proof'), findsOneWidget);
       expect(find.text('Next step'), findsNothing);
       expect(find.widgetWithText(FilledButton, 'Take photo'), findsNothing);
-      expect(find.widgetWithText(FilledButton, 'Complete step'), findsOneWidget);
+      expect(
+        find.widgetWithText(FilledButton, 'Complete step'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('after the photo, primary checks off with the tap time', (
       tester,
     ) async {
-      SharedPreferences.setMockInitialValues({'has_seen_camera_rationale': true});
+      SharedPreferences.setMockInitialValues({
+        'has_seen_camera_rationale': true,
+      });
       final repository = _FakeRoutineSessionRepository();
       final photoPicker = _FakePhotoPicker(returnedPath: '/tmp/camera.jpg');
       await pumpPlayer(
@@ -1286,7 +1306,7 @@ void main() {
       expect(repository.session!.currentStepIndex, 1);
     });
 
-    testWidgets('gallery pick sits in the footer, under the primary', (
+    testWidgets('library pick lives in the photo tile, not the footer', (
       tester,
     ) async {
       final repository = _FakeRoutineSessionRepository();
@@ -1298,36 +1318,35 @@ void main() {
         session: _sessionForSteps(photoSteps),
       );
 
-      final gallery = find.text('From library');
-      expect(gallery, findsOneWidget);
+      final library = find.text('Choose from library');
+      expect(library, findsOneWidget);
       expect(
-        find.ancestor(of: gallery, matching: find.byType(PebbleButton)),
+        find.ancestor(of: library, matching: find.byType(PlayerProofZone)),
         findsOneWidget,
       );
       final primary = find.widgetWithText(FilledButton, 'Take photo');
       expect(
-        tester.getTopLeft(gallery).dy,
-        greaterThan(tester.getBottomLeft(primary).dy),
+        tester.getBottomLeft(library).dy,
+        lessThan(tester.getTopLeft(primary).dy),
       );
-      // Not inside the proof card.
-      expect(
-        tester.getTopLeft(gallery).dy,
-        greaterThan(tester.getBottomLeft(find.text('Proof photo')).dy),
-      );
-      expect(find.text('Choose from library'), findsNothing);
+      // The footer is the primary plus Previous / Skip only.
+      expect(find.text('From library'), findsNothing);
     });
 
-    test('new installs get the check buzz; existing choices are kept', () async {
-      SharedPreferences.setMockInitialValues({});
-      final fresh = await SharedPreferences.getInstance();
-      await PlayerSettingsController.applyNewInstallDefaults(fresh);
-      expect(PlayerSettingsController(fresh).stepCompleteHaptic, isTrue);
+    test(
+      'new installs get the check buzz; existing choices are kept',
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        final fresh = await SharedPreferences.getInstance();
+        await PlayerSettingsController.applyNewInstallDefaults(fresh);
+        expect(PlayerSettingsController(fresh).stepCompleteHaptic, isTrue);
 
-      SharedPreferences.setMockInitialValues({'stepCompleteHaptic': false});
-      final existing = await SharedPreferences.getInstance();
-      await PlayerSettingsController.applyNewInstallDefaults(existing);
-      expect(PlayerSettingsController(existing).stepCompleteHaptic, isFalse);
-    });
+        SharedPreferences.setMockInitialValues({'stepCompleteHaptic': false});
+        final existing = await SharedPreferences.getInstance();
+        await PlayerSettingsController.applyNewInstallDefaults(existing);
+        expect(PlayerSettingsController(existing).stepCompleteHaptic, isFalse);
+      },
+    );
   });
 
   test('photo attach repairs any stale in-flight lifecycle save', () async {
@@ -1596,6 +1615,9 @@ class _FakeRoutineSessionRepository implements RoutineSessionRepository {
   }
 
   @override
+  Future<RoutineRun?> findRunForSession(RoutineSession session) async => null;
+
+  @override
   Stream<RoutineSession?> watchSession(String sessionId) {
     return Stream.value(session);
   }
@@ -1672,6 +1694,9 @@ class _BlockingSaveRoutineSessionRepository
   Stream<List<RoutineSessionResumeSummary>> watchActiveSessionsForHomeResume() {
     return const Stream<List<RoutineSessionResumeSummary>>.empty();
   }
+
+  @override
+  Future<RoutineRun?> findRunForSession(RoutineSession session) async => null;
 
   @override
   Stream<RoutineSession?> watchSession(String sessionId) {
