@@ -19,7 +19,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # Build numbers only go up. A production build 33 was produced on the
 # owner's laptop (its source is merged here from laptop-build-33), so the next
 # upload must be 34 or higher; check Play Console before uploading.
-version: 1.0.0+36
+version: 1.0.0+37
 
 environment:
   sdk: '>=3.8.0 <4.0.0'
