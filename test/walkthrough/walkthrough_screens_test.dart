@@ -2033,7 +2033,7 @@ void main() {
     await env.realWait(3);
     await _tapPrimary(env);
     await env.realWait(3);
-    await env.tapFinder(find.byTooltip('Back').first);
+    await env.tapFinder(find.byTooltip('Leave routine').first);
     await env.realWait(3);
     await env.shot('player_leave_prompt');
     if (env.has('Leave and save')) {
@@ -2140,7 +2140,7 @@ void main() {
         await _openPlayer(env, 3);
         await _tapPrimary(env);
         await env.realWait(3);
-        await env.tapFinder(find.byTooltip('Back').first);
+        await env.tapFinder(find.byTooltip('Leave routine').first);
         await env.realWait(3);
         if (env.has('Leave and save')) {
           await env.tapText('Leave and save');
