@@ -455,11 +455,7 @@ class CloudSyncCoordinator {
         type: syncedCount > 0
             ? ManualSyncResultType.synced
             : ManualSyncResultType.noChanges,
-        message: syncedCount > 0
-            ? 'Everything is up to date.'
-            : userInitiated
-            ? 'No new changes to back up.'
-            : 'Everything is up to date.',
+        message: 'Everything is up to date.',
       );
     }
 
