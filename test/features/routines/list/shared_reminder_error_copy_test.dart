@@ -111,42 +111,45 @@ void main() {
       expect(body['utcOffsetMinutes'], local.timeZoneOffset.inMinutes);
     });
 
-    test('completion screen note says what happened, and nothing otherwise', () {
-      expect(
-        SharedReminderCompletionResult.fromJson(const {
-          'sent': true,
-          'recipientEmail': 'sam@example.com',
-        }).completionScreenNote,
-        'Completion email sent to sam@example.com.',
-      );
-      expect(
-        SharedReminderCompletionResult.fromJson(const {
-          'sent': true,
-          'alreadySent': true,
-        }).completionScreenNote,
-        isNull,
-      );
-      expect(
-        SharedReminderCompletionResult.fromJson(const {
-          'sent': false,
-          'reason': 'noAcceptedContact',
-        }).completionScreenNote,
-        isNull,
-      );
-      expect(
-        SharedReminderCompletionResult.fromJson(const {
-          'sent': false,
-          'reason': 'rateLimited',
-        }).completionScreenNote,
-        contains('not sent'),
-      );
-      expect(
-        const SharedReminderCompletionResult(
-          sent: false,
-          reason: 'offline',
-        ).completionScreenNote,
-        "Completion email not sent because there's no connection.",
-      );
-    });
+    test(
+      'completion screen note says what happened, and nothing otherwise',
+      () {
+        expect(
+          SharedReminderCompletionResult.fromJson(const {
+            'sent': true,
+            'recipientEmail': 'sam@example.com',
+          }).completionScreenNote,
+          'Completion email sent to sam@example.com.',
+        );
+        expect(
+          SharedReminderCompletionResult.fromJson(const {
+            'sent': true,
+            'alreadySent': true,
+          }).completionScreenNote,
+          isNull,
+        );
+        expect(
+          SharedReminderCompletionResult.fromJson(const {
+            'sent': false,
+            'reason': 'noAcceptedContact',
+          }).completionScreenNote,
+          isNull,
+        );
+        expect(
+          SharedReminderCompletionResult.fromJson(const {
+            'sent': false,
+            'reason': 'rateLimited',
+          }).completionScreenNote,
+          contains('not sent'),
+        );
+        expect(
+          const SharedReminderCompletionResult(
+            sent: false,
+            reason: 'offline',
+          ).completionScreenNote,
+          "Completion email not sent because there's no connection.",
+        );
+      },
+    );
   });
 }

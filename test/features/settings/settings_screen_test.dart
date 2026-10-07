@@ -75,45 +75,42 @@ void main() {
   });
 
   for (final scale in const [1.0, 2.0]) {
-    testWidgets(
-      'settings title clears the back button under an iPhone notch '
-      '(text ${scale}x)',
-      (tester) async {
-        SharedPreferences.setMockInitialValues({});
-        final prefs = await SharedPreferences.getInstance();
-        tester.view.physicalSize = const Size(1170, 2532);
-        tester.view.devicePixelRatio = 3;
-        tester.view.padding = const FakeViewPadding(top: 47 * 3, bottom: 34 * 3);
-        tester.view.viewPadding = const FakeViewPadding(
-          top: 47 * 3,
-          bottom: 34 * 3,
-        );
-        tester.platformDispatcher.textScaleFactorTestValue = scale;
-        addTearDown(tester.view.reset);
-        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    testWidgets('settings title clears the back button under an iPhone notch '
+        '(text ${scale}x)', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      tester.view.physicalSize = const Size(1170, 2532);
+      tester.view.devicePixelRatio = 3;
+      tester.view.padding = const FakeViewPadding(top: 47 * 3, bottom: 34 * 3);
+      tester.view.viewPadding = const FakeViewPadding(
+        top: 47 * 3,
+        bottom: 34 * 3,
+      );
+      tester.platformDispatcher.textScaleFactorTestValue = scale;
+      addTearDown(tester.view.reset);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
 
-        await tester.pumpWidget(
-          ProviderScope(
-            overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-            child: MaterialApp(
-              theme: ThemeData(
-                colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
-                useMaterial3: true,
-              ),
-              home: const SettingsScreen(),
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+          child: MaterialApp(
+            theme: ThemeData(
+              colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
+              useMaterial3: true,
             ),
+            home: const SettingsScreen(),
           ),
-        );
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 100));
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
 
-        expect(tester.takeException(), isNull);
-        final back = tester.getRect(find.bySemanticsLabel('Back').first);
-        final title = tester.getRect(find.text('Settings'));
-        expect(back.top, greaterThanOrEqualTo(47));
-        expect(title.top, greaterThanOrEqualTo(back.bottom));
-      },
-    );
+      expect(tester.takeException(), isNull);
+      final back = tester.getRect(find.bySemanticsLabel('Back').first);
+      final title = tester.getRect(find.text('Settings'));
+      expect(back.top, greaterThanOrEqualTo(47));
+      expect(title.top, greaterThanOrEqualTo(back.bottom));
+    });
   }
 
   testWidgets('visual anchor setting defaults on and persists changes', (
@@ -209,20 +206,19 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('Themes'), findsOneWidget);
-    expect(find.text('INCLUDED'), findsOneWidget);
+    expect(find.text('Free for everyone'), findsOneWidget);
     expect(find.text('High Noon'), findsWidgets);
+    expect(find.text('Tide'), findsWidgets);
     expect(find.text('Amber Resin'), findsWidgets);
-    expect(find.text('Pebble Dark'), findsNothing);
+    // Older Premium themes stay folded away until asked for.
     expect(find.text('Matcha'), findsNothing);
     expect(
-      find.text(
-        'Tap a theme to preview it.\nNothing changes until you apply it.',
-      ),
+      find.textContaining('Tap any theme to try it first.', findRichText: true),
       findsOneWidget,
     );
 
     await tester.scrollUntilVisible(
-      find.text('PREMIUM'),
+      find.text('Personal Premium'),
       360,
       scrollable: find.byType(Scrollable).first,
     );
@@ -263,29 +259,23 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     await tester.scrollUntilVisible(
-      find.text('PREMIUM'),
+      find.text('Personal Premium'),
       360,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.ensureVisible(find.text('Rose Quartz'));
+    final roseQuartzCard = find
+        .ancestor(of: find.text('Rose Quartz'), matching: find.byType(InkWell))
+        .last;
+    await tester.ensureVisible(roseQuartzCard);
     await tester.pumpAndSettle();
 
-    await tester.tap(
-      find
-          .ancestor(
-            of: find.text('Rose Quartz'),
-            matching: find.byType(InkWell),
-          )
-          .last,
-    );
+    await tester.tap(roseQuartzCard);
     await tester.pumpAndSettle();
 
     expect(find.text('Get Premium'), findsOneWidget);
     expect(find.text('Use this theme'), findsNothing);
     expect(
-      find.text(
-        'You can preview this theme. Using it needs Personal Premium.',
-      ),
+      find.text('You can preview this theme. Using it needs Personal Premium.'),
       findsOneWidget,
     );
 
@@ -304,6 +294,7 @@ void main() {
 
     expect(find.text('Use this theme'), findsOneWidget);
     expect(find.text('Get Premium'), findsNothing);
-    expect(find.text('Warm tint for light sensitivity.'), findsOneWidget);
+    // Once on the picker row and once in the preview sheet.
+    expect(find.text('Warm tint for light sensitivity.'), findsNWidgets(2));
   });
 }

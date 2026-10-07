@@ -27,7 +27,8 @@ void main() {
     final x = theme.extension<PebbleThemeX>()!;
 
     expect(theme.colorScheme.primary, const Color(0xFF3E5E45)); // forest
-    expect(x.actionAccent, const Color(0xFFC4714A)); // terracotta
+    // Deeper terracotta for the button, so its cream label reaches 5.0:1.
+    expect(x.actionAccent, const Color(0xFFA3552F));
     expect(x.categoryAccents, const [
       Color(0xFF8DA174), // sage
       Color(0xFFC4714A), // terracotta

@@ -78,13 +78,16 @@ void main() {
       hasPremiumRoutineAccess: false,
       isInGrace: false,
     );
-    final five = [for (var id = 1; id <= 5; id++) _routine(id: id, stepCount: 3)];
+    final five = [
+      for (var id = 1; id <= 5; id++) _routine(id: id, stepCount: 3),
+    ];
 
     test('without a choice, the first two in list order stay unlocked', () {
-      expect(
-        restrictedRoutineIds(routines: five, policy: lockedPolicy),
-        {3, 4, 5},
-      );
+      expect(restrictedRoutineIds(routines: five, policy: lockedPolicy), {
+        3,
+        4,
+        5,
+      });
     });
 
     test('kept routines stay unlocked wherever they are in the list', () {
@@ -131,7 +134,10 @@ void main() {
       expect(restrictedRoutineIds(routines: five, policy: premium), isEmpty);
       expect(restrictedRoutineIds(routines: five, policy: grace), isEmpty);
       expect(
-        restrictedRoutineIds(routines: five.take(2).toList(), policy: lockedPolicy),
+        restrictedRoutineIds(
+          routines: five.take(2).toList(),
+          policy: lockedPolicy,
+        ),
         isEmpty,
       );
     });
@@ -143,7 +149,10 @@ void main() {
         keptRoutineIds: {5, 4},
       );
       expect(
-        [for (final state in states) if (!state.isRestricted) state.routine.id],
+        [
+          for (final state in states)
+            if (!state.isRestricted) state.routine.id,
+        ],
         [4, 5],
       );
     });

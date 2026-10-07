@@ -283,9 +283,7 @@ Routine _routine(int id) {
   return Routine(
     id: id,
     title: 'Routine $id',
-    stepsJson: jsonEncode([
-      const RoutineStep.check(label: 'Step').toJson(),
-    ]),
+    stepsJson: jsonEncode([const RoutineStep.check(label: 'Step').toJson()]),
     createdAt: created,
     emoji: null,
     colorHex: null,

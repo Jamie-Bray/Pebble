@@ -32,10 +32,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
 
-      expect(
-        find.text('Every check is saved with the time.'),
-        findsOneWidget,
-      );
+      expect(find.text('Every check is saved with the time.'), findsOneWidget);
       expect(prefs.getBool('has_completed_onboarding'), isFalse);
 
       await tester.tap(find.text('Continue'));

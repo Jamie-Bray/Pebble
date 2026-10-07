@@ -193,8 +193,7 @@ class _FakeRoutineSessionRepository implements RoutineSessionRepository {
   }
 
   @override
-  Future<RoutineRun?> findRunForSession(RoutineSession session) async =>
-      null;
+  Future<RoutineRun?> findRunForSession(RoutineSession session) async => null;
 
   @override
   Stream<RoutineSession?> watchSession(String sessionId) {

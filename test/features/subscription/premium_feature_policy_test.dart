@@ -267,7 +267,6 @@ class _TestSubscriptionAccountController extends SubscriptionAccountController {
 
 class _FakePurchaseRepository extends ChangeNotifier
     implements PurchaseRepository {
-
   @override
   bool get isLoadingProducts => false;
 

@@ -298,7 +298,7 @@ class MatchaThemeFactory {
   static ThemeData build() => _BaseThemeFactory.build(
     id: ThemeId.matcha,
     bg: const Color(0xFFF4F7F4),
-    fg: const Color(0xFF3A4A3F),
+    fg: const Color(0xFF2F3D34),
     accent: const Color(0xFF4F7058),
   );
 }
@@ -424,7 +424,7 @@ class DeepGlacierThemeFactory {
 class AmberResinThemeFactory {
   static ThemeData build() => _BaseThemeFactory.build(
     id: ThemeId.amberResin,
-    bg: const Color(0xFF1A1412),
+    bg: const Color(0xFF17110F),
     fg: const Color(0xFFE8DCC8),
     accent: const Color(0xFFC27D38),
     isDark: true,
@@ -445,7 +445,7 @@ class AmberResinThemeFactory {
 class TerracottaThemeFactory {
   static ThemeData build() => _BaseThemeFactory.build(
     id: ThemeId.terracotta,
-    bg: const Color(0xFF2C211F),
+    bg: const Color(0xFF201714),
     fg: const Color(0xFFE8DCD5),
     accent: const Color(0xFFC4714A),
     isDark: true,
