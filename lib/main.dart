@@ -22,6 +22,7 @@ import 'core/config/app_runtime_config.dart';
 import 'core/config/pebble_locale.dart';
 import 'core/monitoring/crash_reporting.dart';
 import 'core/navigation/app_shell.dart';
+import 'core/navigation/external_launch.dart';
 import 'core/navigation/external_location.dart';
 import 'data/remote/supabase_client_provider.dart';
 import 'features/templates/ui/template_detail_screen.dart';
@@ -335,7 +336,12 @@ final _routerProvider = Provider<GoRouter>((ref) {
                   if (entry == null) {
                     return const _RoutineUnavailableScreen();
                   }
-                  return RoutinePlayerScreen(sessionId: entry.sessionId);
+                  // Keyed by session: a widget tap on a finished run
+                  // resolves a new session, which needs a fresh player.
+                  return RoutinePlayerScreen(
+                    key: ValueKey(entry.sessionId),
+                    sessionId: entry.sessionId,
+                  );
                 },
               );
             },
@@ -671,7 +677,13 @@ Future<void> _openRoutineFromExternalLaunch(int routineId) async {
   for (var attempt = 0; attempt < 40; attempt++) {
     final context = _rootNavigatorKey.currentContext;
     if (context != null && context.mounted) {
-      GoRouter.of(context).go('/play/$routineId');
+      final container = ProviderScope.containerOf(context, listen: false);
+      openRoutineFromExternalLaunch(
+        GoRouter.of(context),
+        routineId: routineId,
+        refreshSession: () =>
+            container.invalidate(routineSessionEntryProvider(routineId)),
+      );
       return;
     }
     await Future<void>.delayed(const Duration(milliseconds: 250));
