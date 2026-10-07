@@ -203,6 +203,7 @@ class CloudRestoreCoordinator {
       return true;
     }
   }
+
   Future<void> _mergeRoutine(
     String ownerUserId,
     RemoteRoutineRecord remote,
