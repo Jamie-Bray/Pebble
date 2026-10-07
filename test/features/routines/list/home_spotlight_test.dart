@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pebble_routines/core/home_widget/home_widget_setup.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
@@ -731,16 +732,48 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('Add to widget'), findsOneWidget);
+    expect(find.text('Show on widget'), findsOneWidget);
     expect(find.text('Start it from your home screen'), findsOneWidget);
 
-    await tester.ensureVisible(find.text('Add to widget'));
+    await tester.ensureVisible(find.text('Show on widget'));
     await tester.pump();
-    await tester.tap(find.text('Add to widget'));
+    await tester.tap(find.text('Show on widget'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(repo.pinnedUpdates, equals([(1, true)]));
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    // No widget on the home screen yet, so Pebble explains how to add it.
+    expect(find.text('Add Pebble to your home screen'), findsOneWidget);
+    expect(
+      find.text('Touch and hold an empty spot on your home screen.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('only the newest pin is tagged as shown on the widget', (
+    tester,
+  ) async {
+    final repo = _FakeRoutineRepository([
+      _routine(id: 1, title: 'Morning Reset', isPinned: true),
+      _routine(id: 2, title: 'Leaving the house', isPinned: true),
+    ]);
+
+    await _pumpHome(
+      tester,
+      routines: repo._routines.values.toList(),
+      routineRepository: repo,
+    );
+
+    await tester.tap(find.text('Your routines'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    // Routine 2 was pinned last, so it is the widget routine.
+    expect(find.textContaining('Shown on widget'), findsOneWidget);
+    expect(find.textContaining('Pinned'), findsNothing);
   });
 
   testWidgets('library reorder moves a routine to the dropped position', (
@@ -808,7 +841,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(find.text('Edit'), findsOneWidget);
-      expect(find.text('Add to widget'), findsNothing);
+      expect(find.text('Show on widget'), findsNothing);
       expect(find.text('Remove from widget'), findsNothing);
       expect(find.textContaining('home widget'), findsNothing);
       expect(find.textContaining('Pinned'), findsNothing);
@@ -932,7 +965,9 @@ void main() {
     );
 
     expect(
-      find.textContaining(RegExp(r'^Last checked yesterday, (13:27|1:27\s?PM)$')),
+      find.textContaining(
+        RegExp(r'^Last checked yesterday, (13:27|1:27\s?PM)$'),
+      ),
       findsOneWidget,
     );
     expect(find.text('3 of 4 steps · 1 skipped'), findsOneWidget);
@@ -1266,7 +1301,19 @@ List<Override> _homeOverrides({
     accountBackupChipStateProvider.overrideWithValue(
       const AccountBackupChipState.hidden(),
     ),
+    homeWidgetHostProvider.overrideWithValue(const _NoWidgetsHost()),
   ];
+}
+
+/// A launcher with no Pebble widget placed and no "Add widget" prompt.
+class _NoWidgetsHost extends HomeWidgetHost {
+  const _NoWidgetsHost();
+
+  @override
+  Future<int?> installedWidgetCount() async => 0;
+
+  @override
+  Future<bool> canRequestPinWidget() async => false;
 }
 
 Future<void> _pumpHome(

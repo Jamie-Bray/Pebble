@@ -4,12 +4,15 @@ import 'package:intl/intl.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/features/history/domain/checked_window.dart';
 
-const String _qualifiedProviderName =
+/// The Android widget provider (`PebbleRoutineWidgetProvider.kt`).
+const String homeWidgetProviderName =
     'com.vix.pebble_routines.PebbleRoutineWidgetProvider';
 
-/// The routine shown on the home-screen widget: the most recently pinned one.
-/// Pinning already means "this matters most", so the widget needs no
-/// selection UI of its own. Returns null when nothing is pinned.
+/// The routine shown on the home-screen widget ("Show on widget" in a
+/// routine's menu stores it as the routine's pin). Choosing a routine
+/// unpins the others (see `chooseWidgetRoutine`), so there is normally one;
+/// for older data with several pins, the most recent wins. Returns null when
+/// nothing is pinned.
 Routine? selectWidgetRoutine(List<Routine> routines) {
   Routine? best;
   for (final routine in routines) {
@@ -108,9 +111,7 @@ Future<void> publishHomeWidgetRoutine(
       'widget_checked_until',
       checked?.until.millisecondsSinceEpoch.toString(),
     );
-    await HomeWidget.updateWidget(
-      qualifiedAndroidName: _qualifiedProviderName,
-    );
+    await HomeWidget.updateWidget(qualifiedAndroidName: homeWidgetProviderName);
   } catch (_) {
     // Best-effort by design.
   }
