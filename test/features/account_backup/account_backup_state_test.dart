@@ -2611,8 +2611,10 @@ void main() {
         result.message,
         "Backup couldn't save your changes. Check backup is turned on for this account, then try again.",
       );
-      expect(account.bootstrapStatus, BootstrapStatus.error);
+      // A rejected upload keeps its reason but is not a setup failure.
+      expect(account.bootstrapStatus, BootstrapStatus.ready);
       expect(account.lastSyncError, result.message);
+      expect(account.lastSyncAt, isNull);
     });
 
     test(

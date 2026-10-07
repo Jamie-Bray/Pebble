@@ -43,10 +43,16 @@ class RoutineSessionDao extends DatabaseAccessor<LocalDb>
         .get();
   }
 
+  /// Prunes finished (completed or discarded) sessions last touched before
+  /// [cutoff]. An active session is someone's routine in progress, however
+  /// old, so it is never removed here.
   Future<void> deleteSessionsOlderThan(DateTime cutoff) {
-    return (delete(
-      routineSessions,
-    )..where((tbl) => tbl.updatedAt.isSmallerThanValue(cutoff))).go();
+    return (delete(routineSessions)..where(
+          (tbl) =>
+              tbl.updatedAt.isSmallerThanValue(cutoff) &
+              tbl.status.equals('active').not(),
+        ))
+        .go();
   }
 
   Future<List<RoutineSessionRow>> getAllSessions() {

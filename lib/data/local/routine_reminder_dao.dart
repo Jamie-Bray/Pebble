@@ -145,7 +145,6 @@ class RoutineReminderDao extends DatabaseAccessor<LocalDb>
         ownerUserId: Value(ownerUserId),
         syncStatus: const Value('synced'),
         lastSyncedAt: Value(syncedAt),
-        updatedAt: Value(syncedAt),
       ),
     );
   }

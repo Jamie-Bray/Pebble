@@ -690,6 +690,7 @@ class _PebbleAppState extends ConsumerState<PebbleApp>
       ref.read(purchaseRepositoryProvider);
       await ref.read(routineRepositoryProvider).normalizeLegacyRoutineIcons();
       await ref.read(routineRunRepositoryProvider).enforceRetentionPolicy();
+      ref.read(cloudSyncCoordinatorProvider).setAppInForeground(true);
       await ref.read(cloudSyncCoordinatorProvider).kick();
     });
   }
@@ -703,8 +704,13 @@ class _PebbleAppState extends ConsumerState<PebbleApp>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      ref.read(cloudSyncCoordinatorProvider).setAppInForeground(true);
       unawaited(_refreshPurchasesAndCloudAccess());
       ref.read(routineRunRepositoryProvider).enforceRetentionPolicy();
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      // The periodic retry only runs while Pebble is on screen.
+      ref.read(cloudSyncCoordinatorProvider).setAppInForeground(false);
     }
   }
 

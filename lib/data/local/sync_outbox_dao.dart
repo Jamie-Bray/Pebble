@@ -29,16 +29,39 @@ class SyncOutboxDao extends DatabaseAccessor<LocalDb>
         .getSingleOrNull();
   }
 
-  Future<void> refreshPendingItem({required String id, String? payloadJson}) {
-    return (update(syncOutbox)..where((tbl) => tbl.id.equals(id))).write(
+  /// A newer change to a row that is already queued. The failure count is
+  /// kept, so a row that keeps failing still reaches "needs attention"; only
+  /// the backoff is cleared so the new change goes up straight away.
+  ///
+  /// [updatedAt] always moves forward by at least a second (dates are stored
+  /// to the second), so a pass uploading the older copy can tell the row
+  /// changed underneath it and keeps it queued.
+  Future<void> refreshPendingItem({
+    required SyncOutboxRow existing,
+    String? payloadJson,
+  }) {
+    final now = DateTime.now();
+    final bumped = existing.updatedAt.add(const Duration(seconds: 1));
+    return (update(
+      syncOutbox,
+    )..where((tbl) => tbl.id.equals(existing.id))).write(
       SyncOutboxCompanion(
         payloadJson: Value(payloadJson),
-        attemptCount: const Value(0),
         nextAttemptAt: const Value(null),
-        lastErrorSummary: const Value(null),
-        updatedAt: Value(DateTime.now()),
+        updatedAt: Value(now.isAfter(bumped) ? now : bumped),
       ),
     );
+  }
+
+  /// Removes a finished row only if nothing re-queued it while it was being
+  /// uploaded. Returns whether the row was removed.
+  Future<bool> deleteItemIfUnchanged(String id, DateTime updatedAt) async {
+    final removed =
+        await (delete(syncOutbox)..where(
+              (tbl) => tbl.id.equals(id) & tbl.updatedAt.equals(updatedAt),
+            ))
+            .go();
+    return removed > 0;
   }
 
   Future<List<SyncOutboxRow>> dueItems(DateTime now) {
@@ -73,16 +96,12 @@ class SyncOutboxDao extends DatabaseAccessor<LocalDb>
     return (delete(syncOutbox)..where((tbl) => tbl.id.equals(id))).go();
   }
 
-  /// Clears the retry backoff on every queued item so a user-initiated sync
-  /// gives long-failing items a fresh run of automatic retries.
+  /// Makes every queued item due now, for a user-initiated "Back up now".
+  /// Failure counts are kept so a change that still fails stays flagged.
   Future<void> resetRetrySchedules() {
-    return update(syncOutbox).write(
-      SyncOutboxCompanion(
-        attemptCount: const Value(0),
-        nextAttemptAt: const Value(null),
-        updatedAt: Value(DateTime.now()),
-      ),
-    );
+    return update(
+      syncOutbox,
+    ).write(const SyncOutboxCompanion(nextAttemptAt: Value(null)));
   }
 
   Future<void> updateRetry({

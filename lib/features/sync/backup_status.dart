@@ -1,10 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/features/account_backup/providers/account_backup_ui_provider.dart';
 import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
 import 'package:pebble_routines/features/sync/cloud_sync_coordinator.dart';
+import 'package:pebble_routines/features/sync/sync_outbox_repository.dart';
 
 /// The one answer to "is my stuff backed up?".
 ///
@@ -50,6 +52,8 @@ class BackupStatus {
     this.lastBackedUpAt,
     this.offline = false,
     this.problem,
+    this.failingCount = 0,
+    this.nextRetryAt,
   });
 
   final BackupPhase phase;
@@ -58,6 +62,9 @@ class BackupStatus {
   final int pendingCount;
 
   /// When a backup pass last finished with nothing left failing.
+  ///
+  /// Set only when a pass ends with nothing failed and nothing left waiting;
+  /// never by a restore or by a pass that left work behind.
   final DateTime? lastBackedUpAt;
 
   /// The waiting is because the phone is offline.
@@ -65,6 +72,13 @@ class BackupStatus {
 
   /// A short, plain sentence for [BackupPhase.needsAttention].
   final String? problem;
+
+  /// Waiting changes whose last upload attempt failed (see
+  /// [backupFailuresProvider] for the details).
+  final int failingCount;
+
+  /// When Pebble will next try the waiting changes by itself, if known.
+  final DateTime? nextRetryAt;
 
   /// Backup is switched on for this account (whatever it's doing now).
   bool get isOn => switch (phase) {
@@ -129,11 +143,20 @@ class BackupStatus {
       other.pendingCount == pendingCount &&
       other.lastBackedUpAt == lastBackedUpAt &&
       other.offline == offline &&
-      other.problem == problem;
+      other.problem == problem &&
+      other.failingCount == failingCount &&
+      other.nextRetryAt == nextRetryAt;
 
   @override
-  int get hashCode =>
-      Object.hash(phase, pendingCount, lastBackedUpAt, offline, problem);
+  int get hashCode => Object.hash(
+    phase,
+    pendingCount,
+    lastBackedUpAt,
+    offline,
+    problem,
+    failingCount,
+    nextRetryAt,
+  );
 }
 
 /// "just now", "4 min ago", "3 h ago", "yesterday", "6 Oct".
@@ -163,6 +186,11 @@ String relativeAgo(DateTime at, DateTime now) {
 
 /// Maps the detailed access/runtime state onto [BackupStatus]. Pure, so the
 /// rules are easy to test.
+///
+/// [stuckCount] is the number of waiting changes that have failed
+/// [SyncOutboxRepositoryImpl.stuckAttemptThreshold] times in a row (Pebble
+/// keeps retrying them, but the person should know). [failingCount] counts
+/// waiting changes whose last attempt failed at all.
 BackupStatus resolveBackupStatus({
   required PersonalCloudAccessStatus access,
   required bool isRunning,
@@ -170,8 +198,12 @@ BackupStatus resolveBackupStatus({
   required int stuckCount,
   required DateTime? lastBackedUpAt,
   required String? lastError,
+  int failingCount = 0,
+  DateTime? nextRetryAt,
 }) {
-  final offline = looksOfflineError(lastError);
+  final offline =
+      looksOfflineError(lastError) ||
+      access == PersonalCloudAccessStatus.offlinePending;
   switch (access) {
     case PersonalCloudAccessStatus.offFree:
     case PersonalCloudAccessStatus.offSignedInNoEntitlement:
@@ -214,13 +246,18 @@ BackupStatus resolveBackupStatus({
       phase: BackupPhase.backingUp,
       pendingCount: pendingCount,
       lastBackedUpAt: lastBackedUpAt,
+      failingCount: failingCount,
     );
   }
-  if (stuckCount > 0) {
+  // Repeated failures while offline are just the phone being offline: they
+  // clear by themselves once it reconnects, so they don't need the person.
+  if (stuckCount > 0 && !offline) {
     return BackupStatus(
       phase: BackupPhase.needsAttention,
       pendingCount: pendingCount,
       lastBackedUpAt: lastBackedUpAt,
+      failingCount: failingCount,
+      nextRetryAt: nextRetryAt,
       problem:
           "$stuckCount ${stuckCount == 1 ? 'change' : 'changes'} couldn't back up · tap to retry",
     );
@@ -231,6 +268,8 @@ BackupStatus resolveBackupStatus({
       pendingCount: pendingCount,
       lastBackedUpAt: lastBackedUpAt,
       offline: offline,
+      failingCount: failingCount,
+      nextRetryAt: nextRetryAt,
     );
   }
   if (access == PersonalCloudAccessStatus.error) {
@@ -267,7 +306,99 @@ bool looksOfflineError(String? error) {
       lower.contains('host lookup');
 }
 
-/// The single backup status every screen reads.
+/// One waiting change whose upload has failed, for a "Details" view.
+@immutable
+class BackupFailure {
+  const BackupFailure({
+    required this.entityType,
+    required this.entityId,
+    required this.attempts,
+    required this.errorSummary,
+    required this.nextAttemptAt,
+  });
+
+  final SyncEntityType entityType;
+  final String entityId;
+
+  /// Failed attempts in a row.
+  final int attempts;
+
+  /// The stored error (type and message). Technical: for a details sheet or
+  /// a support email, not for headline copy.
+  final String? errorSummary;
+
+  /// When Pebble will try this change again by itself.
+  final DateTime? nextAttemptAt;
+
+  /// Reached the "needs attention" threshold.
+  bool get isStuck =>
+      attempts >= SyncOutboxRepositoryImpl.stuckAttemptThreshold;
+
+  /// What kind of change this is, in plain words.
+  String get label => switch (entityType) {
+    SyncEntityType.routine => 'Routine',
+    SyncEntityType.reminder => 'Reminder',
+    SyncEntityType.run => 'Completed run',
+    SyncEntityType.session => 'Routine in progress',
+    SyncEntityType.proofAsset => 'Proof photo',
+    SyncEntityType.guidanceAudio => 'Voice prompt',
+  };
+
+  @override
+  bool operator ==(Object other) =>
+      other is BackupFailure &&
+      other.entityType == entityType &&
+      other.entityId == entityId &&
+      other.attempts == attempts &&
+      other.errorSummary == errorSummary &&
+      other.nextAttemptAt == nextAttemptAt;
+
+  @override
+  int get hashCode =>
+      Object.hash(entityType, entityId, attempts, errorSummary, nextAttemptAt);
+}
+
+SyncEntityType _entityTypeFromName(String name) =>
+    SyncEntityType.values.firstWhere(
+      (value) => value.name == name,
+      orElse: () => SyncEntityType.routine,
+    );
+
+/// Waiting changes whose last upload attempt failed, most failures first.
+final backupFailuresProvider = StreamProvider<List<BackupFailure>>((ref) {
+  final db = ref.watch(localDbProvider);
+  return db.syncOutboxDao.watchItems().map((rows) {
+    final failures = [
+      for (final row in rows)
+        if (row.attemptCount > 0)
+          BackupFailure(
+            entityType: _entityTypeFromName(row.entityType),
+            entityId: row.entityId,
+            attempts: row.attemptCount,
+            errorSummary: row.lastErrorSummary,
+            nextAttemptAt: row.nextAttemptAt,
+          ),
+    ]..sort((a, b) => b.attempts.compareTo(a.attempts));
+    return failures;
+  });
+});
+
+/// `"<entityType>:<entityId>"` for every change still waiting to back up,
+/// so a list can tell a row that is marked synced but edited since apart
+/// from one that is really in the backup.
+final pendingBackupKeysProvider = StreamProvider<Set<String>>((ref) {
+  final db = ref.watch(localDbProvider);
+  return db.syncOutboxDao.watchItems().map(
+    (rows) => {
+      for (final row in rows)
+        if (row.operation != SyncOperation.delete.name)
+          '${row.entityType}:${row.entityId}',
+    },
+  );
+});
+
+/// The single backup status every screen reads. To back up now, call
+/// `ref.read(cloudSyncCoordinatorProvider).backUpNow()`.
 final backupStatusProvider = Provider<BackupStatus>((ref) {
   final access = ref.watch(effectivePersonalCloudStatusProvider);
   final runtime = ref.watch(cloudSyncRuntimeStateProvider);
@@ -278,6 +409,9 @@ final backupStatusProvider = Provider<BackupStatus>((ref) {
   final stuck = ref
       .watch(stuckSyncCountProvider)
       .maybeWhen(data: (value) => value, orElse: () => 0);
+  final failing = ref
+      .watch(backupFailuresProvider)
+      .maybeWhen(data: (value) => value.length, orElse: () => 0);
   return resolveBackupStatus(
     access: access,
     isRunning: runtime.isRunning,
@@ -285,5 +419,7 @@ final backupStatusProvider = Provider<BackupStatus>((ref) {
     stuckCount: stuck,
     lastBackedUpAt: account.lastSyncAt,
     lastError: account.lastSyncError,
+    failingCount: failing,
+    nextRetryAt: runtime.nextRetryAt,
   );
 });

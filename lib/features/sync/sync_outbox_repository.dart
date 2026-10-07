@@ -54,9 +54,26 @@ abstract class SyncOutboxRepository {
     Map<String, dynamic>? payload,
   });
 
+  /// Queues the item only when it is not queued already. Unlike [enqueue] it
+  /// never touches an existing row, so sweeps (restore, the per-pass
+  /// baseline) cannot reset a failing row's backoff.
+  Future<void> ensureQueued({
+    required SyncEntityType entityType,
+    required String entityId,
+    required SyncOperation operation,
+  });
+
   Future<List<SyncOutboxItem>> pendingItems();
   Future<List<SyncOutboxItem>> dueItems();
   Future<void> markComplete(String id);
+
+  /// Removes [item] once it is backed up, unless it was re-queued while it
+  /// was uploading (a newer edit). Returns whether it was removed.
+  Future<bool> completeIfUnchanged(SyncOutboxItem item);
+
+  /// Parks [id] for a short while without counting a failure, for an item
+  /// that is waiting on another one (a reminder waiting for its routine).
+  Future<void> defer(String id, String reason);
   Future<void> markRetry(String id, Object error, int attemptCount);
   Future<void> resetRetrySchedule();
 }
@@ -64,10 +81,27 @@ abstract class SyncOutboxRepository {
 class SyncOutboxRepositoryImpl implements SyncOutboxRepository {
   SyncOutboxRepositoryImpl(this._db);
 
-  /// Attempts after which automatic retries effectively stop (the next
-  /// attempt is parked a year out). Items at or past this are "stuck" and
-  /// only revived by a user-initiated sync.
-  static const stuckAttemptThreshold = 20;
+  /// Failures in a row after which an item counts as "stuck" and backup
+  /// asks for attention. Pebble keeps retrying it in the background (see
+  /// [retryDelayFor]); it is never parked for good.
+  static const stuckAttemptThreshold = 5;
+
+  /// The longest wait between automatic retries of a failing item.
+  static const maxRetryDelay = Duration(minutes: 30);
+
+  /// Wait before the retry after failure number [attemptCount]: 15 s, 30 s
+  /// … 75 s for the first five failures, then doubling up to
+  /// [maxRetryDelay].
+  static Duration retryDelayFor(int attemptCount) {
+    final attempts = attemptCount < 1 ? 1 : attemptCount;
+    if (attempts <= 5) return Duration(seconds: attempts * 15);
+    final doublings = (attempts - 5).clamp(0, 10);
+    final delay = Duration(seconds: 75 * (1 << doublings));
+    return delay > maxRetryDelay ? maxRetryDelay : delay;
+  }
+
+  /// How long a deferred item waits before it is tried again.
+  static const deferDelay = Duration(seconds: 20);
 
   static const _uuid = Uuid();
   final LocalDb _db;
@@ -104,7 +138,7 @@ class SyncOutboxRepositoryImpl implements SyncOutboxRepository {
     );
     if (existing != null) {
       await _db.syncOutboxDao.refreshPendingItem(
-        id: existing.id,
+        existing: existing,
         payloadJson: payloadJson,
       );
       return;
@@ -117,6 +151,35 @@ class SyncOutboxRepositoryImpl implements SyncOutboxRepository {
         entityId: entityId,
         operation: operation.name,
         payloadJson: payloadJson,
+        attemptCount: 0,
+        lastErrorSummary: null,
+        nextAttemptAt: null,
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+  }
+
+  @override
+  Future<void> ensureQueued({
+    required SyncEntityType entityType,
+    required String entityId,
+    required SyncOperation operation,
+  }) async {
+    final existing = await _db.syncOutboxDao.findMatchingPending(
+      entityType: entityType.name,
+      entityId: entityId,
+      operation: operation.name,
+    );
+    if (existing != null) return;
+    final now = DateTime.now();
+    await _db.syncOutboxDao.enqueue(
+      SyncOutboxRow(
+        id: _uuid.v4(),
+        entityType: entityType.name,
+        entityId: entityId,
+        operation: operation.name,
+        payloadJson: null,
         attemptCount: 0,
         lastErrorSummary: null,
         nextAttemptAt: null,
@@ -142,16 +205,40 @@ class SyncOutboxRepositoryImpl implements SyncOutboxRepository {
   Future<void> markComplete(String id) => _db.syncOutboxDao.deleteItem(id);
 
   @override
+  Future<bool> completeIfUnchanged(SyncOutboxItem item) =>
+      _db.syncOutboxDao.deleteItemIfUnchanged(item.id, item.updatedAt);
+
+  @override
   Future<void> markRetry(String id, Object error, int attemptCount) {
-    final nextAttemptAt = attemptCount >= stuckAttemptThreshold
-        ? DateTime.now().add(const Duration(days: 365))
-        : DateTime.now().add(Duration(seconds: attemptCount.clamp(1, 5) * 15));
     return _db.syncOutboxDao.updateRetry(
       id: id,
       attemptCount: attemptCount,
-      nextAttemptAt: nextAttemptAt,
-      lastErrorSummary: error.toString(),
+      nextAttemptAt: DateTime.now().add(retryDelayFor(attemptCount)),
+      lastErrorSummary: summarizeError(error),
     );
+  }
+
+  @override
+  Future<void> defer(String id, String reason) async {
+    final row = await (_db.select(
+      _db.syncOutbox,
+    )..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
+    if (row == null) return;
+    await _db.syncOutboxDao.updateRetry(
+      id: id,
+      attemptCount: row.attemptCount,
+      nextAttemptAt: DateTime.now().add(deferDelay),
+      lastErrorSummary: reason,
+    );
+  }
+
+  /// The stored error: its type and message, trimmed so one huge server
+  /// response cannot bloat the outbox.
+  static String summarizeError(Object error) {
+    final text = error.toString();
+    final type = error.runtimeType.toString();
+    final typed = text.startsWith(type) ? text : '$type: $text';
+    return typed.length <= 500 ? typed : '${typed.substring(0, 497)}...';
   }
 
   @override

@@ -162,7 +162,7 @@ void main() {
     );
 
     test(
-      'does not queue personal sync with only locally cached consent',
+      'queues on the phone but does not upload with only locally cached consent',
       () async {
         final database = LocalDb.forTesting(NativeDatabase.memory());
         addTearDown(database.close);
@@ -226,7 +226,10 @@ void main() {
 
         final policy = container.read(cloudAccessPolicyProvider);
 
-        expect(policy.canQueuePersonalSync, isFalse);
+        // Queueing is local bookkeeping, so it opens with local consent;
+        // uploads still wait for this session's server confirmation.
+        expect(policy.canQueuePersonalSync, isTrue);
+        expect(policy.personalCloudEnabled, isFalse);
         expect(policy.canUploadCloudChanges, isFalse);
       },
     );
