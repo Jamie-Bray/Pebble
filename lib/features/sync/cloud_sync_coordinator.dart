@@ -240,10 +240,20 @@ class CloudSyncCoordinator {
         );
       }
       // "Back up now" during an automatic pass: let it finish, then run a
-      // pass of our own so nothing saved in between is missed.
+      // pass of our own so nothing saved in between is missed. The wait is
+      // capped so the button never spins for ever behind a stalled pass.
+      final waitUntil = DateTime.now().add(manualWaitLimit);
       while (_activePass != null) {
+        final remaining = waitUntil.difference(DateTime.now());
+        if (remaining <= Duration.zero) {
+          _rerunRequested = true;
+          return const ManualSyncResult(
+            type: ManualSyncResultType.partialRetryScheduled,
+            message: 'Pebble is still backing up. It will carry on by itself.',
+          );
+        }
         try {
-          await _activePass;
+          await _activePass!.timeout(remaining);
         } catch (_) {}
       }
     }
@@ -288,6 +298,23 @@ class CloudSyncCoordinator {
   /// Most rounds one pass makes over newly due work (edits saved during the
   /// pass, items another item queued) before leaving the rest to a timer.
   static const _maxRoundsPerPass = 5;
+
+  /// Longest "Back up now" waits for a pass that is already running.
+  static const manualWaitLimit = Duration(minutes: 2);
+
+  /// Longest a single row write to the server may take before it counts as
+  /// failed (and retries), so a stalled connection cannot hang a pass.
+  static const rowWriteTimeout = Duration(seconds: 30);
+
+  /// Longest a single file upload (photo, voice prompt) may take.
+  static const fileUploadTimeout = Duration(seconds: 90);
+
+  /// Routines uploaded (or tried) in the current pass.
+  final Set<int> _routinesTriedThisPass = {};
+
+  Future<T> _row<T>(Future<T> call) => call.timeout(rowWriteTimeout);
+
+  Future<T> _file<T>(Future<T> call) => call.timeout(fileUploadTimeout);
 
   Future<ManualSyncResult> _runPass({required bool userInitiated}) async {
     final auth = _ref.read(authSessionProvider);
@@ -381,8 +408,10 @@ class CloudSyncCoordinator {
     var sawOfflineError = false;
     String? lastFailureMessage;
     final failedIds = <String>{};
+    _routinesTriedThisPass.clear();
 
     _isRunning = true;
+    var finished = false;
     try {
       for (var round = 0; round < _maxRoundsPerPass; round++) {
         _rerunRequested = false;
@@ -406,7 +435,11 @@ class CloudSyncCoordinator {
             await _outbox.completeIfUnchanged(item);
             syncedCount += 1;
           } on _DeferredSyncItem catch (deferred) {
-            await _outbox.defer(item.id, deferred.reason);
+            await _outbox.defer(
+              item.id,
+              deferred.reason,
+              until: deferred.until,
+            );
             failedIds.add(item.id);
           } catch (error, stackTrace) {
             developer.log(
@@ -425,8 +458,16 @@ class CloudSyncCoordinator {
           }
         }
       }
+      finished = true;
     } finally {
       _isRunning = false;
+      if (!finished) {
+        // Something below the item level threw (for example the local
+        // database). Never leave the status saying "backing up".
+        try {
+          await _refreshRuntimeState();
+        } catch (_) {}
+      }
     }
 
     final remaining = await _outbox.pendingItems();
@@ -682,7 +723,7 @@ class CloudSyncCoordinator {
     if (item.operation == SyncOperation.delete) {
       final cloudId = item.payload?['cloudId']?.toString();
       if (cloudId != null && cloudId.isNotEmpty) {
-        await _remoteRoutineDataSource.delete(_toSupabaseUuid(cloudId));
+        await _row(_remoteRoutineDataSource.delete(_toSupabaseUuid(cloudId)));
       }
       return;
     }
@@ -695,6 +736,7 @@ class CloudSyncCoordinator {
   }
 
   Future<void> _uploadRoutine(Routine routine, String ownerUserId) async {
+    _routinesTriedThisPass.add(routine.id);
     // Voice prompts go up first so the routine row carries their remote keys.
     // A clip that fails must not hold back the routine itself: it moves to
     // its own outbox item, which retries with the usual backoff.
@@ -709,19 +751,37 @@ class CloudSyncCoordinator {
     }
   }
 
-  /// Makes sure [routine] is on the server, uploading it now if it never
-  /// went up. Returns the routine as stored after that, or null when the
-  /// upload failed (the routine stays queued and retries by itself).
-  Future<Routine?> _ensureRoutineBackedUp(
+  /// Makes sure the server has [routine] before one of its reminders goes
+  /// up (routine_reminders.routine_id references routines.id). Returns the
+  /// routine as stored, or throws [_DeferredSyncItem] so the reminder waits
+  /// for the routine without counting a failure.
+  ///
+  /// A routine is uploaded inline at most once per pass, and never while its
+  /// own outbox row is backing off, so a routine that keeps failing cannot
+  /// make every reminder retry it on every pass.
+  Future<Routine> _routineReadyForReminder(
     Routine routine,
     String ownerUserId,
   ) async {
-    if (_isRoutineBackedUp(routine)) return routine;
+    // Uploaded at least once under this account: the server has the row, so
+    // the reference is valid even if a newer edit is still waiting.
+    if (_isRoutineOnServer(routine)) return routine;
+    final waitingMessage = 'Waiting for routine ${routine.id} to back up first';
     await _outbox.ensureQueued(
       entityType: SyncEntityType.routine,
       entityId: routine.id.toString(),
       operation: SyncOperation.upsert,
     );
+    final queued = await _outbox.findQueued(
+      entityType: SyncEntityType.routine,
+      entityId: routine.id.toString(),
+      operation: SyncOperation.upsert,
+    );
+    final backingOffUntil = queued?.nextAttemptAt;
+    if (_routinesTriedThisPass.contains(routine.id) ||
+        (backingOffUntil != null && backingOffUntil.isAfter(DateTime.now()))) {
+      throw _DeferredSyncItem(waitingMessage, until: backingOffUntil);
+    }
     try {
       await _uploadRoutine(routine, ownerUserId);
     } catch (error) {
@@ -730,10 +790,32 @@ class CloudSyncCoordinator {
         '(${error.runtimeType}): $error',
         name: 'CloudSyncCoordinator',
       );
-      return null;
+      // Count it against the routine's own row, so its backoff grows.
+      DateTime? retryAt;
+      if (queued != null) {
+        await _outbox.markRetry(queued.id, error, queued.attemptCount + 1);
+        retryAt = (await _outbox.findQueued(
+          entityType: SyncEntityType.routine,
+          entityId: routine.id.toString(),
+          operation: SyncOperation.upsert,
+        ))?.nextAttemptAt;
+      }
+      throw _DeferredSyncItem(waitingMessage, until: retryAt);
+    }
+    if (queued != null) {
+      await _outbox.completeIfUnchanged(queued);
     }
     return await _database.routineDao.getRoutineById(routine.id) ?? routine;
   }
+
+  /// The server has a copy of this routine (it may be older than the local
+  /// one).
+  bool _isRoutineOnServer(Routine routine) =>
+      routine.cloudId != null &&
+      routine.cloudId!.trim().isNotEmpty &&
+      routine.ownerUserId != null &&
+      routine.ownerUserId!.trim().isNotEmpty &&
+      routine.lastSyncedAt != null;
 
   Future<void> _upsertRoutine(Routine routine, String ownerUserId) async {
     final cloudId = await _routineCloudId(routine);
@@ -750,7 +832,7 @@ class CloudSyncCoordinator {
       'created_at': routine.createdAt.toUtc().toIso8601String(),
       'updated_at': routine.updatedAt.toUtc().toIso8601String(),
     };
-    await _remoteRoutineDataSource.upsert(payload);
+    await _row(_remoteRoutineDataSource.upsert(payload));
     await _database.routineDao.markRoutineSynced(
       id: routine.id,
       cloudId: cloudId,
@@ -770,7 +852,7 @@ class CloudSyncCoordinator {
       final fileName = p.basename(objectKey);
       final activePaths = await _activeGuidanceAudioPaths();
       if (activePaths.any((path) => p.basename(path) == fileName)) return;
-      await _guidanceAudioBackup.deleteRemote(objectKey);
+      await _file(_guidanceAudioBackup.deleteRemote(objectKey));
       return;
     }
 
@@ -794,26 +876,32 @@ class CloudSyncCoordinator {
     Routine routine,
     String ownerUserId,
   ) async {
-    final result = await _guidanceAudioBackup.uploadPending(
-      stepsJson: routine.stepsJson,
-      ownerUserId: ownerUserId,
-      entityId: await _routineCloudId(routine),
-    );
+    // Several clips can go up in one call, so it gets a few file windows.
+    final result = await _guidanceAudioBackup
+        .uploadPending(
+          stepsJson: routine.stepsJson,
+          ownerUserId: ownerUserId,
+          entityId: await _routineCloudId(routine),
+        )
+        .timeout(fileUploadTimeout * 4);
     if (result.uploadedKeys.isEmpty) {
       return (routine: routine, failure: result.failure);
     }
     // Re-read so an edit saved while the clips were uploading is kept.
-    final latest =
-        await _database.routineDao.getRoutineById(routine.id) ?? routine;
-    final updated = latest.copyWith(
-      stepsJson: GuidanceAudioCloudBackup.applyRemoteKeys(
-        latest.stepsJson,
-        result.uploadedKeys,
-      ),
-      // Newer, so other devices take the keyed copy when they merge.
-      updatedAt: DateTime.now(),
-    );
-    await _database.routineDao.insertOrUpdateRoutine(updated);
+    final updated = await _database.transaction(() async {
+      final latest =
+          await _database.routineDao.getRoutineById(routine.id) ?? routine;
+      final keyed = latest.copyWith(
+        stepsJson: GuidanceAudioCloudBackup.applyRemoteKeys(
+          latest.stepsJson,
+          result.uploadedKeys,
+        ),
+        // Newer, so other devices take the keyed copy when they merge.
+        updatedAt: DateTime.now(),
+      );
+      await _database.routineDao.insertOrUpdateRoutine(keyed);
+      return keyed;
+    });
     return (routine: updated, failure: result.failure);
   }
 
@@ -824,7 +912,7 @@ class CloudSyncCoordinator {
     if (item.operation == SyncOperation.delete) {
       final cloudId = item.payload?['cloudId']?.toString();
       if (cloudId != null && cloudId.isNotEmpty) {
-        await _remoteReminderDataSource.delete(_toSupabaseUuid(cloudId));
+        await _row(_remoteReminderDataSource.delete(_toSupabaseUuid(cloudId)));
       }
       return;
     }
@@ -847,24 +935,21 @@ class CloudSyncCoordinator {
     // The server only accepts a reminder whose routine is already backed up
     // (routine_reminders.routine_id references routines.id). A routine that
     // never went up would make this fail forever, so send the routine first.
-    final latestRoutine = await _ensureRoutineBackedUp(routine, ownerUserId);
-    if (latestRoutine == null) {
-      throw _DeferredSyncItem(
-        'Waiting for routine ${routine.id} to back up first',
-      );
-    }
+    final latestRoutine = await _routineReadyForReminder(routine, ownerUserId);
     final routineCloudId = await _routineCloudId(latestRoutine);
     final cloudId = await _reminderCloudId(reminder);
-    await _remoteReminderDataSource.upsert({
-      'id': cloudId,
-      'owner_user_id': ownerUserId,
-      'routine_id': routineCloudId,
-      'day_of_week': reminder.dayOfWeek,
-      'time': reminder.time,
-      'is_enabled': reminder.isEnabled,
-      'created_at': reminder.createdAt.toUtc().toIso8601String(),
-      'updated_at': reminder.updatedAt.toUtc().toIso8601String(),
-    });
+    await _row(
+      _remoteReminderDataSource.upsert({
+        'id': cloudId,
+        'owner_user_id': ownerUserId,
+        'routine_id': routineCloudId,
+        'day_of_week': reminder.dayOfWeek,
+        'time': reminder.time,
+        'is_enabled': reminder.isEnabled,
+        'created_at': reminder.createdAt.toUtc().toIso8601String(),
+        'updated_at': reminder.updatedAt.toUtc().toIso8601String(),
+      }),
+    );
     await _database.routineReminderDao.markReminderSynced(
       reminderId: reminder.id,
       cloudId: cloudId,
@@ -875,7 +960,7 @@ class CloudSyncCoordinator {
 
   Future<void> _syncRunItem(SyncOutboxItem item, String ownerUserId) async {
     if (item.operation == SyncOperation.delete) {
-      await _remoteRunDataSource.delete(_toSupabaseUuid(item.entityId));
+      await _row(_remoteRunDataSource.delete(_toSupabaseUuid(item.entityId)));
       return;
     }
 
@@ -883,7 +968,10 @@ class CloudSyncCoordinator {
     if (run == null) return;
 
     final proofs = await _uploadRunProofs(run, ownerUserId);
-    await _upsertRun(proofs.run, ownerUserId);
+    final latest = proofs.run;
+    // Deleted while its photos were uploading: the delete item handles it.
+    if (latest == null) return;
+    await _upsertRun(latest, ownerUserId);
     if (proofs.waitingPhotos > 0) {
       // A photo held back (for example by the upload allowance) goes up on
       // a later pass without holding back the run itself.
@@ -903,8 +991,10 @@ class CloudSyncCoordinator {
     final run = await _database.routineRunDao.getRunById(item.entityId);
     if (run == null) return;
     final proofs = await _uploadRunProofs(run, ownerUserId);
-    if (!identical(proofs.run, run)) {
-      await _upsertRun(proofs.run, ownerUserId);
+    final latest = proofs.run;
+    if (latest == null) return;
+    if (latest.stepCompletionData != run.stepCompletionData) {
+      await _upsertRun(latest, ownerUserId);
     }
     if (proofs.waitingPhotos > 0) {
       throw StateError(
@@ -930,7 +1020,7 @@ class CloudSyncCoordinator {
       'step_completion_data': syncedRun.stepCompletionData,
       'updated_at': syncedRun.updatedAt.toUtc().toIso8601String(),
     };
-    await _remoteRunDataSource.upsert(payload);
+    await _row(_remoteRunDataSource.upsert(payload));
     await _database.routineRunDao.markRunSynced(
       id: syncedRun.id,
       ownerUserId: ownerUserId,
@@ -954,180 +1044,250 @@ class CloudSyncCoordinator {
 
   Future<void> _syncSessionItem(SyncOutboxItem item, String ownerUserId) async {
     if (item.operation == SyncOperation.delete) {
-      await _remoteSessionDataSource.delete(_toSupabaseUuid(item.entityId));
+      await _row(
+        _remoteSessionDataSource.delete(_toSupabaseUuid(item.entityId)),
+      );
       return;
     }
 
     final row = await _database.routineSessionDao.getSessionById(item.entityId);
     if (row == null) return;
     final session = _sessionFromRow(row);
-    final syncedSession = await _uploadSessionProofs(session, ownerUserId);
+    final photos = await _uploadProofs(
+      session.stepStates.expand((state) => state.proofAssets),
+      ownerUserId: ownerUserId,
+      entityType: 'sessions',
+      entityId: session.sessionId,
+    );
+    // What goes up is the session as it was read, with any new photo keys.
+    final uploadedSession = photos.uploads.isEmpty
+        ? session
+        : session.copyWith(
+            ownerUserId: ownerUserId,
+            stepStates: [
+              for (final state in session.stepStates)
+                state.copyWith(
+                  proofAssets: [
+                    for (final asset in state.proofAssets)
+                      _withUpload(asset, photos.uploads[asset.proofId]),
+                  ],
+                ),
+            ],
+          );
     // A session taken over from another account carries its own cloud id
     // (see LocalDataOwnershipGuard); every other session uses its local id.
     final remoteSessionId = _toSupabaseUuid(
       session.syncMetadata?.remoteSessionId ?? session.sessionId,
     );
-    final remotePayload = {
-      'id': remoteSessionId,
-      'owner_user_id': ownerUserId,
-      'payload_json': syncedSession.toJson(),
-      'updated_at': syncedSession.updatedAt.toUtc().toIso8601String(),
-    };
-    await _remoteSessionDataSource.upsert(remotePayload);
-    final syncedMetadata =
-        (syncedSession.syncMetadata ??
-                const RoutineSessionSyncMetadata(needsSync: false))
-            .copyWith(
-              needsSync: false,
-              remoteSessionId: remoteSessionId,
-              lastSyncedAt: DateTime.now(),
-              lastSyncAttemptAt: DateTime.now(),
-            );
-    await _database.routineSessionDao.insertOrUpdateSession(
-      RoutineSessionRow(
-        sessionId: row.sessionId,
-        routineId: row.routineId,
-        routineTitleSnapshot: row.routineTitleSnapshot,
-        workspaceId: row.workspaceId,
+    await _row(
+      _remoteSessionDataSource.upsert({
+        'id': remoteSessionId,
+        'owner_user_id': ownerUserId,
+        'payload_json': uploadedSession.toJson(),
+        'updated_at': uploadedSession.updatedAt.toUtc().toIso8601String(),
+      }),
+    );
+
+    // Record the backup on the row as it is NOW. The person may have checked
+    // a step, finished, discarded, or had a caption written while this was
+    // uploading: the sync path only ever adds backup fields (owner, photo
+    // keys, sync metadata) and never puts back status, steps or captions.
+    final changedMeanwhile = await _database.transaction(() async {
+      final latest = await _database.routineSessionDao.getSessionById(
+        row.sessionId,
+      );
+      if (latest == null) return false;
+      final changed =
+          latest.updatedAt != row.updatedAt ||
+          latest.status != row.status ||
+          latest.stepStatesJson != row.stepStatesJson;
+      var stepStatesJson = latest.stepStatesJson;
+      if (photos.uploads.isNotEmpty) {
+        final decoded = jsonDecode(latest.stepStatesJson);
+        if (decoded is List && _applyProofUploads(decoded, photos.uploads)) {
+          stepStatesJson = jsonEncode(decoded);
+        }
+      }
+      final now = DateTime.now();
+      final metadata = _sessionMetadata(latest.syncMetadataJson).copyWith(
+        needsSync: changed || photos.waiting > 0,
+        remoteSessionId: remoteSessionId,
+        lastSyncedAt: now,
+        lastSyncAttemptAt: now,
+      );
+      await _database.routineSessionDao.updateSyncFields(
+        sessionId: latest.sessionId,
         ownerUserId: ownerUserId,
-        storageScope: row.storageScope,
-        startedAt: row.startedAt,
-        updatedAt: DateTime.now(),
-        status: row.status,
-        currentStepIndex: row.currentStepIndex,
-        totalStepCount: row.totalStepCount,
-        baseRoutineVersion: row.baseRoutineVersion,
-        stepStatesJson: jsonEncode(
-          syncedSession.stepStates.map((state) => state.toJson()).toList(),
+        stepStatesJson: stepStatesJson,
+        syncMetadataJson: jsonEncode(metadata.toJson()),
+      );
+      return changed;
+    });
+    if (changedMeanwhile) {
+      // Keep it queued: the newer copy goes up next.
+      await _outbox.enqueue(
+        entityType: SyncEntityType.session,
+        entityId: row.sessionId,
+        operation: SyncOperation.upsert,
+      );
+    }
+  }
+
+  RoutineSessionSyncMetadata _sessionMetadata(String? json) {
+    if (json == null || json.isEmpty) {
+      return const RoutineSessionSyncMetadata(needsSync: false);
+    }
+    try {
+      final decoded = jsonDecode(json);
+      if (decoded is Map) {
+        return RoutineSessionSyncMetadata.fromJson(
+          Map<String, dynamic>.from(decoded),
+        );
+      }
+    } catch (_) {}
+    return const RoutineSessionSyncMetadata(needsSync: false);
+  }
+
+  /// Uploads the photos in [assets] that have no backup under this account.
+  /// [uploads] holds each photo whose backup state changed, by proof id;
+  /// [waiting] counts photos held back for now (they can succeed on a later
+  /// pass). A photo whose file is gone is not counted as waiting.
+  Future<({Map<String, RoutineSessionProofAsset> uploads, int waiting})>
+  _uploadProofs(
+    Iterable<RoutineSessionProofAsset> assets, {
+    required String ownerUserId,
+    required String entityType,
+    required String entityId,
+  }) async {
+    final uploads = <String, RoutineSessionProofAsset>{};
+    var waiting = 0;
+    for (final asset in assets) {
+      if (_hasOwnBackup(asset, ownerUserId)) continue;
+      if (uploads.containsKey(asset.proofId)) continue;
+      final uploaded = await _file(
+        _proofStorage.uploadProofAsset(
+          asset: asset,
+          ownerUserId: ownerUserId,
+          entityType: entityType,
+          entityId: entityId,
         ),
-        routineSnapshotJson: row.routineSnapshotJson,
-        syncMetadataJson: jsonEncode(syncedMetadata.toJson()),
-        completedAt: row.completedAt,
-        discardedAt: row.discardedAt,
-      ),
+      );
+      if (uploaded.uploadStatus == ProofUploadStatus.pendingUpload) {
+        waiting += 1;
+      }
+      if (uploaded.uploadStatus != asset.uploadStatus ||
+          uploaded.remoteObjectKey != asset.remoteObjectKey) {
+        uploads[asset.proofId] = uploaded;
+      }
+    }
+    return (uploads: uploads, waiting: waiting);
+  }
+
+  /// [asset] with only its backup fields taken from [upload].
+  RoutineSessionProofAsset _withUpload(
+    RoutineSessionProofAsset asset,
+    RoutineSessionProofAsset? upload,
+  ) {
+    if (upload == null) return asset;
+    return asset.copyWith(
+      remoteObjectKey: upload.remoteObjectKey ?? asset.remoteObjectKey,
+      uploadStatus: upload.uploadStatus,
     );
   }
 
-  /// Uploads the run's photos that have no backup yet. [waitingPhotos]
-  /// counts photos still held back for now (they can succeed on a later
-  /// pass); a photo whose file is gone is not counted.
-  Future<({RoutineRun run, int waitingPhotos})> _uploadRunProofs(
-    RoutineRun run,
-    String ownerUserId,
-  ) async {
-    final raw = run.stepCompletionData;
-    if (raw == null || raw.isEmpty) {
-      return (run: run, waitingPhotos: 0);
-    }
-    final decoded = jsonDecode(raw);
-    if (decoded is! Map<String, dynamic>) {
-      return (run: run, waitingPhotos: 0);
-    }
-    final steps = (decoded['steps'] as List<dynamic>? ?? const []);
+  /// Writes upload results into decoded step JSON ([steps], each with a
+  /// `proofAssets` list), matching photos by proof id. Only the backup
+  /// fields change; captions and anything else on the photo are kept.
+  /// Returns whether anything changed.
+  static bool _applyProofUploads(
+    List<dynamic> steps,
+    Map<String, RoutineSessionProofAsset> uploads,
+  ) {
     var changed = false;
-    var waitingPhotos = 0;
-    final updatedSteps = <Map<String, dynamic>>[];
-    for (var index = 0; index < steps.length; index++) {
-      final step = Map<String, dynamic>.from(steps[index] as Map);
-      final proofAssets = (step['proofAssets'] as List<dynamic>? ?? const [])
-          .whereType<Map>()
-          .map(
-            (item) => RoutineSessionProofAsset.fromJson(
-              Map<String, dynamic>.from(item),
-            ),
-          )
-          .toList();
-      if (proofAssets.isEmpty) {
-        updatedSteps.add(step);
-        continue;
-      }
-
-      final updatedAssets = <RoutineSessionProofAsset>[];
-      for (final asset in proofAssets) {
-        if (_hasOwnBackup(asset, ownerUserId)) {
-          updatedAssets.add(asset);
-          continue;
+    for (final step in steps) {
+      if (step is! Map) continue;
+      final assets = step['proofAssets'];
+      if (assets is! List) continue;
+      for (final asset in assets) {
+        if (asset is! Map) continue;
+        final upload = uploads[asset['proofId']?.toString()];
+        if (upload == null) continue;
+        final key = upload.remoteObjectKey;
+        if (key != null && asset['remoteObjectKey'] != key) {
+          asset['remoteObjectKey'] = key;
+          changed = true;
         }
-        final uploaded = await _proofStorage.uploadProofAsset(
-          asset: asset,
-          ownerUserId: ownerUserId,
-          entityType: 'runs',
-          entityId: run.id,
-        );
-        if (uploaded.uploadStatus == ProofUploadStatus.pendingUpload) {
-          waitingPhotos += 1;
-        }
-        updatedAssets.add(uploaded);
-        if (uploaded.uploadStatus != asset.uploadStatus ||
-            uploaded.remoteObjectKey != asset.remoteObjectKey) {
+        if (asset['uploadStatus'] != upload.uploadStatus.name) {
+          asset['uploadStatus'] = upload.uploadStatus.name;
           changed = true;
         }
       }
-      step['proofAssets'] = updatedAssets
-          .map((asset) => asset.toJson())
-          .toList();
-      step['photos'] = updatedAssets
-          .map((asset) => asset.localRelativePath)
-          .toList();
-      updatedSteps.add(step);
     }
-
-    if (!changed) {
-      return (run: run, waitingPhotos: waitingPhotos);
-    }
-    decoded['steps'] = updatedSteps;
-    final updatedRun = RoutineRun(
-      id: run.id,
-      routineId: run.routineId,
-      routineTitle: run.routineTitle,
-      finishedAt: run.finishedAt,
-      stepCompletionData: jsonEncode(decoded),
-      ownerUserId: ownerUserId,
-      syncStatus: 'pendingUpload',
-      lastSyncedAt: run.lastSyncedAt,
-      syncMetadataJson: run.syncMetadataJson,
-      updatedAt: DateTime.now(),
-    );
-    await _database.routineRunDao.insertOrUpdateRun(updatedRun);
-    return (run: updatedRun, waitingPhotos: waitingPhotos);
+    return changed;
   }
 
-  Future<RoutineSession> _uploadSessionProofs(
-    RoutineSession session,
+  static List<RoutineSessionProofAsset> _runProofAssets(String? raw) {
+    if (raw == null || raw.isEmpty) return const [];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return const [];
+      return [
+        for (final step in (decoded['steps'] as List<dynamic>? ?? const []))
+          if (step is Map)
+            for (final asset
+                in (step['proofAssets'] as List<dynamic>? ?? const []))
+              if (asset is Map)
+                RoutineSessionProofAsset.fromJson(
+                  Map<String, dynamic>.from(asset),
+                ),
+      ];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Uploads the run's photos that have no backup yet and records their keys
+  /// on the run as it is after the upload, so a caption or other change
+  /// saved meanwhile is kept. [run] is null when the run was deleted during
+  /// the upload. [waitingPhotos] counts photos held back for now.
+  Future<({RoutineRun? run, int waitingPhotos})> _uploadRunProofs(
+    RoutineRun run,
     String ownerUserId,
   ) async {
-    var changed = false;
-    final updatedStates = <RoutineSessionStepState>[];
-    for (final stepState in session.stepStates) {
-      final updatedAssets = <RoutineSessionProofAsset>[];
-      for (final asset in stepState.proofAssets) {
-        if (_hasOwnBackup(asset, ownerUserId)) {
-          updatedAssets.add(asset);
-          continue;
-        }
-        final uploaded = await _proofStorage.uploadProofAsset(
-          asset: asset,
-          ownerUserId: ownerUserId,
-          entityType: 'sessions',
-          entityId: session.sessionId,
-        );
-        updatedAssets.add(uploaded);
-        changed = true;
-      }
-      updatedStates.add(stepState.copyWith(proofAssets: updatedAssets));
-    }
-    if (!changed) {
-      return session;
-    }
-    return session.copyWith(
+    final photos = await _uploadProofs(
+      _runProofAssets(run.stepCompletionData),
       ownerUserId: ownerUserId,
-      stepStates: updatedStates,
-      updatedAt: DateTime.now(),
-      syncMetadata:
-          (session.syncMetadata ??
-                  const RoutineSessionSyncMetadata(needsSync: true))
-              .copyWith(needsSync: true),
+      entityType: 'runs',
+      entityId: run.id,
     );
+    final latest = await _database.transaction(() async {
+      final current = await _database.routineRunDao.getRunById(run.id);
+      if (current == null || photos.uploads.isEmpty) return current;
+      final raw = current.stepCompletionData;
+      if (raw == null || raw.isEmpty) return current;
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) return current;
+      final steps = decoded['steps'];
+      if (steps is! List || !_applyProofUploads(steps, photos.uploads)) {
+        return current;
+      }
+      final keyed = RoutineRun(
+        id: current.id,
+        routineId: current.routineId,
+        routineTitle: current.routineTitle,
+        finishedAt: current.finishedAt,
+        stepCompletionData: jsonEncode(decoded),
+        ownerUserId: ownerUserId,
+        syncStatus: 'pendingUpload',
+        lastSyncedAt: current.lastSyncedAt,
+        syncMetadataJson: current.syncMetadataJson,
+        // Newer, so other devices take the keyed copy when they merge.
+        updatedAt: DateTime.now(),
+      );
+      await _database.routineRunDao.insertOrUpdateRun(keyed);
+      return keyed;
+    });
+    return (run: latest, waitingPhotos: photos.waiting);
   }
 
   /// A key under another account's folder is not a backup this account can
@@ -1262,9 +1422,12 @@ class CloudSyncCoordinator {
 /// whose routine is not backed up yet). The item waits briefly without
 /// counting as a failure.
 class _DeferredSyncItem implements Exception {
-  const _DeferredSyncItem(this.reason);
+  const _DeferredSyncItem(this.reason, {this.until});
 
   final String reason;
+
+  /// When the item it waits on is next tried, if known.
+  final DateTime? until;
 
   @override
   String toString() => reason;
