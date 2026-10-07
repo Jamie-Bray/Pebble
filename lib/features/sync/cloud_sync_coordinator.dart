@@ -324,10 +324,13 @@ class CloudSyncCoordinator {
     if (owner == null) return;
     final auth = _ref.read(authSessionProvider);
     final policy = _ref.read(cloudAccessPolicyProvider);
+    // Stop for a different account, a withdrawal or lost Premium. Not for
+    // the routine consent recheck on every resume, which briefly leaves
+    // uploads unconfirmed while consent itself stays accepted.
     if (!auth.isSignedIn ||
         auth.userId != owner ||
         policy.cachedOwnerUserId != owner ||
-        !policy.canUploadCloudChanges) {
+        !(policy.canUploadCloudChanges || policy.canQueuePersonalSync)) {
       throw const _SyncAccessChanged();
     }
   }
@@ -857,6 +860,9 @@ class CloudSyncCoordinator {
     }
     try {
       await _uploadRoutine(routine, ownerUserId);
+    } on _SyncAccessChanged {
+      // Not the routine's failure: the pass stops without counting it.
+      rethrow;
     } catch (error) {
       developer.log(
         'Routine ${routine.id} could not back up ahead of its reminder '

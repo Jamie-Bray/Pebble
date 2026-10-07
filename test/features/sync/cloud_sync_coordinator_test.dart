@@ -388,6 +388,70 @@ void main() {
     },
   );
 
+  group('a setting change during an upload', () {
+    late StateProvider<bool> confirmed;
+    late StateProvider<bool> accepted;
+
+    setUp(() {
+      device.container.dispose();
+      confirmed = StateProvider<bool>((ref) => true);
+      accepted = StateProvider<bool>((ref) => true);
+      device = _Device(
+        database,
+        cloud,
+        accessOverrides: [
+          cloudAccessPolicyProvider.overrideWith(
+            (ref) => CloudAccessPolicy(
+              cachedOwnerUserId: _user,
+              personalCloudEnabled: ref.watch(confirmed) && ref.watch(accepted),
+              canQueuePersonalSync: ref.watch(accepted),
+              workspaceCloudEnabled: false,
+              isSignedIn: true,
+              isAccountSwitchBlocked: false,
+            ),
+          ),
+        ],
+      );
+    });
+
+    Future<ManualSyncResult> upload(void Function() during) async {
+      await database.routineRunDao.insertOrUpdateRun(_run(_run1));
+      await device.queueRun(_run1);
+      final started = Completer<void>();
+      final hold = Completer<void>();
+      cloud.runUploadStarted.add(started);
+      cloud.holdNextRunUpload = hold;
+      final pass = device.backUp();
+      await started.future;
+      during();
+      hold.complete();
+      return pass;
+    }
+
+    test('the consent recheck on reopening Pebble does not stop it', () async {
+      // Reopening Pebble rechecks consent with the server. Uploads are
+      // unconfirmed for that moment, but consent is still accepted.
+      final result = await upload(
+        () => device.container.read(confirmed.notifier).state = false,
+      );
+      expect(result.type, ManualSyncResultType.synced);
+      expect(cloud.runs, contains(_run1));
+      expect(await device.outbox.pendingItems(), isEmpty);
+    });
+
+    test(
+      'withdrawing consent stops it before the change is marked done',
+      () async {
+        final result = await upload(
+          () => device.container.read(accepted.notifier).state = false,
+        );
+        expect(result.type, ManualSyncResultType.blockedAccountSwitch);
+        expect(await device.outbox.pendingItems(), isNotEmpty);
+        expect(device.account.lastSyncAt, isNull);
+      },
+    );
+  });
+
   for (final access in [
     PersonalCloudAccessStatus.offlinePending,
     PersonalCloudAccessStatus.error,
@@ -769,7 +833,10 @@ void main() {
       cloud.offline = true;
       await device.backUp();
       expect(await device.outbox.pendingItems(), isNotEmpty);
-      expect(cloud.runs[_run1]!['step_completion_data'], isNot(contains('p.jpg')));
+      expect(
+        cloud.runs[_run1]!['step_completion_data'],
+        isNot(contains('p.jpg')),
+      );
       cloud.offline = false;
       final result = await device.backUp();
 
