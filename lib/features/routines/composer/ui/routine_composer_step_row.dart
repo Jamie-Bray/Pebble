@@ -211,7 +211,7 @@ class RoutineComposerStepRow extends StatelessWidget {
               decoration: InputDecoration(
                 isDense: true,
                 filled: false,
-                hintText: 'Add a description (optional)',
+                hintText: 'Describe this step in detail (optional)',
                 hintStyle: TextStyle(
                   fontSize: 13.5,
                   height: 1.4,
@@ -232,7 +232,7 @@ class RoutineComposerStepRow extends StatelessWidget {
                 Expanded(
                   child: _StepOptionPill(
                     tooltip: step.requiresPhoto
-                        ? 'Pebble asks for a photo before you can check off this step.'
+                        ? 'A photo will be required to complete this step.'
                         : "This step won't ask for a photo.",
                     icon: LucideIcons.camera,
                     label: 'Photo',
@@ -288,8 +288,8 @@ class RoutineComposerStepRow extends StatelessWidget {
                   Expanded(
                     child: Text(
                       aiDescribesPhotos
-                          ? 'Pebble asks for a photo before you can check off this step. AI uses your description to know what to look for.'
-                          : 'Pebble asks for a photo before you can check off this step.',
+                          ? 'A photo will be required to complete this step. AI uses your description to know what to look for.'
+                          : 'A photo will be required to complete this step.',
                       style: TextStyle(
                         fontSize: 12,
                         height: 1.35,

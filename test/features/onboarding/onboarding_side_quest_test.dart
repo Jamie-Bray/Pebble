@@ -26,7 +26,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('What can Pebble do?'));
+      await tester.tap(find.text('See what Pebble can do'));
       // The explainer has a continuously pulsing "current step" indicator, so
       // pumpAndSettle would never settle. Pump fixed frames instead.
       await tester.pump();
@@ -73,7 +73,7 @@ void main() {
       await tester.tap(find.text('Medication check'));
       await tester.pumpAndSettle();
 
-      expect(find.text('How a routine works'), findsOneWidget);
+      expect(find.text('A quick look first'), findsOneWidget);
       expect(find.text('Use this starter routine'), findsOneWidget);
       expect(find.text('Pick another starting point'), findsOneWidget);
       expect(prefs.getBool('has_completed_onboarding'), isFalse);

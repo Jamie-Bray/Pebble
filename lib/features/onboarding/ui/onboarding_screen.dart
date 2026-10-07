@@ -60,7 +60,8 @@ const _starterRoutines = [
   ),
   _StarterRoutine(
     cardTitle: 'Medication check',
-    subtitle: 'Set out your medication, take it, and mark it done straight away.',
+    subtitle:
+        'Set out your medication, take it, and mark it done straight away.',
     previewTitle: 'Medication check',
     icon: LucideIcons.pill,
     steps: [
@@ -98,7 +99,8 @@ const _starterRoutines = [
   ),
   _StarterRoutine(
     cardTitle: 'Morning pet routine',
-    subtitle: 'Food, water and any medication, then gates and doors, before you go.',
+    subtitle:
+        'Food, water and any medication, then gates and doors, before you go.',
     previewTitle: 'Morning pet routine',
     icon: LucideIcons.heart,
     steps: [
@@ -310,27 +312,28 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                             child: SizedBox(height: PebbleBackButton.size),
                           ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(4, (index) {
-                        final isActive = index == _currentPage;
-                        return AnimatedContainer(
-                          duration: const Duration(milliseconds: 250),
-                          margin: const EdgeInsets.symmetric(horizontal: 3),
-                          width: isActive ? 22 : 6,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: isActive
-                                ? Theme.of(context).colorScheme.primary
-                                : foundation.borderSubtle,
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                        );
-                      }),
+                  if (_currentPage != 0)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(4, (index) {
+                          final isActive = index == _currentPage;
+                          return AnimatedContainer(
+                            duration: const Duration(milliseconds: 250),
+                            margin: const EdgeInsets.symmetric(horizontal: 3),
+                            width: isActive ? 22 : 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: isActive
+                                  ? Theme.of(context).colorScheme.primary
+                                  : foundation.borderSubtle,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                          );
+                        }),
+                      ),
                     ),
-                  ),
                   Expanded(
                     child: PageView(
                       controller: _pageController,
@@ -415,64 +418,73 @@ class _WelcomePage extends StatelessWidget {
                       minHeight: constraints.maxHeight,
                     ),
                     child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _WelcomeWordmark(
                           color: Theme.of(context).colorScheme.primary,
                         ),
-                        const SizedBox(height: 16),
-                        _WelcomeStatement(
-                          primaryColor: foundation.textPrimary,
-                          mutedColor: foundation.textSecondary,
-                          accentColor: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(height: 18),
-                        _WelcomeRule(
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'For the checks you\nalready do.',
-                          style: PebbleFonts.serif(
-                            color: foundation.textPrimary.withValues(
-                              alpha: 0.94,
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 16),
+                            _WelcomeStatement(
+                              primaryColor: foundation.textPrimary,
+                              mutedColor: foundation.textSecondary,
+                              accentColor: Theme.of(
+                                context,
+                              ).colorScheme.primary,
                             ),
-                            fontSize: 21,
-                            fontWeight: FontWeight.w400,
-                            height: 1.32,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Text.rich(
-                          TextSpan(
-                            children: [
-                              const TextSpan(
-                                text: 'Pebble walks you through the checks you do ',
-                              ),
-                              TextSpan(
-                                text:
-                                    'before you leave the house, lock up or go to bed. ',
-                                style: TextStyle(
-                                  color: foundation.textPrimary.withValues(
-                                    alpha: 0.82,
-                                  ),
-                                  fontWeight: FontWeight.w400,
+                            const SizedBox(height: 18),
+                            _WelcomeRule(
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'For the checks you\nalready do.',
+                              style: PebbleFonts.serif(
+                                color: foundation.textPrimary.withValues(
+                                  alpha: 0.94,
                                 ),
+                                fontSize: 21,
+                                fontWeight: FontWeight.w400,
+                                height: 1.32,
                               ),
-                              const TextSpan(
-                                text:
-                                    'Some are daily, some come up twice a year. You check off each step as you go, and Pebble saves the time.',
+                            ),
+                            const SizedBox(height: 16),
+                            Text.rich(
+                              TextSpan(
+                                children: [
+                                  const TextSpan(
+                                    text:
+                                        'Pebble walks you through the checks you do ',
+                                  ),
+                                  TextSpan(
+                                    text:
+                                        'before you leave the house, lock up or go to bed. ',
+                                    style: TextStyle(
+                                      color: foundation.textPrimary.withValues(
+                                        alpha: 0.82,
+                                      ),
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                  ),
+                                  const TextSpan(
+                                    text:
+                                        "Check off each step as you go and add a photo when you want proof. Pebble keeps the time, so you can look back instead of wondering whether you did it.",
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                          style: PebbleFonts.sans(
-                            color: foundation.textSecondary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w300,
-                            height: 1.72,
-                          ),
+                              style: PebbleFonts.sans(
+                                color: foundation.textSecondary,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w300,
+                                height: 1.72,
+                              ),
+                            ),
+                          ],
                         ),
+                        const SizedBox.shrink(),
                       ],
                     ),
                   ),
@@ -659,26 +671,23 @@ class _WelcomeActions extends StatelessWidget {
       children: [
         PebbleButton.primary(
           onPressed: onContinue,
-          label: 'Choose your theme',
+          label: 'Get started',
           trailingIcon: LucideIcons.arrowRight,
         ),
         const SizedBox(height: PebbleSpacing.sm),
         PebbleButton.secondary(
           onPressed: onExplore,
           icon: LucideIcons.sparkles,
-          label: 'What can Pebble do?',
+          label: 'See what Pebble can do',
         ),
         const SizedBox(height: PebbleSpacing.xs),
-        PebbleButton.tertiary(
-          onPressed: onSkip,
-          label: 'Skip setup',
-        ),
+        PebbleButton.tertiary(onPressed: onSkip, label: 'Skip setup'),
       ],
     );
   }
 }
 
-/// The optional "What can Pebble do?" explainer, reached from the welcome
+/// The optional "See what Pebble can do" explainer, reached from the welcome
 /// step. It is pinned to the High Noon onboarding theme on purpose: the theme
 /// picker comes immediately after, so this screen always shows the same warm
 /// light palette as the first onboarding page.
@@ -2296,7 +2305,7 @@ class _StarterPreviewPage extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'You can edit these steps or add your own later.',
+            'You can change any step, or add your own, later.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: foundation.textSecondary,
@@ -2317,7 +2326,7 @@ class _StarterPreviewPage extends StatelessWidget {
           const _OverTitle('YOUR FIRST ROUTINE'),
           const SizedBox(height: 12),
           Text(
-            'How a routine works',
+            'A quick look first',
             style: PebbleFonts.serif(
               color: foundation.textPrimary,
               fontSize: 29,
@@ -2328,7 +2337,7 @@ class _StarterPreviewPage extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'A routine is a short list of steps. You go through them one at a time, and some ask for a photo.',
+            "You'll do these one at a time. Photo steps ask for a picture first, so you can look back and see it was done.",
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: foundation.textSecondary,
               height: 1.45,

@@ -165,7 +165,7 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
               : AdaptiveContentWidth(
                   child: ListView(
                     controller: _scrollController,
-                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 112),
+                    padding: const EdgeInsets.fromLTRB(20, 32, 20, 112),
                     children: [
                       _buildTitleField(context),
                       const SizedBox(height: 20),
@@ -1338,7 +1338,7 @@ class _GuidanceAudioSheet extends StatelessWidget {
                   height: 38,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: cs.error.withValues(alpha: 0.12),
+                    color: cs.primary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
@@ -1346,7 +1346,7 @@ class _GuidanceAudioSheet extends StatelessWidget {
                         ? LucideIcons.volume2
                         : LucideIcons.check,
                     size: 18,
-                    color: cs.error,
+                    color: cs.primary,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1453,6 +1453,17 @@ class _LockedGuidanceAudio extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
+          'Record a short reminder for this step in your own voice, like '
+          '"Check the back door too". It plays when you reach the step, so '
+          'the detail you always forget is right there.',
+          style: TextStyle(
+            fontSize: 14,
+            height: 1.45,
+            color: cs.onSurface.withValues(alpha: 0.78),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
           'Voice tips come with Personal Premium.',
           style: TextStyle(
             fontSize: 14,
@@ -1463,8 +1474,7 @@ class _LockedGuidanceAudio extends StatelessWidget {
         const SizedBox(height: 16),
         FilledButton.icon(
           onPressed: onUpgrade,
-          icon: const Icon(LucideIcons.lock, size: 16),
-          label: const Text('Upgrade for voice tips'),
+          label: const Text('View Personal Premium'),
           style: FilledButton.styleFrom(
             minimumSize: const Size.fromHeight(48),
             textStyle: PebbleFonts.sans(
@@ -1648,15 +1658,24 @@ class _DoneAction extends StatelessWidget {
     }
 
     return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: TextButton.icon(
+      padding: const EdgeInsets.only(right: 14),
+      child: FilledButton.icon(
         onPressed: enabled ? onPressed : null,
         icon: const Icon(LucideIcons.check, size: 16),
         label: const Text('Done'),
-        style: TextButton.styleFrom(
-          foregroundColor: cs.primary,
-          disabledForegroundColor: cs.onSurface.withValues(alpha: 0.34),
-          textStyle: PebbleFonts.sans(fontSize: 14, fontWeight: FontWeight.w700),
+        style: FilledButton.styleFrom(
+          backgroundColor: cs.primary,
+          foregroundColor: cs.onPrimary,
+          disabledBackgroundColor: cs.onSurface.withValues(alpha: 0.08),
+          disabledForegroundColor: cs.onSurface.withValues(alpha: 0.38),
+          minimumSize: const Size(0, 38),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          tapTargetSize: MaterialTapTargetSize.padded,
+          shape: const StadiumBorder(),
+          textStyle: PebbleFonts.sans(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );

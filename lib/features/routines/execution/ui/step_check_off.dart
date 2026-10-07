@@ -7,17 +7,19 @@ import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:pebble_routines/core/ui/readable_colors.dart';
 
-/// Moment 1 (DESIGN_DIRECTION.md §4): the check-off timeline on one 700 ms
+/// Moment 1 (DESIGN_DIRECTION.md §4): the check-off timeline on one 1100 ms
 /// controller, so every piece of the motion reads the same clock.
 ///
-/// t=0 the step is already saved; 0-240 the check draws itself; 120-270 the
-/// time chip rises in; 300-700 the step settles into the trail; 380-630 the
-/// next step enters. Under Reduce Motion the controller runs for 120 ms and
-/// everything is a plain cross-fade.
+/// t=0 the step is already saved; 0-300 the check draws itself; 150-330 the
+/// time chip rises in; the finished check then holds so it can be seen;
+/// 620-1100 the step settles into the trail; 720-1000 the next step enters.
+/// (Was 700 ms; phone testing on 6 Oct 2026 found the check gone too soon.)
+/// Under Reduce Motion the controller runs for 120 ms and everything is a
+/// plain cross-fade.
 class CheckOffTimeline {
   const CheckOffTimeline(this.t, {required this.reduced});
 
-  static const Duration duration = Duration(milliseconds: 700);
+  static const Duration duration = Duration(milliseconds: 1100);
   static const Duration reducedDuration = PebbleMotion.reduced;
 
   /// Taps are ignored for this long after a check, so a double tap can never
@@ -25,52 +27,54 @@ class CheckOffTimeline {
   static const Duration inputGuard = Duration(milliseconds: 450);
 
   /// When the second, firmer cue (haptic + optional sound) plays.
-  static const Duration secondCue = Duration(milliseconds: 240);
+  static const Duration secondCue = Duration(milliseconds: 300);
 
   /// How long the final step's check shows before the completion screen.
-  static const Duration finalHold = Duration(milliseconds: 300);
+  static const Duration finalHold = Duration(milliseconds: 600);
 
   final double t;
   final bool reduced;
 
   double _interval(double begin, double end, Curve curve) {
-    final b = begin / 700, e = end / 700;
+    final b = begin / 1100, e = end / 1100;
     if (t <= b) return 0;
     if (t >= e) return 1;
     return curve.transform((t - b) / (e - b));
   }
 
   /// How much of the check stroke is drawn.
-  double get stroke => reduced ? 1 : _interval(0, 240, Curves.easeOutCubic);
+  double get stroke => reduced ? 1 : _interval(0, 300, Curves.easeOutCubic);
 
   /// The ring's idle → done colour change.
   double get ringDone => stroke;
 
   /// The ring going back to idle for the next step.
   double get ringReset =>
-      reduced ? t : _interval(380, 630, PebbleMotion.enter);
+      reduced ? t : _interval(720, 1000, PebbleMotion.enter);
 
   /// Time chip fade and rise.
-  double get chip => reduced ? 1 : _interval(120, 270, PebbleMotion.enter);
+  double get chip => reduced ? 1 : _interval(150, 330, PebbleMotion.enter);
 
   /// The checked step leaving for the trail.
-  double get fly => reduced ? t : _interval(300, 700, PebbleMotion.settleCurve);
+  double get fly =>
+      reduced ? t : _interval(620, 1100, PebbleMotion.settleCurve);
 
   /// The checked step's opacity while it leaves.
   double get outgoingOpacity => reduced
       ? 1 - t
-      : 1 - _interval(300, 430, Curves.easeOutCubic);
+      : 1 - _interval(620, 780, Curves.easeOutCubic);
 
   /// The next step entering.
-  double get incoming => reduced ? t : _interval(380, 630, PebbleMotion.enter);
+  double get incoming =>
+      reduced ? t : _interval(720, 1000, PebbleMotion.enter);
 
   /// The new trail row growing into place.
   double get trailReveal =>
-      reduced ? 1 : _interval(300, 700, PebbleMotion.settleCurve);
+      reduced ? 1 : _interval(620, 1100, PebbleMotion.settleCurve);
 
   /// The new trail row's opacity.
   double get trailOpacity =>
-      reduced ? t : _interval(380, 700, PebbleMotion.enter);
+      reduced ? t : _interval(720, 1100, PebbleMotion.enter);
 }
 
 /// A check mark that draws itself along its path ([progress] 0→1).
