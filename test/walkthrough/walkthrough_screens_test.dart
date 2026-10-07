@@ -40,6 +40,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:pebble_routines/core/theme/routine_palette.dart';
+import 'package:pebble_routines/features/routines/cover/routine_cover.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/core/config/app_runtime_config.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
@@ -1960,6 +1961,34 @@ void main() {
     await env.tapText('Style');
     await env.shot('home_style_studio_premium');
   });
+  for (final scene in RoutineCoverScene.values) {
+    _capture(
+      'home cover ${scene.name}',
+      extraPrefs: {'pebble.routine_cover.1': 'scene:${scene.name}'},
+      (env) async {
+        await env.shot('home_cover_${scene.name}');
+      },
+    );
+  }
+  _capture(
+    'home cover dark',
+    theme: ThemeId.nordicNight,
+    extraPrefs: const {'pebble.routine_cover.1': 'scene:hills'},
+    (env) async {
+      await env.shot('theme_nordicNight_home_cover_hills');
+    },
+  );
+  _capture(
+    'home style covers',
+    account: _Account.signedInPremium,
+    extraPrefs: const {'pebble.routine_cover.1': 'scene:shore'},
+    (env) async {
+      await env.tapFinder(find.byTooltip('Routine settings').first);
+      await env.tapText('Style');
+      await env.scrollDown(900);
+      await env.shot('home_style_studio_covers');
+    },
+  );
   _capture('home reminders bell', (env) async {
     await _openRoutineAction(env, 'Reminders');
     await env.realWait(6);

@@ -1,0 +1,238 @@
+import 'dart:io';
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
+
+import 'package:pebble_routines/core/theme/colors.dart';
+import 'package:pebble_routines/core/ui/pebble_cairn.dart';
+import 'package:pebble_routines/features/routines/cover/routine_cover.dart';
+
+/// A cover at full strength: a painted scene in the theme's (or routine's)
+/// colours, or the user's photo. Used for the Style Studio tiles; Home shows
+/// it through [RoutineCoverBackdrop].
+class RoutineCoverArt extends StatelessWidget {
+  const RoutineCoverArt({super.key, required this.cover});
+
+  final RoutineCover cover;
+
+  @override
+  Widget build(BuildContext context) {
+    final f = context.darkFoundation;
+    return switch (cover) {
+      RoutineCoverSceneChoice(:final scene) => CustomPaint(
+        painter: _ScenePainter(
+          scene: scene,
+          accent: context.done,
+          bg: f.bgBase,
+          fg: f.textPrimary,
+        ),
+        child: const SizedBox.expand(),
+      ),
+      RoutineCoverPhoto(:final path) => Image.file(
+        File(path),
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        gaplessPlayback: true,
+        errorBuilder: (_, __, ___) => const SizedBox.expand(),
+      ),
+    };
+  }
+}
+
+/// The soft, dimmed header behind the top of Home. The cover is washed
+/// toward the page colour and fades out downwards, so the wordmark, the
+/// hero text and the buttons read exactly as they do without it.
+class RoutineCoverBackdrop extends StatelessWidget {
+  const RoutineCoverBackdrop({super.key, required this.cover});
+
+  final RoutineCover cover;
+
+  @override
+  Widget build(BuildContext context) {
+    final f = context.darkFoundation;
+    final isPhoto = cover is RoutineCoverPhoto;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Photos are busier than the painted scenes, so they are washed out
+    // more.
+    final wash = isPhoto ? (isDark ? 0.72 : 0.66) : 0.30;
+    return IgnorePointer(
+      child: ExcludeSemantics(
+        child: ShaderMask(
+          blendMode: BlendMode.dstIn,
+          shaderCallback: (rect) => const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.white, Colors.white, Colors.transparent],
+            stops: [0, 0.45, 1],
+          ).createShader(rect),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              RoutineCoverArt(cover: cover),
+              ColoredBox(color: f.bgBase.withValues(alpha: wash)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ScenePainter extends CustomPainter {
+  _ScenePainter({
+    required this.scene,
+    required this.accent,
+    required this.bg,
+    required this.fg,
+  });
+
+  final RoutineCoverScene scene;
+  final Color accent;
+  final Color bg;
+  final Color fg;
+
+  Color _tone(double t) => Color.lerp(bg, accent, t)!;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    canvas.drawRect(Offset.zero & size, Paint()..color = _tone(0.10));
+    switch (scene) {
+      case RoutineCoverScene.ripples:
+        final c = Offset(w * 0.72, h * 0.58);
+        for (var i = 6; i >= 1; i--) {
+          canvas.drawOval(
+            Rect.fromCenter(
+              center: c,
+              width: w * 0.22 * i,
+              height: h * 0.16 * i,
+            ),
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = math.max(1.5, w / 220)
+              ..color = _tone(0.55 - i * 0.06),
+          );
+        }
+        final sw = w * 0.11;
+        canvas.drawPath(
+          pebblePath(
+            Rect.fromCenter(
+              center: c.translate(0, -sw * 0.12),
+              width: sw,
+              height: sw * 0.5,
+            ),
+          ),
+          Paint()..color = _tone(0.75),
+        );
+      case RoutineCoverScene.hills:
+        for (final (i, t) in [(0, 0.22), (1, 0.38), (2, 0.58)]) {
+          final base = h * (0.48 + i * 0.17);
+          final amp = h * (0.10 - i * 0.02);
+          final path = Path()..moveTo(0, base);
+          for (var x = 0.0; x <= w; x += w / 40) {
+            path.lineTo(
+              x,
+              base - amp * math.sin((x / w) * math.pi * (1.3 + i * 0.5) + i),
+            );
+          }
+          path
+            ..lineTo(w, h)
+            ..lineTo(0, h)
+            ..close();
+          canvas.drawPath(path, Paint()..color = _tone(t));
+        }
+      case RoutineCoverScene.shore:
+        final waterline = h * 0.56;
+        canvas.drawRect(
+          Rect.fromLTWH(0, 0, w, waterline),
+          Paint()..color = _tone(0.15),
+        );
+        for (var i = 0; i < 4; i++) {
+          final y = waterline * (0.35 + i * 0.17);
+          final path = Path()..moveTo(0, y);
+          for (var x = 0.0; x <= w; x += w / 30) {
+            path.lineTo(x, y + math.sin(x / w * math.pi * 6 + i) * h * 0.012);
+          }
+          canvas.drawPath(
+            path,
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = math.max(1.2, w / 260)
+              ..color = _tone(0.34),
+          );
+        }
+        final rnd = math.Random(7);
+        for (var i = 0; i < 9; i++) {
+          final sw = w * (0.04 + rnd.nextDouble() * 0.05);
+          final cx = w * (0.06 + i * 0.11 + rnd.nextDouble() * 0.03);
+          final cy = waterline + h * (0.08 + rnd.nextDouble() * 0.28);
+          canvas.drawPath(
+            pebblePath(
+              Rect.fromCenter(
+                center: Offset(cx, cy),
+                width: sw,
+                height: sw * 0.52,
+              ),
+              flip: i.isOdd,
+            ),
+            Paint()..color = _tone(0.30 + rnd.nextDouble() * 0.35),
+          );
+        }
+      case RoutineCoverScene.dawn:
+        final horizon = h * 0.52;
+        canvas.drawCircle(
+          Offset(w * 0.68, horizon),
+          w * 0.18,
+          Paint()..color = _tone(0.42),
+        );
+        canvas.drawRect(
+          Rect.fromLTWH(0, horizon, w, h - horizon),
+          Paint()..color = _tone(0.16),
+        );
+        for (var i = 0; i < 4; i++) {
+          final y = horizon + (h - horizon) * (0.2 + i * 0.2);
+          canvas.drawLine(
+            Offset(w * (0.5 - i * 0.04), y),
+            Offset(w * (0.86 + i * 0.03), y),
+            Paint()
+              ..strokeWidth = math.max(1.2, w / 260)
+              ..strokeCap = StrokeCap.round
+              ..color = _tone(0.40 - i * 0.07),
+          );
+        }
+      case RoutineCoverScene.night:
+        canvas.drawRect(
+          Offset.zero & size,
+          Paint()..color = Color.lerp(_tone(0.22), fg, 0.08)!,
+        );
+        final rnd = math.Random(3);
+        for (var i = 0; i < 28; i++) {
+          canvas.drawCircle(
+            Offset(rnd.nextDouble() * w, rnd.nextDouble() * h * 0.8),
+            math.max(0.8, w / 400) * (0.6 + rnd.nextDouble()),
+            Paint()
+              ..color = bg.withValues(alpha: 0.35 + rnd.nextDouble() * 0.4),
+          );
+        }
+        final moon = Offset(w * 0.5, h * 0.355);
+        final r = w * 0.05;
+        canvas.saveLayer(Offset.zero & size, Paint());
+        canvas.drawCircle(moon, r, Paint()..color = bg.withValues(alpha: 0.85));
+        canvas.drawCircle(
+          moon.translate(r * 0.45, -r * 0.2),
+          r,
+          Paint()..blendMode = BlendMode.clear,
+        );
+        canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ScenePainter old) =>
+      old.scene != scene ||
+      old.accent != accent ||
+      old.bg != bg ||
+      old.fg != fg;
+}

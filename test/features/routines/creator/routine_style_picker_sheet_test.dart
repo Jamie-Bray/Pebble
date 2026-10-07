@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/theme/routine_palette.dart';
+import 'package:pebble_routines/features/routines/cover/routine_cover.dart';
 import 'package:pebble_routines/features/routines/creator/ui/routine_style_picker_sheet.dart';
 import 'package:pebble_routines/features/routines/data/models/routine_icon_catalog.dart';
 
@@ -11,6 +12,7 @@ void main() {
     required bool premium,
     ValueChanged<RoutineStylePickerResult>? onChanged,
     VoidCallback? onPremiumTap,
+    Future<String?> Function()? onPickPhoto,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -23,6 +25,7 @@ void main() {
             hasPremiumAccess: premium,
             onChanged: onChanged,
             onPremiumTap: onPremiumTap,
+            onPickPhoto: onPickPhoto,
           ),
         ),
       ),
@@ -67,5 +70,32 @@ void main() {
     await tester.pump();
     expect(premiumTaps, 1);
     expect(RoutinePalette.match(last?.colorHex)?.key, 'clay');
+  });
+
+  testWidgets('scenes are free; your own photo needs Premium', (tester) async {
+    RoutineStylePickerResult? last;
+    var premiumTaps = 0;
+    var picks = 0;
+    await pumpSheet(
+      tester,
+      premium: false,
+      onChanged: (value) => last = value,
+      onPremiumTap: () => premiumTaps++,
+      onPickPhoto: () async {
+        picks++;
+        return '/tmp/door.jpg';
+      },
+    );
+
+    await tester.ensureVisible(find.bySemanticsLabel('Shore'));
+    await tester.tap(find.bySemanticsLabel('Shore'));
+    await tester.pump();
+    expect(last?.cover, const RoutineCoverSceneChoice(RoutineCoverScene.shore));
+
+    await tester.ensureVisible(find.bySemanticsLabel('Your photo, Premium'));
+    await tester.tap(find.bySemanticsLabel('Your photo, Premium'));
+    await tester.pump();
+    expect(premiumTaps, 1);
+    expect(picks, 0);
   });
 }

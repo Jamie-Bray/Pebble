@@ -7,6 +7,8 @@ import 'package:pebble_routines/core/ui/pebble_buttons.dart';
 import 'package:pebble_routines/core/ui/pebble_cairn.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/ui/readable_colors.dart';
+import 'package:pebble_routines/features/routines/cover/routine_cover.dart';
+import 'package:pebble_routines/features/routines/cover/routine_cover_view.dart';
 import 'package:pebble_routines/features/routines/data/models/routine_icon_catalog.dart';
 
 class RoutineStylePickerResult {
@@ -15,9 +17,13 @@ class RoutineStylePickerResult {
   /// A stone from [RoutinePalette], or null for the theme's own colour.
   final int? colorHex;
 
+  /// The Home header: a painted scene, a photo, or null for none.
+  final RoutineCover? cover;
+
   const RoutineStylePickerResult({
     required this.iconKey,
     required this.colorHex,
+    this.cover,
   });
 }
 
@@ -33,10 +39,18 @@ class RoutineStylePickerSheet extends StatefulWidget {
   final VoidCallback? onPremiumTap;
   final ValueChanged<RoutineStylePickerResult>? onChanged;
 
+  /// The routine's current cover, and how to pick a photo for a new one
+  /// (returns the picked file's path, or null if cancelled). With no
+  /// [onPickPhoto] the cover section is hidden.
+  final RoutineCover? initialCover;
+  final Future<String?> Function()? onPickPhoto;
+
   const RoutineStylePickerSheet({
     super.key,
     required this.initialIconKey,
     required this.initialColorHex,
+    this.initialCover,
+    this.onPickPhoto,
     this.routineTitle = 'Routine',
     this.iconChoices = RoutineIconCatalog.all,
     required this.hasPremiumAccess,
@@ -51,12 +65,15 @@ class RoutineStylePickerSheet extends StatefulWidget {
     required String routineTitle,
     required bool hasPremiumAccess,
     VoidCallback? onPremiumTap,
+    RoutineCover? initialCover,
+    Future<String?> Function()? onPickPhoto,
     String title = 'Style',
   }) {
     final foundation = context.darkFoundation;
     var current = RoutineStylePickerResult(
       iconKey: RoutineIconCatalog.resolve(initialIconKey).key,
       colorHex: initialColorHex,
+      cover: initialCover,
     );
     return Scaffold(
       backgroundColor: foundation.bgBase,
@@ -76,6 +93,8 @@ class RoutineStylePickerSheet extends StatefulWidget {
                 routineTitle: routineTitle,
                 hasPremiumAccess: hasPremiumAccess,
                 onPremiumTap: onPremiumTap,
+                initialCover: initialCover,
+                onPickPhoto: onPickPhoto,
                 onChanged: (value) => current = value,
               ),
             ),
@@ -105,6 +124,7 @@ class RoutineStylePickerSheet extends StatefulWidget {
                     current.colorHex,
                     hasPremiumAccess: hasPremiumAccess,
                   ),
+                  cover: current.cover,
                 ),
               ),
             ),
@@ -122,6 +142,7 @@ class RoutineStylePickerSheet extends StatefulWidget {
 class _RoutineStylePickerSheetState extends State<RoutineStylePickerSheet> {
   late RoutineVisualIcon _icon;
   late int? _colorHex;
+  RoutineCover? _cover;
 
   @override
   void initState() {
@@ -131,9 +152,16 @@ class _RoutineStylePickerSheetState extends State<RoutineStylePickerSheet> {
       _icon = RoutineIconCatalog.resolve(RoutineIconCatalog.defaultKey);
     }
     _colorHex = widget.initialColorHex;
+    _cover = widget.initialCover;
   }
 
-  void _update({RoutineVisualIcon? icon, int? colorHex, bool clear = false}) {
+  void _update({
+    RoutineVisualIcon? icon,
+    int? colorHex,
+    bool clear = false,
+    RoutineCover? cover,
+    bool clearCover = false,
+  }) {
     setState(() {
       if (icon != null) _icon = icon;
       if (clear) {
@@ -141,10 +169,29 @@ class _RoutineStylePickerSheetState extends State<RoutineStylePickerSheet> {
       } else if (colorHex != null) {
         _colorHex = colorHex;
       }
+      if (clearCover) {
+        _cover = null;
+      } else if (cover != null) {
+        _cover = cover;
+      }
     });
     widget.onChanged?.call(
-      RoutineStylePickerResult(iconKey: _icon.key, colorHex: _colorHex),
+      RoutineStylePickerResult(
+        iconKey: _icon.key,
+        colorHex: _colorHex,
+        cover: _cover,
+      ),
     );
+  }
+
+  Future<void> _pickPhoto() async {
+    if (!widget.hasPremiumAccess) {
+      widget.onPremiumTap?.call();
+      return;
+    }
+    final path = await widget.onPickPhoto?.call();
+    if (path == null || !mounted) return;
+    _update(cover: RoutineCoverPhoto(path));
   }
 
   @override
@@ -162,7 +209,11 @@ class _RoutineStylePickerSheetState extends State<RoutineStylePickerSheet> {
         children: [
           RoutineAccentScope(
             colorHex: _colorHex,
-            child: _StylePreview(icon: _icon, title: widget.routineTitle),
+            child: _StylePreview(
+              icon: _icon,
+              title: widget.routineTitle,
+              cover: _cover,
+            ),
           ),
           const SizedBox(height: PebbleSpacing.xl),
           Text('Colour', style: type.headline),
@@ -177,6 +228,19 @@ class _RoutineStylePickerSheetState extends State<RoutineStylePickerSheet> {
           Text('Icon', style: type.headline),
           const SizedBox(height: PebbleSpacing.sm),
           _buildIcons(),
+          if (widget.onPickPhoto != null) ...[
+            const SizedBox(height: PebbleSpacing.xl),
+            Text('Home header', style: type.headline),
+            const SizedBox(height: PebbleSpacing.xxs),
+            Text(
+              'Shown softly behind Home. Kept on this phone.',
+              style: type.caption.copyWith(
+                color: context.readableSecondaryText,
+              ),
+            ),
+            const SizedBox(height: PebbleSpacing.sm),
+            _buildCovers(),
+          ],
         ],
       ),
     );
@@ -217,6 +281,53 @@ class _RoutineStylePickerSheetState extends State<RoutineStylePickerSheet> {
     );
   }
 
+  Widget _buildCovers() {
+    final photo = _cover is RoutineCoverPhoto ? _cover : null;
+    final photoLocked = !widget.hasPremiumAccess;
+    return RoutineAccentScope(
+      colorHex: _colorHex,
+      child: Wrap(
+        spacing: PebbleSpacing.xs,
+        runSpacing: PebbleSpacing.xs,
+        children: [
+          _CoverTile(
+            label: 'No header',
+            selected: _cover == null,
+            onTap: () => _update(clearCover: true),
+            child: Icon(
+              LucideIcons.ban,
+              size: 18,
+              color: context.readableSecondaryText,
+            ),
+          ),
+          for (final scene in RoutineCoverScene.values)
+            _CoverTile(
+              label: scene.label,
+              selected: _cover == RoutineCoverSceneChoice(scene),
+              onTap: () => _update(cover: RoutineCoverSceneChoice(scene)),
+              child: RoutineCoverArt(cover: RoutineCoverSceneChoice(scene)),
+            ),
+          _CoverTile(
+            label: photoLocked
+                ? 'Your photo, Premium'
+                : photo == null
+                ? 'Your photo'
+                : 'Change photo',
+            selected: photo != null,
+            onTap: _pickPhoto,
+            child: photo != null
+                ? RoutineCoverArt(cover: photo)
+                : Icon(
+                    photoLocked ? LucideIcons.lock : LucideIcons.imagePlus,
+                    size: 18,
+                    color: context.readableSecondaryText,
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildIcons() {
     final accent = context.routineAccent(_colorHex) ?? context.done;
     return GridView.builder(
@@ -249,19 +360,19 @@ class _RoutineStylePickerSheetState extends State<RoutineStylePickerSheet> {
 /// The routine as it will look: its icon, its name and a small cairn in its
 /// colour.
 class _StylePreview extends StatelessWidget {
-  const _StylePreview({required this.icon, required this.title});
+  const _StylePreview({required this.icon, required this.title, this.cover});
 
   final RoutineVisualIcon icon;
   final String title;
+  final RoutineCover? cover;
 
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
     final type = PebbleType.of(context);
     final fill = Color.alphaBlend(context.doneContainer, foundation.bgBase);
-    return Container(
+    final row = Padding(
       padding: const EdgeInsets.all(PebbleSpacing.md),
-      decoration: BoxDecoration(color: fill, borderRadius: PebbleRadius.lgAll),
       child: Row(
         children: [
           Container(
@@ -287,6 +398,62 @@ class _StylePreview extends StatelessWidget {
             child: PebbleCairn(total: 3, size: 44, showCount: false),
           ),
         ],
+      ),
+    );
+    return ClipRRect(
+      borderRadius: PebbleRadius.lgAll,
+      child: ColoredBox(
+        color: fill,
+        child: Stack(
+          children: [
+            if (cover != null)
+              Positioned.fill(child: RoutineCoverBackdrop(cover: cover!)),
+            row,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CoverTile extends StatelessWidget {
+  const _CoverTile({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    required this.child,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      child: Material(
+        color: foundation.surfaceLow,
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: PebbleRadius.smAll,
+          side: BorderSide(
+            color: selected ? foundation.textPrimary : foundation.borderSubtle,
+            width: selected ? 2.5 : 1,
+          ),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            width: 96,
+            height: 60,
+            child: ExcludeSemantics(child: Center(child: child)),
+          ),
+        ),
       ),
     );
   }

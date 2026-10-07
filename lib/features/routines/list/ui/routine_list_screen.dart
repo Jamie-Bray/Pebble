@@ -31,6 +31,10 @@ import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/theme/routine_palette.dart';
 import 'package:pebble_routines/core/ui/pebble_stones.dart';
+import 'package:pebble_routines/features/routines/cover/routine_cover.dart';
+import 'package:pebble_routines/features/routines/cover/routine_cover_view.dart';
+import 'package:pebble_routines/features/routines/execution/data/services/routine_player_photo_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
 import 'package:pebble_routines/features/history/providers/routine_history_vm.dart';
 import 'package:pebble_routines/features/history/ui/routine_run_detail_screen.dart';
@@ -92,9 +96,32 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
         hasPremiumAccess: hasPremiumStyleAccess,
         onPremiumTap: () =>
             ctx.push(premiumRoute(source: PremiumEntrySource.premiumTheme)),
+        initialCover: ref.read(routineCoverProvider(routine.id)),
+        onPickPhoto: () async {
+          final file = await ref
+              .read(routinePlayerPhotoPickerProvider)
+              .pickImage(
+                source: ImageSource.gallery,
+                imageQuality: 82,
+                maxWidth: 1600,
+              );
+          return file?.path;
+        },
       ),
     );
     if (result == null || !mounted) return;
+    final existingCover = ref.read(routineCoverProvider(routine.id));
+    // A new photo needs Premium; one chosen earlier stays if untouched.
+    final cover =
+        result.cover is RoutineCoverPhoto &&
+            !hasPremiumStyleAccess &&
+            result.cover != existingCover
+        ? existingCover
+        : result.cover;
+    if (cover != existingCover) {
+      await saveRoutineCover(ref, routine.id, cover);
+      if (!mounted) return;
+    }
     await ref
         .read(routineManagementProvider)
         .updateRoutineAppearance(
@@ -427,6 +454,38 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
 
         return Stack(
           children: [
+            // The hero routine's header: soft and dimmed behind the top of
+            // Home, fading out before the main button.
+            if (spotlightRoutine != null)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: constraints.maxHeight * 0.46,
+                child: Consumer(
+                  builder: (context, ref, _) {
+                    final cover = ref.watch(
+                      routineCoverProvider(spotlightRoutine.id),
+                    );
+                    return RoutineAccentScope(
+                      colorHex: spotlightRoutine.colorHex,
+                      child: AnimatedSwitcher(
+                        duration: MediaQuery.disableAnimationsOf(context)
+                            ? Duration.zero
+                            : PebbleMotion.standard,
+                        child: cover == null
+                            ? const SizedBox.expand()
+                            : RoutineCoverBackdrop(
+                                key: ValueKey(
+                                  '${spotlightRoutine.id}:${cover.encode()}',
+                                ),
+                                cover: cover,
+                              ),
+                      ),
+                    );
+                  },
+                ),
+              ),
             // Content column caps at 640 on wide screens; the scrim and
             // ambient background behind it stay full-bleed.
             AdaptiveContentWidth(
