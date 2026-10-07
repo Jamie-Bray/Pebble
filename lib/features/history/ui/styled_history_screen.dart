@@ -11,6 +11,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/ui/adaptive_layout.dart';
+import 'package:pebble_routines/core/ui/pebble_stones.dart';
 import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/core/ui/pebble_confirmation_sheet.dart';
 import 'package:pebble_routines/core/ui/pebble_photo_gallery_viewer.dart';
@@ -426,11 +427,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            LucideIcons.cameraOff,
-            size: 38,
-            color: foundation.textPrimary.withValues(alpha: 0.24),
-          ),
+          const PebbleStones(size: 88),
           const SizedBox(height: 16),
           Text(
             'No photos yet',
@@ -516,8 +513,8 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.history, size: 48, color: foundation.textMuted),
-            const SizedBox(height: 18),
+            const PebbleStones(scene: PebbleStonesScene.scattered, size: 132),
+            const SizedBox(height: 20),
             Text(
               'Nothing here yet',
               style: TextStyle(

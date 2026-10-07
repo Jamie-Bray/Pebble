@@ -30,6 +30,7 @@ import 'package:pebble_routines/features/routines/composer/ui/routine_composer_s
 import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/theme/routine_palette.dart';
+import 'package:pebble_routines/core/ui/pebble_stones.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
 import 'package:pebble_routines/features/history/providers/routine_history_vm.dart';
 import 'package:pebble_routines/features/history/ui/routine_run_detail_screen.dart';
@@ -183,6 +184,13 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Spacer(),
+                            // The stone waits where the first routine will
+                            // go. It leaves once there is one.
+                            const PebbleStones(
+                              scene: PebbleStonesScene.ripple,
+                              size: 148,
+                            ),
+                            const SizedBox(height: PebbleSpacing.xl),
                             Text(
                               'Start with one routine.',
                               style: PebbleFonts.serif(

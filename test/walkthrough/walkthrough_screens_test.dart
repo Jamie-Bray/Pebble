@@ -39,6 +39,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:pebble_routines/core/theme/routine_palette.dart';
 import 'package:pebble_routines/core/config/app_runtime_config.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
@@ -376,6 +377,9 @@ enum _Seed { empty, populated, fiveRoutines }
 String _steps(List<RoutineStep> steps) =>
     jsonEncode(steps.map((s) => s.toJson()).toList());
 
+int _stone(String key) =>
+    RoutinePalette.stones.firstWhere((s) => s.key == key).storedHex;
+
 Routine _routine({
   required int id,
   required String title,
@@ -455,6 +459,7 @@ Future<void> _seed(LocalDb db, _Seed seed) async {
       title: 'Leaving the house',
       steps: _leaveHomeSteps,
       icon: 'house',
+      color: _stone('clay'),
       pinned: true,
       created: now.subtract(const Duration(days: 40)),
     ),
@@ -463,6 +468,7 @@ Future<void> _seed(LocalDb db, _Seed seed) async {
       title: 'Morning reset',
       steps: _morningSteps,
       icon: 'leaf',
+      color: _stone('sand'),
       created: now.subtract(const Duration(days: 30)),
     ),
     _routine(
@@ -470,6 +476,7 @@ Future<void> _seed(LocalDb db, _Seed seed) async {
       title: 'Wind down',
       steps: _windDownSteps,
       icon: 'moon',
+      color: _stone('heather'),
       created: now.subtract(const Duration(days: 20)),
     ),
   ];

@@ -200,6 +200,7 @@ class _RoutineStylePickerSheetState extends State<RoutineStylePickerSheet> {
           label: 'Theme colour',
           selected: noColour,
           locked: false,
+          ring: true,
           onTap: () => _update(clear: true),
         ),
         for (final stone in RoutinePalette.stones)
@@ -298,6 +299,7 @@ class _Swatch extends StatelessWidget {
     required this.selected,
     required this.locked,
     required this.onTap,
+    this.ring = false,
   });
 
   final Color color;
@@ -305,6 +307,9 @@ class _Swatch extends StatelessWidget {
   final bool selected;
   final bool locked;
   final VoidCallback onTap;
+
+  /// Drawn as a ring rather than a solid stone: "follow the theme".
+  final bool ring;
 
   @override
   Widget build(BuildContext context) {
@@ -324,16 +329,22 @@ class _Swatch extends StatelessWidget {
           width: 48,
           height: 48,
           decoration: BoxDecoration(
-            color: color,
+            color: ring ? null : color,
             shape: BoxShape.circle,
             border: Border.all(
-              color: selected ? foundation.textPrimary : Colors.transparent,
-              width: 2.5,
-              strokeAlign: BorderSide.strokeAlignOutside,
+              color: selected
+                  ? foundation.textPrimary
+                  : ring
+                  ? color
+                  : Colors.transparent,
+              width: ring && !selected ? 4 : 2.5,
+              strokeAlign: ring
+                  ? BorderSide.strokeAlignInside
+                  : BorderSide.strokeAlignOutside,
             ),
           ),
           child: selected
-              ? Icon(LucideIcons.check, size: 20, color: onColor)
+              ? Icon(LucideIcons.check, size: 20, color: ring ? color : onColor)
               : locked
               ? Icon(
                   LucideIcons.lock,
