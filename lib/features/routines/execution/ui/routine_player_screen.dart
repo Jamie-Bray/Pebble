@@ -1160,6 +1160,7 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
         completedAt: session.completedAt ?? DateTime.now(),
         completedSteps: session.completedStepsCount,
         totalSteps: session.totalStepCount,
+        steps: completionEmailSteps(session),
       );
       if (mounted) {
         setState(() => _completionEmailNote = result.completionScreenNote);

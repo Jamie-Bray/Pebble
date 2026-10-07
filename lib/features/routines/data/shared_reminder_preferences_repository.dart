@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/data/remote/supabase_client_provider.dart';
+import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 
 enum SharedReminderContactStatus {
   pending,
@@ -297,6 +299,7 @@ class SharedReminderPreferencesRepository {
     required int totalSteps,
     String? routineCloudId,
     List<String> descriptions = const [],
+    List<CompletionEmailStep> steps = const [],
     Duration retryDelay = const Duration(seconds: 4),
   }) async {
     final client = _client;
@@ -315,6 +318,7 @@ class SharedReminderPreferencesRepository {
       completedSteps: completedSteps,
       totalSteps: totalSteps,
       descriptions: descriptions,
+      steps: steps,
     );
     var result = await _sendCompletionOnce(client, body);
     if (!result.sent &&
@@ -424,6 +428,10 @@ class SharedReminderPreferencesRepository {
 ///
 /// [descriptions] are AI photo descriptions, passed only when the person
 /// chose to add them to this routine's email. Photos are never sent.
+///
+/// [steps] are listed in the email with the time each was checked, but only
+/// when the contact's "Steps" setting is on (the server decides). The server
+/// never stores them.
 Map<String, dynamic> completionRequestBody({
   required String routineKey,
   required String routineTitle,
@@ -433,9 +441,11 @@ Map<String, dynamic> completionRequestBody({
   required int completedSteps,
   required int totalSteps,
   List<String> descriptions = const [],
+  List<CompletionEmailStep> steps = const [],
 }) {
   return {
     if (descriptions.isNotEmpty) 'descriptions': descriptions,
+    if (steps.isNotEmpty) 'steps': [for (final step in steps) step.toJson()],
     'routineKey': routineKey,
     'routineTitle': routineTitle,
     'runId': runId,
@@ -445,6 +455,60 @@ Map<String, dynamic> completionRequestBody({
     'completedSteps': completedSteps,
     'totalSteps': totalSteps,
   };
+}
+
+/// One step of a finished run, as the completion email lists it.
+class CompletionEmailStep {
+  const CompletionEmailStep({
+    required this.title,
+    required this.skipped,
+    this.completedAt,
+  });
+
+  final String title;
+  final bool skipped;
+  final DateTime? completedAt;
+
+  Map<String, dynamic> toJson() => {
+    'title': title,
+    'status': skipped ? 'skipped' : 'done',
+    if (!skipped && completedAt != null)
+      'completedAt': completedAt!.toUtc().toIso8601String(),
+  };
+}
+
+/// The run's steps in order, for the completion email. A step that was
+/// neither checked nor skipped is left out, so nothing is shown as done that
+/// wasn't.
+List<CompletionEmailStep> completionEmailSteps(RoutineSession session) {
+  final steps = <CompletionEmailStep>[];
+  for (final state in session.stepStates) {
+    if (state.status == SessionStepStatus.pending) continue;
+    final index = state.stepIndex;
+    if (index < 0 || index >= session.routineSnapshotSteps.length) continue;
+    final title = completionEmailStepTitle(
+      session.routineSnapshotSteps[index],
+    ).trim();
+    if (title.isEmpty) continue;
+    steps.add(
+      CompletionEmailStep(
+        title: title,
+        skipped: state.status == SessionStepStatus.skipped,
+        completedAt: state.completedAt,
+      ),
+    );
+  }
+  return steps;
+}
+
+/// The same title the player shows for a step.
+String completionEmailStepTitle(RoutineStep step) {
+  return step.maybeWhen(
+    check: (label, _, _, _, _, _, _) => label,
+    info: (message) => message,
+    timer: (_) => 'Pause',
+    orElse: () => 'Step',
+  );
 }
 
 /// Maps a non-2xx Edge Function response to an exception carrying the

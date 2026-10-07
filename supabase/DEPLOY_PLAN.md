@@ -214,6 +214,22 @@ still applies; older workers show a generic budget message for that refusal.
 Keep the additive tables during rollback; do not delete history
 or roll back the backup-consent gate independently of the app.
 
+## Proposed (email redesign, 7 Oct 2026; not yet agreed or done)
+
+New look for the invitation, completion and sign-in code emails, and the
+completion email now lists each step with the time it was checked (only when
+the contact's "Show each step" switch is on; step names are never stored).
+No database change.
+
+1. Deploy `send-routine-completion-alert` and `request-shared-alert-contact`
+   (both use `_shared/shared_alert_email.ts`). Older app builds don't send
+   steps, so their emails just show the step count, as before.
+2. Paste `supabase/templates/email_code.html` into Authentication > Emails in
+   the dashboard for both "Magic link" and "Confirm signup" (subject "Your
+   Pebble sign-in code"). Hosted projects don't read `config.toml`.
+3. Publish `web/privacy.html` (completion emails paragraph only; the date is
+   unchanged on purpose, because backup consent checks the exact policy date).
+
 ## Live preparation record — 5 October 2026 (Codex)
 
 Jamie asked Codex to carry out the owner setup tasks in Claude's pasted launch
