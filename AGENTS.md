@@ -20,7 +20,8 @@ so these rules are mandatory in every session, on every machine.
 3. **Commit small and often,** and **push the branch before the session ends.**
    A session never finishes with uncommitted or unpushed work.
 4. **Changes reach `main` only through a pull request** with CI green
-   (`.github/workflows/ci.yml`: analyze, tests, Android debug build).
+   (`.github/workflows/ci.yml`: analyze and tests; the Android debug build
+   runs only when started by hand, to save free Actions minutes).
 5. **Never commit secrets:** `android/key.properties`, keystores, `.env` files,
    API keys, service-account JSON. Production values live in Codemagic, in the
    `pebble_production` group.
