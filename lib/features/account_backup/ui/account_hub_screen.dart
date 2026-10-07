@@ -9,6 +9,7 @@ import 'package:pebble_routines/core/config/app_runtime_config.dart';
 import 'package:pebble_routines/core/ui/zen_notifications.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/features/sync/backup_status.dart';
+import 'package:pebble_routines/features/sync/sync_outbox_repository.dart';
 import 'package:pebble_routines/features/account_backup/providers/account_profile_presentation_provider.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
 import 'package:pebble_routines/features/subscription/data/purchase_repository.dart';
@@ -171,6 +172,16 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
     final backupIsOn = ref
         .read(subscriptionLifecycleProvider)
         .canUploadCloudChanges;
+    var waiting = 0;
+    try {
+      waiting =
+          (await ref.read(syncOutboxRepositoryProvider).pendingItems()).length;
+    } catch (_) {}
+    if (!mounted) return;
+    final waitingNote = backupIsOn && waiting > 0
+        ? ' $waiting change${waiting == 1 ? ' hasn\'t' : 's haven\'t'} '
+              'backed up yet and will back up when you sign in again.'
+        : '';
 
     await _showAccountActionSheet<void>(
       context: context,
@@ -181,7 +192,7 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
         body: backupIsOn
             ? 'Backup pauses until you sign in again. Anything already '
                   'backed up stays in your account, and your routines stay '
-                  'on this phone.'
+                  'on this phone.$waitingNote'
             : 'Local routines stay on this phone. Sign back in any time'
                   '${email == null ? '' : ' with $email'}.',
         accentColor: Theme.of(sheetContext).colorScheme.secondary,

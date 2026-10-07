@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:drift/drift.dart' as drift;
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,6 +17,8 @@ import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
 import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
+import 'package:pebble_routines/features/sync/cloud_sync_coordinator.dart';
+import 'package:pebble_routines/features/sync/sync_outbox_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -40,6 +43,7 @@ void main() {
             ),
           ),
           subscriptionProvider.overrideWithValue(tier),
+          cloudSyncCoordinatorProvider.overrideWithValue(_NoopSync()),
           subscriptionLifecycleProvider.overrideWithValue(
             tier == UserTier.personalPremium
                 ? const SubscriptionLifecycle(
@@ -60,6 +64,32 @@ void main() {
     tearDown(() async {
       container.dispose();
       await database.close();
+    });
+
+    test('deleting a backed-up run while signed out still queues the server '
+        'delete, so a restore cannot bring it back', () async {
+      await buildHarness(UserTier.personalPremium);
+      final finishedAt = DateTime.now().subtract(const Duration(hours: 1));
+      await database.routineRunDao.insertOrUpdateRun(
+        _run(id: 'owned', finishedAt: finishedAt).copyWith(
+          ownerUserId: const drift.Value('user-1'),
+          syncStatus: 'synced',
+        ),
+      );
+      await database.routineRunDao.insertOrUpdateRun(
+        _run(id: 'local-only', finishedAt: finishedAt),
+      );
+
+      final repo = container.read(routineRunRepositoryProvider);
+      await repo.deleteRun('owned');
+      await repo.deleteRun('local-only');
+
+      final queued = await container
+          .read(syncOutboxRepositoryProvider)
+          .pendingItems();
+      expect(queued, hasLength(1));
+      expect(queued.single.entityId, 'owned');
+      expect(queued.single.operation, SyncOperation.delete);
     });
 
     test('free history and proof photos are removed after 48 hours', () async {
@@ -399,4 +429,14 @@ class _FakeProofStorage implements RoutineSessionProofStorage {
   }) async {
     return asset;
   }
+}
+
+/// Repository writes kick a backup pass; these tests only check what was
+/// queued.
+class _NoopSync implements CloudSyncCoordinator {
+  @override
+  Future<void> kick() async {}
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

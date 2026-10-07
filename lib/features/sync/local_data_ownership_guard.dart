@@ -365,6 +365,78 @@ class LocalDataOwnershipGuard {
     return inspect(database: database, signedInUserId: normalizedUserId);
   }
 
+  /// After an account is deleted, its rows on this phone belong to no one:
+  /// the server copies are gone. Clearing their owner and backup fields makes
+  /// them ordinary unowned data, which the next sign-in (any account) links
+  /// without the account-switch flow. Anything still queued for the deleted
+  /// account is dropped, since that account can no longer write.
+  static Future<void> releaseDeletedAccountData({
+    required LocalDb database,
+    required String deletedUserId,
+  }) async {
+    final userId = deletedUserId.trim();
+    if (userId.isEmpty) return;
+
+    await database.transaction(() async {
+      await (database.update(
+        database.routines,
+      )..where((tbl) => tbl.ownerUserId.equals(userId))).write(
+        const RoutinesCompanion(
+          cloudId: Value(null),
+          ownerUserId: Value(null),
+          syncStatus: Value('localOnly'),
+          lastSyncedAt: Value(null),
+        ),
+      );
+
+      await (database.update(
+        database.routineRuns,
+      )..where((tbl) => tbl.ownerUserId.equals(userId))).write(
+        const RoutineRunsCompanion(
+          ownerUserId: Value(null),
+          syncStatus: Value('localOnly'),
+          lastSyncedAt: Value(null),
+        ),
+      );
+
+      await (database.update(
+        database.routineReminders,
+      )..where((tbl) => tbl.ownerUserId.equals(userId))).write(
+        const RoutineRemindersCompanion(
+          cloudId: Value(null),
+          ownerUserId: Value(null),
+          syncStatus: Value('localOnly'),
+          lastSyncedAt: Value(null),
+        ),
+      );
+
+      final sessions = await (database.select(
+        database.routineSessions,
+      )..where((tbl) => tbl.ownerUserId.equals(userId))).get();
+      for (final session in sessions) {
+        // Keep only the link to the run this session completed.
+        final completedRunId = _decodeMap(
+          session.syncMetadataJson,
+        )['completedRunId']?.toString();
+        await (database.update(
+          database.routineSessions,
+        )..where((tbl) => tbl.sessionId.equals(session.sessionId))).write(
+          RoutineSessionsCompanion(
+            ownerUserId: const Value(null),
+            syncMetadataJson: Value(
+              jsonEncode({
+                'needsSync': true,
+                'completedRunId': ?completedRunId,
+              }),
+            ),
+          ),
+        );
+      }
+
+      await database.delete(database.syncOutbox).go();
+    });
+  }
+
   static const _originRunIdKey = 'originRunId';
   static const _originOwnerKey = 'originOwnerUserId';
 

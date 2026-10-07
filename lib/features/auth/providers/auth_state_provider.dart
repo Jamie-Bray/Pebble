@@ -198,11 +198,26 @@ class AuthController extends StateNotifier<AuthState> {
   }
 
   Future<void> deleteAccount() async {
-    final hadActiveUser =
-        state.activeUserId != null && state.activeUserId!.isNotEmpty;
+    final deletedUserId = state.activeUserId;
+    final hadActiveUser = deletedUserId != null && deletedUserId.isNotEmpty;
     state = state.copyWith(status: AuthStatus.authenticating, clearError: true);
     try {
       await _repository.deleteAccount();
+      if (hadActiveUser) {
+        try {
+          await LocalDataOwnershipGuard.releaseDeletedAccountData(
+            database: _ref.read(localDbProvider),
+            deletedUserId: deletedUserId,
+          );
+        } catch (error) {
+          // The account is gone either way. Rows left labelled with it only
+          // mean the next sign-in asks before linking them.
+          debugPrint(
+            'Releasing local data after account deletion failed: '
+            '$error',
+          );
+        }
+      }
       await _logOutPurchaseSession('account deletion');
       await _ref
           .read(subscriptionAccountControllerProvider.notifier)
@@ -260,7 +275,13 @@ class AuthController extends StateNotifier<AuthState> {
     final AuthIdentity identity;
     try {
       identity = await signInAction();
-      await _repository.upsertProfile(identity: identity);
+      try {
+        await _repository.upsertProfile(identity: identity);
+      } catch (error) {
+        // Sign-in itself worked. The profile row is touched again on every
+        // launch, so a failure here must not show "Sign-in didn't finish".
+        debugPrint('Profile save after sign-in failed: $error');
+      }
       await _ref
           .read(subscriptionAccountControllerProvider.notifier)
           .cacheAuthenticatedIdentity(

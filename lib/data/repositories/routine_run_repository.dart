@@ -72,13 +72,8 @@ class RoutineRunRepositoryImpl implements RoutineRunRepository {
 
   @override
   Future<void> deleteAllRuns() async {
-    final policy = _ref.read(cloudAccessPolicyProvider);
     final runs = await _dao.getAllRuns();
-    for (final run in runs.where((item) {
-      return policy.canQueuePersonalSync &&
-          item.ownerUserId != null &&
-          item.ownerUserId!.isNotEmpty;
-    })) {
+    for (final run in runs.where(_mayBeBackedUp)) {
       await _ref
           .read(syncOutboxRepositoryProvider)
           .enqueue(
@@ -96,11 +91,8 @@ class RoutineRunRepositoryImpl implements RoutineRunRepository {
 
   @override
   Future<void> deleteRun(String id) async {
-    final policy = _ref.read(cloudAccessPolicyProvider);
     final run = await _dao.getRunById(id);
-    if (policy.canQueuePersonalSync &&
-        run?.ownerUserId != null &&
-        run!.ownerUserId!.isNotEmpty) {
+    if (run != null && _mayBeBackedUp(run)) {
       await _ref
           .read(syncOutboxRepositoryProvider)
           .enqueue(
@@ -115,6 +107,12 @@ class RoutineRunRepositoryImpl implements RoutineRunRepository {
     await _dao.deleteRun(id);
     await _ref.read(cloudSyncCoordinatorProvider).kick();
   }
+
+  /// A run with an owner may be in that account's backup, so deleting it
+  /// queues a server delete even while backup is paused (signed out, or
+  /// access not confirmed yet). Otherwise a restore would bring it back.
+  bool _mayBeBackedUp(RoutineRun run) =>
+      run.ownerUserId != null && run.ownerUserId!.isNotEmpty;
 
   @override
   Future<void> enforceRetentionPolicy() async {
