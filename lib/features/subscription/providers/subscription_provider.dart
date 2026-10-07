@@ -485,10 +485,11 @@ class SubscriptionAccountController
     bool clearError = false,
   }) async {
     final now = DateTime.now();
+    // A bootstrap only reads the server, so it never counts as "backed up":
+    // [lastSyncAt] moves only when a backup pass finishes cleanly.
     final next = state.copyWith(
       bootstrapStatus: status,
       lastBootstrapAt: status == BootstrapStatus.ready ? now : null,
-      lastSyncAt: status == BootstrapStatus.ready ? now : null,
       lastSyncError: clearError ? null : error,
       clearLastSyncError: clearError,
     );
@@ -496,13 +497,27 @@ class SubscriptionAccountController
     await _persist(next);
   }
 
-  Future<void> noteSyncSuccess() async {
+  /// A backup pass finished with nothing failing and nothing left waiting:
+  /// everything on this phone is in the backup as of now. Call once per
+  /// pass, never per item.
+  ///
+  /// [reachedServer] is false when the pass had nothing to upload. A setup
+  /// (bootstrap) error is then left in place, because the pass did not prove
+  /// the server is reachable.
+  Future<void> noteBackupPassClean({required bool reachedServer}) async {
     final now = DateTime.now();
+    final setupError = state.bootstrapStatus == BootstrapStatus.error;
+    if (setupError && !reachedServer) {
+      final next = state.copyWith(lastSyncAt: now);
+      state = next;
+      await _persist(next);
+      return;
+    }
     final next = state.copyWith(
       lastSyncAt: now,
       bootstrapStatus: state.bootstrapStatus == BootstrapStatus.preparing
           ? BootstrapStatus.syncing
-          : state.bootstrapStatus == BootstrapStatus.error
+          : setupError
           ? BootstrapStatus.ready
           : state.bootstrapStatus,
       clearLastSyncError: true,
@@ -511,6 +526,18 @@ class SubscriptionAccountController
     await _persist(next);
   }
 
+  /// A backup pass ended with changes that failed to upload. The message is
+  /// kept until a later pass finishes cleanly. Unlike [noteSyncFailure] this
+  /// leaves the setup (bootstrap) state alone: a change that fails to upload
+  /// does not mean backup needs setting up again.
+  Future<void> noteBackupPassFailed(String error) async {
+    final next = state.copyWith(lastSyncError: error);
+    state = next;
+    await _persist(next);
+  }
+
+  /// Backup setup failed (sign-in bootstrap, consent, or another account's
+  /// data on this phone).
   Future<void> noteSyncFailure(String error) async {
     final next = state.copyWith(
       bootstrapStatus: BootstrapStatus.error,

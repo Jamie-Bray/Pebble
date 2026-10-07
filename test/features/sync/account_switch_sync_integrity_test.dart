@@ -453,8 +453,12 @@ void main() {
       final result = await b.backUp();
 
       expect(result.type, ManualSyncResultType.failed);
-      expect(b.account.bootstrapStatus, BootstrapStatus.error);
+      // A failed upload is not a setup failure: backup stays set up (so a
+      // resume does not re-run the whole restore) and the reason is kept
+      // until a later pass finishes cleanly.
+      expect(b.account.bootstrapStatus, BootstrapStatus.ready);
       expect(b.account.lastSyncError, result.message);
+      expect(b.account.lastSyncAt, isNull);
       expect(cloud.runs[_runId]!['owner_user_id'], _userA);
 
       final local = (await database.routineRunDao.getAllRuns()).single;
@@ -503,14 +507,12 @@ void main() {
         signedInUserId: _userB,
       );
 
-      // First pass clears the stale item; it points at no run any more.
+      // The pass clears the stale item (it points at no run any more) and,
+      // because the run is still marked as waiting, the same pass's sweep
+      // uploads it under its new id.
       final first = await b.backUp();
       expect(first.type, ManualSyncResultType.synced);
       expect(await b.outbox.pendingItems(), isEmpty);
-      expect(cloud.ownedBy(cloud.runs, _userB), isEmpty);
-
-      // The run is still marked as waiting, so the next pass picks it up.
-      await b.backUp();
       expect(cloud.ownedBy(cloud.runs, _userB), hasLength(1));
       expect(cloud.runs[_runId]!['owner_user_id'], _userA);
     });

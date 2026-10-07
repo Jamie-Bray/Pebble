@@ -1718,13 +1718,70 @@ void main() {
 
         await _pumpAccountWidget(tester, harness, const CloudBackupScreen());
 
-        expect(find.text('Ready to turn on'), findsOneWidget);
-        expect(find.text('Turn on backup'), findsNWidgets(2));
+        expect(find.text('Backup off'), findsOneWidget);
+        expect(find.text('Turn on backup'), findsOneWidget);
 
-        await tester.tap(find.widgetWithText(FilledButton, 'Turn on backup'));
+        await tester.tap(find.byKey(const ValueKey('backup_card_action')));
         await tester.pumpAndSettle();
 
+        // One tap agrees: the recorded statement sits right above the button.
         expect(find.text(cloudBackupConsentText), findsOneWidget);
+        expect(find.byType(Checkbox), findsNothing);
+      },
+    );
+
+    testWidgets(
+      '/cloud-backup offers the turn-on sheet by itself right after sign-in',
+      (tester) async {
+        final harness = _buildUiContainer(
+          auth: const AuthSessionSummary(
+            isSignedIn: true,
+            userId: 'user-1',
+            email: 'jamie@example.com',
+            provider: 'google',
+          ),
+          entitlement: const EntitlementState(
+            personalTier: UserTier.personalPremium,
+            source: EntitlementSource.serverVerified,
+            lastCheckedAt: null,
+            isRefreshing: false,
+            lastError: null,
+            status: EntitlementStatus.personalPremium,
+          ),
+          cloudAccess: const PersonalCloudAccessState(
+            status: PersonalCloudAccessStatus.consentRequired,
+            label: 'Review cloud backup',
+            detail: 'Consent needed.',
+          ),
+          account: const SubscriptionAccountState(
+            entitlementTier: UserTier.personalPremium,
+            entitlementStatus: EntitlementStatus.personalPremium,
+            entitlementSource: EntitlementSource.serverVerified,
+            pendingTier: null,
+            bootstrapStatus: BootstrapStatus.idle,
+            userId: 'user-1',
+            email: 'jamie@example.com',
+            authProvider: 'google',
+            lastBootstrapAt: null,
+            lastSyncAt: null,
+            lastSyncError: null,
+          ),
+          pendingCount: 0,
+        );
+        addTearDown(() async {
+          harness.container.dispose();
+          await harness.database.close();
+        });
+        await _primeUiState(harness.container);
+
+        harness.container.read(backupTurnOnPromptProvider.notifier).state =
+            true;
+        await _pumpAccountWidget(tester, harness, const CloudBackupScreen());
+        await tester.pumpAndSettle();
+
+        // No tap needed: the sheet is already open, once.
+        expect(find.text(cloudBackupConsentText), findsOneWidget);
+        expect(harness.container.read(backupTurnOnPromptProvider), isFalse);
       },
     );
 
@@ -1774,7 +1831,7 @@ void main() {
 
       await _pumpAccountWidget(tester, harness, const CloudBackupScreen());
 
-      expect(find.text('Backup is on'), findsOneWidget);
+      expect(find.text('Backed up'), findsWidgets);
       expect(find.text('Back up now'), findsOneWidget);
       expect(find.byType(Switch), findsOneWidget);
       expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
@@ -2025,7 +2082,7 @@ void main() {
       // same way the chip does: a push onto the stack.
       unawaited(router.push('/cloud-backup'));
       await tester.pumpAndSettle();
-      expect(find.text('Backup is on'), findsOneWidget);
+      expect(find.byKey(const ValueKey('backup_status_card')), findsOneWidget);
 
       await tester.tap(find.bySemanticsLabel('Back'));
       await tester.pumpAndSettle();
@@ -2609,8 +2666,10 @@ void main() {
         result.message,
         "Backup couldn't save your changes. Check backup is turned on for this account, then try again.",
       );
-      expect(account.bootstrapStatus, BootstrapStatus.error);
+      // A rejected upload keeps its reason but is not a setup failure.
+      expect(account.bootstrapStatus, BootstrapStatus.ready);
       expect(account.lastSyncError, result.message);
+      expect(account.lastSyncAt, isNull);
     });
 
     test(

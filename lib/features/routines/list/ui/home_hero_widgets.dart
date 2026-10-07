@@ -10,26 +10,29 @@ import 'package:pebble_routines/core/ui/pebble_cairn.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/ui/pebble_time.dart';
 import 'package:pebble_routines/core/ui/readable_colors.dart';
-import 'package:pebble_routines/features/account_backup/providers/account_backup_ui_provider.dart';
 import 'package:pebble_routines/features/history/domain/run_step_tally.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
 import 'package:pebble_routines/features/routines/execution/ui/routine_complete_screen.dart';
+import 'package:pebble_routines/features/sync/backup_status.dart';
 
 /// How backup shows on the Home avatar: an 8 px dot, or nothing when backup
 /// is off (DESIGN_DIRECTION.md §5 Home 3).
 enum HomeBackupDot { none, backedUp, paused }
 
-HomeBackupDot homeBackupDotFor(AccountBackupChipState chip) {
-  if (!chip.show || chip.label == 'Backup off') return HomeBackupDot.none;
-  // A moment-long check while the app starts is not "paused": no dot rather
-  // than a false amber one.
-  if (chip.label == 'Checking backup' || chip.label == 'Turning on backup') {
-    return HomeBackupDot.none;
-  }
-  if (chip.tone == AccountBackupChipTone.positive) {
-    return HomeBackupDot.backedUp;
-  }
-  return HomeBackupDot.paused;
+HomeBackupDot homeBackupDotFor(BackupStatus status) {
+  return switch (status.phase) {
+    BackupPhase.upToDate || BackupPhase.backingUp => HomeBackupDot.backedUp,
+    // Changes waiting a moment are normal; only a real problem, or backup
+    // paused while Premium is still wanted, earns the amber dot.
+    BackupPhase.needsAttention ||
+    BackupPhase.paused ||
+    BackupPhase.signedOut => HomeBackupDot.paused,
+    BackupPhase.waiting =>
+      status.offline ? HomeBackupDot.none : HomeBackupDot.backedUp,
+    BackupPhase.notIncluded ||
+    BackupPhase.off ||
+    BackupPhase.checking => HomeBackupDot.none,
+  };
 }
 
 /// The Account control in the Home header: the same 44 glass circle as
@@ -41,8 +44,8 @@ class HomeAccountButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final chip = ref.watch(accountBackupChipStateProvider);
-    final dot = homeBackupDotFor(chip);
+    final status = ref.watch(backupStatusProvider);
+    final dot = homeBackupDotFor(status);
     final foundation = context.darkFoundation;
     final dotColor = switch (dot) {
       HomeBackupDot.backedUp => context.done,
@@ -50,7 +53,7 @@ class HomeAccountButton extends ConsumerWidget {
       HomeBackupDot.none => null,
     };
     return Semantics(
-      hint: chip.show ? chip.label : null,
+      hint: status.phase == BackupPhase.notIncluded ? null : status.headline,
       child: Stack(
         clipBehavior: Clip.none,
         children: [

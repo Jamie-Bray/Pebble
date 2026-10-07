@@ -27,6 +27,17 @@ const aiPhotoMaxSteps = 5;
 
 String aiPhotoConsentTitle(String routineName) => 'Use AI on "$routineName"?';
 
+/// The consent sheet's title and two-line summary. The full text in
+/// [aiPhotoConsentBody] is one tap away ("More details"), unchanged.
+const aiPhotoConsentShortTitle = 'Describe photos with AI?';
+
+String aiPhotoConsentSummary(String routineName) =>
+    'Each photo you take in "$routineName" is sent, with its step title and '
+    'description, to $aiPhotoProviderName ($aiPhotoProviderDescription) to '
+    "write one line about it. It isn't used to train AI.\n\n"
+    "Descriptions can be wrong, so look at the photo if it matters. "
+    '200 a month are included.';
+
 const _consentWhatHappens =
     'When you take a photo on a photo step in this routine, Pebble sends it '
     'and the step title, plus any step description you add, to '
@@ -79,3 +90,14 @@ const aiPhotoOnDetail =
 const aiPhotoUnavailableMessage = 'AI descriptions are unavailable right now.';
 const aiPhotoFailedMessage = "Couldn't describe this photo.";
 const aiPhotoLabel = 'AI description';
+
+// Lines under a photo in the player when no description came back. Short,
+// because they sit in a two-line caption slot.
+const aiPhotoDescribingLabel = 'Describing…';
+const aiPhotoRetryFailedShort = "Couldn't describe";
+const aiPhotoRetryAction = 'Try again';
+const aiPhotoSignedOutMessage = 'Sign in to use AI descriptions.';
+const aiPhotoNeedsPremiumMessage =
+    'AI descriptions need Personal Premium on this account.';
+const aiPhotoNeedsConsentMessage =
+    "Turn AI descriptions on again in this routine's settings.";

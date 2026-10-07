@@ -192,24 +192,27 @@ final cloudAccessPolicyProvider = Provider<CloudAccessPolicy>((ref) {
   final accountSwitchBlocked =
       account.bootstrapStatus == BootstrapStatus.error &&
       _looksAccountSwitchBlocked(account.lastSyncError);
-  final consentAccepted = auth.isSignedIn && hasServerVerifiedCloudEntitlement
-      ? ref.watch(cloudBackupConsentControllerProvider).canEnableCloudUpload
-      : false;
+  final consent = auth.isSignedIn && hasServerVerifiedCloudEntitlement
+      ? ref.watch(cloudBackupConsentControllerProvider)
+      : null;
+  // Uploads wait for this session's server confirmation of consent.
+  final consentConfirmed = consent?.canEnableCloudUpload ?? false;
+  // Queueing only records on this phone that a change is waiting; nothing
+  // leaves the phone until a pass confirms access. So it opens as soon as
+  // the person's consent is known locally, which closes the gap at every
+  // cold start where runs were saved before consent was re-confirmed and
+  // never queued.
+  final consentAccepted = consentConfirmed || (consent?.isAccepted ?? false);
+  final personalBase =
+      auth.isSignedIn &&
+      hasServerVerifiedCloudEntitlement &&
+      !accountSwitchBlocked &&
+      cachedOwnerUserId != null;
 
   return CloudAccessPolicy(
     cachedOwnerUserId: cachedOwnerUserId,
-    personalCloudEnabled:
-        auth.isSignedIn &&
-        hasServerVerifiedCloudEntitlement &&
-        consentAccepted &&
-        !accountSwitchBlocked &&
-        cachedOwnerUserId != null,
-    canQueuePersonalSync:
-        auth.isSignedIn &&
-        hasServerVerifiedCloudEntitlement &&
-        consentAccepted &&
-        !accountSwitchBlocked &&
-        cachedOwnerUserId != null,
+    personalCloudEnabled: personalBase && consentConfirmed,
+    canQueuePersonalSync: personalBase && consentAccepted,
     workspaceCloudEnabled: auth.isSignedIn && workspace.isCloudEnabled,
     isSignedIn: auth.isSignedIn,
     isAccountSwitchBlocked: accountSwitchBlocked,

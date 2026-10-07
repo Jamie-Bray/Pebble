@@ -10,7 +10,9 @@ import 'package:pebble_routines/features/routines/list/providers/routine_list_pr
 import 'package:pebble_routines/features/subscription/data/fair_use_policy.dart';
 import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
+import 'package:pebble_routines/features/sync/backup_status.dart';
 import 'package:pebble_routines/features/sync/cloud_sync_coordinator.dart';
+import 'package:pebble_routines/features/sync/sync_outbox_repository.dart';
 
 enum BackupDashboardTone { neutral, active, syncing, paused, attention }
 
@@ -148,6 +150,9 @@ final backupDashboardPresentationProvider = Provider<BackupDashboardPresentation
   final fairUse = ref
       .watch(proofMediaFairUseStateProvider)
       .maybeWhen(data: (value) => value, orElse: () => null);
+  final pendingKeys = ref
+      .watch(pendingBackupKeysProvider)
+      .maybeWhen(data: (value) => value, orElse: () => null);
 
   final lastBackupText = account.lastSyncAt == null
       ? 'No backup yet'
@@ -158,6 +163,7 @@ final backupDashboardPresentationProvider = Provider<BackupDashboardPresentation
     routines: routines,
     runs: runs,
     fairUse: fairUse,
+    pendingKeys: pendingKeys ?? const {},
   );
   final stuckCount = ref
       .watch(stuckSyncCountProvider)
@@ -256,9 +262,7 @@ List<BackupSetupStep> _setupStepsFor({
         : 'Already have Premium? Sign in with the account you used before.',
     // Never locked: signing in is also how a returning Premium user gets
     // Premium back, so it must not wait behind "Get Premium".
-    state: signedIn
-        ? BackupSetupStepState.done
-        : BackupSetupStepState.current,
+    state: signedIn ? BackupSetupStepState.done : BackupSetupStepState.current,
   );
 
   final backupStepState = switch (status) {
@@ -384,8 +388,7 @@ _BackupDashboardBase _baseForStatus({
     case PersonalCloudAccessStatus.consentRequired:
       return const _BackupDashboardBase(
         statusLabel: 'Ready to turn on',
-        detail:
-            'Turn it on and Pebble starts backing up your routines.',
+        detail: 'Turn it on and Pebble starts backing up your routines.',
         icon: LucideIcons.fileCheck,
         tone: BackupDashboardTone.attention,
         needsAttention: true,
@@ -530,6 +533,7 @@ List<BackupDataItem> _dataItemsFor({
   required List<Routine>? routines,
   required List<RoutineRun>? runs,
   required ProofMediaFairUseState? fairUse,
+  Set<String> pendingKeys = const {},
 }) {
   final offState = live ? BackupDataItemState.saved : BackupDataItemState.off;
   BackupDataItemState countState(int? synced, int? total) {
@@ -539,13 +543,21 @@ List<BackupDataItem> _dataItemsFor({
     return BackupDataItemState.pending;
   }
 
+  // A row counts as backed up only when it is marked synced and no change to
+  // it is still waiting. Having been uploaded once (lastSyncedAt) is not
+  // enough: an edit since then is not in the backup yet.
+  bool backedUp(String syncStatus, String key) =>
+      syncStatus == 'synced' && !pendingKeys.contains(key);
+
   // While backup is off the counts only raise questions ("why is it counting
   // my routines?"), so keep it to a plain description of what backup covers.
   final routineTotal = routines?.length;
   final routineSynced = routines
       ?.where(
-        (routine) =>
-            routine.syncStatus == 'synced' || routine.lastSyncedAt != null,
+        (routine) => backedUp(
+          routine.syncStatus,
+          '${SyncEntityType.routine.name}:${routine.id}',
+        ),
       )
       .length;
   final String routineDetail;
@@ -561,7 +573,10 @@ List<BackupDataItem> _dataItemsFor({
 
   final runTotal = runs?.length;
   final runSynced = runs
-      ?.where((run) => run.syncStatus == 'synced' || run.lastSyncedAt != null)
+      ?.where(
+        (run) =>
+            backedUp(run.syncStatus, '${SyncEntityType.run.name}:${run.id}'),
+      )
       .length;
   final String runDetail;
   if (!live) {
@@ -573,6 +588,8 @@ List<BackupDataItem> _dataItemsFor({
   } else {
     runDetail = runSynced == 0
         ? 'Waiting for first backup'
+        : runSynced < runTotal
+        ? '$runSynced of $runTotal completed runs backed up'
         : '$runSynced completed run${runSynced == 1 ? '' : 's'} backed up';
   }
 

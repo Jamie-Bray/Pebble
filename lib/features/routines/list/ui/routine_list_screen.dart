@@ -2,13 +2,15 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:pebble_routines/core/ui/pebble_buttons.dart';
+import 'package:pebble_routines/core/ui/pebble_time.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
+import 'package:pebble_routines/core/home_widget/home_widget_publisher.dart';
+import 'package:pebble_routines/core/home_widget/home_widget_setup.dart';
 import 'package:pebble_routines/features/ai_photo/ai_photo_service.dart';
 import 'package:pebble_routines/features/ai_photo/ai_photo_settings.dart';
 import 'package:pebble_routines/features/ai_photo/ai_photo_ui.dart';
@@ -49,12 +51,6 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/repositories/routine_session_repository.dart';
-
-/// Whether this platform has a Pebble home-screen widget to pin routines to.
-/// Only Android ships one (`pebble_routine_widget_info.xml`); there is no iOS
-/// WidgetKit extension yet.
-bool get supportsHomeScreenWidget =>
-    !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
 class RoutineListScreen extends ConsumerStatefulWidget {
   const RoutineListScreen({super.key});
@@ -1009,7 +1005,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
     final icon = RoutineIconCatalog.resolve(routine.emoji).icon;
     final metadata = <String>[
       '$steps ${steps == 1 ? 'step' : 'steps'}',
-      if (routine.isPinned && supportsHomeScreenWidget) 'Pinned',
+      if (_isWidgetRoutine(routine)) 'Shown on widget',
       if (routine.reminderTime != null) 'Reminder set',
     ];
     final rowBackground = isRestricted
@@ -1377,20 +1373,38 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
     ref.read(navIndexProvider.notifier).state = 1;
   }
 
-  Future<void> _togglePinRoutine(Routine routine) async {
-    final nextPinned = !routine.isPinned;
-    await ref
-        .read(routineManagementProvider)
-        .pinRoutine(routine.id, nextPinned);
-    if (!mounted) return;
+  /// Whether [routine] is the one the home-screen widget shows.
+  bool _isWidgetRoutine(Routine routine) {
+    if (!supportsHomeScreenWidget || !routine.isPinned) return false;
+    final routines = ref.read(routineListProvider).valueOrNull ?? [routine];
+    return selectWidgetRoutine(routines)?.id == routine.id;
+  }
 
-    ZenNotifications.showSuccess(
-      context,
-      title: nextPinned ? 'Added to widget' : 'Removed from widget',
-      message: nextPinned
-          ? '"${routine.title}" now shows on your home screen widget.'
-          : '"${routine.title}" is no longer on your widget.',
+  /// "Show on widget" makes this the widget's one routine; "Remove from
+  /// widget" leaves the widget empty.
+  Future<void> _toggleWidgetRoutine(Routine routine) async {
+    final management = ref.read(routineManagementProvider);
+    final routines = ref.read(routineListProvider).valueOrNull ?? [routine];
+    if (_isWidgetRoutine(routine)) {
+      await clearWidgetRoutine(
+        routines: routines,
+        setPinned: management.pinRoutine,
+      );
+      if (!mounted) return;
+      ZenNotifications.showSuccess(
+        context,
+        title: 'Removed from widget',
+        message: '"${routine.title}" is no longer on your widget.',
+      );
+      return;
+    }
+    await chooseWidgetRoutine(
+      routine: routine,
+      routines: routines,
+      setPinned: management.pinRoutine,
     );
+    if (!mounted) return;
+    await confirmWidgetRoutineChosen(context, ref, routine);
   }
 
   Future<void> _onEditRoutine(Routine routine, {int? initialStepIndex}) async {
@@ -1618,19 +1632,19 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                           if (supportsHomeScreenWidget)
                             _buildMenuRow(
                               sheetContext,
-                              icon: routine.isPinned
+                              icon: _isWidgetRoutine(routine)
                                   ? LucideIcons.pinOff
                                   : LucideIcons.pin,
-                              label: routine.isPinned
+                              label: _isWidgetRoutine(routine)
                                   ? 'Remove from widget'
-                                  : 'Add to widget',
-                              subtitle: routine.isPinned
-                                  ? 'Take it off your home screen widget'
+                                  : 'Show on widget',
+                              subtitle: _isWidgetRoutine(routine)
+                                  ? 'Shown on your home screen widget'
                                   : 'Start it from your home screen',
                               accent: accent,
                               onTap: () async {
                                 Navigator.pop(sheetContext);
-                                await _togglePinRoutine(routine);
+                                await _toggleWidgetRoutine(routine);
                               },
                             ),
                           const SizedBox(height: 18),
@@ -1727,7 +1741,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
     final steps = _stepCountForRoutine(routine);
     final meta = [
       '$steps ${steps == 1 ? 'step' : 'steps'}',
-      if (routine.isPinned && supportsHomeScreenWidget) 'Pinned',
+      if (_isWidgetRoutine(routine)) 'Shown on widget',
     ].join(' - ');
 
     return Row(
@@ -2199,14 +2213,32 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
           compact: metrics.compact,
         ),
         SizedBox(height: metrics.previewCtaGap),
+        // The answer is the card; nothing here should invite re-checking.
+        // Two quiet actions: look at this check, or run the routine again.
         SizedBox(
           key: const ValueKey('home_hero_cta_box'),
           width: double.infinity,
-          child: PebbleButton.secondary(
-            key: const ValueKey('home_hero_cta'),
-            onPressed: widget.onBegin,
-            icon: LucideIcons.rotateCcw,
-            label: 'Check again',
+          child: Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              PebbleButton.tertiary(
+                key: const ValueKey('home_hero_view_check'),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => RoutineRunDetailScreen(run: run),
+                  ),
+                ),
+                trailingIcon: LucideIcons.chevronRight,
+                label: 'See this check',
+              ),
+              PebbleButton.tertiary(
+                key: const ValueKey('home_hero_cta'),
+                onPressed: widget.onBegin,
+                icon: LucideIcons.rotateCcw,
+                label: 'Run again',
+              ),
+            ],
           ),
         ),
         SizedBox(height: metrics.ctaMetaGap),
@@ -2317,13 +2349,19 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
     );
   }
 
+  /// "Last checked today, 13:27" rather than "10h ago": the clock time is
+  /// what someone checking on themselves wants to see.
   String _lastRunText(DateTime finishedAt) {
-    final diff = DateTime.now().difference(finishedAt);
-    if (diff.inMinutes < 1) return 'Last completed just now';
-    if (diff.inHours < 1) return 'Last completed ${diff.inMinutes}m ago';
-    if (diff.inDays < 1) return 'Last completed ${diff.inHours}h ago';
-    if (diff.inDays == 1) return 'Last completed yesterday';
-    return 'Last completed ${DateFormat.MMMd().format(finishedAt)}';
+    final at = finishedAt.toLocal();
+    final now = ref.read(homeClockProvider)().toLocal();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(at.year, at.month, at.day);
+    final time = formatCheckTime(context, at);
+    if (day == today) return 'Last checked today, $time';
+    if (day == today.subtract(const Duration(days: 1))) {
+      return 'Last checked yesterday, $time';
+    }
+    return 'Last checked ${DateFormat.MMMd().format(at)}';
   }
 
   TextSpan _titleSpan(String title, Color accent) {

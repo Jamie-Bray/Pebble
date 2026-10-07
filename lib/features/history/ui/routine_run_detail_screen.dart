@@ -18,6 +18,7 @@ import 'package:pebble_routines/core/ui/pebble_photo_gallery_viewer.dart';
 import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/features/account_backup/providers/account_status_mapper.dart';
 import 'package:pebble_routines/features/history/domain/run_step_tally.dart';
+import 'package:pebble_routines/features/history/providers/routine_history_vm.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
 
@@ -29,18 +30,28 @@ class RoutineRunDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final proofStorage = ref.watch(routineSessionProofStorageProvider);
     final backupStatus = ref.watch(accountStatusPresentationProvider);
-    return _buildTimelineScreen(
-      context,
-      proofStorage,
+    final currentRun = ref.watch(routineRunProvider(run.id)).valueOrNull ?? run;
+    return _RunTimeline(
+      run: currentRun,
+      proofStorage: proofStorage,
       showSyncState: backupStatus.showRunSyncState,
     );
   }
+}
 
-  Widget _buildTimelineScreen(
-    BuildContext context,
-    RoutineSessionProofStorage proofStorage, {
-    required bool showSyncState,
-  }) {
+class _RunTimeline extends StatelessWidget {
+  const _RunTimeline({
+    required this.run,
+    required this.proofStorage,
+    required this.showSyncState,
+  });
+
+  final RoutineRun run;
+  final RoutineSessionProofStorage proofStorage;
+  final bool showSyncState;
+
+  @override
+  Widget build(BuildContext context) {
     final completionData = _parseCompletionData();
     final steps = _stepsFromCompletionData(completionData);
 
@@ -761,8 +772,9 @@ class RoutineRunDetailScreen extends ConsumerWidget {
     }
     final assets = _proofAssetsByPath();
     final descriptions = [
-      for (final path in photos)
-        if (assets[path]?.aiDescription case final description?) description,
+      for (var i = 0; i < photos.length; i++)
+        if (assets[photos[i]]?.aiDescription case final description?)
+          (index: i, text: description),
     ];
 
     return Container(
@@ -815,7 +827,33 @@ class RoutineRunDetailScreen extends ConsumerWidget {
           for (final description in descriptions)
             Padding(
               padding: const EdgeInsets.only(top: 10),
-              child: AiDescriptionText(description),
+              child: photos.length > 1
+                  ? Semantics(
+                      label: 'Photo ${description.index + 1}',
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ExcludeSemantics(
+                            child: SizedBox(
+                              width: 22,
+                              child: Builder(
+                                builder: (context) => Text(
+                                  '${description.index + 1}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    height: 1.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: context.readableSecondaryText,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Expanded(child: AiDescriptionText(description.text)),
+                        ],
+                      ),
+                    )
+                  : AiDescriptionText(description.text),
             ),
         ],
       ),
@@ -839,6 +877,10 @@ class RoutineRunDetailScreen extends ConsumerWidget {
           ],
           initialIndex: photoIndex,
           resolvePhotoFile: (path) => _resolveRunPhoto(proofStorage, path),
+          captionBuilder: (context, index) {
+            final text = _proofAssetsByPath()[stepPhotos[index]]?.aiDescription;
+            return text == null ? null : AiDescriptionText(text);
+          },
         ),
         child: Container(
           width: 80,

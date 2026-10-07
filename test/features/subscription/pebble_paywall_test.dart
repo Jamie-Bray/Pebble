@@ -365,15 +365,10 @@ void main() {
     expect(find.textContaining('Sign in to\nturn on backup.'), findsOneWidget);
     expect(
       find.text(
-        "Signing in lets Pebble back up your history, routines and photos, so you can restore them on another phone. It's optional. Premium already works without it.",
+        'Back up your routines and photos so you can get them back on a new phone.',
       ),
       findsOneWidget,
     );
-    expect(find.text('21 days'), findsOneWidget);
-    expect(find.text('21d'), findsNothing);
-    expect(find.text('21D'), findsNothing);
-    expect(find.text('Cloud'), findsOneWidget);
-    expect(find.text('Recovery'), findsOneWidget);
     expect(find.text('Sign in to back up'), findsOneWidget);
     expect(find.text('Continue without sign-in'), findsOneWidget);
     expect(find.textContaining('PlatformException'), findsNothing);
@@ -415,12 +410,8 @@ void main() {
     expect(find.text('Premium activated'), findsOneWidget);
     expect(find.text('Turn on backup'), findsOneWidget);
     expect(find.text('Not now'), findsOneWidget);
-    expect(
-      find.textContaining(
-        'proof photos and voice tips, which can include personal details',
-      ),
-      findsOneWidget,
-    );
+    // The recorded statement is shown word for word above the button.
+    expect(find.text(cloudBackupConsentText), findsOneWidget);
   });
 
   testWidgets('premium page dynamically displays App Store references on iOS', (

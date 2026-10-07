@@ -11,6 +11,7 @@ import 'package:pebble_routines/core/config/legal_links.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:pebble_routines/core/ui/pebble_buttons.dart';
+import 'package:pebble_routines/core/ui/pebble_simple_sheet.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/core/ui/zen_notifications.dart';
@@ -129,8 +130,7 @@ class PremiumPaywallCopy {
         storeNameInSentence: 'the App Store',
         renewalLine:
             'Renews automatically unless cancelled at least 24 hours before the end of the current period. Payment is charged to your Apple ID when you confirm. Cancel anytime in the App Store subscription settings. Pebble also works free without Premium.',
-        purchaseErrorLine:
-            "The App Store couldn't finish that. Try again.",
+        purchaseErrorLine: "The App Store couldn't finish that. Try again.",
         consoleName: 'App Store Connect',
       ),
       StorePlatform.googlePlay => const PremiumPaywallCopy._(
@@ -138,8 +138,7 @@ class PremiumPaywallCopy {
         storeNameInSentence: 'Google Play',
         renewalLine:
             'Renews automatically until cancelled. Cancel anytime in Google Play subscription settings. Pebble also works free without Premium.',
-        purchaseErrorLine:
-            "Google Play couldn't finish that. Try again.",
+        purchaseErrorLine: "Google Play couldn't finish that. Try again.",
         consoleName: 'Play Console',
       ),
       StorePlatform.other => const PremiumPaywallCopy._(
@@ -147,8 +146,7 @@ class PremiumPaywallCopy {
         storeNameInSentence: 'the store',
         renewalLine:
             'Renews automatically until cancelled. Cancel anytime through your app store subscription settings. Pebble also works free without Premium.',
-        purchaseErrorLine:
-            "The store couldn't finish that. Try again.",
+        purchaseErrorLine: "The store couldn't finish that. Try again.",
         consoleName: 'store console',
       ),
     };
@@ -562,42 +560,46 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
           return PopScope(
             canPop: !_busy,
             child: Scaffold(
-            backgroundColor: foundation.bgBase,
-            body: SafeArea(
-              bottom: false,
-              child: SingleChildScrollView(
-                controller: _scrollController,
-                physics: const BouncingScrollPhysics(),
-                padding: EdgeInsets.fromLTRB(
-                  24,
-                  52,
-                  24,
-                  28 + mediaQuery.padding.bottom,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _PaywallHeader(entrySource: widget.entrySource),
-                    if (inlinePricing) ...[const SizedBox(height: 28), pricing],
-                    const SizedBox(height: 28),
-                    const _SectionLabel('What Premium gives you'),
-                    const SizedBox(height: 2),
-                    _FeaturesList(entrySource: widget.entrySource),
-                    const SizedBox(height: 20),
-                    const _TrustCard(),
-                  ],
+              backgroundColor: foundation.bgBase,
+              body: SafeArea(
+                bottom: false,
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  physics: const BouncingScrollPhysics(),
+                  padding: EdgeInsets.fromLTRB(
+                    24,
+                    52,
+                    24,
+                    28 + mediaQuery.padding.bottom,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _PaywallHeader(entrySource: widget.entrySource),
+                      if (inlinePricing) ...[
+                        const SizedBox(height: 28),
+                        pricing,
+                      ],
+                      const SizedBox(height: 28),
+                      const _SectionLabel('What Premium gives you'),
+                      const SizedBox(height: 2),
+                      _FeaturesList(entrySource: widget.entrySource),
+                      const SizedBox(height: 20),
+                      const _TrustCard(),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            extendBody: false,
-            bottomNavigationBar: inlinePricing ? null : pricing,
-            floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
-            floatingActionButton: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 8, left: 4),
-                // Floating glass: scrolled content blurs out behind it.
-                child: PebbleBackButton(onPressed: _dismissPaywall),
-              ),
+              extendBody: false,
+              bottomNavigationBar: inlinePricing ? null : pricing,
+              floatingActionButtonLocation:
+                  FloatingActionButtonLocation.startTop,
+              floatingActionButton: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 8, left: 4),
+                  // Floating glass: scrolled content blurs out behind it.
+                  child: PebbleBackButton(onPressed: _dismissPaywall),
+                ),
               ),
             ),
           );
@@ -709,18 +711,9 @@ class _PostPurchaseBackupSheetState
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 12),
-                Text(
-                  'Pebble backs up routines, history, proof photos and voice '
-                  'tips, which can include personal details. You can pause '
-                  'backup any time in Your account.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: foundation.textSecondary,
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w300,
-                    height: 1.6,
-                  ),
-                ),
+                // The statement recorded by accept(), word for word, right
+                // above the button that agrees to it.
+                const PebbleStatementBox(text: cloudBackupConsentText),
                 const SizedBox(height: 22),
                 SizedBox(
                   width: double.infinity,
@@ -853,7 +846,7 @@ class _PremiumActivatedSheet extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    "Signing in lets Pebble back up your history, routines and photos, so you can restore them on another phone. It's optional. Premium already works without it.",
+                    "Back up your routines and photos so you can get them back on a new phone.",
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: foundation.textSecondary,
@@ -861,36 +854,6 @@ class _PremiumActivatedSheet extends StatelessWidget {
                       fontWeight: FontWeight.w300,
                       height: 1.62,
                     ),
-                  ),
-                  const SizedBox(height: 22),
-                  const Row(
-                    children: [
-                      Expanded(
-                        child: _PremiumActivatedPill(
-                          value: '21 days',
-                          label: 'History',
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: _PremiumActivatedPill(
-                          value: 'Cloud',
-                          label: 'Backup',
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: _PremiumActivatedPill(
-                          value: 'Recovery',
-                          label: 'Account',
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  Divider(
-                    height: 1,
-                    color: foundation.borderSubtle.withValues(alpha: 0.72),
                   ),
                   const SizedBox(height: 24),
                   SizedBox(

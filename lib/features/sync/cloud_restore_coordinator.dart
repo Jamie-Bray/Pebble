@@ -44,6 +44,14 @@ class CloudRestoreCoordinator {
     r'[0-9a-fA-F]{12}$',
   );
 
+  /// `"<entityType>:<entityId>"` for every local change still waiting to
+  /// upload at the moment a record is merged. Such a row is never overwritten by
+  /// the server copy: the change waiting would be lost.
+  Set<String> _queuedChanges = const {};
+
+  bool _hasQueuedChange(SyncEntityType type, String entityId) =>
+      _queuedChanges.contains('${type.name}:$entityId');
+
   Future<void> bootstrapAndMerge(String ownerUserId) async {
     await _mergeRoutines(ownerUserId);
     await _mergeReminders(ownerUserId);
@@ -52,30 +60,30 @@ class CloudRestoreCoordinator {
   }
 
   Future<void> _mergeRoutines(String ownerUserId) async {
-    final localRoutines = await _database.routineDao.getAllRoutines();
     final remoteRoutines = await _remoteRoutineDataSource.fetchAll(ownerUserId);
-    final localByCloudId = {
-      for (final routine in localRoutines)
-        if (_normalizedCloudId(routine.cloudId) case final normalizedCloudId?)
-          normalizedCloudId: routine,
-    };
 
     for (final remote in remoteRoutines) {
-      await _mergeRecordSafely(
-        'routine',
-        remote.id,
-        () => _mergeRoutine(ownerUserId, remote, localByCloudId[remote.id]),
-      );
+      await _mergeRecordSafely('routine', remote.id, () async {
+        final locals = await _database.routineDao.getAllRoutines();
+        final matching = locals.where(
+          (local) => _normalizedCloudId(local.cloudId) == remote.id,
+        );
+        await _mergeRoutine(ownerUserId, remote, matching.firstOrNull);
+      });
     }
 
-    for (final local in localRoutines.where(
-      (routine) => routine.cloudId == null || routine.cloudId!.isEmpty,
-    )) {
-      await _outbox.enqueue(
-        entityType: SyncEntityType.routine,
-        entityId: local.id.toString(),
-        operation: SyncOperation.upsert,
-      );
+    // Queue whatever this phone holds that the backup does not: new rows,
+    // rows changed since their last upload, and rows the server lacks.
+    // Rows that are already backed up are left alone, so a restore no
+    // longer re-uploads everything.
+    for (final local in await _database.routineDao.getAllRoutines()) {
+      if (_routineNeedsUpload(local)) {
+        await _outbox.ensureQueued(
+          entityType: SyncEntityType.routine,
+          entityId: local.id.toString(),
+          operation: SyncOperation.upsert,
+        );
+      }
     }
   }
 
@@ -90,10 +98,8 @@ class CloudRestoreCoordinator {
     }
 
     final local = await _database.routineReminderDao.getAllReminders();
-    for (final reminder in local.where(
-      (item) => item.cloudId == null || item.cloudId!.isEmpty,
-    )) {
-      await _outbox.enqueue(
+    for (final reminder in local.where(_reminderNeedsUpload)) {
+      await _outbox.ensureQueued(
         entityType: SyncEntityType.reminder,
         entityId: reminder.id.toString(),
         operation: SyncOperation.upsert,
@@ -102,52 +108,102 @@ class CloudRestoreCoordinator {
   }
 
   Future<void> _mergeRuns(String ownerUserId) async {
-    final localRuns = await _database.routineRunDao.getAllRuns();
     final remoteRuns = await _remoteRunDataSource.fetchAll(ownerUserId);
-    final localById = {for (final run in localRuns) run.id: run};
 
     for (final remote in remoteRuns) {
       await _mergeRecordSafely(
         'run',
         remote.id,
-        () => _mergeRun(ownerUserId, remote, localById[remote.id]),
+        () async => _mergeRun(
+          ownerUserId,
+          remote,
+          await _database.routineRunDao.getRunById(remote.id),
+        ),
       );
     }
 
-    for (final local in localRuns.where(
-      (run) => run.ownerUserId == null || run.ownerUserId!.isEmpty,
-    )) {
-      await _outbox.enqueue(
-        entityType: SyncEntityType.run,
-        entityId: local.id,
-        operation: SyncOperation.upsert,
-      );
+    for (final local in await _database.routineRunDao.getAllRuns()) {
+      if (_runNeedsUpload(local)) {
+        await _outbox.ensureQueued(
+          entityType: SyncEntityType.run,
+          entityId: local.id,
+          operation: SyncOperation.upsert,
+        );
+      }
     }
   }
 
   Future<void> _mergeSessions(String ownerUserId) async {
-    final localSessions = await _database.routineSessionDao.getAllSessions();
     final remoteSessions = await _remoteSessionDataSource.fetchAll(ownerUserId);
-    final localById = {
-      for (final session in localSessions) session.sessionId: session,
-    };
 
     for (final remote in remoteSessions) {
       await _mergeRecordSafely(
         'session',
         remote.id,
-        () => _mergeSession(ownerUserId, remote, localById),
+        () => _mergeSession(ownerUserId, remote),
       );
     }
 
+    final localSessions = await _database.routineSessionDao.getAllSessions();
     for (final local in localSessions.where(
       (session) => session.ownerUserId == null || session.ownerUserId!.isEmpty,
     )) {
-      await _outbox.enqueue(
+      await _outbox.ensureQueued(
         entityType: SyncEntityType.session,
         entityId: local.sessionId,
         operation: SyncOperation.upsert,
       );
+    }
+  }
+
+  /// A row is in the backup when it is marked synced and has not changed
+  /// since that upload.
+  static bool _changedSinceUpload({
+    required String syncStatus,
+    required DateTime? lastSyncedAt,
+    required DateTime updatedAt,
+  }) {
+    if (syncStatus != 'synced' || lastSyncedAt == null) return true;
+    return lastSyncedAt.isBefore(updatedAt);
+  }
+
+  static bool _isBlank(String? value) => value == null || value.trim().isEmpty;
+
+  static bool _routineNeedsUpload(Routine routine) =>
+      _isBlank(routine.cloudId) ||
+      _isBlank(routine.ownerUserId) ||
+      _changedSinceUpload(
+        syncStatus: routine.syncStatus,
+        lastSyncedAt: routine.lastSyncedAt,
+        updatedAt: routine.updatedAt,
+      );
+
+  static bool _reminderNeedsUpload(RoutineReminder reminder) =>
+      _isBlank(reminder.cloudId) ||
+      _isBlank(reminder.ownerUserId) ||
+      _changedSinceUpload(
+        syncStatus: reminder.syncStatus,
+        lastSyncedAt: reminder.lastSyncedAt,
+        updatedAt: reminder.updatedAt,
+      );
+
+  static bool _runNeedsUpload(RoutineRun run) =>
+      _isBlank(run.ownerUserId) ||
+      _changedSinceUpload(
+        syncStatus: run.syncStatus,
+        lastSyncedAt: run.lastSyncedAt,
+        updatedAt: run.updatedAt,
+      );
+
+  static bool _sessionNeedsUpload(RoutineSessionRow session) {
+    if (_isBlank(session.ownerUserId)) return true;
+    final metadataJson = session.syncMetadataJson;
+    if (metadataJson == null || metadataJson.isEmpty) return false;
+    try {
+      final decoded = jsonDecode(metadataJson);
+      return decoded is Map && decoded['needsSync'] == true;
+    } catch (_) {
+      return true;
     }
   }
 
@@ -176,7 +232,8 @@ class CloudRestoreCoordinator {
       );
       return;
     }
-    if (remote.updatedAt.isAfter(local.updatedAt)) {
+    if (!_hasQueuedChange(SyncEntityType.routine, local.id.toString()) &&
+        remote.updatedAt.isAfter(local.updatedAt)) {
       await _database.routineDao.insertOrUpdateRoutine(
         Routine(
           id: local.id,
@@ -197,13 +254,9 @@ class CloudRestoreCoordinator {
           lastSyncedAt: DateTime.now(),
         ),
       );
-    } else {
-      await _outbox.enqueue(
-        entityType: SyncEntityType.routine,
-        entityId: local.id.toString(),
-        operation: SyncOperation.upsert,
-      );
     }
+    // Otherwise the local copy is as new or newer; the sweep in
+    // [_mergeRoutines] queues it only if it changed since its last upload.
   }
 
   Future<void> _mergeReminder(
@@ -214,7 +267,8 @@ class CloudRestoreCoordinator {
       record.id,
     );
     if (existing != null) {
-      if (record.updatedAt.isAfter(existing.updatedAt)) {
+      if (!_hasQueuedChange(SyncEntityType.reminder, existing.id.toString()) &&
+          record.updatedAt.isAfter(existing.updatedAt)) {
         await _database.routineReminderDao.updateReminder(
           RoutineReminder(
             id: existing.id,
@@ -283,7 +337,8 @@ class CloudRestoreCoordinator {
       );
       return;
     }
-    if (remote.updatedAt.isAfter(local.updatedAt)) {
+    if (!_hasQueuedChange(SyncEntityType.run, local.id) &&
+        remote.updatedAt.isAfter(local.updatedAt)) {
       await _database.routineRunDao.insertOrUpdateRun(
         RoutineRun(
           id: local.id,
@@ -300,19 +355,14 @@ class CloudRestoreCoordinator {
           updatedAt: remote.updatedAt,
         ),
       );
-    } else {
-      await _outbox.enqueue(
-        entityType: SyncEntityType.run,
-        entityId: local.id,
-        operation: SyncOperation.upsert,
-      );
     }
+    // Otherwise the sweep in [_mergeRuns] queues it only if it changed
+    // since its last upload.
   }
 
   Future<void> _mergeSession(
     String ownerUserId,
     RemoteRoutineSessionRecord remote,
-    Map<String, RoutineSessionRow> localById,
   ) async {
     final payload = remote.payload;
     final jsonPayload = payload['payload'] is Map<String, dynamic>
@@ -321,7 +371,9 @@ class CloudRestoreCoordinator {
     final entity = RoutineSession.fromJson(jsonPayload);
     // Match on the session's own id: the cloud row id differs for a session
     // taken over from another account.
-    final local = localById[entity.sessionId];
+    final local = await _database.routineSessionDao.getSessionById(
+      entity.sessionId,
+    );
     if (local == null) {
       await _database.routineSessionDao.insertOrUpdateSession(
         RoutineSessionRow(
@@ -356,7 +408,9 @@ class CloudRestoreCoordinator {
       return;
     }
 
-    final localNeedsPriority = local.status == 'active';
+    final localNeedsPriority =
+        local.status == 'active' ||
+        _hasQueuedChange(SyncEntityType.session, local.sessionId);
     if (!localNeedsPriority && remote.updatedAt.isAfter(local.updatedAt)) {
       await _database.routineSessionDao.insertOrUpdateSession(
         RoutineSessionRow(
@@ -388,8 +442,8 @@ class CloudRestoreCoordinator {
           discardedAt: entity.discardedAt,
         ),
       );
-    } else {
-      await _outbox.enqueue(
+    } else if (_sessionNeedsUpload(local)) {
+      await _outbox.ensureQueued(
         entityType: SyncEntityType.session,
         entityId: local.sessionId,
         operation: SyncOperation.upsert,
@@ -405,7 +459,27 @@ class CloudRestoreCoordinator {
     Future<void> Function() merge,
   ) async {
     try {
-      await merge();
+      await _database.transaction(() async {
+        final pending = await _outbox.pendingItems();
+        // A pending deletion is a tombstone until the server acknowledges
+        // it. Restoring that row would undo the person's offline deletion.
+        if (pending.any(
+          (item) =>
+              item.entityType.name == kind &&
+              item.operation == SyncOperation.delete &&
+              _normalizedCloudId(
+                    item.payload?['cloudId']?.toString() ?? item.entityId,
+                  ) ==
+                  id,
+        )) {
+          return;
+        }
+        _queuedChanges = {
+          for (final item in pending)
+            '${item.entityType.name}:${item.entityId}',
+        };
+        await merge();
+      });
     } catch (error) {
       debugPrint('Restore skipped remote $kind $id: $error');
     }

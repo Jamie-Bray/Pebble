@@ -22,6 +22,8 @@ import 'core/config/app_runtime_config.dart';
 import 'core/config/pebble_locale.dart';
 import 'core/monitoring/crash_reporting.dart';
 import 'core/navigation/app_shell.dart';
+import 'core/navigation/external_launch.dart';
+import 'core/navigation/external_location.dart';
 import 'data/remote/supabase_client_provider.dart';
 import 'features/templates/ui/template_detail_screen.dart';
 import 'features/templates/ui/templates_gallery_screen.dart';
@@ -176,6 +178,10 @@ final _routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
     redirect: (context, state) {
+      // Widget launch URIs (pebble://play/<id>, or just "/<id>") must reach
+      // the player, never the error page.
+      final external = externalLocationRedirect(state.uri);
+      if (external != null) return external;
       final hasCompletedOnboarding =
           prefs.getBool('has_completed_onboarding') ?? false;
       final isGoingToOnboarding = state.uri.path == '/onboarding';
@@ -312,9 +318,8 @@ final _routerProvider = Provider<GoRouter>((ref) {
         path: '/play/:id',
         builder: (context, state) {
           final idStr = state.pathParameters['id'];
-          if (idStr == null) return const SizedBox.shrink();
-          final id = int.tryParse(idStr);
-          if (id == null) return const SizedBox.shrink();
+          final id = int.tryParse(idStr ?? '');
+          if (id == null) return const PageNotAvailableScreen();
           return Consumer(
             builder: (context, ref, _) {
               final async = ref.watch(routineSessionEntryProvider(id));
@@ -331,7 +336,12 @@ final _routerProvider = Provider<GoRouter>((ref) {
                   if (entry == null) {
                     return const _RoutineUnavailableScreen();
                   }
-                  return RoutinePlayerScreen(sessionId: entry.sessionId);
+                  // Keyed by session: a widget tap on a finished run
+                  // resolves a new session, which needs a fresh player.
+                  return RoutinePlayerScreen(
+                    key: ValueKey(entry.sessionId),
+                    sessionId: entry.sessionId,
+                  );
                 },
               );
             },
@@ -339,6 +349,7 @@ final _routerProvider = Provider<GoRouter>((ref) {
         },
       ),
     ],
+    errorBuilder: pebbleRouterErrorBuilder,
     debugLogDiagnostics: !runtimeConfig.isProduction,
     initialLocation: '/',
   );
@@ -583,14 +594,17 @@ Future<void> _startPebble(AppRuntimeConfig appRuntimeConfig) async {
   // (covers startup, pin/unpin, rename, delete - all in-app events, so no
   // background refresh is ever needed) and handle widget taps.
   // The widget also mirrors Home's "Checked" state, so runs republish too.
+  // Reminders too: like Home, "Checked" ends at the routine's next reminder.
   var widgetRoutines = const <Routine>[];
   var widgetRuns = const <RoutineRun>[];
+  var widgetReminders = const <RoutineReminder>[];
   void publishWidget() {
     final routine = selectWidgetRoutine(widgetRoutines);
     unawaited(
       publishHomeWidgetRoutine(
         routine,
         latestRun: latestRunFor(routine, widgetRuns),
+        reminders: reminderSlotsFor(routine, widgetReminders),
       ),
     );
   }
@@ -601,6 +615,10 @@ Future<void> _startPebble(AppRuntimeConfig appRuntimeConfig) async {
   });
   db.routineRunDao.watchAllRuns().listen((runs) {
     widgetRuns = runs;
+    publishWidget();
+  });
+  db.select(db.routineReminders).watch().listen((reminders) {
+    widgetReminders = reminders;
     publishWidget();
   });
   HomeWidget.widgetClicked.listen((uri) {
@@ -666,7 +684,13 @@ Future<void> _openRoutineFromExternalLaunch(int routineId) async {
   for (var attempt = 0; attempt < 40; attempt++) {
     final context = _rootNavigatorKey.currentContext;
     if (context != null && context.mounted) {
-      GoRouter.of(context).go('/play/$routineId');
+      final container = ProviderScope.containerOf(context, listen: false);
+      openRoutineFromExternalLaunch(
+        GoRouter.of(context),
+        routineId: routineId,
+        refreshSession: () =>
+            container.invalidate(routineSessionEntryProvider(routineId)),
+      );
       return;
     }
     await Future<void>.delayed(const Duration(milliseconds: 250));
@@ -690,6 +714,7 @@ class _PebbleAppState extends ConsumerState<PebbleApp>
       ref.read(purchaseRepositoryProvider);
       await ref.read(routineRepositoryProvider).normalizeLegacyRoutineIcons();
       await ref.read(routineRunRepositoryProvider).enforceRetentionPolicy();
+      ref.read(cloudSyncCoordinatorProvider).setAppInForeground(true);
       await ref.read(cloudSyncCoordinatorProvider).kick();
     });
   }
@@ -703,8 +728,13 @@ class _PebbleAppState extends ConsumerState<PebbleApp>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      ref.read(cloudSyncCoordinatorProvider).setAppInForeground(true);
       unawaited(_refreshPurchasesAndCloudAccess());
       ref.read(routineRunRepositoryProvider).enforceRetentionPolicy();
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      // The periodic retry only runs while Pebble is on screen.
+      ref.read(cloudSyncCoordinatorProvider).setAppInForeground(false);
     }
   }
 

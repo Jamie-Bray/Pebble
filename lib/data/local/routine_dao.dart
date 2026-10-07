@@ -56,6 +56,9 @@ class RoutineDao extends DatabaseAccessor<LocalDb> with _$RoutineDaoMixin {
     return (await getRoutineById(id))?.cloudId;
   }
 
+  /// Records a finished upload. [updatedAt] is left alone: it says when the
+  /// routine last changed, and bumping it made every restore think the
+  /// local copy was newer and upload everything again.
   Future<void> markRoutineSynced({
     required int id,
     required String cloudId,
@@ -68,7 +71,6 @@ class RoutineDao extends DatabaseAccessor<LocalDb> with _$RoutineDaoMixin {
         ownerUserId: Value(ownerUserId),
         syncStatus: const Value('synced'),
         lastSyncedAt: Value(syncedAt),
-        updatedAt: Value(syncedAt),
       ),
     );
   }

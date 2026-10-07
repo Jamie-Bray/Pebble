@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The widget picker preview's badge, in Pebble's deep green (the
+     provider's default routine colour). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="#FF4A5D4E" />
+</shape>

@@ -88,6 +88,19 @@ class AuthSessionSummary {
   final String? userId;
   final String? email;
   final String? provider;
+
+  // Value equality, so an unchanged sign-in (every app resume refreshes the
+  // auth state) does not count as a change for everything that watches it.
+  @override
+  bool operator ==(Object other) =>
+      other is AuthSessionSummary &&
+      other.isSignedIn == isSignedIn &&
+      other.userId == userId &&
+      other.email == email &&
+      other.provider == provider;
+
+  @override
+  int get hashCode => Object.hash(isSignedIn, userId, email, provider);
 }
 
 class AuthController extends StateNotifier<AuthState> {

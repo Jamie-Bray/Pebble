@@ -28,6 +28,7 @@ class PebblePhotoGalleryViewer extends ConsumerStatefulWidget {
     required this.initialIndex,
     required this.resolvePhotoFile,
     this.bottomBuilder,
+    this.captionBuilder,
   });
 
   final List<PebbleGalleryPhoto> photos;
@@ -35,12 +36,17 @@ class PebblePhotoGalleryViewer extends ConsumerStatefulWidget {
   final Future<File?> Function(String storedPath) resolvePhotoFile;
   final Widget Function(BuildContext context, int index)? bottomBuilder;
 
+  /// Shown under the title, before any actions: for example the AI
+  /// description of the photo on screen. Return null for nothing.
+  final Widget? Function(BuildContext context, int index)? captionBuilder;
+
   static Future<void> open(
     BuildContext context, {
     required List<PebbleGalleryPhoto> photos,
     required int initialIndex,
     required Future<File?> Function(String storedPath) resolvePhotoFile,
     Widget Function(BuildContext context, int index)? bottomBuilder,
+    Widget? Function(BuildContext context, int index)? captionBuilder,
   }) {
     return Navigator.of(context).push(
       MaterialPageRoute(
@@ -49,6 +55,7 @@ class PebblePhotoGalleryViewer extends ConsumerStatefulWidget {
           initialIndex: initialIndex,
           resolvePhotoFile: resolvePhotoFile,
           bottomBuilder: bottomBuilder,
+          captionBuilder: captionBuilder,
         ),
       ),
     );
@@ -207,6 +214,11 @@ class _PebblePhotoGalleryViewerState
                         color: colorScheme.onSurface.withValues(alpha: 0.64),
                       ),
                     ),
+                  ],
+                  if (widget.captionBuilder?.call(context, _currentIndex)
+                      case final caption?) ...[
+                    const SizedBox(height: 10),
+                    caption,
                   ],
                   if (ref
                       .watch(proofPhotoExportServiceProvider)

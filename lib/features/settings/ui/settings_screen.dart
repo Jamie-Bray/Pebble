@@ -3,6 +3,7 @@ import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:pebble_routines/core/config/app_version.dart";
 import "package:pebble_routines/core/config/legal_links.dart";
+import "package:pebble_routines/core/home_widget/home_widget_setup.dart";
 import "package:pebble_routines/core/theme/theme_provider.dart";
 import "package:pebble_routines/core/ui/zen_notifications.dart";
 import "package:url_launcher/url_launcher.dart";
@@ -112,6 +113,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                             context.push('/reminders');
                           },
                         ),
+                        if (supportsHomeScreenWidget) ...[
+                          const _Hairline(),
+                          _FlowTile(
+                            icon: LucideIcons.layoutGrid,
+                            title: 'Home screen widget',
+                            subtitle: 'Start a routine from your home screen',
+                            onTap: () => showHomeWidgetSetupSheet(context),
+                          ),
+                        ],
                         const _Hairline(),
                         _FlowSwitchTile(
                           icon: LucideIcons.focus,

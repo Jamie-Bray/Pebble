@@ -10,7 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
-import 'package:pebble_routines/core/ui/pebble_confirmation_sheet.dart';
+import 'package:pebble_routines/core/ui/pebble_simple_sheet.dart';
 import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/core/ui/zen_notifications.dart';
 import 'package:pebble_routines/features/ai_photo/ai_photo_constants.dart';
@@ -117,19 +117,24 @@ Future<void> openAiPhotoSettings(
   if (settings.isOnFor(routine.id)) {
     final serverEnabled =
         ref.read(aiPhotoServerEnabledProvider).valueOrNull ?? false;
-    final turnOff = await showPebbleConfirmationSheet(
+    final turnOff = await showPebbleSimpleSheet<bool>(
       context: context,
-      title: 'AI photo descriptions',
-      body: [
-        if (!serverEnabled) aiPhotoUnavailableMessage,
-        'On for "${routine.title}".',
-        if (photoSteps > aiPhotoMaxSteps) _firstFiveNote(photoSteps),
-        aiPhotoOnDetail,
-        aiPhotoAllowanceDetail,
-      ].join('\n\n'),
-      confirmLabel: 'Turn off',
-      cancelLabel: 'Keep on',
-      extraBody: const AiPhotoAllowanceText(),
+      builder: (sheetContext) => PebbleSimpleSheet(
+        icon: LucideIcons.sparkles,
+        title: 'AI photo descriptions',
+        body: serverEnabled
+            ? 'On for "${routine.title}".'
+            : '$aiPhotoUnavailableMessage On for "${routine.title}".',
+        content: const AiPhotoAllowanceText(),
+        primaryLabel: 'Turn off',
+        destructive: true,
+        onPrimary: () => Navigator.of(sheetContext).pop(true),
+        secondaryLabel: 'Keep on',
+        onSecondary: () => Navigator.of(sheetContext).pop(false),
+        detailsLabel: 'More details',
+        onDetails: () =>
+            showAiPhotoDetails(sheetContext, photoSteps: photoSteps),
+      ),
     );
     if (turnOff == true) {
       await controller.turnOff(routine.id);
@@ -305,78 +310,53 @@ Widget _sheetParagraph(BuildContext context, String text) {
   );
 }
 
-/// The consent sheet. Returns true only when the box was checked and
-/// "Turn on" pressed; closing it any other way is not consent.
+/// The consent sheet, kept short on purpose: what happens in two lines,
+/// the statement being agreed to word for word, and one "Turn on" button.
+/// Everything else is one tap away in [showAiPhotoDetails]. Returns true only
+/// when "Turn on" is pressed; closing it any other way is not consent.
 Future<bool?> showAiPhotoConsentSheet(
   BuildContext context, {
   required String routineName,
   int photoSteps = 0,
 }) {
-  var accepted = false;
-  return _showAiSheet<bool>(
+  return showPebbleSimpleSheet<bool>(
+    context: context,
+    builder: (sheetContext) => PebbleSimpleSheet(
+      icon: LucideIcons.sparkles,
+      title: aiPhotoConsentShortTitle,
+      body: aiPhotoConsentSummary(routineName),
+      content: const PebbleStatementBox(text: aiPhotoConsentCheckLabel),
+      primaryLabel: 'Turn on',
+      onPrimary: () => Navigator.of(sheetContext).pop(true),
+      onSecondary: () => Navigator.of(sheetContext).pop(false),
+      detailsLabel: 'More details',
+      onDetails: () => showAiPhotoDetails(sheetContext, photoSteps: photoSteps),
+    ),
+  );
+}
+
+/// The full explanation, word for word as agreed in consent version
+/// [aiPhotoConsentVersion], on its own page.
+Future<void> showAiPhotoDetails(BuildContext context, {int photoSteps = 0}) {
+  return PebbleDetailsPage.push(
     context,
-    title: aiPhotoConsentTitle(routineName),
-    children: (context, setState) {
-      final colorScheme = Theme.of(context).colorScheme;
-      return [
-        for (final paragraph in aiPhotoConsentBody)
-          _sheetParagraph(context, paragraph),
-        if (photoSteps > aiPhotoMaxSteps)
-          _sheetParagraph(context, _firstFiveNote(photoSteps)),
-        // Material so the tile's ink renders on this surface (see
-        // _BackupConsentCheck in cloud_backup_screen.dart).
-        Material(
-          color: colorScheme.surfaceContainerHigh,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(
-              color: colorScheme.outline.withValues(alpha: 0.12),
-            ),
-          ),
-          child: CheckboxListTile.adaptive(
-            contentPadding: const EdgeInsets.fromLTRB(10, 6, 14, 6),
-            controlAffinity: ListTileControlAffinity.leading,
-            value: accepted,
-            onChanged: (value) => setState(() => accepted = value == true),
-            title: Text(
-              aiPhotoConsentCheckLabel,
-              style: TextStyle(
-                fontSize: 14,
-                height: 1.4,
-                color: colorScheme.onSurface,
-              ),
-            ),
-          ),
+    title: 'AI photo descriptions',
+    sections: [
+      for (final paragraph in aiPhotoConsentBody) (null, paragraph),
+      if (photoSteps > aiPhotoMaxSteps) (null, _firstFiveNote(photoSteps)),
+      ('When it is on', aiPhotoOnDetail),
+    ],
+    footer: Align(
+      alignment: Alignment.centerLeft,
+      child: TextButton.icon(
+        onPressed: () => launchUrl(
+          Uri.parse(aiPhotoHowItWorksUrl),
+          mode: LaunchMode.externalApplication,
         ),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            onPressed: () => launchUrl(
-              Uri.parse(aiPhotoHowItWorksUrl),
-              mode: LaunchMode.externalApplication,
-            ),
-            icon: const Icon(LucideIcons.externalLink, size: 16),
-            label: const Text(aiPhotoHowItWorksLabel),
-          ),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Not now'),
-          ),
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton(
-            onPressed: accepted ? () => Navigator.pop(context, true) : null,
-            child: const Text('Turn on'),
-          ),
-        ),
-      ];
-    },
+        icon: const Icon(LucideIcons.externalLink, size: 16),
+        label: const Text('Privacy policy'),
+      ),
+    ),
   );
 }
 

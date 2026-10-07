@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pebble_routines/core/home_widget/home_widget_setup.dart';
+import 'package:pebble_routines/features/sync/backup_status.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
@@ -731,16 +733,48 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('Add to widget'), findsOneWidget);
+    expect(find.text('Show on widget'), findsOneWidget);
     expect(find.text('Start it from your home screen'), findsOneWidget);
 
-    await tester.ensureVisible(find.text('Add to widget'));
+    await tester.ensureVisible(find.text('Show on widget'));
     await tester.pump();
-    await tester.tap(find.text('Add to widget'));
+    await tester.tap(find.text('Show on widget'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(repo.pinnedUpdates, equals([(1, true)]));
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    // No widget on the home screen yet, so Pebble explains how to add it.
+    expect(find.text('Add Pebble to your home screen'), findsOneWidget);
+    expect(
+      find.text('Touch and hold an empty spot on your home screen.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('only the newest pin is tagged as shown on the widget', (
+    tester,
+  ) async {
+    final repo = _FakeRoutineRepository([
+      _routine(id: 1, title: 'Morning Reset', isPinned: true),
+      _routine(id: 2, title: 'Leaving the house', isPinned: true),
+    ]);
+
+    await _pumpHome(
+      tester,
+      routines: repo._routines.values.toList(),
+      routineRepository: repo,
+    );
+
+    await tester.tap(find.text('Your routines'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    // Routine 2 was pinned last, so it is the widget routine.
+    expect(find.textContaining('Shown on widget'), findsOneWidget);
+    expect(find.textContaining('Pinned'), findsNothing);
   });
 
   testWidgets('library reorder moves a routine to the dropped position', (
@@ -808,7 +842,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(find.text('Edit'), findsOneWidget);
-      expect(find.text('Add to widget'), findsNothing);
+      expect(find.text('Show on widget'), findsNothing);
       expect(find.text('Remove from widget'), findsNothing);
       expect(find.textContaining('home widget'), findsNothing);
       expect(find.textContaining('Pinned'), findsNothing);
@@ -899,12 +933,12 @@ void main() {
   });
 
   testWidgets('home last-run line reports skipped steps', (tester) async {
-    final finishedAt = DateTime.now().subtract(const Duration(hours: 3));
+    final finishedAt = DateTime(2026, 10, 3, 13, 27);
     await _pumpHome(
       tester,
       surfaceSize: const Size(390, 844),
       // Past the Checked window, so the hero is back to Start.
-      clock: () => finishedAt.add(const Duration(days: 1)),
+      clock: () => DateTime(2026, 10, 4, 9),
       routines: [
         _routine(
           id: 1,
@@ -931,7 +965,12 @@ void main() {
       ),
     );
 
-    expect(find.text('Last completed 3h ago'), findsOneWidget);
+    expect(
+      find.textContaining(
+        RegExp(r'^Last checked yesterday, (13:27|1:27\s?PM)$'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('3 of 4 steps · 1 skipped'), findsOneWidget);
     expect(find.text('4 of 4 steps'), findsNothing);
   });
@@ -939,30 +978,61 @@ void main() {
   _checkedTests();
 }
 
-
 void _checkedTests() {
   group('checkedUntil (the Checked reset rule)', () {
     final at = DateTime(2026, 10, 3, 8, 4);
 
-    test('a run from earlier today, under six hours ago, is Checked', () {
-      expect(checkedUntil(at, DateTime(2026, 10, 3, 9)), at.add(kCheckedWindow));
-      expect(checkedUntil(at, DateTime(2026, 10, 3, 14, 3)), isNotNull);
+    test('with no reminder, a check stays Checked until 4am next day', () {
+      expect(
+        checkedUntil(at, DateTime(2026, 10, 3, 9)),
+        DateTime(2026, 10, 4, 4),
+      );
+      expect(checkedUntil(at, DateTime(2026, 10, 3, 20)), isNotNull);
+      expect(checkedUntil(at, DateTime(2026, 10, 4, 3, 59)), isNotNull);
+      expect(checkedUntil(at, DateTime(2026, 10, 4, 4)), isNull);
     });
 
-    test('six hours after the run it is back to Start', () {
-      expect(checkedUntil(at, DateTime(2026, 10, 3, 14, 4)), isNull);
-      expect(checkedUntil(at, DateTime(2026, 10, 3, 20)), isNull);
+    test('the next reminder ends Checked: the routine is due again', () {
+      final reminder = DateTime(2026, 10, 3, 18);
+      expect(
+        checkedUntil(at, DateTime(2026, 10, 3, 17), nextReminder: reminder),
+        reminder,
+      );
+      expect(
+        checkedUntil(at, DateTime(2026, 10, 3, 18), nextReminder: reminder),
+        isNull,
+      );
     });
 
-    test('a late check never carries over past midnight', () {
+    test('a reminder after the day boundary does not extend Checked', () {
+      expect(
+        checkedUntil(
+          at,
+          DateTime(2026, 10, 3, 9),
+          nextReminder: DateTime(2026, 10, 4, 8),
+        ),
+        DateTime(2026, 10, 4, 4),
+      );
+    });
+
+    test('a late check carries over to the small hours, not the morning', () {
       final late = DateTime(2026, 10, 3, 23, 30);
-      expect(checkedUntil(late, DateTime(2026, 10, 3, 23, 50)),
-          DateTime(2026, 10, 4));
-      expect(checkedUntil(late, DateTime(2026, 10, 4, 0, 10)), isNull);
+      expect(
+        checkedUntil(late, DateTime(2026, 10, 4, 0, 10)),
+        DateTime(2026, 10, 4, 4),
+      );
+      expect(checkedUntil(late, DateTime(2026, 10, 4, 8)), isNull);
     });
 
-    test('a run from another day is never Checked', () {
-      expect(checkedUntil(at, DateTime(2026, 10, 4, 8)), isNull);
+    test('nextReminderAt skips a reminder inside the grace period', () {
+      // Done at 07:55 for an 08:00 reminder: Checked lasts until the
+      // next one, not five minutes.
+      final done = DateTime(2026, 10, 5, 7, 55); // a Monday
+      final next = nextReminderAt([
+        (1, '8:00 AM'),
+        (1, '6:00 PM'),
+      ], done.add(kCheckedReminderGrace));
+      expect(next, DateTime(2026, 10, 5, 18));
     });
   });
 
@@ -982,7 +1052,10 @@ void _checkedTests() {
       latestRun: _runWithSteps(routineId: 1, finishedAt: finishedAt, total: 5),
     );
 
-    expect(find.byKey(const ValueKey('home_hero_checked_card')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('home_hero_checked_card')),
+      findsOneWidget,
+    );
     expect(find.text('CHECKED'), findsOneWidget);
     // The time is the hero, in the big serif.
     expect(
@@ -992,8 +1065,9 @@ void _checkedTests() {
       findsOneWidget,
     );
     expect(find.text('Leaving the house · all 5 steps'), findsOneWidget);
-    // Check again is tonal: no filled Start competing with the answer.
-    expect(find.text('Check again'), findsOneWidget);
+    // Quiet actions only: no filled Start competing with the answer.
+    expect(find.text('See this check'), findsOneWidget);
+    expect(find.text('Run again'), findsOneWidget);
     expect(find.text('Start'), findsNothing);
     expect(find.text('UP NEXT'), findsNothing);
     expect(tester.takeException(), isNull);
@@ -1027,7 +1101,7 @@ void _checkedTests() {
     tester,
   ) async {
     final finishedAt = DateTime(2026, 10, 3, 8, 4);
-    var now = DateTime(2026, 10, 3, 14);
+    var now = DateTime(2026, 10, 4, 3, 55);
     await _pumpHome(
       tester,
       surfaceSize: const Size(390, 844),
@@ -1037,13 +1111,13 @@ void _checkedTests() {
       ],
       latestRun: _runWithSteps(routineId: 1, finishedAt: finishedAt, total: 1),
     );
-    expect(find.text('Check again'), findsOneWidget);
+    expect(find.text('Run again'), findsOneWidget);
 
-    now = DateTime(2026, 10, 3, 14, 5);
+    now = DateTime(2026, 10, 4, 4);
     await tester.pump(const Duration(minutes: 5));
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('Check again'), findsNothing);
+    expect(find.text('Run again'), findsNothing);
     expect(find.text('Start'), findsOneWidget);
     expect(find.text('UP NEXT'), findsOneWidget);
   });
@@ -1109,37 +1183,15 @@ void _checkedTests() {
   });
 
   test('backup shows as a dot on the avatar, none when off', () {
-    AccountBackupChipState chip(String label, AccountBackupChipTone tone) =>
-        AccountBackupChipState(
-          show: true,
-          label: label,
-          tone: tone,
-          semanticsHint: '',
-        );
-    expect(
-      homeBackupDotFor(const AccountBackupChipState.hidden()),
-      HomeBackupDot.none,
-    );
-    expect(
-      homeBackupDotFor(chip('Backup off', AccountBackupChipTone.neutral)),
-      HomeBackupDot.none,
-    );
-    expect(
-      homeBackupDotFor(chip('Checking backup', AccountBackupChipTone.neutral)),
-      HomeBackupDot.none,
-    );
-    expect(
-      homeBackupDotFor(chip('Backed up · 4m', AccountBackupChipTone.positive)),
-      HomeBackupDot.backedUp,
-    );
-    expect(
-      homeBackupDotFor(chip('Offline', AccountBackupChipTone.neutral)),
-      HomeBackupDot.paused,
-    );
-    expect(
-      homeBackupDotFor(chip('Needs attention', AccountBackupChipTone.attention)),
-      HomeBackupDot.paused,
-    );
+    HomeBackupDot dot(BackupPhase phase, {bool offline = false}) =>
+        homeBackupDotFor(BackupStatus(phase: phase, offline: offline));
+    expect(dot(BackupPhase.notIncluded), HomeBackupDot.none);
+    expect(dot(BackupPhase.off), HomeBackupDot.none);
+    expect(dot(BackupPhase.checking), HomeBackupDot.none);
+    expect(dot(BackupPhase.upToDate), HomeBackupDot.backedUp);
+    expect(dot(BackupPhase.waiting, offline: true), HomeBackupDot.none);
+    expect(dot(BackupPhase.needsAttention), HomeBackupDot.paused);
+    expect(dot(BackupPhase.paused), HomeBackupDot.paused);
   });
 
   test('next reminder picks the soonest enabled time', () {
@@ -1226,7 +1278,19 @@ List<Override> _homeOverrides({
     accountBackupChipStateProvider.overrideWithValue(
       const AccountBackupChipState.hidden(),
     ),
+    homeWidgetHostProvider.overrideWithValue(const _NoWidgetsHost()),
   ];
+}
+
+/// A launcher with no Pebble widget placed and no "Add widget" prompt.
+class _NoWidgetsHost extends HomeWidgetHost {
+  const _NoWidgetsHost();
+
+  @override
+  Future<int?> installedWidgetCount() async => 0;
+
+  @override
+  Future<bool> canRequestPinWidget() async => false;
 }
 
 Future<void> _pumpHome(

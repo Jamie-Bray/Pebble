@@ -124,8 +124,8 @@ final syncOutboxCountProvider = StreamProvider<int>((ref) {
   return db.syncOutboxDao.watchItems().map((rows) => rows.length);
 });
 
-/// Items whose automatic retries have given up (parked ~a year out). They
-/// only sync again via a user-initiated "Back up now".
+/// Items that have failed [SyncOutboxRepositoryImpl.stuckAttemptThreshold]
+/// times in a row. Pebble keeps retrying them, but they need attention.
 final stuckSyncCountProvider = StreamProvider<int>((ref) {
   final db = ref.watch(localDbProvider);
   return db.syncOutboxDao.watchItems().map(

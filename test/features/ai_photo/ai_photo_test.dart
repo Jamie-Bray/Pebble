@@ -96,6 +96,13 @@ class _FakeProofStorage implements RoutineSessionProofStorage {
   dynamic noSuchMethod(Invocation invocation) async {}
 }
 
+class _PausedProofStorage extends _FakeProofStorage {
+  final file = Completer<File?>();
+
+  @override
+  Future<File?> resolveStoredFile(String storedPath) => file.future;
+}
+
 const _unlocked = RoutineLimitPolicy(
   hasPremiumRoutineAccess: true,
   isInGrace: false,
@@ -126,6 +133,69 @@ const _plain = RoutineStep.check(label: 'Keys in bag');
 Future<void> _tick() => Future<void>.delayed(Duration.zero);
 
 void main() {
+  for (final accountChanged in [true, false]) {
+    test(
+      'photo preparation stops when ${accountChanged ? 'the account changes' : 'routine consent is withdrawn'}',
+      () async {
+        final auth = StateProvider(
+          (ref) => const AuthSessionSummary(
+            isSignedIn: true,
+            userId: _userId,
+            email: null,
+            provider: null,
+          ),
+        );
+        final activeIds = StateProvider<Set<int>>((ref) => {1, 2});
+        final storage = _PausedProofStorage();
+        final container = ProviderContainer(
+          overrides: [
+            authSessionProvider.overrideWith((ref) => ref.watch(auth)),
+            aiPhotoActiveRoutineIdsProvider.overrideWith(
+              (ref) => ref.watch(activeIds),
+            ),
+            routineSessionProofStorageProvider.overrideWithValue(storage),
+          ],
+        );
+        addTearDown(container.dispose);
+        final request = container.read(aiProofDescriberProvider)(
+          RoutineSessionProofAsset(
+            proofId: 'proof-test',
+            localRelativePath: 'proofs/test.webp',
+            remoteObjectKey: null,
+            uploadStatus: ProofUploadStatus.localOnly,
+            capturedAt: DateTime(2026, 10, 7),
+          ),
+          'Door',
+          null,
+          'proof-test',
+        );
+        if (accountChanged) {
+          container.read(auth.notifier).state = const AuthSessionSummary(
+            isSignedIn: true,
+            userId: 'another-user',
+            email: null,
+            provider: null,
+          );
+        } else {
+          // Another routine remains opted in; global consent is still on.
+          container.read(activeIds.notifier).state = {2};
+        }
+        final assertion = expectLater(
+          request,
+          throwsA(
+            isA<AiPhotoDescribeException>().having(
+              (error) => error.reason,
+              'reason',
+              accountChanged ? 'signedOut' : 'noConsent',
+            ),
+          ),
+        );
+        storage.file.complete(File('/unused/test.webp'));
+        await assertion;
+      },
+    );
+  }
+
   group('wording and versions', () {
     test(
       'allowance parsing rejects invalid counts and consent states the cost of attempts',
@@ -509,7 +579,7 @@ void main() {
         final asked = <String>[];
         final titles = <String>[];
         final controller = await player(
-          describe: (asset, stepLabel, photoDetail) {
+          describe: (asset, stepLabel, photoDetail, _) {
             asked.add(asset.proofId);
             titles.add(stepLabel);
             return answer.future;
@@ -569,7 +639,7 @@ void main() {
         await start(const [step]);
         String? detail;
         final controller = await player(
-          describe: (_, title, description) async {
+          describe: (_, title, description, _) async {
             expect(title, 'Patio door');
             detail = description;
             return 'The small lever appears horizontal.';
@@ -592,7 +662,7 @@ void main() {
         await start(const [_photo, _plain]);
         var calls = 0;
         final controller = await player(
-          describe: (_, stepLabel, photoDetail) async {
+          describe: (_, stepLabel, photoDetail, _) async {
             calls += 1;
             throw const SocketException('offline');
           },
@@ -627,7 +697,7 @@ void main() {
       () async {
         await start(const [_photo]);
         final controller = await player(
-          describe: (_, _, _) async {
+          describe: (_, _, _, _) async {
             throw const AiPhotoAllowanceException(aiPhotoMonthlyLimitMessage);
           },
         );
@@ -652,7 +722,7 @@ void main() {
         await start(const [_photo]);
         final answer = Completer<String?>();
         final controller = await player(
-          describe: (_, stepLabel, photoDetail) => answer.future,
+          describe: (_, stepLabel, photoDetail, _) => answer.future,
         );
 
         await controller.attachProof('/tmp/a.jpg');
@@ -683,7 +753,7 @@ void main() {
       () async {
         await start(const [_photo]);
         final controller = await player(
-          describe: (_, stepLabel, photoDetail) async =>
+          describe: (_, stepLabel, photoDetail, _) async =>
               'Four dials with the marker at the top.',
         );
         await controller.attachProof('/tmp/a.jpg');
@@ -705,6 +775,7 @@ void main() {
           RoutineSessionProofAsset _,
           String stepLabel,
           String? photoDetail,
+          String _,
         ) async {
           calls += 1;
           return 'A door.';
@@ -743,7 +814,7 @@ void main() {
         await start(const [_photo, _plain]);
         final answer = Completer<String?>();
         final controller = await player(
-          describe: (_, stepLabel, photoDetail) => answer.future,
+          describe: (_, stepLabel, photoDetail, _) => answer.future,
         );
         await controller.attachProof('/tmp/a.jpg');
         await controller.removeProof('proof-1');
@@ -761,7 +832,7 @@ void main() {
         var n = 0;
         final slow = Completer<String?>();
         final controller = await player(
-          describe: (_, stepLabel, photoDetail) =>
+          describe: (_, stepLabel, photoDetail, _) =>
               ++n == 3 ? slow.future : Future.value('Photo $n.'),
         );
         for (var step = 0; step < 3; step++) {
@@ -785,7 +856,7 @@ void main() {
         final never = Completer<String?>();
         await start(const [_photo]);
         final stuck = await player(
-          describe: (_, stepLabel, photoDetail) => never.future,
+          describe: (_, stepLabel, photoDetail, _) => never.future,
         );
         await stuck.attachProof('/tmp/z.jpg');
         expect(
@@ -996,7 +1067,7 @@ void main() {
     }
 
     testWidgets(
-      'consent: Turn on is disabled until the box is checked; closing is not consent',
+      'consent: short sheet shows the agreed statement; closing is not consent',
       (tester) async {
         bool? result;
         await open(tester, (context) async {
@@ -1006,22 +1077,13 @@ void main() {
           );
         });
 
-        expect(find.text('Use AI on "Leaving the house"?'), findsOneWidget);
+        expect(find.text(aiPhotoConsentShortTitle), findsOneWidget);
+        expect(find.textContaining('Leaving the house'), findsOneWidget);
+        // The statement is shown word for word above "Turn on".
         expect(find.text(aiPhotoConsentCheckLabel), findsOneWidget);
-        expect(find.text(aiPhotoHowItWorksLabel), findsOneWidget);
-        expect(
-          tester.widget<CheckboxListTile>(find.byType(CheckboxListTile)).value,
-          isFalse,
-        );
-        FilledButton turnOn() => tester.widget<FilledButton>(
-          find.widgetWithText(FilledButton, 'Turn on'),
-        );
-        expect(turnOn().onPressed, isNull);
-
-        await tester.ensureVisible(find.text(aiPhotoConsentCheckLabel));
-        await tester.tap(find.text(aiPhotoConsentCheckLabel));
-        await tester.pumpAndSettle();
-        expect(turnOn().onPressed, isNotNull);
+        expect(find.text('More details'), findsOneWidget);
+        // The long explanation is not on the sheet itself.
+        expect(find.text(aiPhotoConsentBody.first), findsNothing);
 
         await tester.ensureVisible(find.text('Not now'));
         await tester.tap(find.text('Not now'));
@@ -1030,7 +1092,7 @@ void main() {
       },
     );
 
-    testWidgets('consent: checking the box then Turn on returns true', (
+    testWidgets('consent: Turn on returns true; details hold the full text', (
       tester,
     ) async {
       bool? result;
@@ -1041,13 +1103,19 @@ void main() {
           photoSteps: 7,
         );
       });
+      await tester.ensureVisible(find.text('More details'));
+      await tester.tap(find.text('More details'));
+      await tester.pumpAndSettle();
+      for (final paragraph in aiPhotoConsentBody) {
+        expect(find.text(paragraph), findsOneWidget);
+      }
       expect(
         find.textContaining('This routine has 7 photo steps'),
         findsOneWidget,
       );
-      await tester.ensureVisible(find.text(aiPhotoConsentCheckLabel));
-      await tester.tap(find.text(aiPhotoConsentCheckLabel));
+      await tester.pageBack();
       await tester.pumpAndSettle();
+
       await tester.ensureVisible(find.text('Turn on'));
       await tester.tap(find.text('Turn on'));
       await tester.pumpAndSettle();

@@ -10,7 +10,7 @@ import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/ui/zen_notifications.dart';
 import 'package:pebble_routines/data/remote/supabase_client_provider.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
-import 'package:pebble_routines/features/auth/ui/auth_method_sheet.dart';
+import 'package:pebble_routines/features/account_backup/ui/cloud_backup_screen.dart';
 import 'package:pebble_routines/features/auth/ui/email_otp_sheet.dart';
 import 'package:pebble_routines/features/auth/ui/migration_sanctuary_overlay.dart';
 import 'package:pebble_routines/features/subscription/data/models/subscription_account_state.dart';
@@ -36,10 +36,16 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
           next.status == AuthStatus.signedIn &&
           !_isBlockingBackupSetup(accountState);
       if (isReady) {
-        // No success toast: the account hub we land on already shows the
-        // signed-in identity and live backup status, so a banner on top of
-        // it would just repeat the screen underneath.
-        context.go('/account-hub');
+        // No success toast: the next screen already shows the signed-in
+        // identity and backup status. With Premium, signing in is nearly
+        // always "so I can back up", so carry straight on to the one
+        // "Turn on backup?" sheet instead of leaving it to be found.
+        final router = GoRouter.of(context);
+        router.go('/account-hub');
+        if (ref.read(entitlementStateProvider).isPersonalPaid) {
+          ref.read(backupTurnOnPromptProvider.notifier).state = true;
+          router.push('/cloud-backup');
+        }
         return;
       }
       if (next.status == AuthStatus.authError &&
@@ -125,14 +131,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       height: MediaQuery.sizeOf(context).height < 700 ? 24 : 44,
                     ),
                     _SignInHero(hasPremium: hasPremium),
-                    const SizedBox(height: 28),
-                    _SignInPerks(hasPremium: hasPremium),
-                    const SizedBox(height: 32),
-                    Divider(
-                      height: 1,
-                      color: colorScheme.onSurface.withValues(alpha: 0.07),
-                    ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 36),
                     if (!authController.isConfigured)
                       const _SignInUnavailableNotice(
                         message:
@@ -164,15 +163,9 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                             ? null
                             : () => showEmailOtpSheet(context, ref),
                       ),
-                      if (ref
-                          .watch(entitlementStateProvider)
-                          .isPersonalPaid) ...[
-                        const SizedBox(height: 16),
-                        const _BackupOnSignInNote(),
-                      ],
                     ],
                     const SizedBox(height: 28),
-                    _NoAccountNote(onTap: () => showAuthMethodSheet(context)),
+                    _NoAccountNote(onTap: () => showHowBackupWorks(context)),
                   ],
                 ),
               ),
@@ -260,9 +253,9 @@ class _SignInHero extends StatelessWidget {
         ? ('Your routines,\n', 'backed up.')
         : ('Your Pebble\n', 'account.');
     final intro = hasPremium
-        ? 'Sign in to back up your routines and restore them on a new phone. '
-        : 'Signing in links Pebble to an account. Backup and restore come '
-              'with Premium, which you can add later. ';
+        ? 'Sign in to back up your routines and get them back on a new phone.'
+        : 'Keep Premium and backup with you across phones. Pebble works '
+              'without an account too.';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -287,155 +280,13 @@ class _SignInHero extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14),
-        Text.rich(
-          TextSpan(
-            children: [
-              TextSpan(text: intro),
-              TextSpan(
-                text: 'Pebble works fully offline',
-                style: TextStyle(
-                  color: colorScheme.onSurface.withValues(alpha: 0.8),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const TextSpan(text: ' without an account.'),
-            ],
-          ),
+        Text(
+          intro,
           style: PebbleFonts.sans(
-            fontSize: 14,
-            fontWeight: FontWeight.w300,
-            height: 1.65,
-            color: colorScheme.onSurface.withValues(alpha: 0.62),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SignInPerks extends StatelessWidget {
-  const _SignInPerks({required this.hasPremium});
-
-  final bool hasPremium;
-
-  @override
-  Widget build(BuildContext context) {
-    final perks = hasPremium
-        ? const [
-            (
-              'Keep your recent history',
-              'Backs up the last 21 days of completed routines.',
-            ),
-            (
-              'Photos included',
-              'Proof photos back up with the routines they belong to.',
-            ),
-            (
-              'Switch phones',
-              'Sign in on a new phone and restore your backup there.',
-            ),
-          ]
-        : const [
-            (
-              'Already have Premium?',
-              'Sign in with the account you used before. Your Premium and '
-                  'backup come with it.',
-            ),
-            (
-              'Ready for backup',
-              'If you get Premium later, backup can start straight away.',
-            ),
-            ('Optional', 'Everything else in Pebble works without an account.'),
-          ];
-    return Column(
-      children: [
-        for (var i = 0; i < perks.length; i++) ...[
-          if (i > 0) const SizedBox(height: 14),
-          _SignInPerk(title: perks[i].$1, body: perks[i].$2),
-        ],
-      ],
-    );
-  }
-}
-
-class _SignInPerk extends StatelessWidget {
-  const _SignInPerk({required this.title, required this.body});
-
-  final String title;
-  final String body;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 6,
-          height: 6,
-          margin: const EdgeInsets.only(top: 7),
-          decoration: BoxDecoration(
-            color: colorScheme.primary.withValues(alpha: 0.50),
-            shape: BoxShape.circle,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(
-                  text: title,
-                  style: TextStyle(
-                    color: colorScheme.onSurface.withValues(alpha: 0.82),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                TextSpan(text: title.endsWith('?') ? ' $body' : '. $body'),
-              ],
-            ),
-            style: PebbleFonts.sans(
-              fontSize: 13,
-              fontWeight: FontWeight.w300,
-              height: 1.45,
-              color: colorScheme.onSurface.withValues(alpha: 0.62),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Shown to Premium users only: signing in is also the moment backup turns
-/// on, so the choice has to be stated right here, where they act on it.
-class _BackupOnSignInNote extends StatelessWidget {
-  const _BackupOnSignInNote();
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(
-          LucideIcons.cloudUpload,
-          size: 15,
-          color: colorScheme.primary.withValues(alpha: 0.65),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            'Signing in turns on backup for this account. Pebble backs up '
-            'routines, history, proof photos and voice tips, which can '
-            'include personal details. You can pause backup any time in Your '
-            'account.',
-            style: PebbleFonts.sans(
-              fontSize: 12,
-              fontWeight: FontWeight.w300,
-              height: 1.5,
-              color: colorScheme.onSurface.withValues(alpha: 0.48),
-            ),
+            fontSize: 15,
+            fontWeight: FontWeight.w400,
+            height: 1.55,
+            color: colorScheme.onSurface.withValues(alpha: 0.66),
           ),
         ),
       ],

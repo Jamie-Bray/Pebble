@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Home-screen widget colours, matched to Pebble's default theme: warm
+     off-white with deep green text by day (values-night: deep green). -->
 <resources>
-    <color name="widget_background">#FFFAF6F1</color>
-    <color name="widget_title">#FF2D2B2A</color>
-    <color name="widget_subtitle">#998C857E</color>
+    <color name="widget_background">#FFFDFCF5</color>
+    <color name="widget_border">#1A2D3A30</color>
+    <color name="widget_title">#FF2D3A30</color>
+    <color name="widget_subtitle">#FF5F6B61</color>
 </resources>
