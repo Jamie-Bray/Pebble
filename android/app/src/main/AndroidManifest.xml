@@ -45,6 +45,15 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!-- Flutter deep linking is on by default (Flutter 3.27+): it
+                 hands the path of any launch-intent URI to the router. The
+                 widget launches with pebble://play/<id>, whose path is just
+                 "/<id>", so the router showed "no routes for location".
+                 Widget and notification launches are handled in Dart
+                 (lib/main.dart), so the embedding must not route them too. -->
+            <meta-data
+              android:name="flutter_deeplinking_enabled"
+              android:value="false" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -59,7 +68,11 @@
         <!-- Home-screen widget: single-routine launcher. Data is published by
              the Flutter side via HomeWidget prefs; taps launch MainActivity
              with an explicit intent (deliberately no public pebble:// VIEW
-             intent-filter). exported=true because some OEM launchers deliver
+             intent-filter). The intent still carries pebble://play/<id> as
+             its data, which only lib/main.dart reads (through home_widget):
+             Flutter's own deep linking is switched off on MainActivity above,
+             so the embedding never pushes that URI to the router.
+             exported=true because some OEM launchers deliver
              APPWIDGET_UPDATE as ordinary broadcasts; the receiver only ever
              re-renders from app-owned prefs, so exposure is a no-op redraw. -->
         <receiver

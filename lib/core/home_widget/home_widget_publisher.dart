@@ -3,13 +3,17 @@ import 'package:intl/intl.dart';
 
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/features/history/domain/checked_window.dart';
+import 'package:pebble_routines/features/routines/list/providers/home_hero_state_provider.dart';
 
-const String _qualifiedProviderName =
+/// The Android widget provider (`PebbleRoutineWidgetProvider.kt`).
+const String homeWidgetProviderName =
     'com.vix.pebble_routines.PebbleRoutineWidgetProvider';
 
-/// The routine shown on the home-screen widget: the most recently pinned one.
-/// Pinning already means "this matters most", so the widget needs no
-/// selection UI of its own. Returns null when nothing is pinned.
+/// The routine shown on the home-screen widget ("Show on widget" in a
+/// routine's menu stores it as the routine's pin). Choosing a routine
+/// unpins the others (see `chooseWidgetRoutine`), so there is normally one;
+/// for older data with several pins, the most recent wins. Returns null when
+/// nothing is pinned.
 Routine? selectWidgetRoutine(List<Routine> routines) {
   Routine? best;
   for (final routine in routines) {
@@ -56,15 +60,41 @@ RoutineRun? latestRunFor(Routine? routine, Iterable<RoutineRun> runs) {
   return latest;
 }
 
+/// [routine]'s enabled reminders among [reminders], as (weekday 1-7,
+/// "8:15 AM") pairs.
+List<(int, String)> reminderSlotsFor(
+  Routine? routine,
+  Iterable<RoutineReminder> reminders,
+) {
+  if (routine == null) return const [];
+  return [
+    for (final reminder in reminders)
+      if (reminder.routineId == routine.id && reminder.isEnabled)
+        (reminder.dayOfWeek, reminder.time),
+  ];
+}
+
 /// What the widget mirrors of Home's "Checked" state (Moment 3): the label
 /// ("Checked · 8:04 AM") and when it stops being true. Null when the latest
 /// run is outside the window.
+///
+/// The cut-off is worked out exactly as Home's (`homeHeroStateProvider`):
+/// the routine's next reminder at least [kCheckedReminderGrace] after the
+/// run, otherwise the start of the next day.
 ({String label, DateTime until})? widgetCheckedState(
   RoutineRun? latestRun,
-  DateTime now,
-) {
+  DateTime now, {
+  List<(int, String)> reminders = const [],
+}) {
   if (latestRun == null) return null;
-  final until = checkedUntil(latestRun.finishedAt, now);
+  final until = checkedUntil(
+    latestRun.finishedAt,
+    now,
+    nextReminder: nextReminderAt(
+      reminders,
+      latestRun.finishedAt.add(kCheckedReminderGrace),
+    ),
+  );
   if (until == null) return null;
   // intl puts a narrow no-break space before AM/PM; launcher fonts don't
   // all have it, so use a plain space.
@@ -84,9 +114,14 @@ RoutineRun? latestRunFor(Routine? routine, Iterable<RoutineRun> runs) {
 Future<void> publishHomeWidgetRoutine(
   Routine? routine, {
   RoutineRun? latestRun,
+  List<(int, String)> reminders = const [],
   DateTime? now,
 }) async {
-  final checked = widgetCheckedState(latestRun, now ?? DateTime.now());
+  final checked = widgetCheckedState(
+    latestRun,
+    now ?? DateTime.now(),
+    reminders: reminders,
+  );
   try {
     await HomeWidget.saveWidgetData<String?>(
       'widget_routine_id',
@@ -108,9 +143,7 @@ Future<void> publishHomeWidgetRoutine(
       'widget_checked_until',
       checked?.until.millisecondsSinceEpoch.toString(),
     );
-    await HomeWidget.updateWidget(
-      qualifiedAndroidName: _qualifiedProviderName,
-    );
+    await HomeWidget.updateWidget(qualifiedAndroidName: homeWidgetProviderName);
   } catch (_) {
     // Best-effort by design.
   }

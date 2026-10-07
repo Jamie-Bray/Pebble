@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- The routine-colour badge behind the widget's play or check icon. White,
+     so the provider can tint it with the routine's colour. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="oval">
     <solid android:color="#FFFFFFFF" />
     <size
-        android:width="14dp"
-        android:height="14dp" />
+        android:width="40dp"
+        android:height="40dp" />
 </shape>

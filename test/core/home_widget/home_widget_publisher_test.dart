@@ -118,5 +118,56 @@ void main() {
       expect(widgetCheckedState(finished, DateTime(2026, 10, 4, 4)), isNull);
       expect(widgetCheckedState(null, DateTime(2026, 10, 3, 9)), isNull);
     });
+
+    // 3 October 2026 is a Saturday (weekday 6).
+    test('ends at the next reminder, like Home', () {
+      final finished = run(1, DateTime(2026, 10, 3, 8, 4));
+      final checked = widgetCheckedState(
+        finished,
+        DateTime(2026, 10, 3, 9),
+        reminders: const [(6, '6:00 PM')],
+      );
+      expect(checked?.until, DateTime(2026, 10, 3, 18));
+      expect(
+        widgetCheckedState(
+          finished,
+          DateTime(2026, 10, 3, 18),
+          reminders: const [(6, '6:00 PM')],
+        ),
+        isNull,
+      );
+    });
+
+    test('ignores a reminder within the grace period of the run', () {
+      final finished = run(1, DateTime(2026, 10, 3, 8, 4));
+      final checked = widgetCheckedState(
+        finished,
+        DateTime(2026, 10, 3, 9),
+        reminders: const [(6, '9:00 AM')],
+      );
+      expect(checked?.until, DateTime(2026, 10, 4, 4));
+    });
+
+    test("reminderSlotsFor keeps the routine's enabled reminders", () {
+      RoutineReminder reminder(int routineId, String time, bool enabled) =>
+          RoutineReminder(
+            id: routineId * 10 + time.length,
+            routineId: routineId,
+            dayOfWeek: 6,
+            time: time,
+            isEnabled: enabled,
+            createdAt: DateTime(2026),
+            updatedAt: DateTime(2026),
+            syncStatus: 'localOnly',
+          );
+      final routine = _routine(id: 2, isPinned: true);
+      final slots = reminderSlotsFor(routine, [
+        reminder(1, '7:00 AM', true),
+        reminder(2, '6:00 PM', true),
+        reminder(2, '10:30 PM', false),
+      ]);
+      expect(slots, [(6, '6:00 PM')]);
+      expect(reminderSlotsFor(null, [reminder(2, '6:00 PM', true)]), isEmpty);
+    });
   });
 }

@@ -1,10 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Single-routine launcher: a routine-colour badge with a play (or check)
-     icon, the routine's title, and "Tap to start" or "Checked · 8:04 AM".
-     Only RemoteViews-safe views. Keep pebble_routine_widget_preview.xml in
-     step with this layout. -->
+<!-- What the widget picker shows on Android 12+ (previewLayout). A copy of
+     pebble_routine_widget.xml with sample text and Pebble's deep green
+     badge baked in. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_background"
@@ -18,17 +16,10 @@
     <FrameLayout
         android:layout_width="40dp"
         android:layout_height="40dp"
-        android:layout_marginEnd="12dp">
+        android:layout_marginEnd="12dp"
+        android:background="@drawable/widget_preview_badge">
 
         <ImageView
-            android:id="@+id/widget_dot"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:contentDescription="@null"
-            android:src="@drawable/widget_dot" />
-
-        <ImageView
-            android:id="@+id/widget_icon"
             android:layout_width="22dp"
             android:layout_height="22dp"
             android:layout_gravity="center"
@@ -43,22 +34,22 @@
         android:orientation="vertical">
 
         <TextView
-            android:id="@+id/widget_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:ellipsize="end"
             android:fontFamily="sans-serif-medium"
             android:maxLines="1"
+            android:text="@string/widget_preview_title"
             android:textColor="@color/widget_title"
             android:textSize="15sp" />
 
         <TextView
-            android:id="@+id/widget_subtitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="1dp"
             android:ellipsize="end"
             android:maxLines="1"
+            android:text="@string/widget_preview_subtitle"
             android:textColor="@color/widget_subtitle"
             android:textSize="13sp" />
     </LinearLayout>
