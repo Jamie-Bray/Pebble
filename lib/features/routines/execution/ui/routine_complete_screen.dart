@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:pebble_routines/core/theme/colors.dart';
+import 'package:pebble_routines/core/theme/routine_palette.dart';
 import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:pebble_routines/core/ui/pebble_buttons.dart';
 import 'package:pebble_routines/core/ui/pebble_cairn.dart';
@@ -95,6 +96,7 @@ class RoutineCompleteScreen extends StatefulWidget {
     super.key,
     required this.routineName,
     this.routineId,
+    this.colorHex,
     required this.totalStepsCompleted,
     required this.totalPhotosSaved,
     this.totalSteps,
@@ -117,6 +119,9 @@ class RoutineCompleteScreen extends StatefulWidget {
 
   /// For the shared `cairn-<id>` Hero with the Home "Checked" card.
   final int? routineId;
+
+  /// The routine's stored colour, so the cairn is drawn in it.
+  final int? colorHex;
   final int totalStepsCompleted;
   final int totalPhotosSaved;
 
@@ -345,12 +350,18 @@ class _RoutineCompleteScreenState extends State<RoutineCompleteScreen>
                           children: [
                             Hero(
                               tag: 'cairn-${widget.routineId ?? routineName}',
-                              child: PebbleCairn(
-                                total: _total,
-                                skipped: skipped,
-                                size: 168 * _heroScale(context, box.maxHeight),
-                                drops: drops,
-                                compress: compress,
+                              // Inside the Hero so the flight to Home keeps
+                              // the routine's colour.
+                              child: RoutineAccentScope(
+                                colorHex: widget.colorHex,
+                                child: PebbleCairn(
+                                  total: _total,
+                                  skipped: skipped,
+                                  size:
+                                      168 * _heroScale(context, box.maxHeight),
+                                  drops: drops,
+                                  compress: compress,
+                                ),
                               ),
                             ),
                             const SizedBox(height: PebbleSpacing.xl),

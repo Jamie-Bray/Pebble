@@ -20,6 +20,8 @@ class RoutineIconCatalog {
 
   static const String defaultKey = 'sparkles';
 
+  // Free first: everyone can make a routine their own. The homely ones
+  // (door, plug, hob, pets) are the things people actually check.
   static const List<RoutineVisualIcon> all = [
     RoutineVisualIcon(
       key: defaultKey,
@@ -28,21 +30,135 @@ class RoutineIconCatalog {
       isPremium: false,
     ),
     RoutineVisualIcon(
-      key: 'shield-check',
-      label: 'Shield',
-      icon: LucideIcons.shieldCheck,
-      isPremium: true,
-    ),
-    RoutineVisualIcon(
       key: 'house',
       label: 'Home',
       icon: LucideIcons.house,
-      isPremium: true,
+      isPremium: false,
+    ),
+    RoutineVisualIcon(
+      key: 'door-closed',
+      label: 'Door',
+      icon: LucideIcons.doorClosed,
+      isPremium: false,
+    ),
+    RoutineVisualIcon(
+      key: 'key',
+      label: 'Key',
+      icon: LucideIcons.key,
+      isPremium: false,
     ),
     RoutineVisualIcon(
       key: 'moon',
       label: 'Moon',
       icon: LucideIcons.moon,
+      isPremium: false,
+    ),
+    RoutineVisualIcon(
+      key: 'sun',
+      label: 'Day',
+      icon: LucideIcons.sun,
+      isPremium: false,
+    ),
+    RoutineVisualIcon(
+      key: 'coffee',
+      label: 'Coffee',
+      icon: LucideIcons.coffee,
+      isPremium: false,
+    ),
+    RoutineVisualIcon(
+      key: 'car',
+      label: 'Travel',
+      icon: LucideIcons.car,
+      isPremium: false,
+    ),
+    RoutineVisualIcon(
+      key: 'plug',
+      label: 'Plug',
+      icon: LucideIcons.plug,
+      isPremium: true,
+    ),
+    RoutineVisualIcon(
+      key: 'flame',
+      label: 'Hob',
+      icon: LucideIcons.flame,
+      isPremium: true,
+    ),
+    RoutineVisualIcon(
+      key: 'droplets',
+      label: 'Taps',
+      icon: LucideIcons.droplets,
+      isPremium: true,
+    ),
+    RoutineVisualIcon(
+      key: 'lock-keyhole',
+      label: 'Lock',
+      icon: LucideIcons.lockKeyhole,
+      isPremium: true,
+    ),
+    RoutineVisualIcon(
+      key: 'lightbulb',
+      label: 'Lights',
+      icon: LucideIcons.lightbulb,
+      isPremium: true,
+    ),
+    RoutineVisualIcon(
+      key: 'paw-print',
+      label: 'Pets',
+      icon: LucideIcons.pawPrint,
+      isPremium: true,
+    ),
+    RoutineVisualIcon(
+      key: 'cat',
+      label: 'Cat',
+      icon: LucideIcons.cat,
+      isPremium: true,
+    ),
+    RoutineVisualIcon(
+      key: 'dog',
+      label: 'Dog',
+      icon: LucideIcons.dog,
+      isPremium: true,
+    ),
+    RoutineVisualIcon(
+      key: 'sprout',
+      label: 'Plants',
+      icon: LucideIcons.sprout,
+      isPremium: true,
+    ),
+    RoutineVisualIcon(
+      key: 'baby',
+      label: 'Baby',
+      icon: LucideIcons.baby,
+      isPremium: true,
+    ),
+    RoutineVisualIcon(
+      key: 'pill',
+      label: 'Medicine',
+      icon: LucideIcons.pill,
+      isPremium: true,
+    ),
+    RoutineVisualIcon(
+      key: 'bed',
+      label: 'Bed',
+      icon: LucideIcons.bed,
+      isPremium: true,
+    ),
+    RoutineVisualIcon(
+      key: 'backpack',
+      label: 'Bag',
+      icon: LucideIcons.backpack,
+      isPremium: true,
+    ),
+    RoutineVisualIcon(
+      key: 'shirt',
+      label: 'Clothes',
+      icon: LucideIcons.shirt,
+      isPremium: true,
+    ),
+    RoutineVisualIcon(
+      key: 'shield-check',
+      label: 'Shield',
+      icon: LucideIcons.shieldCheck,
       isPremium: true,
     ),
     RoutineVisualIcon(
@@ -71,14 +187,8 @@ class RoutineIconCatalog {
     ),
     RoutineVisualIcon(
       key: 'circle-check',
-      label: 'Check Circle',
+      label: 'Check circle',
       icon: LucideIcons.circleCheck,
-      isPremium: true,
-    ),
-    RoutineVisualIcon(
-      key: 'key',
-      label: 'Key',
-      icon: LucideIcons.key,
       isPremium: true,
     ),
     RoutineVisualIcon(
@@ -95,20 +205,8 @@ class RoutineIconCatalog {
     ),
     RoutineVisualIcon(
       key: 'alarm-check',
-      label: 'Alarm Check',
+      label: 'Alarm check',
       icon: LucideIcons.alarmClockCheck,
-      isPremium: true,
-    ),
-    RoutineVisualIcon(
-      key: 'sun',
-      label: 'Day',
-      icon: LucideIcons.sun,
-      isPremium: true,
-    ),
-    RoutineVisualIcon(
-      key: 'coffee',
-      label: 'Coffee',
-      icon: LucideIcons.coffee,
       isPremium: true,
     ),
     RoutineVisualIcon(
@@ -139,12 +237,6 @@ class RoutineIconCatalog {
       key: 'briefcase',
       label: 'Work',
       icon: LucideIcons.briefcase,
-      isPremium: true,
-    ),
-    RoutineVisualIcon(
-      key: 'car',
-      label: 'Travel',
-      icon: LucideIcons.car,
       isPremium: true,
     ),
     RoutineVisualIcon(

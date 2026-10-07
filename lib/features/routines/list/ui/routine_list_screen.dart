@@ -29,6 +29,7 @@ import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/features/routines/composer/ui/routine_composer_screen.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
+import 'package:pebble_routines/core/theme/routine_palette.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
 import 'package:pebble_routines/features/history/providers/routine_history_vm.dart';
 import 'package:pebble_routines/features/history/ui/routine_run_detail_screen.dart';
@@ -72,158 +73,35 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
   double _maxSheetExtent = 0;
 
   Future<void> _openStyleSheet(Routine routine, ThemeData themeData) async {
-    final cs = themeData.colorScheme;
+    // Open to everyone: the free icons and stones are for making a routine
+    // your own; locked ones open Personal Premium.
     final hasPremiumStyleAccess = ref
         .read(premiumFeaturePolicyProvider)
         .canUsePremiumThemes;
-    if (!hasPremiumStyleAccess) {
-      _showPremiumStyleUpsell(routine, themeData);
-      return;
-    }
 
-    final swatches = <Color>[
-      cs.primary,
-      cs.secondary,
-      cs.tertiary,
-      cs.primaryContainer,
-      cs.secondaryContainer,
-      cs.tertiaryContainer,
-    ];
-
-    await showModalBottomSheet<RoutineStylePickerResult>(
+    final result = await showModalBottomSheet<RoutineStylePickerResult>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => RoutineStylePickerSheet.asScaffold(
         context: ctx,
         initialIconKey: routine.emoji ?? RoutineIconCatalog.defaultKey,
-        initialColor: (routine.colorHex != null && routine.colorHex != 0)
-            ? Color(routine.colorHex!)
-            : themeData.colorScheme.primary,
-        iconChoices: RoutineIconCatalog.all,
-        swatches: swatches,
-        hasPremiumIconAccess: hasPremiumStyleAccess,
-        title: 'Style Studio',
+        initialColorHex: routine.colorHex,
+        routineTitle: routine.title,
+        hasPremiumAccess: hasPremiumStyleAccess,
+        onPremiumTap: () =>
+            ctx.push(premiumRoute(source: PremiumEntrySource.premiumTheme)),
       ),
-    ).then((result) async {
-      if (result != null && mounted) {
-        final management = ref.read(routineManagementProvider);
-        await management.updateRoutineAppearance(
-          id: routine.id,
-          iconKey: RoutineIconCatalog.sanitizeForStorage(
-            result.iconKey,
-            hasPremiumAccess: hasPremiumStyleAccess,
-          ),
-          colorHex: result.colorHex,
-        );
-      }
-    });
-  }
-
-  void _showPremiumStyleUpsell(Routine routine, ThemeData themeData) {
-    final accent = _routineAccentColor(routine, themeData, 0);
-    final icon = RoutineIconCatalog.resolve(routine.emoji).icon;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) {
-        final cs = Theme.of(ctx).colorScheme;
-        return Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                cs.surface,
-                Color.lerp(cs.surface, accent, 0.12) ?? cs.surface,
-              ],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-            border: Border(
-              top: BorderSide(color: accent.withValues(alpha: 0.24)),
-            ),
-          ),
-          padding: const EdgeInsets.only(
-            top: 8,
-            left: 24,
-            right: 24,
-            bottom: 32,
-          ),
-          child: SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 48,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 24),
-                  decoration: BoxDecoration(
-                    color: cs.outline.withValues(alpha: 0.22),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                Container(
-                  width: 76,
-                  height: 76,
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: accent.withValues(alpha: 0.28)),
-                  ),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Icon(icon, size: 30, color: accent),
-                      Positioned(
-                        right: 13,
-                        top: 13,
-                        child: Icon(LucideIcons.lock, size: 14, color: accent),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Routine style',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: cs.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Choosing an icon and colour for each routine comes with Personal Premium.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 15,
-                    height: 1.5,
-                    color: cs.onSurface.withValues(alpha: 0.72),
-                  ),
-                ),
-                const SizedBox(height: 30),
-                PebbleButton.primary(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    context.push(
-                      premiumRoute(source: PremiumEntrySource.backup),
-                    );
-                  },
-                  label: 'See Personal Premium',
-                ),
-                const SizedBox(height: PebbleSpacing.xs),
-                PebbleButton.tertiary(
-                  onPressed: () => Navigator.pop(ctx),
-                  label: 'Not now',
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
+    if (result == null || !mounted) return;
+    await ref
+        .read(routineManagementProvider)
+        .updateRoutineAppearance(
+          id: routine.id,
+          iconKey: result.iconKey,
+          // 0 means "the theme's colour" (null would keep the old one).
+          colorHex: result.colorHex ?? 0,
+        );
   }
 
   @override
@@ -1216,9 +1094,8 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
   }
 
   Color _routineAccentColor(Routine routine, ThemeData themeData, int index) {
-    if (routine.colorHex != null && routine.colorHex != 0) {
-      return Color(routine.colorHex!);
-    }
+    final own = context.routineAccent(routine.colorHex);
+    if (own != null) return own;
     final palette = [
       themeData.colorScheme.primary,
       themeData.colorScheme.secondary,
@@ -1470,9 +1347,6 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
     Routine routine,
     ThemeData themeData,
   ) {
-    final hasPremiumStyleAccess = ref
-        .read(premiumFeaturePolicyProvider)
-        .canUsePremiumThemes;
     // Ask the server again each time the actions open; the row keeps showing
     // the last answer while this loads.
     ref.invalidate(aiPhotoServerEnabledProvider);
@@ -1617,11 +1491,8 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                             sheetContext,
                             icon: LucideIcons.palette,
                             label: 'Style',
-                            subtitle: hasPremiumStyleAccess
-                                ? 'Change the icon and colour'
-                                : 'Icon and colour, with Premium',
+                            subtitle: 'Change the icon and colour',
                             accent: accent,
-                            premiumLocked: !hasPremiumStyleAccess,
                             onTap: () async {
                               Navigator.pop(sheetContext);
                               await _openStyleSheet(routine, themeData);

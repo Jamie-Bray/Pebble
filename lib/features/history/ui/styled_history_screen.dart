@@ -24,6 +24,7 @@ import 'package:pebble_routines/features/routines/execution/data/services/routin
 import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
+import 'package:pebble_routines/core/theme/routine_palette.dart';
 import 'package:pebble_routines/core/ui/zen_error_view.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/ui/pebble_time.dart';
@@ -976,7 +977,11 @@ class _HistoryCard extends StatelessWidget {
     final stepCount = tally.total;
     final completedStepCount = tally.done;
     final isComplete = tally.isComplete;
-    final accent = Theme.of(context).colorScheme.primary;
+    // The routine's own colour, so runs of different routines are told apart
+    // at a glance.
+    final accent =
+        context.routineAccent(r?.colorHex) ??
+        Theme.of(context).colorScheme.primary;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),

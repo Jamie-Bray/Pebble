@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
+import 'package:pebble_routines/core/theme/routine_palette.dart';
 import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:pebble_routines/core/ui/pebble_cairn.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
@@ -13,6 +14,7 @@ import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/features/history/domain/run_step_tally.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
 import 'package:pebble_routines/features/routines/execution/ui/routine_complete_screen.dart';
+import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
 import 'package:pebble_routines/features/sync/backup_status.dart';
 
 /// How backup shows on the Home avatar: an 8 px dot, or nothing when backup
@@ -176,6 +178,16 @@ class HomeCheckedCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // The card, its cairn and the "Checked" overline take the routine's
+    // colour.
+    final colorHex = ref.watch(routineColorHexProvider(routineId));
+    return RoutineAccentScope(
+      colorHex: colorHex,
+      child: Builder(builder: (context) => _buildCard(context, ref, colorHex)),
+    );
+  }
+
+  Widget _buildCard(BuildContext context, WidgetRef ref, int? colorHex) {
     final foundation = context.darkFoundation;
     final type = PebbleType.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -233,11 +245,16 @@ class HomeCheckedCard extends ConsumerWidget {
                 children: [
                   Hero(
                     tag: 'cairn-$routineId',
-                    child: PebbleCairn(
-                      total: total == 0 ? 1 : total,
-                      skipped: tally.skipped,
-                      size: 40,
-                      showCount: false,
+                    // Scoped inside the Hero so the flight keeps the
+                    // routine's colour.
+                    child: RoutineAccentScope(
+                      colorHex: colorHex,
+                      child: PebbleCairn(
+                        total: total == 0 ? 1 : total,
+                        skipped: tally.skipped,
+                        size: 40,
+                        showCount: false,
+                      ),
                     ),
                   ),
                   const SizedBox(width: PebbleSpacing.sm),

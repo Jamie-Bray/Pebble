@@ -22,6 +22,8 @@ import 'package:pebble_routines/core/ui/pebble_time.dart';
 import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/core/navigation/app_shell.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
+import 'package:pebble_routines/core/theme/routine_palette.dart';
+import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
 import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/core/theme/tokens.dart';
@@ -342,7 +344,16 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
             bottom: false,
             child: _PhaseSwitcher(
               reduceMotion: MediaQuery.disableAnimationsOf(context),
-              child: _buildPhase(context, themeData, playerState, controller),
+              // The routine's own colour paints the checks, trail, progress
+              // and the completion cairn.
+              child: RoutineAccentScope(
+                colorHex: playerState.session == null
+                    ? null
+                    : ref.watch(
+                        routineColorHexProvider(playerState.session!.routineId),
+                      ),
+                child: _buildPhase(context, themeData, playerState, controller),
+              ),
             ),
           ),
         ),
@@ -425,6 +436,9 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
       routineName:
           summary?.routineTitle ?? session?.routineTitleSnapshot ?? 'Routine',
       routineId: session?.routineId,
+      colorHex: session == null
+          ? null
+          : ref.watch(routineColorHexProvider(session.routineId)),
       totalStepsCompleted:
           summary?.completedSteps ?? playerState.completedSteps,
       totalPhotosSaved: photoCount,
@@ -1859,7 +1873,7 @@ class _SegmentedProgress extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final done = theme.colorScheme.primary;
+    final done = context.done;
     final current = done.withValues(alpha: 0.45);
     final todo = theme.colorScheme.onSurface.withValues(alpha: 0.10);
     final duration = MediaQuery.disableAnimationsOf(context)
