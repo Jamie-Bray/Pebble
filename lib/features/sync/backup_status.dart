@@ -115,6 +115,11 @@ class BackupStatus {
             ? 'Backing up $pendingCount ${_changes(pendingCount)}…'
             : 'Backing up…';
       case BackupPhase.waiting:
+        if (pendingCount == 0) {
+          return offline
+              ? 'Waiting for internet to confirm backup'
+              : 'Waiting to confirm backup';
+        }
         final what = '$pendingCount ${_changes(pendingCount)} waiting';
         return offline
             ? '$what · back online to finish'
@@ -272,7 +277,8 @@ BackupStatus resolveBackupStatus({
       nextRetryAt: nextRetryAt,
     );
   }
-  if (access == PersonalCloudAccessStatus.error) {
+  if (access == PersonalCloudAccessStatus.error ||
+      access == PersonalCloudAccessStatus.offlinePending) {
     return BackupStatus(
       phase: offline ? BackupPhase.waiting : BackupPhase.needsAttention,
       lastBackedUpAt: lastBackedUpAt,

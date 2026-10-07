@@ -75,6 +75,34 @@ void main() {
     expect(status.offline, isTrue);
   });
 
+  test(
+    'unconfirmed backup with no queued changes never reads as backed up',
+    () {
+      for (final lastBackup in <DateTime?>[null, at]) {
+        final status = _resolve(
+          access: PersonalCloudAccessStatus.offlinePending,
+          lastBackedUpAt: lastBackup,
+        );
+        expect(status.phase, BackupPhase.waiting);
+        expect(status.offline, isTrue);
+        expect(status.lastBackedUpAt, lastBackup);
+        expect(status.line(at), 'Waiting for internet to confirm backup');
+      }
+    },
+  );
+
+  test(
+    'offline setup failure without queued changes uses honest waiting copy',
+    () {
+      final status = _resolve(
+        access: PersonalCloudAccessStatus.error,
+        lastError: 'Network unavailable',
+      );
+      expect(status.phase, BackupPhase.waiting);
+      expect(status.line(at), 'Waiting for internet to confirm backup');
+    },
+  );
+
   test('access states map to their phases', () {
     expect(
       _resolve(access: PersonalCloudAccessStatus.offFree).phase,

@@ -52,10 +52,13 @@ class _FakeRoutineDataSource extends RemoteRoutineDataSource {
   _FakeRoutineDataSource(this.records) : super(null);
 
   final List<RemoteRoutineRecord> records;
+  Future<void> Function()? beforeFetchReturns;
 
   @override
-  Future<List<RemoteRoutineRecord>> fetchAll(String ownerUserId) async =>
-      records;
+  Future<List<RemoteRoutineRecord>> fetchAll(String ownerUserId) async {
+    await beforeFetchReturns?.call();
+    return records;
+  }
 }
 
 class _FakeReminderDataSource extends RemoteRoutineReminderDataSource {
@@ -392,6 +395,94 @@ void main() {
     tearDown(() async {
       await database.close();
     });
+
+    for (final action in ['edit', 'delete', 'previous delete']) {
+      test(
+        'keeps a local $action while fetching the remote routines',
+        () async {
+          const owner = '11111111-1111-1111-1111-111111111111';
+          const cloudId = '33333333-3333-4333-8333-333333333333';
+          final local = Routine(
+            id: 1,
+            title: 'Original',
+            stepsJson: '[]',
+            createdAt: DateTime(2026, 1, 1),
+            updatedAt: DateTime(2026, 1, 1),
+            emoji: null,
+            colorHex: null,
+            isPinned: false,
+            pinnedAt: null,
+            reminderDay: null,
+            reminderTime: null,
+            version: 1,
+            cloudId: cloudId,
+            ownerUserId: owner,
+            syncStatus: 'synced',
+            lastSyncedAt: DateTime(2026, 1, 1),
+          );
+          await database.routineDao.insertOrUpdateRoutine(local);
+          final source = _FakeRoutineDataSource([
+            RemoteRoutineRecord(
+              id: cloudId,
+              ownerUserId: owner,
+              title: 'Remote',
+              stepsJson: '[]',
+              iconKey: null,
+              colorHex: null,
+              isPinned: false,
+              pinnedAt: null,
+              version: 2,
+              createdAt: DateTime(2026, 1, 1),
+              updatedAt: DateTime(2026, 2, 1),
+            ),
+          ]);
+          Future<void> changeLocal() async {
+            if (action == 'edit') {
+              await database.routineDao.insertOrUpdateRoutine(
+                local.copyWith(
+                  title: 'My new edit',
+                  updatedAt: DateTime(2026, 3, 1),
+                  syncStatus: 'pendingUpload',
+                ),
+              );
+            } else {
+              await database.routineDao.deleteRoutine(1);
+            }
+            await outbox.enqueue(
+              entityType: SyncEntityType.routine,
+              entityId: '1',
+              operation: action == 'edit'
+                  ? SyncOperation.upsert
+                  : SyncOperation.delete,
+              payload: {'cloudId': cloudId},
+            );
+          }
+
+          if (action == 'previous delete') {
+            await changeLocal();
+          } else {
+            source.beforeFetchReturns = changeLocal;
+          }
+          final coordinator = CloudRestoreCoordinator(
+            database: database,
+            remoteRoutineDataSource: source,
+            remoteReminderDataSource: _FakeReminderDataSource([]),
+            remoteRunDataSource: _FakeRunDataSource([]),
+            remoteSessionDataSource: _FakeSessionDataSource(),
+            outbox: outbox,
+          );
+          await coordinator.bootstrapAndMerge(owner);
+          final result = await database.routineDao.getRoutineById(1);
+          if (action == 'edit') {
+            expect(result!.title, 'My new edit');
+            expect(result.syncStatus, 'pendingUpload');
+          } else {
+            expect(await database.routineDao.getAllRoutines(), isEmpty);
+          }
+          expect(await outbox.pendingItems(), hasLength(1));
+        },
+      );
+    }
 
     test(
       'matches legacy local routine cloud ids and restores reminders as synced',

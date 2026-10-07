@@ -18,6 +18,7 @@ import 'package:pebble_routines/features/routines/execution/data/models/routine_
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
 import 'package:pebble_routines/features/subscription/data/entitlement_flow_messages.dart';
 import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
+import 'package:pebble_routines/features/subscription/data/models/subscription_account_state.dart';
 import 'package:pebble_routines/features/subscription/providers/cloud_access_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
 import 'package:pebble_routines/features/sync/guidance_audio_cloud_backup.dart';
@@ -92,6 +93,7 @@ class CloudSyncCoordinator {
   final GuidanceAudioCloudBackup _guidanceAudioBackup;
 
   bool _isRunning = false;
+  String? _passOwner;
 
   /// The pass in progress, if any. Only one pass runs at a time.
   Future<ManualSyncResult>? _activePass;
@@ -219,7 +221,9 @@ class CloudSyncCoordinator {
   Future<void> _foregroundTick() async {
     if (!_inForeground || _disposed || _activePass != null) return;
     try {
-      if ((await _outbox.pendingItems()).isEmpty) return;
+      if ((await _outbox.pendingItems()).isEmpty && !_needsAccessRecovery) {
+        return;
+      }
       await _syncInternal(userInitiated: false);
     } catch (error) {
       developer.log(
@@ -315,11 +319,65 @@ class CloudSyncCoordinator {
   /// Routines uploaded (or tried) in the current pass.
   final Set<int> _routinesTriedThisPass = {};
 
-  Future<T> _row<T>(Future<T> call) => call.timeout(rowWriteTimeout);
+  void _checkPassOwner() {
+    final owner = _passOwner;
+    if (owner == null) return;
+    final auth = _ref.read(authSessionProvider);
+    final policy = _ref.read(cloudAccessPolicyProvider);
+    if (!auth.isSignedIn ||
+        auth.userId != owner ||
+        policy.cachedOwnerUserId != owner ||
+        !policy.canUploadCloudChanges) {
+      throw const _SyncAccessChanged();
+    }
+  }
 
-  Future<T> _file<T>(Future<T> call) => call.timeout(fileUploadTimeout);
+  Future<T> _row<T>(Future<T> call) async {
+    final result = await call.timeout(rowWriteTimeout);
+    _checkPassOwner();
+    return result;
+  }
+
+  Future<T> _file<T>(Future<T> call) async {
+    final result = await call.timeout(fileUploadTimeout);
+    _checkPassOwner();
+    return result;
+  }
+
+  bool get _needsAccessRecovery {
+    if (!_ref.read(authSessionProvider).isSignedIn) return false;
+    final policy = _ref.read(cloudAccessPolicyProvider);
+    final account = _ref.read(subscriptionAccountControllerProvider);
+    if (policy.canUploadCloudChanges &&
+        account.bootstrapStatus != BootstrapStatus.error) {
+      return false;
+    }
+    final access = _ref.read(personalCloudAccessProvider).status;
+    return access == PersonalCloudAccessStatus.offlinePending ||
+        access == PersonalCloudAccessStatus.error;
+  }
 
   Future<ManualSyncResult> _runPass({required bool userInitiated}) async {
+    if (_needsAccessRecovery) {
+      try {
+        // A cold start can leave consent unconfirmed, or a restore unfinished.
+        // Retrying uploads alone cannot repair either. Confirm access and
+        // finish the merge before using a newly available connection.
+        await _ref
+            .read(authControllerProvider.notifier)
+            .refreshCloudAccessAfterEntitlementChange(
+              refreshEntitlement: false,
+            );
+      } catch (error) {
+        await _refreshRuntimeState(scheduleRetry: false);
+        return ManualSyncResult(
+          type: _looksOffline(error)
+              ? ManualSyncResultType.blockedOffline
+              : ManualSyncResultType.failed,
+          message: 'Backup could not reconnect. Pebble will try again.',
+        );
+      }
+    }
     final auth = _ref.read(authSessionProvider);
     final policy = _ref.read(cloudAccessPolicyProvider);
     final userId = policy.cachedOwnerUserId;
@@ -414,6 +472,7 @@ class CloudSyncCoordinator {
     _routinesTriedThisPass.clear();
 
     _isRunning = true;
+    _passOwner = userId;
     var finished = false;
     try {
       for (var round = 0; round < _maxRoundsPerPass; round++) {
@@ -432,11 +491,19 @@ class CloudSyncCoordinator {
         );
         for (final item in prioritizedItems) {
           try {
+            _checkPassOwner();
             await _processItem(item, userId);
+            _checkPassOwner();
             // A newer edit saved during the upload keeps the row queued (it
             // is due again straight away).
             await _outbox.completeIfUnchanged(item);
             syncedCount += 1;
+          } on _SyncAccessChanged {
+            return const ManualSyncResult(
+              type: ManualSyncResultType.blockedAccountSwitch,
+              message:
+                  'Backup stopped because the account or backup setting changed.',
+            );
           } on _DeferredSyncItem catch (deferred) {
             await _outbox.defer(
               item.id,
@@ -464,6 +531,7 @@ class CloudSyncCoordinator {
       finished = true;
     } finally {
       _isRunning = false;
+      _passOwner = null;
       if (!finished) {
         // Something below the item level threw (for example the local
         // database). Never leave the status saying "backing up".
@@ -744,7 +812,9 @@ class CloudSyncCoordinator {
     // A clip that fails must not hold back the routine itself: it moves to
     // its own outbox item, which retries with the usual backoff.
     final audio = await _uploadRoutineGuidanceAudio(routine, ownerUserId);
-    await _upsertRoutine(audio.routine, ownerUserId);
+    final latest = audio.routine;
+    if (latest == null) return;
+    await _upsertRoutine(latest, ownerUserId);
     if (audio.failure != null) {
       await _outbox.ensureQueued(
         entityType: SyncEntityType.guidanceAudio,
@@ -864,18 +934,20 @@ class CloudSyncCoordinator {
     final routine = await _database.routineDao.getRoutineById(routineId);
     if (routine == null) return;
     final audio = await _uploadRoutineGuidanceAudio(routine, ownerUserId);
-    if (!identical(audio.routine, routine)) {
-      await _upsertRoutine(audio.routine, ownerUserId);
-    }
+    final latest = audio.routine;
+    if (latest == null) return;
     final failure = audio.failure;
     if (failure != null) {
       throw failure;
     }
+    // A previous attempt may have saved the keys locally before the row
+    // write failed. Retry that write even when no more clips need uploading.
+    await _upsertRoutine(latest, ownerUserId);
   }
 
   /// Uploads the routine's voice prompts that have no backup yet and records
   /// their remote keys in the local routine.
-  Future<({Routine routine, Object? failure})> _uploadRoutineGuidanceAudio(
+  Future<({Routine? routine, Object? failure})> _uploadRoutineGuidanceAudio(
     Routine routine,
     String ownerUserId,
   ) async {
@@ -887,13 +959,18 @@ class CloudSyncCoordinator {
           entityId: await _routineCloudId(routine),
         )
         .timeout(fileUploadTimeout * 4);
+    _checkPassOwner();
     if (result.uploadedKeys.isEmpty) {
-      return (routine: routine, failure: result.failure);
+      return (
+        routine: await _database.routineDao.getRoutineById(routine.id),
+        failure: result.failure,
+      );
     }
     // Re-read so an edit saved while the clips were uploading is kept.
     final updated = await _database.transaction(() async {
-      final latest =
-          await _database.routineDao.getRoutineById(routine.id) ?? routine;
+      final latest = await _database.routineDao.getRoutineById(routine.id);
+      _checkPassOwner();
+      if (latest == null) return null;
       final keyed = latest.copyWith(
         stepsJson: GuidanceAudioCloudBackup.applyRemoteKeys(
           latest.stepsJson,
@@ -1099,6 +1176,7 @@ class CloudSyncCoordinator {
       final latest = await _database.routineSessionDao.getSessionById(
         row.sessionId,
       );
+      _checkPassOwner();
       if (latest == null) return false;
       final changed =
           latest.updatedAt != row.updatedAt ||
@@ -1132,6 +1210,11 @@ class CloudSyncCoordinator {
         entityType: SyncEntityType.session,
         entityId: row.sessionId,
         operation: SyncOperation.upsert,
+      );
+    }
+    if (photos.waiting > 0) {
+      throw StateError(
+        '${photos.waiting} proof photo(s) still waiting to upload',
       );
     }
   }
@@ -1265,6 +1348,7 @@ class CloudSyncCoordinator {
     );
     final latest = await _database.transaction(() async {
       final current = await _database.routineRunDao.getRunById(run.id);
+      _checkPassOwner();
       if (current == null || photos.uploads.isEmpty) return current;
       final raw = current.stepCompletionData;
       if (raw == null || raw.isEmpty) return current;
@@ -1434,6 +1518,10 @@ class _DeferredSyncItem implements Exception {
 
   @override
   String toString() => reason;
+}
+
+class _SyncAccessChanged implements Exception {
+  const _SyncAccessChanged();
 }
 
 final cloudSyncRuntimeStateProvider = StateProvider<CloudSyncRuntimeState>(

@@ -18,6 +18,7 @@ import 'package:pebble_routines/data/remote/remote_routine_reminder_data_source.
 import 'package:pebble_routines/data/remote/remote_routine_run_data_source.dart';
 import 'package:pebble_routines/data/remote/remote_routine_session_data_source.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
+import 'package:pebble_routines/features/auth/data/auth_repository.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
@@ -28,9 +29,11 @@ import 'package:pebble_routines/features/subscription/providers/cloud_access_pro
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
 import 'package:pebble_routines/features/sync/cloud_restore_coordinator.dart';
 import 'package:pebble_routines/features/sync/cloud_sync_coordinator.dart';
+import 'package:pebble_routines/features/sync/guidance_audio_cloud_backup.dart';
 import 'package:pebble_routines/features/sync/sync_outbox_repository.dart';
 
 const _user = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+final _currentUser = StateProvider<String>((ref) => _user);
 
 class _Cloud {
   final routines = <String, Map<String, dynamic>>{};
@@ -199,8 +202,42 @@ class _Account extends SubscriptionAccountController {
   }
 }
 
+class _Audio implements GuidanceAudioCloudBackup {
+  bool enabled = false;
+  Completer<void>? hold;
+  Completer<void>? started;
+  static const key = 'users/$_user/guidance_audio/clip.m4a';
+
+  @override
+  Future<bool> needsUpload({
+    required String stepsJson,
+    required String ownerUserId,
+  }) async => enabled && !stepsJson.contains(key);
+
+  @override
+  Future<GuidanceAudioUploadResult> uploadPending({
+    required String stepsJson,
+    required String ownerUserId,
+    required String entityId,
+  }) async {
+    if (!enabled || stepsJson.contains(key)) {
+      return const GuidanceAudioUploadResult();
+    }
+    if (started?.isCompleted == false) started!.complete();
+    await hold?.future;
+    return const GuidanceAudioUploadResult(uploadedKeys: {'clip.m4a': key});
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 class _Device {
-  _Device(this.database, this.cloud) {
+  _Device(
+    this.database,
+    this.cloud, {
+    List<Override> accessOverrides = const [],
+  }) {
     outbox = SyncOutboxRepositoryImpl(database);
     container = ProviderContainer(
       overrides: [
@@ -215,10 +252,11 @@ class _Device {
           _Sessions(cloud),
         ),
         routineSessionProofStorageProvider.overrideWithValue(proofs),
-        authSessionProvider.overrideWithValue(
-          const AuthSessionSummary(
+        guidanceAudioCloudBackupProvider.overrideWithValue(audio),
+        authSessionProvider.overrideWith(
+          (ref) => AuthSessionSummary(
             isSignedIn: true,
-            userId: _user,
+            userId: ref.watch(_currentUser),
             email: 'someone@example.com',
             provider: 'google',
           ),
@@ -226,16 +264,18 @@ class _Device {
         subscriptionAccountControllerProvider.overrideWith(
           (ref) => _Account(database),
         ),
-        cloudAccessPolicyProvider.overrideWithValue(
-          const CloudAccessPolicy(
-            cachedOwnerUserId: _user,
-            personalCloudEnabled: true,
-            canQueuePersonalSync: true,
-            workspaceCloudEnabled: false,
-            isSignedIn: true,
-            isAccountSwitchBlocked: false,
+        if (accessOverrides.isEmpty)
+          cloudAccessPolicyProvider.overrideWithValue(
+            const CloudAccessPolicy(
+              cachedOwnerUserId: _user,
+              personalCloudEnabled: true,
+              canQueuePersonalSync: true,
+              workspaceCloudEnabled: false,
+              isSignedIn: true,
+              isAccountSwitchBlocked: false,
+            ),
           ),
-        ),
+        ...accessOverrides,
       ],
     );
   }
@@ -243,6 +283,7 @@ class _Device {
   final LocalDb database;
   final _Cloud cloud;
   final proofs = _Proofs();
+  final audio = _Audio();
   late final SyncOutboxRepositoryImpl outbox;
   late final ProviderContainer container;
 
@@ -284,6 +325,28 @@ RoutineRun _run(
 const _run1 = '11111111-1111-4111-8111-111111111111';
 const _run2 = '22222222-2222-4222-8222-222222222222';
 
+class _RecoveryAuth extends AuthController {
+  _RecoveryAuth(Ref ref, this.refresh) : super(ref, _NoIdentity());
+  final Future<void> Function() refresh;
+
+  @override
+  Future<void> refreshCloudAccessAfterEntitlementChange({
+    bool refreshEntitlement = true,
+  }) => refresh();
+}
+
+class _NoIdentity implements AuthRepository {
+  @override
+  Future<AuthIdentity?> currentIdentity() async => null;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final _recoveryAccess = StateProvider<PersonalCloudAccessStatus>(
+  (ref) => PersonalCloudAccessStatus.offlinePending,
+);
+
 void main() {
   late LocalDb database;
   late _Cloud cloud;
@@ -299,6 +362,108 @@ void main() {
     device.container.dispose();
     await database.close();
   });
+
+  test(
+    'an old account upload cannot mark the new account run backed up',
+    () async {
+      await database.routineRunDao.insertOrUpdateRun(_run(_run1));
+      final started = Completer<void>();
+      final hold = Completer<void>();
+      cloud.runUploadStarted.add(started);
+      cloud.holdNextRunUpload = hold;
+      final pass = device.backUp();
+      await started.future;
+      const other = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+      device.container.read(_currentUser.notifier).state = other;
+      await database.routineRunDao.insertOrUpdateRun(
+        _run(_run1).copyWith(ownerUserId: const drift.Value(other)),
+      );
+      hold.complete();
+      expect((await pass).type, ManualSyncResultType.blockedAccountSwitch);
+      final local = (await database.routineRunDao.getRunById(_run1))!;
+      expect(local.ownerUserId, other);
+      expect(local.syncStatus, 'pendingUpload');
+      expect(await device.outbox.pendingItems(), isNotEmpty);
+      expect(device.account.lastSyncAt, isNull);
+    },
+  );
+
+  for (final access in [
+    PersonalCloudAccessStatus.offlinePending,
+    PersonalCloudAccessStatus.error,
+  ]) {
+    test(
+      'backup passes recover ${access.name} when internet returns',
+      () async {
+        device.container.dispose();
+        var online = false;
+        var refreshes = 0;
+        device = _Device(
+          database,
+          cloud,
+          accessOverrides: [
+            _recoveryAccess.overrideWith((ref) => access),
+            personalCloudAccessProvider.overrideWith(
+              (ref) => PersonalCloudAccessState(
+                status: ref.watch(_recoveryAccess),
+                label: 'Test access',
+                detail: null,
+              ),
+            ),
+            cloudAccessPolicyProvider.overrideWith(
+              (ref) => CloudAccessPolicy(
+                cachedOwnerUserId: _user,
+                personalCloudEnabled:
+                    ref.watch(_recoveryAccess) ==
+                    PersonalCloudAccessStatus.available,
+                canQueuePersonalSync: true,
+                workspaceCloudEnabled: false,
+                isSignedIn: true,
+                isAccountSwitchBlocked: false,
+              ),
+            ),
+            authControllerProvider.overrideWith(
+              (ref) => _RecoveryAuth(ref, () async {
+                refreshes++;
+                if (!online) throw const SocketException('offline');
+                await ref
+                    .read(subscriptionAccountControllerProvider.notifier)
+                    .updateBootstrapStatus(
+                      BootstrapStatus.ready,
+                      clearError: true,
+                    );
+                ref.read(_recoveryAccess.notifier).state =
+                    PersonalCloudAccessStatus.available;
+              }),
+            ),
+          ],
+        );
+        if (access == PersonalCloudAccessStatus.error) {
+          await device.container
+              .read(subscriptionAccountControllerProvider.notifier)
+              .noteSyncFailure('Restore failed');
+        }
+        await database.routineRunDao.insertOrUpdateRun(_run(_run1));
+        await device.queueRun(_run1);
+
+        expect(
+          (await device.backUp()).type,
+          ManualSyncResultType.blockedOffline,
+        );
+        expect(cloud.runs, isEmpty);
+        expect(await device.outbox.pendingItems(), hasLength(1));
+        if (access == PersonalCloudAccessStatus.error) {
+          expect(device.account.bootstrapStatus, BootstrapStatus.error);
+        }
+
+        online = true;
+        expect((await device.backUp()).type, ManualSyncResultType.synced);
+        expect(refreshes, 2);
+        expect(cloud.runs, contains(_run1));
+        expect(await device.outbox.pendingItems(), isEmpty);
+      },
+    );
+  }
 
   group('"Last backed up"', () {
     test('is not set by a pass that leaves a change failing', () async {
@@ -599,6 +764,13 @@ void main() {
       expect(device.account.lastSyncAt, isNull);
 
       device.proofs.holdBack = false;
+      // The object can upload even when writing its key into the run fails.
+      // The next pass must retry that metadata, not just clear the photo item.
+      cloud.offline = true;
+      await device.backUp();
+      expect(await device.outbox.pendingItems(), isNotEmpty);
+      expect(cloud.runs[_run1]!['step_completion_data'], isNot(contains('p.jpg')));
+      cloud.offline = false;
       final result = await device.backUp();
 
       expect(result.type, ManualSyncResultType.synced);
@@ -608,6 +780,61 @@ void main() {
         contains('users/$_user/runs/$_run1/p.jpg'),
       );
     });
+  });
+
+  group('voice prompt backup recovery', () {
+    Future<int> savedRoutine() async {
+      device.audio.enabled = true;
+      return database.routineDao.insertRoutineCompanion(
+        RoutinesCompanion.insert(
+          title: 'Morning',
+          stepsJson: jsonEncode([
+            {
+              'guidanceAudio': {'localPath': 'clip.m4a'},
+            },
+          ]),
+          createdAt: DateTime(2026, 10, 1),
+          ownerUserId: const drift.Value(_user),
+          cloudId: const drift.Value(_run1),
+          syncStatus: const drift.Value('synced'),
+          lastSyncedAt: drift.Value(DateTime(2026, 10, 1)),
+        ),
+      );
+    }
+
+    test(
+      'retries metadata after the clip uploaded but its row write failed',
+      () async {
+        await savedRoutine();
+        cloud.routinesOffline = true;
+        await device.backUp();
+        expect(await device.outbox.pendingItems(), isNotEmpty);
+        expect(device.account.lastSyncAt, isNull);
+        cloud.routinesOffline = false;
+        await device.backUp();
+        expect(cloud.routines[_run1]!['steps_json'], contains(_Audio.key));
+        expect(await device.outbox.pendingItems(), isEmpty);
+      },
+    );
+
+    test(
+      'does not recreate a routine deleted during the clip upload',
+      () async {
+        final id = await savedRoutine();
+        final hold = Completer<void>();
+        final started = Completer<void>();
+        device.audio.hold = hold;
+        device.audio.started = started;
+        final pass = device.backUp();
+        await started.future;
+        await database.routineDao.deleteRoutine(id);
+        hold.complete();
+        await pass;
+        expect(await database.routineDao.getRoutineById(id), isNull);
+        expect(cloud.routines, isEmpty);
+        expect(await device.outbox.pendingItems(), isEmpty);
+      },
+    );
   });
 
   group('changes made while the backup uploads are never overwritten', () {
@@ -703,6 +930,32 @@ void main() {
       expect(lastPayload['status'], 'completed');
       expect(await device.outbox.pendingItems(), isEmpty);
     });
+
+    test(
+      'a session with held-back photos stays queued until they upload',
+      () async {
+        await database.routineSessionDao.insertOrUpdateSession(
+          sessionRow(
+            status: 'active',
+            stepStatus: 'completed',
+            updatedAt: DateTime(2026, 10, 6, 18, 30),
+          ),
+        );
+        device.proofs.holdBack = true;
+        await device.backUp();
+        final pending = (await device.outbox.pendingItems()).single;
+        expect(pending.entityType, SyncEntityType.session);
+        expect(pending.nextAttemptAt, isNotNull);
+        expect(device.account.lastSyncAt, isNull);
+        device.proofs.holdBack = false;
+        await device.backUp();
+        expect(await device.outbox.pendingItems(), isEmpty);
+        expect(
+          jsonEncode(cloud.sessionUpserts.last),
+          contains('users/$_user/sessions/s1/p.jpg'),
+        );
+      },
+    );
 
     test('a caption written during a run photo upload is kept', () async {
       String runData({String? caption, String? key}) => jsonEncode({
