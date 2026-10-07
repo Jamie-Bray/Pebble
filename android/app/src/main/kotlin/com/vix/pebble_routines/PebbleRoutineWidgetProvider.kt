@@ -96,7 +96,7 @@ class PebbleRoutineWidgetProvider : HomeWidgetProvider() {
         return try {
             val cleaned = if (hex.startsWith("#")) hex else "#$hex"
             Color.parseColor(cleaned) or OPAQUE
-        } catch (_: IllegalArgumentException) {
+        } catch (e: IllegalArgumentException) {
             DEFAULT_BADGE_COLOR
         }
     }
