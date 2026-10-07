@@ -44,7 +44,20 @@ class CloudRestoreCoordinator {
     r'[0-9a-fA-F]{12}$',
   );
 
+  /// `"<entityType>:<entityId>"` for every local change still waiting to
+  /// upload when this restore started. Such a row is never overwritten by
+  /// the server copy: the change waiting would be lost.
+  Set<String> _queuedChanges = const {};
+
+  bool _hasQueuedChange(SyncEntityType type, String entityId) =>
+      _queuedChanges.contains('${type.name}:$entityId');
+
   Future<void> bootstrapAndMerge(String ownerUserId) async {
+    _queuedChanges = {
+      for (final item in await _outbox.pendingItems())
+        if (item.operation != SyncOperation.delete)
+          '${item.entityType.name}:${item.entityId}',
+    };
     await _mergeRoutines(ownerUserId);
     await _mergeReminders(ownerUserId);
     await _mergeRuns(ownerUserId);
@@ -229,7 +242,8 @@ class CloudRestoreCoordinator {
       );
       return;
     }
-    if (remote.updatedAt.isAfter(local.updatedAt)) {
+    if (!_hasQueuedChange(SyncEntityType.routine, local.id.toString()) &&
+        remote.updatedAt.isAfter(local.updatedAt)) {
       await _database.routineDao.insertOrUpdateRoutine(
         Routine(
           id: local.id,
@@ -263,7 +277,8 @@ class CloudRestoreCoordinator {
       record.id,
     );
     if (existing != null) {
-      if (record.updatedAt.isAfter(existing.updatedAt)) {
+      if (!_hasQueuedChange(SyncEntityType.reminder, existing.id.toString()) &&
+          record.updatedAt.isAfter(existing.updatedAt)) {
         await _database.routineReminderDao.updateReminder(
           RoutineReminder(
             id: existing.id,
@@ -332,7 +347,8 @@ class CloudRestoreCoordinator {
       );
       return;
     }
-    if (remote.updatedAt.isAfter(local.updatedAt)) {
+    if (!_hasQueuedChange(SyncEntityType.run, local.id) &&
+        remote.updatedAt.isAfter(local.updatedAt)) {
       await _database.routineRunDao.insertOrUpdateRun(
         RoutineRun(
           id: local.id,
@@ -401,7 +417,9 @@ class CloudRestoreCoordinator {
       return;
     }
 
-    final localNeedsPriority = local.status == 'active';
+    final localNeedsPriority =
+        local.status == 'active' ||
+        _hasQueuedChange(SyncEntityType.session, local.sessionId);
     if (!localNeedsPriority && remote.updatedAt.isAfter(local.updatedAt)) {
       await _database.routineSessionDao.insertOrUpdateSession(
         RoutineSessionRow(

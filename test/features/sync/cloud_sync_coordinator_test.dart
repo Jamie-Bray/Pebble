@@ -26,6 +26,7 @@ import 'package:pebble_routines/features/subscription/data/models/subscription_a
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
 import 'package:pebble_routines/features/subscription/providers/cloud_access_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
+import 'package:pebble_routines/features/sync/cloud_restore_coordinator.dart';
 import 'package:pebble_routines/features/sync/cloud_sync_coordinator.dart';
 import 'package:pebble_routines/features/sync/sync_outbox_repository.dart';
 
@@ -35,7 +36,17 @@ class _Cloud {
   final routines = <String, Map<String, dynamic>>{};
   final reminders = <String, Map<String, dynamic>>{};
   final runs = <String, Map<String, dynamic>>{};
+  final sessions = <String, Map<String, dynamic>>{};
   final runUpserts = <Map<String, dynamic>>[];
+  final sessionUpserts = <Map<String, dynamic>>[];
+  var routineUpsertCalls = 0;
+
+  /// When set, the next session upload waits for it.
+  Completer<void>? holdNextSessionUpload;
+  final sessionUploadStarted = <Completer<void>>[];
+
+  /// Run uploads never finish while this is true (a stalled connection).
+  bool runUploadsHang = false;
 
   bool offline = false;
   bool routinesOffline = false;
@@ -55,13 +66,39 @@ class _Routines extends RemoteRoutineDataSource {
 
   @override
   Future<void> upsert(Map<String, dynamic> payload) async {
+    cloud.routineUpsertCalls += 1;
     cloud._check();
     if (cloud.routinesOffline) throw const SocketException('offline');
     cloud.routines[payload['id'] as String] = Map.of(payload);
   }
 
   @override
-  Future<List<RemoteRoutineRecord>> fetchAll(String ownerUserId) async => [];
+  Future<List<RemoteRoutineRecord>> fetchAll(String ownerUserId) async =>
+      cloud.routines.values.map(RemoteRoutineRecord.fromJson).toList();
+}
+
+class _Sessions extends RemoteRoutineSessionDataSource {
+  _Sessions(this.cloud) : super(null);
+  final _Cloud cloud;
+
+  @override
+  Future<void> upsert(Map<String, dynamic> payload) async {
+    cloud._check();
+    for (final started in cloud.sessionUploadStarted) {
+      if (!started.isCompleted) started.complete();
+    }
+    final hold = cloud.holdNextSessionUpload;
+    if (hold != null) {
+      cloud.holdNextSessionUpload = null;
+      await hold.future;
+    }
+    cloud.sessionUpserts.add(Map.of(payload));
+    cloud.sessions[payload['id'] as String] = Map.of(payload);
+  }
+
+  @override
+  Future<List<RemoteRoutineSessionRecord>> fetchAll(String ownerUserId) async =>
+      [];
 }
 
 class _Reminders extends RemoteRoutineReminderDataSource {
@@ -91,6 +128,7 @@ class _Runs extends RemoteRoutineRunDataSource {
   @override
   Future<void> upsert(Map<String, dynamic> payload) async {
     cloud._check();
+    if (cloud.runUploadsHang) await Completer<void>().future;
     for (final started in cloud.runUploadStarted) {
       if (!started.isCompleted) started.complete();
     }
@@ -111,6 +149,10 @@ class _Proofs implements RoutineSessionProofStorage {
   /// Photos come back "pending" (held back) while this is true.
   bool holdBack = false;
 
+  /// When set, the next photo upload waits for it (a slow upload).
+  Completer<void>? holdNextUpload;
+  final uploadStarted = <Completer<void>>[];
+
   @override
   Future<RoutineSessionProofAsset> uploadProofAsset({
     required RoutineSessionProofAsset asset,
@@ -118,6 +160,14 @@ class _Proofs implements RoutineSessionProofStorage {
     required String entityType,
     required String entityId,
   }) async {
+    for (final started in uploadStarted) {
+      if (!started.isCompleted) started.complete();
+    }
+    final hold = holdNextUpload;
+    if (hold != null) {
+      holdNextUpload = null;
+      await hold.future;
+    }
     if (holdBack) {
       return asset.copyWith(uploadStatus: ProofUploadStatus.pendingUpload);
     }
@@ -162,7 +212,7 @@ class _Device {
         ),
         remoteRoutineRunDataSourceProvider.overrideWithValue(_Runs(cloud)),
         remoteRoutineSessionDataSourceProvider.overrideWithValue(
-          RemoteRoutineSessionDataSource(null),
+          _Sessions(cloud),
         ),
         routineSessionProofStorageProvider.overrideWithValue(proofs),
         authSessionProvider.overrideWithValue(
@@ -559,4 +609,307 @@ void main() {
       );
     });
   });
+
+  group('changes made while the backup uploads are never overwritten', () {
+    Map<String, dynamic> photo({String? caption, String? key}) => {
+      'proofId': 'p1',
+      'localRelativePath': 'routine_session_proofs/s1/p1.webp',
+      'remoteObjectKey': key,
+      'uploadStatus': key == null ? 'localOnly' : 'uploaded',
+      'capturedAt': DateTime(2026, 10, 6, 19).toIso8601String(),
+      if (caption != null) 'aiDescription': caption,
+    };
+
+    RoutineSessionRow sessionRow({
+      required String status,
+      required String stepStatus,
+      required DateTime updatedAt,
+      String? caption,
+    }) => RoutineSessionRow(
+      sessionId: 's1',
+      routineId: 1,
+      routineTitleSnapshot: 'Morning',
+      workspaceId: null,
+      ownerUserId: _user,
+      storageScope: 'personalCloud',
+      startedAt: DateTime(2026, 10, 6, 18),
+      updatedAt: updatedAt,
+      status: status,
+      currentStepIndex: 0,
+      totalStepCount: 1,
+      baseRoutineVersion: 1,
+      stepStatesJson: jsonEncode([
+        {
+          'stepIndex': 0,
+          'status': stepStatus,
+          'completedAt': null,
+          'proofAssets': [photo(caption: caption)],
+        },
+      ]),
+      routineSnapshotJson: jsonEncode(const []),
+      syncMetadataJson: jsonEncode({'needsSync': true}),
+      completedAt: status == 'completed' ? DateTime(2026, 10, 6, 19) : null,
+      discardedAt: null,
+    );
+
+    test('a session finished during its upload stays finished', () async {
+      await database.routineSessionDao.insertOrUpdateSession(
+        sessionRow(
+          status: 'active',
+          stepStatus: 'pending',
+          updatedAt: DateTime(2026, 10, 6, 18, 30),
+        ),
+      );
+      await device.outbox.enqueue(
+        entityType: SyncEntityType.session,
+        entityId: 's1',
+        operation: SyncOperation.upsert,
+      );
+      final hold = Completer<void>();
+      final started = Completer<void>();
+      device.proofs.holdNextUpload = hold;
+      device.proofs.uploadStarted.add(started);
+
+      final pass = device.backUp();
+      await started.future;
+      // The person checks the step and finishes, and a caption arrives,
+      // while the photo is still uploading.
+      await database.routineSessionDao.insertOrUpdateSession(
+        sessionRow(
+          status: 'completed',
+          stepStatus: 'completed',
+          updatedAt: DateTime(2026, 10, 6, 19),
+          caption: 'A tidy desk',
+        ),
+      );
+      await device.outbox.enqueue(
+        entityType: SyncEntityType.session,
+        entityId: 's1',
+        operation: SyncOperation.upsert,
+      );
+      hold.complete();
+      await pass;
+
+      final local = await database.routineSessionDao.getSessionById('s1');
+      expect(local!.status, 'completed');
+      expect(local.completedAt, isNotNull);
+      final step = (jsonDecode(local.stepStatesJson) as List).single as Map;
+      expect(step['status'], 'completed');
+      final asset = (step['proofAssets'] as List).single as Map;
+      expect(asset['aiDescription'], 'A tidy desk');
+      expect(asset['remoteObjectKey'], 'users/$_user/sessions/s1/p.jpg');
+      // The finished copy went up last, and nothing is left waiting.
+      final lastPayload = cloud.sessionUpserts.last['payload_json'] as Map;
+      expect(lastPayload['status'], 'completed');
+      expect(await device.outbox.pendingItems(), isEmpty);
+    });
+
+    test('a caption written during a run photo upload is kept', () async {
+      String runData({String? caption, String? key}) => jsonEncode({
+        'steps': [
+          {
+            'stepIndex': 0,
+            'proofAssets': [photo(caption: caption, key: key)],
+          },
+        ],
+      });
+      await database.routineRunDao.insertOrUpdateRun(
+        _run(_run1, stepCompletionData: runData()),
+      );
+      final hold = Completer<void>();
+      final started = Completer<void>();
+      device.proofs.holdNextUpload = hold;
+      device.proofs.uploadStarted.add(started);
+
+      final pass = device.backUp();
+      await started.future;
+      // saveProofDescription writes the caption into the run meanwhile.
+      await database.routineRunDao.insertOrUpdateRun(
+        _run(_run1, stepCompletionData: runData(caption: 'A tidy desk')),
+      );
+      await device.queueRun(_run1);
+      hold.complete();
+      await pass;
+
+      final local = await database.routineRunDao.getRunById(_run1);
+      final data = jsonDecode(local!.stepCompletionData!) as Map;
+      final step = (data['steps'] as List).single as Map;
+      final asset = (step['proofAssets'] as List).single as Map;
+      expect(asset['aiDescription'], 'A tidy desk');
+      expect(asset['remoteObjectKey'], 'users/$_user/runs/$_run1/p.jpg');
+      final uploaded = cloud.runs[_run1]!['step_completion_data'] as String;
+      expect(uploaded, contains('A tidy desk'));
+      expect(uploaded, contains('users/$_user/runs/$_run1/p.jpg'));
+    });
+  });
+
+  group('reminders waiting on a routine', () {
+    test(
+      'a failing routine is tried once per pass, not once per reminder',
+      () async {
+        final routineId = await database.routineDao.insertRoutineCompanion(
+          RoutinesCompanion.insert(
+            title: 'Morning',
+            stepsJson: jsonEncode(const []),
+            createdAt: DateTime(2026, 10, 1),
+            ownerUserId: const drift.Value(_user),
+            syncStatus: const drift.Value('pendingUpload'),
+          ),
+        );
+        for (var day = 1; day <= 3; day++) {
+          await database.routineReminderDao.addReminder(
+            RoutineRemindersCompanion.insert(
+              routineId: routineId,
+              dayOfWeek: day,
+              time: '7:00 AM',
+              ownerUserId: const drift.Value(_user),
+            ),
+          );
+        }
+        cloud.routinesOffline = true;
+
+        await device.backUp();
+
+        expect(cloud.routineUpsertCalls, 1);
+        final items = await device.outbox.pendingItems();
+        final routineRow = items.singleWhere(
+          (item) => item.entityType == SyncEntityType.routine,
+        );
+        expect(routineRow.attemptCount, 1);
+        for (final reminder in items.where(
+          (item) => item.entityType == SyncEntityType.reminder,
+        )) {
+          expect(reminder.attemptCount, 0);
+          // Waits for the routine's own retry rather than a fixed short delay.
+          expect(
+            reminder.nextAttemptAt!.isBefore(
+              routineRow.nextAttemptAt!.subtract(const Duration(seconds: 1)),
+            ),
+            isFalse,
+          );
+        }
+      },
+    );
+
+    test('a routine already on the server lets its reminder go up even while a '
+        'newer edit to it is waiting', () async {
+      const routineCloudId = '33333333-3333-4333-8333-333333333333';
+      final routineId = await database.routineDao.insertRoutineCompanion(
+        RoutinesCompanion.insert(
+          title: 'Morning (edited)',
+          stepsJson: jsonEncode(const []),
+          createdAt: DateTime(2026, 10, 1),
+          cloudId: const drift.Value(routineCloudId),
+          ownerUserId: const drift.Value(_user),
+          syncStatus: const drift.Value('pendingUpload'),
+          lastSyncedAt: drift.Value(DateTime(2026, 10, 2)),
+        ),
+      );
+      cloud.routines[routineCloudId] = {'id': routineCloudId};
+      await database.routineReminderDao.addReminder(
+        RoutineRemindersCompanion.insert(
+          routineId: routineId,
+          dayOfWeek: 1,
+          time: '7:00 AM',
+          ownerUserId: const drift.Value(_user),
+        ),
+      );
+      cloud.routinesOffline = true;
+
+      await device.backUp();
+
+      expect(cloud.reminders.values.single['routine_id'], routineCloudId);
+      // Only the routine's own item tried the routine.
+      expect(cloud.routineUpsertCalls, 1);
+    });
+  });
+
+  group('a stalled connection', () {
+    tearDown(() {
+      CloudSyncCoordinator.rowWriteTimeout = const Duration(seconds: 30);
+      CloudSyncCoordinator.manualWaitLimit = const Duration(minutes: 2);
+    });
+
+    test('times out into a retry and never leaves "backing up" on', () async {
+      CloudSyncCoordinator.rowWriteTimeout = const Duration(milliseconds: 50);
+      await database.routineRunDao.insertOrUpdateRun(_run(_run1));
+      cloud.runUploadsHang = true;
+
+      final result = await device.backUp();
+
+      expect(result.type, ManualSyncResultType.blockedOffline);
+      expect(
+        device.container.read(cloudSyncRuntimeStateProvider).isRunning,
+        isFalse,
+      );
+      final item = (await device.outbox.pendingItems()).single;
+      expect(item.attemptCount, 1);
+      expect(item.lastErrorSummary, contains('TimeoutException'));
+    });
+
+    test('"Back up now" stops waiting for a pass that will not end', () async {
+      CloudSyncCoordinator.manualWaitLimit = const Duration(milliseconds: 50);
+      await database.routineRunDao.insertOrUpdateRun(_run(_run1));
+      final hold = Completer<void>();
+      final started = Completer<void>();
+      cloud.holdNextRunUpload = hold;
+      cloud.runUploadStarted.add(started);
+
+      final first = device.backUp();
+      await started.future;
+      final second = await device.backUp();
+
+      expect(second.type, ManualSyncResultType.partialRetryScheduled);
+      hold.complete();
+      await first;
+      // Let the follow-up pass the second request asked for finish.
+      await device.backUp();
+    });
+  });
+
+  test(
+    'a restore never overwrites a local edit still waiting to go up',
+    () async {
+      const routineCloudId = '44444444-4444-4444-8444-444444444444';
+      final routineId = await database.routineDao.insertRoutineCompanion(
+        RoutinesCompanion.insert(
+          title: 'Local edit',
+          stepsJson: jsonEncode(const []),
+          createdAt: DateTime(2026, 10, 1),
+          updatedAt: drift.Value(DateTime(2026, 10, 2)),
+          cloudId: const drift.Value(routineCloudId),
+          ownerUserId: const drift.Value(_user),
+          syncStatus: const drift.Value('pendingUpload'),
+          lastSyncedAt: drift.Value(DateTime(2026, 10, 1)),
+        ),
+      );
+      await device.outbox.enqueue(
+        entityType: SyncEntityType.routine,
+        entityId: routineId.toString(),
+        operation: SyncOperation.upsert,
+      );
+      cloud.routines[routineCloudId] = {
+        'id': routineCloudId,
+        'owner_user_id': _user,
+        'title': 'Older server copy',
+        'steps_json': jsonEncode(const []),
+        'icon_key': null,
+        'color_hex': null,
+        'is_pinned': false,
+        'pinned_at': null,
+        'version': 1,
+        'created_at': DateTime.utc(2026, 10, 1).toIso8601String(),
+        // Newer clock than the local edit (another device's clock was ahead).
+        'updated_at': DateTime.utc(2026, 10, 5).toIso8601String(),
+      };
+
+      await device.container
+          .read(cloudRestoreCoordinatorProvider)
+          .bootstrapAndMerge(_user);
+
+      final local = await database.routineDao.getRoutineById(routineId);
+      expect(local!.title, 'Local edit');
+      expect(local.syncStatus, 'pendingUpload');
+    },
+  );
 }

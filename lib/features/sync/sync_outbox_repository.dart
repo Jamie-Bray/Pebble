@@ -71,9 +71,18 @@ abstract class SyncOutboxRepository {
   /// was uploading (a newer edit). Returns whether it was removed.
   Future<bool> completeIfUnchanged(SyncOutboxItem item);
 
-  /// Parks [id] for a short while without counting a failure, for an item
-  /// that is waiting on another one (a reminder waiting for its routine).
-  Future<void> defer(String id, String reason);
+  /// Parks [id] without counting a failure, for an item that is waiting on
+  /// another one (a reminder waiting for its routine). It is tried again at
+  /// [until] when given (for example the routine's own next retry), else
+  /// after a short while.
+  Future<void> defer(String id, String reason, {DateTime? until});
+
+  /// The queued row for this entity and operation, if there is one.
+  Future<SyncOutboxItem?> findQueued({
+    required SyncEntityType entityType,
+    required String entityId,
+    required SyncOperation operation,
+  });
   Future<void> markRetry(String id, Object error, int attemptCount);
   Future<void> resetRetrySchedule();
 }
@@ -219,17 +228,32 @@ class SyncOutboxRepositoryImpl implements SyncOutboxRepository {
   }
 
   @override
-  Future<void> defer(String id, String reason) async {
+  Future<void> defer(String id, String reason, {DateTime? until}) async {
     final row = await (_db.select(
       _db.syncOutbox,
     )..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
     if (row == null) return;
+    final soonest = DateTime.now().add(deferDelay);
     await _db.syncOutboxDao.updateRetry(
       id: id,
       attemptCount: row.attemptCount,
-      nextAttemptAt: DateTime.now().add(deferDelay),
+      nextAttemptAt: until != null && until.isAfter(soonest) ? until : soonest,
       lastErrorSummary: reason,
     );
+  }
+
+  @override
+  Future<SyncOutboxItem?> findQueued({
+    required SyncEntityType entityType,
+    required String entityId,
+    required SyncOperation operation,
+  }) async {
+    final row = await _db.syncOutboxDao.findMatchingPending(
+      entityType: entityType.name,
+      entityId: entityId,
+      operation: operation.name,
+    );
+    return row == null ? null : _mapRow(row);
   }
 
   /// The stored error: its type and message, trimmed so one huge server
