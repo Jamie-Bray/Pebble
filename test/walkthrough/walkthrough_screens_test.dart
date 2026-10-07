@@ -40,6 +40,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:pebble_routines/core/theme/routine_palette.dart';
+import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/core/config/app_runtime_config.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
@@ -1727,6 +1728,22 @@ void main() {
         await env.shot(
           'theme_${theme.index.toString().padLeft(2, '0')}_${theme.name}_home',
         );
+      },
+    );
+  }
+  for (final season in PebbleSeason.values) {
+    _capture(
+      'theme seasonal ${season.name}',
+      theme: ThemeId.seasonal,
+      account: _Account.signedInPremium,
+      (env) async {
+        SeasonalThemeFactory.debugSeason = season;
+        addTearDown(() => SeasonalThemeFactory.debugSeason = null);
+        env.container.invalidate(currentThemeDataProvider);
+        await env.realWait();
+        await env.shot('theme_seasonal_${season.name}_home');
+        await _openPlayer(env, 1);
+        await env.shot('theme_seasonal_${season.name}_player');
       },
     );
   }

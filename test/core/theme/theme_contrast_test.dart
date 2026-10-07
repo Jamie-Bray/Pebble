@@ -7,9 +7,20 @@ import 'package:pebble_routines/core/ui/readable_colors.dart';
 /// Reduced Contrast is deliberately soft, so it only has to keep body text
 /// and its input hints readable.
 void main() {
-  for (final id in ThemeId.values) {
-    test('${id.name} meets the reading contrast rules', () {
-      final theme = AppTheme.fromId(id);
+  final cases = <(String, ThemeId, ThemeData Function())>[
+    for (final id in ThemeId.values) (id.name, id, () => AppTheme.fromId(id)),
+    // Seasons changes through the year, so check every season, not just
+    // today's.
+    for (final season in PebbleSeason.values)
+      (
+        'seasonal ${season.name}',
+        ThemeId.seasonal,
+        () => SeasonalThemeFactory.build(season),
+      ),
+  ];
+  for (final (name, id, build) in cases) {
+    test('$name meets the reading contrast rules', () {
+      final theme = build();
       final f = theme.extension<PebbleDarkFoundation>()!;
       final x = theme.extension<PebbleThemeX>()!;
       final cs = theme.colorScheme;
