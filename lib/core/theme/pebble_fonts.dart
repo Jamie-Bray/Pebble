@@ -25,14 +25,12 @@ abstract final class PebbleFonts {
   }
 
   static Stream<LicenseEntry> _licenses() async* {
-    yield LicenseEntryWithLineBreaks(
-      const ['DM Sans'],
-      await rootBundle.loadString('assets/fonts/OFL-DMSans.txt'),
-    );
-    yield LicenseEntryWithLineBreaks(
-      const ['DM Serif Display'],
-      await rootBundle.loadString('assets/fonts/OFL-DMSerifDisplay.txt'),
-    );
+    yield LicenseEntryWithLineBreaks(const [
+      'DM Sans',
+    ], await rootBundle.loadString('assets/fonts/OFL-DMSans.txt'));
+    yield LicenseEntryWithLineBreaks(const [
+      'DM Serif Display',
+    ], await rootBundle.loadString('assets/fonts/OFL-DMSerifDisplay.txt'));
   }
 
   /// Snaps [weight] to the nearest bundled DM Sans weight.

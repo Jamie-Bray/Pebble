@@ -34,7 +34,11 @@ void main() {
       expect(templates, hasLength(12));
       expect(
         templates.map((Template template) => template.category).toSet(),
-        equals(<String>{'Leaving and locking up', 'Daily care', 'Work and away'}),
+        equals(<String>{
+          'Leaving and locking up',
+          'Daily care',
+          'Work and away',
+        }),
       );
       expect(
         templates.map((Template template) => template.title).toList(),
@@ -548,9 +552,7 @@ void main() {
       expect(find.text('5 steps'), findsOneWidget);
       expect(find.text('Add this template'), findsOneWidget);
       expect(
-        find.text(
-          'Add it to your routines, then change any step you like.',
-        ),
+        find.text('Add it to your routines, then change any step you like.'),
         findsOneWidget,
       );
       expect(find.text('Check the hob and oven are off.'), findsOneWidget);

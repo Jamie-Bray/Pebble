@@ -56,14 +56,18 @@ class SupabaseAuthRepository implements AuthRepository {
   SupabaseClient get _requiredClient {
     final client = _client;
     if (client == null || !_config.enabled) {
-      throw StateError("Sign-in isn't available in this version of Pebble yet.");
+      throw StateError(
+        "Sign-in isn't available in this version of Pebble yet.",
+      );
     }
     return client;
   }
 
   GoogleSignIn get _requiredGoogleSignIn {
     if (!_config.supportsGoogleSignIn) {
-      throw StateError("Google sign-in isn't available in this version of Pebble yet.");
+      throw StateError(
+        "Google sign-in isn't available in this version of Pebble yet.",
+      );
     }
     return _googleSignIn ??= GoogleSignIn(
       scopes: const ['email'],
@@ -141,9 +145,7 @@ class SupabaseAuthRepository implements AuthRepository {
     final auth = await account.authentication;
     final idToken = auth.idToken;
     if (idToken == null || idToken.isEmpty) {
-      throw StateError(
-        "Google sign-in didn't finish. Try again.",
-      );
+      throw StateError("Google sign-in didn't finish. Try again.");
     }
 
     final response = await _requiredClient.auth.signInWithIdToken(
@@ -153,9 +155,7 @@ class SupabaseAuthRepository implements AuthRepository {
     );
     final user = response.user;
     if (user == null) {
-      throw StateError(
-        "Google sign-in didn't finish. Try again.",
-      );
+      throw StateError("Google sign-in didn't finish. Try again.");
     }
     return AuthIdentity(
       userId: user.id,
@@ -182,15 +182,11 @@ class SupabaseAuthRepository implements AuthRepository {
       if (error.code == AuthorizationErrorCode.canceled) {
         throw const AuthCancelledException();
       }
-      throw StateError(
-        "Apple sign-in didn't finish. Try again.",
-      );
+      throw StateError("Apple sign-in didn't finish. Try again.");
     }
     final identityToken = credential.identityToken;
     if (identityToken == null || identityToken.isEmpty) {
-      throw StateError(
-        "Apple sign-in didn't finish. Try again.",
-      );
+      throw StateError("Apple sign-in didn't finish. Try again.");
     }
 
     final response = await _requiredClient.auth.signInWithIdToken(
@@ -200,9 +196,7 @@ class SupabaseAuthRepository implements AuthRepository {
     );
     final user = response.user;
     if (user == null) {
-      throw StateError(
-        "Apple sign-in didn't finish. Try again.",
-      );
+      throw StateError("Apple sign-in didn't finish. Try again.");
     }
     return AuthIdentity(
       userId: user.id,

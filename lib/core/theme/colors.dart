@@ -29,6 +29,10 @@ enum ThemeId {
   // Keep new themes appended at the END: the selected theme is persisted by
   // enum index, so inserting mid-list would silently reassign saved themes.
   sandstone,
+  tide,
+  oliveGrove,
+  heather,
+  ember,
 }
 
 enum ThemePickerCategory { included, premium, accessibility }
@@ -180,7 +184,7 @@ abstract class _BaseThemeFactory {
           borderSide: BorderSide(color: accent),
         ),
         hintStyle: textTheme.bodyMedium?.copyWith(
-          color: fg.withValues(alpha: 0.5),
+          color: foundation.textSecondary,
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -267,8 +271,8 @@ class NordicNightThemeFactory {
       surfaceHigh: Color(0xFF2A2720),
       borderSubtle: Color(0xFF2E2922),
       textPrimary: Color(0xFFF0E9D6),
-      textSecondary: Color(0xFF8A8070),
-      textMuted: Color(0xFF4E4940),
+      textSecondary: Color(0xFF9A907F),
+      textMuted: Color(0xFF6E665A),
       shadowSoft: Color(0x52000000),
     ),
     gradient: const LinearGradient(
@@ -294,8 +298,8 @@ class MatchaThemeFactory {
   static ThemeData build() => _BaseThemeFactory.build(
     id: ThemeId.matcha,
     bg: const Color(0xFFF4F7F4),
-    fg: const Color(0xFF3A4A3F),
-    accent: const Color(0xFF6B8E73),
+    fg: const Color(0xFF2F3D34),
+    accent: const Color(0xFF4F7058),
   );
 }
 
@@ -305,7 +309,7 @@ class SoftPinkThemeFactory {
     id: ThemeId.softPink,
     bg: const Color(0xFFFBF2F4),
     fg: const Color(0xFF4D363C),
-    accent: const Color(0xFFA36F7B),
+    accent: const Color(0xFF8E5A66),
     secondary: const Color(0xFF7C8A70),
   );
 }
@@ -316,7 +320,7 @@ class SageMistThemeFactory {
     id: ThemeId.sageMist,
     bg: const Color(0xFF162119), // dark forest
     fg: const Color(0xFFE2EBE5), // soft pale green
-    accent: const Color(0xFF6B8A72), // sage accent
+    accent: const Color(0xFF8FB89A), // sage accent
     secondary: const Color(0xFF8B9E8E),
     isDark: true,
     done: const Color(0xFF7FB08A),
@@ -329,7 +333,10 @@ class SageMistThemeFactory {
 /// that leans on the design system's multi-accent roles.
 class SandstoneThemeFactory {
   static const _forest = Color(0xFF3E5E45); // primary / structure
-  static const _terracotta = Color(0xFFC4714A); // warm action accent
+  static const _terracotta = Color(0xFFC4714A); // warm highlight accent
+  // The action button carries cream text, so it uses a deeper terracotta
+  // (5.0:1) than the badges and highlights (3.4:1).
+  static const _terracottaAction = Color(0xFFA3552F);
   static const _sage = Color(0xFF8DA174);
   static const _tan = Color(0xFFD9A85C);
 
@@ -339,10 +346,51 @@ class SandstoneThemeFactory {
     fg: const Color(0xFF2C3A2E), // deep forest ink
     accent: _forest,
     secondary: _terracotta,
-    actionAccent: _terracotta,
+    actionAccent: _terracottaAction,
     onActionAccent: const Color(0xFFFBF6EC),
     categoryAccents: const [_sage, _terracotta, _tan],
     done: const Color(0xFF3F6B4A),
+  );
+}
+
+/// Tide (Free cool light): the one cool light theme.
+class TideThemeFactory {
+  static ThemeData build() => _BaseThemeFactory.build(
+    id: ThemeId.tide,
+    bg: const Color(0xFFF1F4F6), // misty blue-grey
+    fg: const Color(0xFF1F2E38), // deep slate ink
+    accent: const Color(0xFF3A6480), // sea blue
+  );
+}
+
+/// Olive Grove (Premium warm light)
+class OliveGroveThemeFactory {
+  static ThemeData build() => _BaseThemeFactory.build(
+    id: ThemeId.oliveGrove,
+    bg: const Color(0xFFF4F2E7), // warm cream
+    fg: const Color(0xFF2E3222), // olive ink
+    accent: const Color(0xFF5B6A2E), // olive
+  );
+}
+
+/// Heather (Premium lilac light)
+class HeatherThemeFactory {
+  static ThemeData build() => _BaseThemeFactory.build(
+    id: ThemeId.heather,
+    bg: const Color(0xFFF6F2F6), // lilac grey
+    fg: const Color(0xFF33283A), // plum ink
+    accent: const Color(0xFF6B4C7A), // plum
+  );
+}
+
+/// Ember (Premium charcoal dark)
+class EmberThemeFactory {
+  static ThemeData build() => _BaseThemeFactory.build(
+    id: ThemeId.ember,
+    bg: const Color(0xFF1A1716), // charcoal
+    fg: const Color(0xFFF0E6E0), // warm white
+    accent: const Color(0xFFE58A6B), // coral
+    isDark: true,
   );
 }
 
@@ -352,7 +400,7 @@ class RoseQuartzThemeFactory {
     id: ThemeId.roseQuartz,
     bg: const Color(0xFFF9F0F2),
     fg: const Color(0xFF4A2B32),
-    accent: const Color(0xFFB87A84),
+    accent: const Color(0xFF9A5C67),
   );
 }
 
@@ -362,7 +410,7 @@ class DeepGlacierThemeFactory {
     id: ThemeId.deepGlacier,
     bg: const Color(0xFF0A1521),
     fg: const Color(0xFFE6EDF3),
-    accent: const Color(0xFF4A80A6),
+    accent: const Color(0xFF7FAED0),
     isDark: true,
     gradient: const LinearGradient(
       begin: Alignment.topLeft,
@@ -376,7 +424,7 @@ class DeepGlacierThemeFactory {
 class AmberResinThemeFactory {
   static ThemeData build() => _BaseThemeFactory.build(
     id: ThemeId.amberResin,
-    bg: const Color(0xFF1A1412),
+    bg: const Color(0xFF17110F),
     fg: const Color(0xFFE8DCC8),
     accent: const Color(0xFFC27D38),
     isDark: true,
@@ -397,7 +445,7 @@ class AmberResinThemeFactory {
 class TerracottaThemeFactory {
   static ThemeData build() => _BaseThemeFactory.build(
     id: ThemeId.terracotta,
-    bg: const Color(0xFF2C211F),
+    bg: const Color(0xFF201714),
     fg: const Color(0xFFE8DCD5),
     accent: const Color(0xFFC4714A),
     isDark: true,
@@ -420,7 +468,7 @@ class LavenderAshThemeFactory {
     id: ThemeId.lavenderAsh,
     bg: const Color(0xFF1E1A24),
     fg: const Color(0xFFDCD9E3),
-    accent: const Color(0xFF8A7BBA),
+    accent: const Color(0xFFA898D6),
     isDark: true,
   );
 }
@@ -431,7 +479,7 @@ class OatmealAndWalnutThemeFactory {
     id: ThemeId.oatmealAndWalnut,
     bg: const Color(0xFFF2EFE9),
     fg: const Color(0xFF40352C),
-    accent: const Color(0xFF9A7D64),
+    accent: const Color(0xFF7D6149),
   );
 }
 
@@ -452,7 +500,7 @@ class CanopyThemeFactory {
     id: ThemeId.canopy,
     bg: const Color(0xFF121C17),
     fg: const Color(0xFFD1E0D7),
-    accent: const Color(0xFF5A8A68),
+    accent: const Color(0xFF7FAF8C),
     isDark: true,
   );
 }
@@ -463,7 +511,7 @@ class ParchmentThemeFactory {
     id: ThemeId.parchment,
     bg: const Color(0xFFF5EFE0),
     fg: const Color(0xFF3A2E1E),
-    accent: const Color(0xFFA07840),
+    accent: const Color(0xFF84612E),
   );
 }
 
@@ -518,7 +566,7 @@ class WarmSepiaThemeFactory {
     id: ThemeId.warmSepia,
     bg: const Color(0xFFF0E8D8),
     fg: const Color(0xFF2E2416),
-    accent: const Color(0xFF8B6840),
+    accent: const Color(0xFF7A5A34),
   );
 }
 
@@ -551,8 +599,8 @@ class ColourBlindSafeThemeFactory {
       surfaceHigh: Color(0xFF2A2720),
       borderSubtle: Color(0xFF2E2922),
       textPrimary: Color(0xFFF0E9D6),
-      textSecondary: Color(0xFF8A8070),
-      textMuted: Color(0xFF4E4940),
+      textSecondary: Color(0xFF9A907F),
+      textMuted: Color(0xFF6E665A),
       shadowSoft: Color(0x52000000),
     ),
   );
@@ -606,6 +654,14 @@ class AppTheme {
         return SageMistThemeFactory.build();
       case ThemeId.sandstone:
         return SandstoneThemeFactory.build();
+      case ThemeId.tide:
+        return TideThemeFactory.build();
+      case ThemeId.oliveGrove:
+        return OliveGroveThemeFactory.build();
+      case ThemeId.heather:
+        return HeatherThemeFactory.build();
+      case ThemeId.ember:
+        return EmberThemeFactory.build();
     }
   }
 }
@@ -730,15 +786,19 @@ class PebbleDarkFoundation extends ThemeExtension<PebbleDarkFoundation> {
         surfaceHigh: Color.lerp(bg, Colors.white, 0.52) ?? bg,
         borderSubtle: Color.lerp(fg, accent, 0.24)!.withValues(alpha: 0.16),
         textPrimary: fg.withValues(alpha: 0.94),
-        textSecondary: fg.withValues(alpha: 0.68),
-        textMuted: fg.withValues(alpha: 0.48),
+        // 74% keeps captions at 4.5:1 or more on every light page and card.
+        textSecondary: fg.withValues(alpha: 0.74),
+        // Icons and decoration only (3:1). Words use textSecondary.
+        textMuted: fg.withValues(alpha: 0.60),
         shadowSoft: Colors.black.withValues(alpha: 0.08),
       );
     }
 
-    const warmNight = Color(0xFF15120F);
-    final bgBase = Color.lerp(warmNight, bg, 0.36)!;
-    final textPrimary = Color.lerp(const Color(0xFFFFF5E6), fg, 0.34)!;
+    // Each dark theme paints its own background and text colour. (These used
+    // to be pulled most of the way towards one warm near-black, which made
+    // the navy, green and plum themes look like the same brown.)
+    final bgBase = bg;
+    final textPrimary = fg;
     final surfaceLow = Color.lerp(bgBase, textPrimary, 0.055)!;
     final surfaceHigh = Color.lerp(bgBase, textPrimary, 0.092)!;
     return PebbleDarkFoundation(
@@ -961,7 +1021,12 @@ class ThemeMetadata {
   bool get isAccessibilityTheme =>
       category == ThemePickerCategory.accessibility;
 
+  // Picker layout (DESIGN_DIRECTION.md, theme pass Oct 2026):
+  // - Free: two warm lights, one cool light, a pastel and two darks.
+  // - Premium: ten on the main picker, the older ones under "More".
+  // - Accessibility: all five shown, always free.
   static const Map<ThemeId, ThemeMetadata> metadata = {
+    // ---- Free ----
     ThemeId.sandstone: ThemeMetadata(
       id: ThemeId.sandstone,
       name: 'Sandstone',
@@ -980,59 +1045,14 @@ class ThemeMetadata {
       category: ThemePickerCategory.included,
       sortOrder: 10,
     ),
-    ThemeId.nordicNight: ThemeMetadata(
-      id: ThemeId.nordicNight,
-      name: 'Pebble Dark',
-      icon: LucideIcons.moon,
-      subtitle: 'Original dark',
-      description: 'The first Pebble dark theme, in amber, sage and clay.',
-      category: ThemePickerCategory.premium,
-      sortOrder: 900,
-      isVisibleOnMainPicker: false,
-      showInMoreOptionsOnly: true,
-    ),
-    ThemeId.paperAndInk: ThemeMetadata(
-      id: ThemeId.paperAndInk,
-      name: 'Paper & Ink',
-      icon: LucideIcons.bookOpen,
-      subtitle: 'High contrast light',
-      description: 'White background, black text and a brown accent.',
-      category: ThemePickerCategory.accessibility,
-      sortOrder: 120,
-      isVisibleOnMainPicker: false,
-      showInMoreOptionsOnly: true,
-      accessibilityNote: 'High contrast, for easier reading.',
-    ),
-    ThemeId.matcha: ThemeMetadata(
-      id: ThemeId.matcha,
-      name: 'Matcha',
-      icon: LucideIcons.leaf,
-      subtitle: 'Soft light',
-      description: 'Light green, good for daytime.',
-      category: ThemePickerCategory.premium,
-      sortOrder: 910,
-      isVisibleOnMainPicker: false,
-      showInMoreOptionsOnly: true,
-    ),
-    ThemeId.roseQuartz: ThemeMetadata(
-      id: ThemeId.roseQuartz,
-      name: 'Rose Quartz',
-      icon: LucideIcons.flower,
-      subtitle: 'Soft light',
-      description: 'Pale pink with warm accents.',
-      category: ThemePickerCategory.premium,
-      sortOrder: 30,
-    ),
-    ThemeId.deepGlacier: ThemeMetadata(
-      id: ThemeId.deepGlacier,
-      name: 'Deep Glacier',
-      icon: LucideIcons.droplets,
-      subtitle: 'Older cool dark',
-      description: 'An older blue theme, kept for people who already use it.',
-      category: ThemePickerCategory.premium,
-      sortOrder: 990,
-      isVisibleOnMainPicker: false,
-      showInMoreOptionsOnly: true,
+    ThemeId.tide: ThemeMetadata(
+      id: ThemeId.tide,
+      name: 'Tide',
+      icon: LucideIcons.waves,
+      subtitle: 'Cool light',
+      description: 'Misty blue-grey with a deep sea-blue accent.',
+      category: ThemePickerCategory.included,
+      sortOrder: 15,
     ),
     ThemeId.amberResin: ThemeMetadata(
       id: ThemeId.amberResin,
@@ -1048,7 +1068,7 @@ class ThemeMetadata {
       name: 'Soft Pink',
       icon: LucideIcons.heart,
       subtitle: 'Soft light',
-      description: 'Muted pink with a green accent.',
+      description: 'Muted pink with a rose accent.',
       category: ThemePickerCategory.included,
       sortOrder: 30,
     ),
@@ -1057,9 +1077,124 @@ class ThemeMetadata {
       name: 'Sage Mist',
       icon: LucideIcons.leaf,
       subtitle: 'Forest dark',
-      description: 'Deep forest green.',
+      description: 'Deep forest green with a soft sage accent.',
       category: ThemePickerCategory.included,
       sortOrder: 40,
+    ),
+
+    // ---- Personal Premium ----
+    ThemeId.roseQuartz: ThemeMetadata(
+      id: ThemeId.roseQuartz,
+      name: 'Rose Quartz',
+      icon: LucideIcons.flower,
+      subtitle: 'Soft light',
+      description: 'Pale pink with a dusky rose accent.',
+      category: ThemePickerCategory.premium,
+      sortOrder: 100,
+    ),
+    ThemeId.heather: ThemeMetadata(
+      id: ThemeId.heather,
+      name: 'Heather',
+      icon: LucideIcons.flower2,
+      subtitle: 'Lilac light',
+      description: 'Soft lilac-grey with a plum accent.',
+      category: ThemePickerCategory.premium,
+      sortOrder: 105,
+    ),
+    ThemeId.parchment: ThemeMetadata(
+      id: ThemeId.parchment,
+      name: 'Parchment',
+      icon: LucideIcons.scrollText,
+      subtitle: 'Warm light',
+      description: 'Old-paper tones with gold accents.',
+      category: ThemePickerCategory.premium,
+      sortOrder: 110,
+    ),
+    ThemeId.oliveGrove: ThemeMetadata(
+      id: ThemeId.oliveGrove,
+      name: 'Olive Grove',
+      icon: LucideIcons.sprout,
+      subtitle: 'Warm light',
+      description: 'Warm cream with an olive accent.',
+      category: ThemePickerCategory.premium,
+      sortOrder: 115,
+    ),
+    ThemeId.lavenderAsh: ThemeMetadata(
+      id: ThemeId.lavenderAsh,
+      name: 'Lavender Ash',
+      icon: LucideIcons.cloud,
+      subtitle: 'Evening dark',
+      description: 'Plum and lavender, for evenings.',
+      category: ThemePickerCategory.premium,
+      sortOrder: 120,
+    ),
+    ThemeId.dusk: ThemeMetadata(
+      id: ThemeId.dusk,
+      name: 'Dusk',
+      icon: LucideIcons.sunset,
+      subtitle: 'Deep navy',
+      description: 'Navy with an amber accent.',
+      category: ThemePickerCategory.premium,
+      sortOrder: 125,
+    ),
+    ThemeId.canopy: ThemeMetadata(
+      id: ThemeId.canopy,
+      name: 'Canopy',
+      icon: LucideIcons.treePine,
+      subtitle: 'Deep green dark',
+      description: 'Dark green with a fresh green accent.',
+      category: ThemePickerCategory.premium,
+      sortOrder: 130,
+    ),
+    ThemeId.ember: ThemeMetadata(
+      id: ThemeId.ember,
+      name: 'Ember',
+      icon: LucideIcons.sparkles,
+      subtitle: 'Charcoal dark',
+      description: 'Charcoal with a glowing coral accent.',
+      category: ThemePickerCategory.premium,
+      sortOrder: 135,
+    ),
+    ThemeId.midnightSlate: ThemeMetadata(
+      id: ThemeId.midnightSlate,
+      name: 'Graphite',
+      icon: LucideIcons.gem,
+      subtitle: 'Warm near-black',
+      description: 'Near-black with cream text and a warm amber accent.',
+      category: ThemePickerCategory.premium,
+      sortOrder: 140,
+    ),
+    ThemeId.nordicNight: ThemeMetadata(
+      id: ThemeId.nordicNight,
+      name: 'Pebble Dark',
+      icon: LucideIcons.moon,
+      subtitle: 'Original dark',
+      description: 'The first Pebble dark theme, in amber, sage and clay.',
+      category: ThemePickerCategory.premium,
+      sortOrder: 145,
+    ),
+    // Older Premium themes: kept for people who use them, under "More".
+    ThemeId.matcha: ThemeMetadata(
+      id: ThemeId.matcha,
+      name: 'Matcha',
+      icon: LucideIcons.leaf,
+      subtitle: 'Soft light',
+      description: 'Light green, good for daytime.',
+      category: ThemePickerCategory.premium,
+      sortOrder: 900,
+      isVisibleOnMainPicker: false,
+      showInMoreOptionsOnly: true,
+    ),
+    ThemeId.oatmealAndWalnut: ThemeMetadata(
+      id: ThemeId.oatmealAndWalnut,
+      name: 'Oatmeal & Walnut',
+      icon: LucideIcons.coffee,
+      subtitle: 'Warm light',
+      description: 'Oatmeal background with a walnut-brown accent.',
+      category: ThemePickerCategory.premium,
+      sortOrder: 910,
+      isVisibleOnMainPicker: false,
+      showInMoreOptionsOnly: true,
     ),
     ThemeId.terracotta: ThemeMetadata(
       id: ThemeId.terracotta,
@@ -1072,66 +1207,6 @@ class ThemeMetadata {
       isVisibleOnMainPicker: false,
       showInMoreOptionsOnly: true,
     ),
-    ThemeId.lavenderAsh: ThemeMetadata(
-      id: ThemeId.lavenderAsh,
-      name: 'Lavender Ash',
-      icon: LucideIcons.cloud,
-      subtitle: 'Muted evening dark',
-      description: 'Plum and lavender, for evenings.',
-      category: ThemePickerCategory.premium,
-      sortOrder: 40,
-    ),
-    ThemeId.oatmealAndWalnut: ThemeMetadata(
-      id: ThemeId.oatmealAndWalnut,
-      name: 'Oatmeal & Walnut',
-      icon: LucideIcons.coffee,
-      subtitle: 'Warm light',
-      description: 'Oatmeal background with a walnut-brown accent.',
-      category: ThemePickerCategory.premium,
-      sortOrder: 930,
-      isVisibleOnMainPicker: false,
-      showInMoreOptionsOnly: true,
-    ),
-    ThemeId.midnightSlate: ThemeMetadata(
-      id: ThemeId.midnightSlate,
-      name: 'Graphite',
-      icon: LucideIcons.gem,
-      subtitle: 'Warm near-black',
-      description: 'Near-black with cream text and a warm amber accent.',
-      category: ThemePickerCategory.premium,
-      sortOrder: 60,
-    ),
-    ThemeId.canopy: ThemeMetadata(
-      id: ThemeId.canopy,
-      name: 'Canopy',
-      icon: LucideIcons.treePine,
-      subtitle: 'Deep green dark',
-      description: 'Dark green with a muted green accent.',
-      category: ThemePickerCategory.premium,
-      sortOrder: 940,
-      isVisibleOnMainPicker: false,
-      showInMoreOptionsOnly: true,
-    ),
-    ThemeId.parchment: ThemeMetadata(
-      id: ThemeId.parchment,
-      name: 'Parchment',
-      icon: LucideIcons.scrollText,
-      subtitle: 'Warm light',
-      description: 'Old-paper tones with gold accents.',
-      category: ThemePickerCategory.premium,
-      sortOrder: 50,
-    ),
-    ThemeId.dusk: ThemeMetadata(
-      id: ThemeId.dusk,
-      name: 'Dusk',
-      icon: LucideIcons.sunset,
-      subtitle: 'Deep navy',
-      description: 'Navy with an amber accent.',
-      category: ThemePickerCategory.premium,
-      sortOrder: 950,
-      isVisibleOnMainPicker: false,
-      showInMoreOptionsOnly: true,
-    ),
     ThemeId.still: ThemeMetadata(
       id: ThemeId.still,
       name: 'Still',
@@ -1139,30 +1214,65 @@ class ThemeMetadata {
       subtitle: 'Neutral dark',
       description: 'Plain greys, for when you want less colour.',
       category: ThemePickerCategory.premium,
-      sortOrder: 960,
+      sortOrder: 930,
       isVisibleOnMainPicker: false,
       showInMoreOptionsOnly: true,
     ),
+    ThemeId.deepGlacier: ThemeMetadata(
+      id: ThemeId.deepGlacier,
+      name: 'Deep Glacier',
+      icon: LucideIcons.droplets,
+      subtitle: 'Cool dark',
+      description: 'Deep blue with an icy blue accent.',
+      category: ThemePickerCategory.premium,
+      sortOrder: 940,
+      isVisibleOnMainPicker: false,
+      showInMoreOptionsOnly: true,
+    ),
+
+    // ---- Accessibility (always free) ----
     ThemeId.highContrastDark: ThemeMetadata(
       id: ThemeId.highContrastDark,
       name: 'High Contrast Dark',
       icon: LucideIcons.contrast,
       subtitle: 'Low vision',
-      description: 'Black, white and yellow, for the most contrast in dark mode.',
+      description:
+          'Black, white and yellow, for the most contrast in dark mode.',
       category: ThemePickerCategory.accessibility,
-      sortOrder: 70,
+      sortOrder: 200,
+      accessibilityNote: 'High contrast, for easier reading.',
+    ),
+    ThemeId.paperAndInk: ThemeMetadata(
+      id: ThemeId.paperAndInk,
+      name: 'Paper & Ink',
+      icon: LucideIcons.bookOpen,
+      subtitle: 'High contrast light',
+      description: 'White background, black text and a brown accent.',
+      category: ThemePickerCategory.accessibility,
+      sortOrder: 210,
       accessibilityNote: 'High contrast, for easier reading.',
     ),
     ThemeId.warmSepia: ThemeMetadata(
       id: ThemeId.warmSepia,
       name: 'Warm Sepia',
-      icon: LucideIcons.circle,
+      icon: LucideIcons.glasses,
       subtitle: 'Light sensitivity',
       description:
           'An amber tint for people who find bright white screens hard to look at.',
       category: ThemePickerCategory.accessibility,
-      sortOrder: 80,
+      sortOrder: 220,
       accessibilityNote: 'Warm tint for light sensitivity.',
+    ),
+    ThemeId.colourBlindSafe: ThemeMetadata(
+      id: ThemeId.colourBlindSafe,
+      name: 'Colour Blind Safe',
+      icon: LucideIcons.eye,
+      subtitle: 'Colour vision',
+      description:
+          'Orange, blue and purple accents that are easier to tell apart.',
+      category: ThemePickerCategory.accessibility,
+      sortOrder: 230,
+      accessibilityNote: 'Accents chosen to be easier to tell apart.',
     ),
     ThemeId.reducedContrast: ThemeMetadata(
       id: ThemeId.reducedContrast,
@@ -1172,23 +1282,8 @@ class ThemeMetadata {
       description:
           'Lower contrast and softer colours, for when a bright screen feels like too much.',
       category: ThemePickerCategory.accessibility,
-      sortOrder: 110,
-      isVisibleOnMainPicker: false,
-      showInMoreOptionsOnly: true,
+      sortOrder: 240,
       accessibilityNote: 'Lower contrast, for sensory sensitivity.',
-    ),
-    ThemeId.colourBlindSafe: ThemeMetadata(
-      id: ThemeId.colourBlindSafe,
-      name: 'Colour Blind Safe',
-      icon: LucideIcons.eye,
-      subtitle: 'Colour vision',
-      description: 'Orange, blue and purple accents that are easier to tell apart.',
-      category: ThemePickerCategory.accessibility,
-      sortOrder: 100,
-      isVisibleOnMainPicker: false,
-      showInMoreOptionsOnly: true,
-      accessibilityNote:
-          'Orange, blue and purple accents, chosen to be easier to tell apart with colour blindness.',
     ),
   };
 

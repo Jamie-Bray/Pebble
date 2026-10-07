@@ -1551,8 +1551,8 @@ class _ThemePickerPage extends StatelessWidget {
     final foundation = context.darkFoundation;
     final themes = [
       ThemeMetadata.get(ThemeId.highNoon),
+      ThemeMetadata.get(ThemeId.sandstone),
       ThemeMetadata.get(ThemeId.amberResin),
-      ThemeMetadata.get(ThemeId.softPink),
       ThemeMetadata.get(ThemeId.sageMist),
     ];
     final hint = _themeCardSpec(selectedThemeId).hint;
@@ -1705,6 +1705,19 @@ _ThemeCardSpec _themeCardSpec(ThemeId id) {
         subtle: Color(0xFF8A7E72),
         check: Color(0xFF1B1714),
       );
+    case ThemeId.sandstone:
+      return const _ThemeCardSpec(
+        type: 'Sand and forest',
+        hint: 'Sandstone selected',
+        swatch: Color(0xFFF4EDDF),
+        label: Color(0xFFF4EDDF),
+        mockCard: Color(0xB3FFFFFF),
+        // Terracotta, so the card reads differently from High Noon's green.
+        accent: Color(0xFFA3552F),
+        text: Color(0xFF2C3A2E),
+        subtle: Color(0xFF5E6558),
+        check: Colors.white,
+      );
     case ThemeId.softPink:
       return const _ThemeCardSpec(
         type: 'Soft light',
@@ -1712,7 +1725,7 @@ _ThemeCardSpec _themeCardSpec(ThemeId id) {
         swatch: Color(0xFFF0E5E6),
         label: Color(0xFFF0E5E6),
         mockCard: Color(0xB3FFFFFF),
-        accent: Color(0xFFA0606B),
+        accent: Color(0xFF8E5A66),
         text: Color(0xFF2E2022),
         subtle: Color(0xFF907078),
         check: Colors.white,
@@ -1724,7 +1737,7 @@ _ThemeCardSpec _themeCardSpec(ThemeId id) {
         swatch: Color(0xFF1A2018),
         label: Color(0xFF202820),
         mockCard: Color(0xD91E281C),
-        accent: Color(0xFF6B9E72),
+        accent: Color(0xFF8FB89A),
         text: Color(0xFFDDE8D8),
         subtle: Color(0xFF6E8070),
         check: Color(0xFF1B1714),

@@ -166,9 +166,8 @@ void main() {
           ),
           GoRoute(
             path: '/cloud-backup',
-            builder: (context, state) => const Scaffold(
-              body: Center(child: Text('Backup reached')),
-            ),
+            builder: (context, state) =>
+                const Scaffold(body: Center(child: Text('Backup reached'))),
           ),
         ],
       );
@@ -350,7 +349,6 @@ class _FakeAuthRepository implements AuthRepository {
 
 class _FakePurchaseRepository extends ChangeNotifier
     implements PurchaseRepository {
-
   @override
   bool get isLoadingProducts => false;
 

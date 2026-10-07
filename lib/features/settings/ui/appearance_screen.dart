@@ -10,131 +10,143 @@ import 'package:pebble_routines/core/ui/adaptive_layout.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/ui/readable_colors.dart';
+import 'package:pebble_routines/data/repositories/theme_repository.dart';
 import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 
+/// The theme picker: three plain sections (free, Personal Premium, easier to
+/// see), each theme shown as a small painted swatch rather than a mock app.
 class AppearanceScreen extends ConsumerWidget {
   const AppearanceScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final foundation = context.darkFoundation;
+    final type = PebbleType.of(context);
     final currentThemeId = ref.watch(currentColorThemeProvider);
     final currentMeta = ThemeMetadata.get(currentThemeId);
     final canUsePremiumThemes = ref
         .watch(premiumFeaturePolicyProvider)
         .canUsePremiumThemes;
-    final included = ThemeMetadata.byCategory(ThemePickerCategory.included);
+    final repository = ref.watch(themeRepositoryProvider);
+    final free = repository.getMainPickerThemes(ThemePickerCategory.included);
+    final premium = repository.getMainPickerThemes(ThemePickerCategory.premium);
+    final morePremium = repository.getMoreOptionsThemes(
+      ThemePickerCategory.premium,
+    );
     final accessibility = ThemeMetadata.byCategory(
       ThemePickerCategory.accessibility,
     );
-    final premium = ThemeMetadata.byCategory(ThemePickerCategory.premium);
+
+    void open(ThemeMetadata meta) => _openThemePreview(context, ref, meta);
 
     return Scaffold(
       backgroundColor: foundation.bgBase,
-      body: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: <Color>[
-              foundation.bgBase,
-              foundation.surfaceLow.withValues(alpha: 0.35),
-              foundation.bgBase,
-            ],
-          ),
-        ),
-        child: SafeArea(
-          bottom: false,
-          child: AdaptiveContentWidth(
-            child: CustomScrollView(
-              physics: const BouncingScrollPhysics(),
-              slivers: <Widget>[
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 22),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        PebbleBackChrome(
-                          padding: EdgeInsets.zero,
-                          trailing: _InfoButton(
-                            onTap: () => _showThemeInfoSheet(context),
-                          ),
-                          respectSafeArea: false,
+      body: SafeArea(
+        bottom: false,
+        child: AdaptiveContentWidth(
+          child: CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: <Widget>[
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      PebbleBackChrome(
+                        padding: EdgeInsets.zero,
+                        trailing: _InfoButton(
+                          onTap: () => _showThemeInfoSheet(context),
                         ),
-                        const SizedBox(height: 18),
-                        Text(
-                          'Themes',
-                          style: PebbleType.of(
-                            context,
-                          ).title1.copyWith(color: foundation.textPrimary),
+                        respectSafeArea: false,
+                      ),
+                      const SizedBox(height: 18),
+                      Text(
+                        'Themes',
+                        style: type.title1.copyWith(
+                          color: foundation.textPrimary,
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Tap a theme to preview it.\nNothing changes until you apply it.',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color: foundation.textSecondary,
-                                height: 1.45,
+                      ),
+                      const SizedBox(height: 8),
+                      Text.rich(
+                        TextSpan(
+                          children: <InlineSpan>[
+                            const TextSpan(text: 'You’re using '),
+                            TextSpan(
+                              text: currentMeta.name,
+                              style: TextStyle(
+                                color: foundation.textPrimary,
+                                fontWeight: FontWeight.w600,
                               ),
+                            ),
+                            const TextSpan(
+                              text: '. Tap any theme to try it first.',
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 20),
-                        _ActiveThemeBar(
-                          meta: currentMeta,
-                          onTap: () =>
-                              _openThemePreview(context, ref, currentMeta),
+                        style: type.body.copyWith(
+                          color: context.readableSecondaryText,
                         ),
-                      ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  0,
+                  20,
+                  40 + MediaQuery.paddingOf(context).bottom,
+                ),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate(<Widget>[
+                    const _SectionHeader(
+                      title: 'Free for everyone',
+                      subtitle: 'Use any of these, any time.',
                     ),
-                  ),
+                    _ThemeGrid(
+                      themes: free,
+                      canUsePremiumThemes: canUsePremiumThemes,
+                      currentThemeId: currentThemeId,
+                      onThemeTap: open,
+                    ),
+                    _SectionHeader(
+                      title: 'Personal Premium',
+                      subtitle: canUsePremiumThemes
+                          ? 'Included with your Personal Premium.'
+                          : 'Try any of them first. Using one needs Personal Premium.',
+                    ),
+                    _ThemeGrid(
+                      themes: premium,
+                      canUsePremiumThemes: canUsePremiumThemes,
+                      currentThemeId: currentThemeId,
+                      onThemeTap: open,
+                    ),
+                    if (morePremium.isNotEmpty)
+                      _MoreThemes(
+                        themes: morePremium,
+                        canUsePremiumThemes: canUsePremiumThemes,
+                        currentThemeId: currentThemeId,
+                        onThemeTap: open,
+                      ),
+                    const _SectionHeader(
+                      title: 'Easier to see',
+                      subtitle: 'Accessibility themes. Always free.',
+                    ),
+                    for (final meta in accessibility) ...<Widget>[
+                      _AccessibilityThemeRow(
+                        meta: meta,
+                        isCurrent: meta.id == currentThemeId,
+                        onTap: () => open(meta),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+                  ]),
                 ),
-                SliverPadding(
-                  padding: EdgeInsets.fromLTRB(
-                    20,
-                    0,
-                    20,
-                    36 + MediaQuery.paddingOf(context).bottom,
-                  ),
-                  sliver: SliverList(
-                    delegate: SliverChildListDelegate(<Widget>[
-                      const _SectionHeader(title: 'Included'),
-                      const SizedBox(height: 12),
-                      _ThemeGrid(
-                        themes: included,
-                        canUsePremiumThemes: canUsePremiumThemes,
-                        currentThemeId: currentThemeId,
-                        onThemeTap: (meta) =>
-                            _openThemePreview(context, ref, meta),
-                      ),
-                      const SizedBox(height: 28),
-                      const _SectionHeader(
-                        title: 'Accessibility',
-                        tag: 'Always free',
-                      ),
-                      const SizedBox(height: 12),
-                      _ThemeGrid(
-                        themes: accessibility,
-                        canUsePremiumThemes: canUsePremiumThemes,
-                        currentThemeId: currentThemeId,
-                        onThemeTap: (meta) =>
-                            _openThemePreview(context, ref, meta),
-                      ),
-                      const SizedBox(height: 28),
-                      const _SectionHeader(title: 'Premium'),
-                      const SizedBox(height: 12),
-                      _PremiumCarousel(
-                        themes: premium,
-                        canUsePremiumThemes: canUsePremiumThemes,
-                        currentThemeId: currentThemeId,
-                        onThemeTap: (meta) =>
-                            _openThemePreview(context, ref, meta),
-                      ),
-                    ]),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -157,178 +169,42 @@ class _InfoButton extends StatelessWidget {
   }
 }
 
-class _ActiveThemeBar extends StatelessWidget {
-  const _ActiveThemeBar({required this.meta, required this.onTap});
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title, required this.subtitle});
 
-  final ThemeMetadata meta;
-  final VoidCallback onTap;
+  final String title;
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
-    final themeData = AppTheme.fromId(meta.id);
-    final scheme = themeData.colorScheme;
-    final colors = _railColors(themeData).take(3).toList();
-
-    return Material(
-      color: foundation.surfaceHigh,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: () {
-          onTap();
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: foundation.borderSubtle.withValues(alpha: 0.65),
+    final type = PebbleType.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 32, bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Semantics(
+            header: true,
+            child: Text(
+              title,
+              style: type.title2.copyWith(
+                color: context.darkFoundation.textPrimary,
+              ),
             ),
           ),
-          child: Row(
-            children: <Widget>[
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: colors.map((color) {
-                  return Container(
-                    width: 10,
-                    height: 10,
-                    margin: const EdgeInsets.only(right: 4),
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.15),
-                        width: 0.5,
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      'CURRENT THEME',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1,
-                        color: foundation.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 1),
-                    Text(
-                      meta.name,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: foundation.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: scheme.primary.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: scheme.primary.withValues(alpha: 0.22),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Container(
-                      width: 5,
-                      height: 5,
-                      decoration: BoxDecoration(
-                        color: scheme.primary,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      'Active',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: scheme.primary,
-                        letterSpacing: 0.2,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: type.caption.copyWith(color: context.readableSecondaryText),
           ),
-        ),
+        ],
       ),
     );
   }
 }
 
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, this.tag});
-
-  final String title;
-  final String? tag;
-
-  @override
-  Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
-    return Row(
-      children: <Widget>[
-        Text(
-          title.toUpperCase(),
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: context.readableSecondaryText,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.2,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Container(
-            height: 1,
-            color: foundation.borderSubtle.withValues(alpha: 0.65),
-          ),
-        ),
-        if (tag != null) ...<Widget>[
-          const SizedBox(width: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: const Color(0xFF6B9A6E).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: const Color(0xFF6B9A6E).withValues(alpha: 0.18),
-              ),
-            ),
-            child: Text(
-              tag!,
-              style: const TextStyle(
-                color: Color(0xFF6B9A6E),
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.2,
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
+/// Two columns of theme cards. Rows size to their content, so long names and
+/// large text never clip.
 class _ThemeGrid extends StatelessWidget {
   const _ThemeGrid({
     required this.themes,
@@ -344,31 +220,40 @@ class _ThemeGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: themes.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: 0.76,
-      ),
-      itemBuilder: (context, index) {
-        final meta = themes[index];
-        return _ThemeGridCard(
-          meta: meta,
-          isCurrent: meta.id == currentThemeId,
-          isLocked: _isLocked(meta, canUsePremiumThemes),
-          onTap: () => onThemeTap(meta),
-        );
-      },
+    Widget card(ThemeMetadata meta) => _ThemeCard(
+      meta: meta,
+      isCurrent: meta.id == currentThemeId,
+      isLocked: _isLocked(meta, canUsePremiumThemes),
+      onTap: () => onThemeTap(meta),
     );
+
+    final rows = <Widget>[];
+    for (var i = 0; i < themes.length; i += 2) {
+      final hasPair = i + 1 < themes.length;
+      rows.add(
+        Padding(
+          padding: EdgeInsets.only(top: i == 0 ? 0 : 12),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Expanded(child: card(themes[i])),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: hasPair ? card(themes[i + 1]) : const SizedBox(),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    return Column(children: rows);
   }
 }
 
-class _ThemeGridCard extends StatelessWidget {
-  const _ThemeGridCard({
+class _ThemeCard extends StatelessWidget {
+  const _ThemeCard({
     required this.meta,
     required this.isCurrent,
     required this.isLocked,
@@ -383,156 +268,247 @@ class _ThemeGridCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
-    final themeData = AppTheme.fromId(meta.id);
-    final accent = themeData.colorScheme.primary;
-    return Material(
-      color: foundation.surfaceLow,
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: () {
-          onTap();
-        },
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: isCurrent ? accent : Colors.transparent,
-              width: 1.5,
+    final type = PebbleType.of(context);
+    final selected = Theme.of(context).colorScheme.primary;
+    final radius = BorderRadius.circular(20);
+
+    return Semantics(
+      button: true,
+      selected: isCurrent,
+      label: [
+        meta.name,
+        meta.subtitle,
+        if (isCurrent) 'in use',
+        if (isLocked) 'needs Personal Premium',
+      ].join(', '),
+      excludeSemantics: true,
+      child: Material(
+        color: foundation.surfaceLow,
+        borderRadius: radius,
+        child: InkWell(
+          borderRadius: radius,
+          onTap: onTap,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: radius,
+              border: Border.all(
+                color: isCurrent ? selected : foundation.borderSubtle,
+                width: isCurrent ? 2 : 1,
+              ),
             ),
-            boxShadow: isCurrent
-                ? <BoxShadow>[
-                    BoxShadow(
-                      color: accent.withValues(alpha: 0.22),
-                      blurRadius: 24,
-                      offset: const Offset(0, 8),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Stack(
-            children: <Widget>[
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(17),
-                      ),
-                      child: _MiniAppPreview(themeData: themeData, rows: 2),
-                    ),
-                  ),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.fromLTRB(11, 9, 11, 11),
-                    decoration: BoxDecoration(
-                      color: foundation.surfaceLow,
-                      borderRadius: const BorderRadius.vertical(
-                        bottom: Radius.circular(17),
-                      ),
-                      border: Border(
-                        top: BorderSide(
-                          color: foundation.borderSubtle.withValues(
-                            alpha: 0.55,
-                          ),
-                        ),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        // The selected check sits beside the name, not on
-                        // the preview, where it covered the accent pill.
-                        Row(
+            padding: const EdgeInsets.all(8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                _ThemeSwatch(themeId: meta.id, height: 92, showLock: isLocked),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(6, 10, 6, 4),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
-                            Expanded(
-                              child: Text(
-                                meta.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.titleSmall
-                                    ?.copyWith(
-                                      color: foundation.textPrimary,
-                                      fontWeight: FontWeight.w800,
-                                    ),
+                            Text(
+                              meta.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: type.body.copyWith(
+                                color: foundation.textPrimary,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
-                            _buildBadge(context, accent),
+                            const SizedBox(height: 2),
+                            Text(
+                              isCurrent ? 'In use' : meta.subtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: type.caption.copyWith(
+                                color: isCurrent
+                                    ? context.readableAccentText(selected)
+                                    : context.readableSecondaryText,
+                                fontWeight: isCurrent ? FontWeight.w700 : null,
+                              ),
+                            ),
                           ],
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          meta.subtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: foundation.textSecondary,
-                                fontSize: 11,
-                              ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              if (isLocked)
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.26),
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: Align(
-                      alignment: Alignment.topRight,
-                      child: Padding(
-                        padding: const EdgeInsets.all(8),
-                        child: Container(
-                          width: 22,
-                          height: 22,
-                          decoration: BoxDecoration(
-                            color: foundation.bgBase.withValues(alpha: 0.78),
-                            borderRadius: BorderRadius.circular(7),
-                            border: Border.all(color: foundation.borderSubtle),
-                          ),
-                          child: Icon(
-                            LucideIcons.lock,
-                            size: 11,
-                            color: foundation.textSecondary,
-                          ),
-                        ),
                       ),
-                    ),
+                      if (isCurrent) ...<Widget>[
+                        const SizedBox(width: 6),
+                        _CheckBadge(color: selected),
+                      ],
+                    ],
                   ),
                 ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildBadge(BuildContext context, Color accent) {
-    if (isCurrent) {
-      return Container(
-        width: 21,
-        height: 21,
-        decoration: BoxDecoration(
-          color: accent,
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: const Icon(LucideIcons.check, size: 12, color: Colors.white),
-      );
-    }
-    // Accessibility themes need no "Free" badge: their section header
-    // already says "Always free".
-    return const SizedBox.shrink();
+class _CheckBadge extends StatelessWidget {
+  const _CheckBadge({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 22,
+      height: 22,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      child: Icon(
+        LucideIcons.check,
+        size: 13,
+        color: Theme.of(context).colorScheme.onPrimary,
+      ),
+    );
   }
 }
 
-class _PremiumCarousel extends StatelessWidget {
-  const _PremiumCarousel({
+/// A theme painted as a tiny scene in its own colours: the page, one card
+/// with a checked pebble and two lines of "text", and the action button.
+class _ThemeSwatch extends StatelessWidget {
+  const _ThemeSwatch({
+    required this.themeId,
+    required this.height,
+    this.showLock = false,
+    this.compact = false,
+  });
+
+  final ThemeId themeId;
+  final double height;
+  final bool showLock;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AppTheme.fromId(themeId);
+    final f = theme.extension<PebbleDarkFoundation>()!;
+    final x = theme.extension<PebbleThemeX>()!;
+    final radius = BorderRadius.circular(compact ? 12 : 14);
+    final pad = compact ? 8.0 : 12.0;
+
+    return ClipRRect(
+      borderRadius: radius,
+      child: Container(
+        height: height,
+        padding: EdgeInsets.all(pad),
+        // A hairline keeps pale themes from melting into a pale page.
+        decoration: BoxDecoration(
+          color: f.bgBase,
+          borderRadius: radius,
+          border: Border.all(color: context.darkFoundation.borderSubtle),
+        ),
+        child: Stack(
+          children: <Widget>[
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Expanded(
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: pad * 0.8),
+                    decoration: BoxDecoration(
+                      color: f.surfaceHigh,
+                      borderRadius: BorderRadius.circular(compact ? 8 : 10),
+                    ),
+                    child: Row(
+                      children: <Widget>[
+                        Container(
+                          width: compact ? 14 : 18,
+                          height: compact ? 14 : 18,
+                          decoration: BoxDecoration(
+                            color: x.done,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            LucideIcons.check,
+                            size: compact ? 9 : 11,
+                            color: f.bgBase,
+                          ),
+                        ),
+                        SizedBox(width: compact ? 6 : 8),
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              _Bar(color: f.textPrimary, widthFactor: 0.85),
+                              SizedBox(height: compact ? 3 : 5),
+                              _Bar(color: f.textSecondary, widthFactor: 0.55),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (!compact) ...<Widget>[
+                  const SizedBox(height: 8),
+                  Container(
+                    width: 44,
+                    height: 14,
+                    decoration: BoxDecoration(
+                      color: x.actionAccent,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            if (showLock)
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.55),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    LucideIcons.lock,
+                    size: 11,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Bar extends StatelessWidget {
+  const _Bar({required this.color, required this.widthFactor});
+
+  final Color color;
+  final double widthFactor;
+
+  @override
+  Widget build(BuildContext context) {
+    return FractionallySizedBox(
+      widthFactor: widthFactor,
+      child: Container(
+        height: 5,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(999),
+        ),
+      ),
+    );
+  }
+}
+
+/// Older Premium themes, folded away so the main picker stays short.
+class _MoreThemes extends StatefulWidget {
+  const _MoreThemes({
     required this.themes,
     required this.canUsePremiumThemes,
     required this.currentThemeId,
@@ -545,173 +521,141 @@ class _PremiumCarousel extends StatelessWidget {
   final ValueChanged<ThemeMetadata> onThemeTap;
 
   @override
+  State<_MoreThemes> createState() => _MoreThemesState();
+}
+
+class _MoreThemesState extends State<_MoreThemes> {
+  // Open by default when the theme in use lives here, so it isn't hidden.
+  late bool _open = widget.themes.any((t) => t.id == widget.currentThemeId);
+
+  @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 252,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        itemCount: themes.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
-        itemBuilder: (context, index) {
-          final meta = themes[index];
-          return _PremiumThemeCard(
-            meta: meta,
-            isCurrent: meta.id == currentThemeId,
-            isLocked: _isLocked(meta, canUsePremiumThemes),
-            onTap: () => onThemeTap(meta),
-          );
-        },
-      ),
+    final foundation = context.darkFoundation;
+    final type = PebbleType.of(context);
+    final count = widget.themes.length;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        const SizedBox(height: 4),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () => setState(() => _open = !_open),
+            style: TextButton.styleFrom(
+              foregroundColor: foundation.textPrimary,
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+            ),
+            icon: Icon(
+              _open ? LucideIcons.chevronUp : LucideIcons.chevronDown,
+              size: 18,
+            ),
+            label: Text(
+              _open ? 'Show fewer' : 'Show $count more Premium themes',
+              style: type.body.copyWith(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ),
+        if (_open)
+          _ThemeGrid(
+            themes: widget.themes,
+            canUsePremiumThemes: widget.canUsePremiumThemes,
+            currentThemeId: widget.currentThemeId,
+            onThemeTap: widget.onThemeTap,
+          ),
+      ],
     );
   }
 }
 
-class _PremiumThemeCard extends StatelessWidget {
-  const _PremiumThemeCard({
+class _AccessibilityThemeRow extends StatelessWidget {
+  const _AccessibilityThemeRow({
     required this.meta,
     required this.isCurrent,
-    required this.isLocked,
     required this.onTap,
   });
 
   final ThemeMetadata meta;
   final bool isCurrent;
-  final bool isLocked;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
-    final themeData = AppTheme.fromId(meta.id);
-    final accent = themeData.colorScheme.primary;
-    return SizedBox(
-      width: 190,
+    final type = PebbleType.of(context);
+    final selected = Theme.of(context).colorScheme.primary;
+    final radius = BorderRadius.circular(18);
+
+    return Semantics(
+      button: true,
+      selected: isCurrent,
+      label: [
+        meta.name,
+        meta.accessibilityNote ?? meta.subtitle,
+        if (isCurrent) 'in use',
+      ].join(', '),
+      excludeSemantics: true,
       child: Material(
         color: foundation.surfaceLow,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: radius,
         child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: () {
-            onTap();
-          },
-          child: DecoratedBox(
+          borderRadius: radius,
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: radius,
               border: Border.all(
-                color: isCurrent ? accent : Colors.transparent,
-                width: 1.5,
+                color: isCurrent ? selected : foundation.borderSubtle,
+                width: isCurrent ? 2 : 1,
               ),
-              boxShadow: isCurrent
-                  ? <BoxShadow>[
-                      BoxShadow(
-                        color: accent.withValues(alpha: 0.24),
-                        blurRadius: 22,
-                        offset: const Offset(0, 8),
-                      ),
-                    ]
-                  : null,
             ),
-            child: Stack(
+            child: Row(
               children: <Widget>[
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(19),
-                        ),
-                        child: _MiniAppPreview(themeData: themeData, rows: 3),
-                      ),
-                    ),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.fromLTRB(13, 10, 13, 12),
-                      decoration: BoxDecoration(
-                        color: foundation.surfaceLow,
-                        borderRadius: const BorderRadius.vertical(
-                          bottom: Radius.circular(19),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            meta.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleSmall
-                                ?.copyWith(
-                                  color: foundation.textPrimary,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            meta.subtitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: foundation.textSecondary,
-                                  fontSize: 11.5,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                SizedBox(
+                  width: 76,
+                  child: _ThemeSwatch(
+                    themeId: meta.id,
+                    height: 56,
+                    compact: true,
+                  ),
                 ),
-                if (isCurrent)
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Container(
-                      width: 21,
-                      height: 21,
-                      decoration: BoxDecoration(
-                        color: accent,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: const Icon(
-                        LucideIcons.check,
-                        size: 12,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                if (isLocked)
-                  Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.28),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Align(
-                        alignment: Alignment.topRight,
-                        child: Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: Container(
-                            width: 22,
-                            height: 22,
-                            decoration: BoxDecoration(
-                              color: foundation.bgBase.withValues(alpha: 0.78),
-                              borderRadius: BorderRadius.circular(7),
-                              border: Border.all(
-                                color: foundation.borderSubtle,
-                              ),
-                            ),
-                            child: Icon(
-                              LucideIcons.lock,
-                              size: 11,
-                              color: foundation.textSecondary,
-                            ),
-                          ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        meta.name,
+                        style: type.body.copyWith(
+                          color: foundation.textPrimary,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ),
+                      const SizedBox(height: 2),
+                      Text(
+                        isCurrent
+                            ? 'In use'
+                            : meta.accessibilityNote ?? meta.subtitle,
+                        style: type.caption.copyWith(
+                          color: isCurrent
+                              ? context.readableAccentText(selected)
+                              : context.readableSecondaryText,
+                          fontWeight: isCurrent ? FontWeight.w700 : null,
+                        ),
+                      ),
+                    ],
                   ),
+                ),
+                const SizedBox(width: 8),
+                if (isCurrent)
+                  _CheckBadge(color: selected)
+                else
+                  Icon(
+                    LucideIcons.chevronRight,
+                    size: 18,
+                    color: foundation.textMuted,
+                  ),
+                const SizedBox(width: 4),
               ],
             ),
           ),

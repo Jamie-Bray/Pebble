@@ -109,10 +109,8 @@ class LegalAboutScreen extends StatelessWidget {
                       ),
                     ],
                     footer: _OwnerFooter(
-                      onPrivacy: () =>
-                          _email(context, pebblePrivacyEmail),
-                      onSupport: () =>
-                          _email(context, pebbleSupportEmail),
+                      onPrivacy: () => _email(context, pebblePrivacyEmail),
+                      onSupport: () => _email(context, pebbleSupportEmail),
                     ),
                   ),
                   _LegalPage(
@@ -154,10 +152,8 @@ class LegalAboutScreen extends StatelessWidget {
                       ),
                     ],
                     footer: _OwnerFooter(
-                      onPrivacy: () =>
-                          _email(context, pebblePrivacyEmail),
-                      onSupport: () =>
-                          _email(context, pebbleSupportEmail),
+                      onPrivacy: () => _email(context, pebblePrivacyEmail),
+                      onSupport: () => _email(context, pebbleSupportEmail),
                     ),
                   ),
                   _LegalPage(
@@ -191,8 +187,7 @@ class LegalAboutScreen extends StatelessWidget {
                       ),
                     ],
                     footer: _DeleteFooter(
-                      onSupport: () =>
-                          _email(context, pebbleSupportEmail),
+                      onSupport: () => _email(context, pebbleSupportEmail),
                     ),
                   ),
                 ],
@@ -230,10 +225,7 @@ class _LegalPage extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 44),
       children: [
-        Text(
-          title,
-          style: PebbleType.of(context).title2,
-        ),
+        Text(title, style: PebbleType.of(context).title2),
         const SizedBox(height: 10),
         Text(
           intro,

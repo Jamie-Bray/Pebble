@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
+import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pebble_routines/features/routines/data/models/routine_icon_catalog.dart';
@@ -165,7 +166,7 @@ class _RoutineCardState extends ConsumerState<RoutineCard> {
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w400,
-                                color: foundation.textMuted,
+                                color: context.readableSecondaryText,
                               ),
                             );
                           }
@@ -187,7 +188,7 @@ class _RoutineCardState extends ConsumerState<RoutineCard> {
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w400,
-                              color: foundation.textMuted,
+                              color: context.readableSecondaryText,
                             ),
                           );
                         },

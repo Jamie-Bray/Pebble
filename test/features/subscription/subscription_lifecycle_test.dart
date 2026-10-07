@@ -310,11 +310,7 @@ void main() {
     });
 
     SubscriptionAccountController controller({bool load = false}) =>
-        SubscriptionAccountController(
-          database,
-          prefs: prefs,
-          loadOnInit: load,
-        );
+        SubscriptionAccountController(database, prefs: prefs, loadOnInit: load);
 
     test('a period end found at start-up is not a confirmed lapse', () async {
       await controller().applyRevenueCatEntitlement(
