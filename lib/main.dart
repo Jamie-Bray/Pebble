@@ -594,14 +594,17 @@ Future<void> _startPebble(AppRuntimeConfig appRuntimeConfig) async {
   // (covers startup, pin/unpin, rename, delete - all in-app events, so no
   // background refresh is ever needed) and handle widget taps.
   // The widget also mirrors Home's "Checked" state, so runs republish too.
+  // Reminders too: like Home, "Checked" ends at the routine's next reminder.
   var widgetRoutines = const <Routine>[];
   var widgetRuns = const <RoutineRun>[];
+  var widgetReminders = const <RoutineReminder>[];
   void publishWidget() {
     final routine = selectWidgetRoutine(widgetRoutines);
     unawaited(
       publishHomeWidgetRoutine(
         routine,
         latestRun: latestRunFor(routine, widgetRuns),
+        reminders: reminderSlotsFor(routine, widgetReminders),
       ),
     );
   }
@@ -612,6 +615,10 @@ Future<void> _startPebble(AppRuntimeConfig appRuntimeConfig) async {
   });
   db.routineRunDao.watchAllRuns().listen((runs) {
     widgetRuns = runs;
+    publishWidget();
+  });
+  db.select(db.routineReminders).watch().listen((reminders) {
+    widgetReminders = reminders;
     publishWidget();
   });
   HomeWidget.widgetClicked.listen((uri) {
