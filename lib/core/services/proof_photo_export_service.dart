@@ -50,7 +50,8 @@ class GalProofPhotoExportService implements ProofPhotoExportService {
         if (!granted) {
           return const ProofPhotoExportResult(
             saved: false,
-            message: 'Pebble needs permission to save to Photos. You can allow it in your phone settings.',
+            message:
+                'Pebble needs permission to save to Photos. You can allow it in your phone settings.',
           );
         }
       }
@@ -67,8 +68,7 @@ class GalProofPhotoExportService implements ProofPhotoExportService {
           "There isn't enough space on this phone to save the photo.",
         GalExceptionType.notSupportedFormat =>
           "Photos can't save this file type.",
-        GalExceptionType.unexpected =>
-          "Couldn't save to Photos. Try again.",
+        GalExceptionType.unexpected => "Couldn't save to Photos. Try again.",
       };
       return ProofPhotoExportResult(saved: false, message: message);
     }

@@ -397,8 +397,13 @@ class _ThemeSwatch extends StatelessWidget {
       borderRadius: radius,
       child: Container(
         height: height,
-        color: f.bgBase,
         padding: EdgeInsets.all(pad),
+        // A hairline keeps pale themes from melting into a pale page.
+        decoration: BoxDecoration(
+          color: f.bgBase,
+          borderRadius: radius,
+          border: Border.all(color: context.darkFoundation.borderSubtle),
+        ),
         child: Stack(
           children: <Widget>[
             Column(

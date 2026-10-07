@@ -63,7 +63,8 @@ class PremiumLapseSummary {
   /// routines are locked and the user may want to choose which stay.
   bool get needsAttention =>
       isLapsed &&
-      (hasHistoryAtRisk || (inGrace && hasMoreRoutinesThanFree) ||
+      (hasHistoryAtRisk ||
+          (inGrace && hasMoreRoutinesThanFree) ||
           lockedRoutineCount > 0);
 
   String get graceEndDateLabel {

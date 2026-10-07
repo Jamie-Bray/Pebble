@@ -170,9 +170,7 @@ Future<void> showEmailOtpSheet(BuildContext context, WidgetRef ref) {
                                   ),
                                 ),
                               )
-                            : Text(
-                                otpRequested ? 'Sign in' : 'Send code',
-                              ),
+                            : Text(otpRequested ? 'Sign in' : 'Send code'),
                       ),
                     ),
                     if (otpRequested) ...[

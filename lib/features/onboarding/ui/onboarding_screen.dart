@@ -1712,7 +1712,8 @@ _ThemeCardSpec _themeCardSpec(ThemeId id) {
         swatch: Color(0xFFF4EDDF),
         label: Color(0xFFF4EDDF),
         mockCard: Color(0xB3FFFFFF),
-        accent: Color(0xFF3E5E45),
+        // Terracotta, so the card reads differently from High Noon's green.
+        accent: Color(0xFFA3552F),
         text: Color(0xFF2C3A2E),
         subtle: Color(0xFF5E6558),
         check: Colors.white,

@@ -211,7 +211,8 @@ final accountBackupStatusSummaryProvider = Provider<AccountBackupStatusSummary>(
       return AccountBackupStatusSummary(
         kind: AccountBackupStatusKind.ready,
         label: 'Backup is on',
-        detail: 'Your routines are backed up and can be restored.$pendingDetail',
+        detail:
+            'Your routines are backed up and can be restored.$pendingDetail',
         historyLabel: 'Backup is on',
         showRunSyncState: true,
       );
@@ -349,8 +350,7 @@ final accountBackupChipStateProvider = Provider<AccountBackupChipState>((ref) {
         show: true,
         label: 'Backup off',
         tone: AccountBackupChipTone.neutral,
-        semanticsHint:
-            'Backup is off. Tap to back up your routines.',
+        semanticsHint: 'Backup is off. Tap to back up your routines.',
       );
     case PersonalCloudAccessStatus.consentRequired:
       return const AccountBackupChipState(

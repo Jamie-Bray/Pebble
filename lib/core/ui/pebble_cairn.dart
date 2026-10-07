@@ -59,10 +59,7 @@ class PebbleCairn extends StatelessWidget {
           ]
         : <Color>[];
     final palette = accents.isEmpty
-        ? [
-            for (var i = 0; i < maxPebbles; i++)
-              Color.lerp(done, bg, 0.14 * i)!,
-          ]
+        ? [for (var i = 0; i < maxPebbles; i++) Color.lerp(done, bg, 0.14 * i)!]
         : <Color>[done, Color.lerp(done, bg, 0.30)!, ...accents];
     final count = pebbleCount(total);
     final label = skipped > 0
@@ -78,10 +75,7 @@ class PebbleCairn extends StatelessWidget {
             count: count,
             outlined: skipped.clamp(0, total).toInt() >= total
                 ? count
-                : math.min(
-                    _scaledSkips(skipped, total, count),
-                    count - 1,
-                  ),
+                : math.min(_scaledSkips(skipped, total, count), count - 1),
             palette: palette,
             outlineColor: foundation.textSecondary.withValues(alpha: 0.6),
             drops: drops,

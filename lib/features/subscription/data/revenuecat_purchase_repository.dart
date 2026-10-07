@@ -121,8 +121,7 @@ class RevenueCatPurchaseRepository extends ChangeNotifier
     if (!config.supportsCurrentPlatform) {
       _billingAvailable = false;
       _loadingProducts = false;
-      _unavailableReason =
-          "Purchases aren't available on this phone yet.";
+      _unavailableReason = "Purchases aren't available on this phone yet.";
       notifyListeners();
       return;
     }

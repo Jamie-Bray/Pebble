@@ -1272,8 +1272,7 @@ class ThemeMetadata {
           'Orange, blue and purple accents that are easier to tell apart.',
       category: ThemePickerCategory.accessibility,
       sortOrder: 230,
-      accessibilityNote:
-          'Orange, blue and purple accents, chosen to be easier to tell apart with colour blindness.',
+      accessibilityNote: 'Accents chosen to be easier to tell apart.',
     ),
     ThemeId.reducedContrast: ThemeMetadata(
       id: ThemeId.reducedContrast,

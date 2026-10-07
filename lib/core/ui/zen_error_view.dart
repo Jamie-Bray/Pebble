@@ -52,10 +52,7 @@ class ZenErrorView extends StatelessWidget {
               TextButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh),
-                label: const Text(
-                  'Try again',
-                  style: PebbleTypography.label,
-                ),
+                label: const Text('Try again', style: PebbleTypography.label),
                 style: TextButton.styleFrom(
                   foregroundColor: cs.primary,
                   backgroundColor: cs.primary.withValues(
