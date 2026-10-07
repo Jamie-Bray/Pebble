@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pebble_routines/features/sync/backup_status.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
@@ -932,7 +933,9 @@ void main() {
     );
 
     expect(
-      find.textContaining(RegExp(r'^Last checked yesterday, (13:27|1:27\s?PM)$')),
+      find.textContaining(
+        RegExp(r'^Last checked yesterday, (13:27|1:27\s?PM)$'),
+      ),
       findsOneWidget,
     );
     expect(find.text('3 of 4 steps · 1 skipped'), findsOneWidget);
@@ -1147,39 +1150,15 @@ void _checkedTests() {
   });
 
   test('backup shows as a dot on the avatar, none when off', () {
-    AccountBackupChipState chip(String label, AccountBackupChipTone tone) =>
-        AccountBackupChipState(
-          show: true,
-          label: label,
-          tone: tone,
-          semanticsHint: '',
-        );
-    expect(
-      homeBackupDotFor(const AccountBackupChipState.hidden()),
-      HomeBackupDot.none,
-    );
-    expect(
-      homeBackupDotFor(chip('Backup off', AccountBackupChipTone.neutral)),
-      HomeBackupDot.none,
-    );
-    expect(
-      homeBackupDotFor(chip('Checking backup', AccountBackupChipTone.neutral)),
-      HomeBackupDot.none,
-    );
-    expect(
-      homeBackupDotFor(chip('Backed up · 4m', AccountBackupChipTone.positive)),
-      HomeBackupDot.backedUp,
-    );
-    expect(
-      homeBackupDotFor(chip('Offline', AccountBackupChipTone.neutral)),
-      HomeBackupDot.paused,
-    );
-    expect(
-      homeBackupDotFor(
-        chip('Needs attention', AccountBackupChipTone.attention),
-      ),
-      HomeBackupDot.paused,
-    );
+    HomeBackupDot dot(BackupPhase phase, {bool offline = false}) =>
+        homeBackupDotFor(BackupStatus(phase: phase, offline: offline));
+    expect(dot(BackupPhase.notIncluded), HomeBackupDot.none);
+    expect(dot(BackupPhase.off), HomeBackupDot.none);
+    expect(dot(BackupPhase.checking), HomeBackupDot.none);
+    expect(dot(BackupPhase.upToDate), HomeBackupDot.backedUp);
+    expect(dot(BackupPhase.waiting, offline: true), HomeBackupDot.none);
+    expect(dot(BackupPhase.needsAttention), HomeBackupDot.paused);
+    expect(dot(BackupPhase.paused), HomeBackupDot.paused);
   });
 
   test('next reminder picks the soonest enabled time', () {

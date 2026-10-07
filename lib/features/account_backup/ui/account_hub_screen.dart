@@ -8,7 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:pebble_routines/core/config/app_runtime_config.dart';
 import 'package:pebble_routines/core/ui/zen_notifications.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
-import 'package:pebble_routines/features/account_backup/providers/account_backup_ui_provider.dart';
+import 'package:pebble_routines/features/sync/backup_status.dart';
 import 'package:pebble_routines/features/account_backup/providers/account_profile_presentation_provider.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
 import 'package:pebble_routines/features/subscription/data/purchase_repository.dart';
@@ -287,7 +287,7 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final auth = ref.watch(authSessionProvider);
     final profile = ref.watch(accountProfilePresentationProvider);
-    final backupSummary = ref.watch(accountBackupStatusSummaryProvider);
+    final backupStatus = ref.watch(backupStatusProvider);
     final lifecycle = ref.watch(subscriptionLifecycleProvider);
     final isLapsedPremium =
         lifecycle.phase == SubscriptionLifecyclePhase.expiredGrace ||
@@ -355,7 +355,7 @@ class _AccountHubScreenState extends ConsumerState<AccountHubScreen> {
               // After a lapse the section above already offers it.
               canManagePlan: profile.canManagePlan && !isLapsedPremium,
               restoreInFlight: _restoreInFlight,
-              backupStatus: backupSummary.label,
+              backupStatus: backupStatus.line(DateTime.now()),
               onRestorePurchase: _restoreInFlight ? null : _restorePurchase,
               onManagePlan: _openManagePlan,
               onOpenBackup: () => context.push('/cloud-backup'),

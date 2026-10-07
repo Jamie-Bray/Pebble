@@ -234,7 +234,7 @@ void main() {
     expect(find.text('4 of 4'), findsOneWidget);
     expect(find.text('Photos'), findsOneWidget);
     expect(find.byType(PhotoThumb), findsNWidgets(2));
-    expect(find.text('This check is saved on this phone'), findsOneWidget);
+    expect(find.text('Saved on this phone'), findsOneWidget);
     // One primary action.
     expect(find.byType(FilledButton), findsOneWidget);
 
@@ -301,7 +301,7 @@ void main() {
     expect(find.text('3 of 4 · 1 skipped'), findsOneWidget);
     expect(find.text('3 / 3'), findsNothing);
     expect(find.text('Photos'), findsNothing);
-    expect(find.text('Backed up'), findsOneWidget);
+    expect(find.text('Saved · backed up'), findsOneWidget);
     expect(
       find.bySemanticsLabel('3 of 4 steps checked, 1 skipped'),
       findsOneWidget,

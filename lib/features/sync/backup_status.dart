@@ -107,8 +107,16 @@ class BackupStatus {
             : '$what · retrying soon';
       case BackupPhase.needsAttention:
         return problem ?? "Couldn't back up · tap to see why";
-      default:
-        return headline;
+      case BackupPhase.notIncluded:
+        return 'Comes with Personal Premium';
+      case BackupPhase.signedOut:
+        return 'Sign in to keep your routines backed up';
+      case BackupPhase.off:
+        return 'Your routines are only on this phone';
+      case BackupPhase.checking:
+        return 'Checking your account…';
+      case BackupPhase.paused:
+        return 'Paused because Premium ended';
     }
   }
 
@@ -233,8 +241,12 @@ BackupStatus resolveBackupStatus({
       problem: offline ? null : "Couldn't reach backup · tap to retry",
     );
   }
-  if (lastBackedUpAt == null) {
-    return const BackupStatus(phase: BackupPhase.checking);
+  if (access == PersonalCloudAccessStatus.syncing) {
+    // Premium and the account are still being confirmed with the server.
+    return BackupStatus(
+      phase: BackupPhase.checking,
+      lastBackedUpAt: lastBackedUpAt,
+    );
   }
   return BackupStatus(
     phase: BackupPhase.upToDate,

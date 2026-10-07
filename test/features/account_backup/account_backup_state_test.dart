@@ -1718,13 +1718,15 @@ void main() {
 
         await _pumpAccountWidget(tester, harness, const CloudBackupScreen());
 
-        expect(find.text('Ready to turn on'), findsOneWidget);
-        expect(find.text('Turn on backup'), findsNWidgets(2));
+        expect(find.text('Backup off'), findsOneWidget);
+        expect(find.text('Turn on backup'), findsOneWidget);
 
-        await tester.tap(find.widgetWithText(FilledButton, 'Turn on backup'));
+        await tester.tap(find.byKey(const ValueKey('backup_card_action')));
         await tester.pumpAndSettle();
 
+        // One tap agrees: the recorded statement sits right above the button.
         expect(find.text(cloudBackupConsentText), findsOneWidget);
+        expect(find.byType(Checkbox), findsNothing);
       },
     );
 
@@ -1774,7 +1776,7 @@ void main() {
 
       await _pumpAccountWidget(tester, harness, const CloudBackupScreen());
 
-      expect(find.text('Backup is on'), findsOneWidget);
+      expect(find.text('Backed up'), findsWidgets);
       expect(find.text('Back up now'), findsOneWidget);
       expect(find.byType(Switch), findsOneWidget);
       expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
@@ -2025,7 +2027,7 @@ void main() {
       // same way the chip does: a push onto the stack.
       unawaited(router.push('/cloud-backup'));
       await tester.pumpAndSettle();
-      expect(find.text('Backup is on'), findsOneWidget);
+      expect(find.byKey(const ValueKey('backup_status_card')), findsOneWidget);
 
       await tester.tap(find.bySemanticsLabel('Back'));
       await tester.pumpAndSettle();

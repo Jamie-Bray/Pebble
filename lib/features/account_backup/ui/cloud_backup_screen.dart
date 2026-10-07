@@ -5,7 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import 'package:pebble_routines/core/theme/pebble_fonts.dart';
+import 'package:pebble_routines/core/theme/colors.dart';
+import 'package:pebble_routines/core/theme/tokens.dart';
+import 'package:pebble_routines/core/ui/pebble_buttons.dart';
+import 'package:pebble_routines/core/ui/pebble_simple_sheet.dart';
+import 'package:pebble_routines/core/ui/readable_colors.dart';
+import 'package:pebble_routines/features/sync/backup_status.dart';
 import 'package:pebble_routines/core/navigation/app_shell.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/ui/zen_notifications.dart';
@@ -131,35 +136,19 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
     required String? email,
     required LocalDataOwnershipReport report,
   }) {
-    final itemCount =
-        report.unownedCount +
-        report.sameOwnerCount +
-        report.differentOwnerCount;
-    final itemLabel = '$itemCount item${itemCount == 1 ? '' : 's'}';
-    return _showBackupActionSheet<bool>(
+    return showPebbleSimpleSheet<bool>(
       context: context,
-      builder: (sheetContext) => _BackupActionSheet(
+      builder: (sheetContext) => PebbleSimpleSheet(
         icon: LucideIcons.userCheck,
-        eyebrow: 'Backup',
         title: 'Use this account for this phone?',
         body:
-            'This phone has routines, history and photos from another sign-in. If you carry on, Pebble copies them into the backup for ${email ?? 'this account'}. They stay on this phone too.',
-        accentColor: Theme.of(sheetContext).colorScheme.primary,
-        details: [
-          _BackupSheetPillRow(
-            pills: [
-              _BackupSheetPill(value: itemLabel, label: 'On this phone'),
-              const _BackupSheetPill(value: 'Current', label: 'Account'),
-              const _BackupSheetPill(value: 'Backup', label: 'After choice'),
-            ],
-          ),
-        ],
+            'This phone has routines from another sign-in. Pebble will back '
+            'them up to ${email ?? 'this account'} too. They stay on this '
+            'phone either way.',
         primaryLabel: 'Use this account',
-        onPrimaryPressed: () => Navigator.of(sheetContext).pop(true),
+        onPrimary: () => Navigator.of(sheetContext).pop(true),
         secondaryLabel: 'Keep backup off',
-        onSecondaryPressed: () => Navigator.of(sheetContext).pop(false),
-        footer:
-            'Nothing uploads until you choose. The other sign-in\'s backup isn\'t changed.',
+        onSecondary: () => Navigator.of(sheetContext).pop(false),
       ),
     );
   }
@@ -169,29 +158,18 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
     required int unownedCount,
   }) {
     final itemLabel = '$unownedCount item${unownedCount == 1 ? '' : 's'}';
-    return _showBackupActionSheet<bool>(
+    return showPebbleSimpleSheet<bool>(
       context: context,
-      builder: (sheetContext) => _BackupActionSheet(
+      builder: (sheetContext) => PebbleSimpleSheet(
         icon: LucideIcons.link,
-        eyebrow: 'Backup',
-        title: 'Link this phone\'s data?',
+        title: "Back up this phone's routines?",
         body:
-            'Pebble found $itemLabel on this phone. Link them to ${email ?? 'this account'} so backup can start, or keep them local.',
-        accentColor: Theme.of(sheetContext).colorScheme.primary,
-        details: [
-          _BackupSheetPillRow(
-            pills: [
-              _BackupSheetPill(value: itemLabel, label: 'Found here'),
-              const _BackupSheetPill(value: 'Backup', label: 'After linking'),
-              const _BackupSheetPill(value: 'Local', label: 'Optional'),
-            ],
-          ),
-        ],
-        primaryLabel: 'Link to this account',
-        onPrimaryPressed: () => Navigator.of(sheetContext).pop(true),
+            'Pebble found $itemLabel on this phone. Add them to '
+            '${email ?? 'this account'} so they are backed up too.',
+        primaryLabel: 'Add to this account',
+        onPrimary: () => Navigator.of(sheetContext).pop(true),
         secondaryLabel: 'Keep local',
-        onSecondaryPressed: () => Navigator.of(sheetContext).pop(false),
-        footer: 'Pebble will not upload this phone\'s data unless you choose.',
+        onSecondary: () => Navigator.of(sheetContext).pop(false),
       ),
     );
   }
@@ -296,25 +274,12 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
     }
     setState(() => _manualSyncInFlight = false);
 
+    // Success needs no toast: the status card turns to "Backed up".
     switch (result.type) {
       case ManualSyncResultType.synced:
-        _showBackupNotice(
-          'Backup is up to date.',
-          title: 'All caught up',
-          type: NotificationType.success,
-        );
       case ManualSyncResultType.noChanges:
-        _showBackupNotice(
-          'There are no backup changes waiting.',
-          title: 'All caught up',
-          type: NotificationType.success,
-        );
+        return;
       case ManualSyncResultType.partialRetryScheduled:
-        _showBackupNotice(
-          result.message,
-          title: 'Backup will retry',
-          type: NotificationType.warning,
-        );
       case ManualSyncResultType.blockedSignedOut:
       case ManualSyncResultType.blockedNoEntitlement:
       case ManualSyncResultType.blockedConsentRequired:
@@ -323,7 +288,7 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
       case ManualSyncResultType.failed:
         _showBackupNotice(
           result.message,
-          title: 'Backup not finished',
+          title: "Couldn't finish backing up",
           type: NotificationType.warning,
         );
     }
@@ -338,11 +303,6 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
       await ref
           .read(authControllerProvider.notifier)
           .refreshCloudAccessAfterEntitlementChange();
-      _showBackupNotice(
-        'Pebble checked Premium and backup for this account.',
-        title: 'Status refreshed',
-        type: NotificationType.success,
-      );
     } catch (error) {
       _showBackupNotice(
         _toUserFacingError(error),
@@ -356,48 +316,27 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
     }
   }
 
+  /// One sheet, one tap: the statement the server records is shown word
+  /// for word directly above the button that agrees to it.
   Future<void> _showCloudBackupConsentDialog() async {
     if (_consentInFlight) {
       return;
     }
-
-    var accepted = false;
-    await _showBackupActionSheet<void>(
+    await showPebbleSimpleSheet<void>(
       context: context,
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (_, setDialogState) {
-            return _BackupActionSheet(
-              icon: LucideIcons.cloudUpload,
-              eyebrow: 'Backup',
-              title: 'Turn on backup?',
-              body:
-                  "Backup only starts if you turn it on. Once it's on, Pebble uploads your routine data so you can restore it later.",
-              accentColor: Theme.of(sheetContext).colorScheme.primary,
-              details: [
-                _BackupConsentCheck(
-                  accepted: accepted,
-                  enabled: !_consentInFlight,
-                  onChanged: (value) {
-                    setDialogState(() => accepted = value == true);
-                  },
-                ),
-              ],
-              primaryLabel: 'Turn on backup',
-              primaryEnabled: accepted && !_consentInFlight,
-              onPrimaryPressed: () async {
-                Navigator.of(sheetContext).pop();
-                await _acceptCloudBackupConsent();
-              },
-              secondaryLabel: 'Cancel',
-              secondaryEnabled: !_consentInFlight,
-              onSecondaryPressed: () => Navigator.of(sheetContext).pop(),
-              footer:
-                  'You can pause backup later. Local routines stay on this phone either way.',
-            );
-          },
-        );
-      },
+      builder: (sheetContext) => PebbleSimpleSheet(
+        icon: LucideIcons.cloudUpload,
+        title: 'Turn on backup?',
+        body: 'Keep your routines, history and photos safe in your account.',
+        content: const PebbleStatementBox(text: cloudBackupConsentText),
+        primaryLabel: 'Turn on backup',
+        onPrimary: () async {
+          Navigator.of(sheetContext).pop();
+          await _acceptCloudBackupConsent();
+        },
+        detailsLabel: 'How backup works',
+        onDetails: () => showHowBackupWorks(sheetContext),
+      ),
     );
   }
 
@@ -426,32 +365,21 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
   }
 
   Future<void> _showWithdrawCloudBackupConsentDialog() async {
-    await _showBackupActionSheet<void>(
+    await showPebbleSimpleSheet<void>(
       context: context,
-      builder: (sheetContext) => _BackupActionSheet(
+      builder: (sheetContext) => PebbleSimpleSheet(
         icon: LucideIcons.cloudOff,
-        eyebrow: 'Backup',
         title: 'Pause backup?',
         body:
-            'Pebble will stop saving new backup changes for this account. Local routines stay on this phone.',
-        accentColor: Theme.of(sheetContext).colorScheme.secondary,
-        details: const [
-          _BackupSheetPillRow(
-            pills: [
-              _BackupSheetPill(value: 'Stops', label: 'New uploads'),
-              _BackupSheetPill(value: 'Keeps', label: 'Local data'),
-              _BackupSheetPill(value: 'Resume', label: 'Any time'),
-            ],
-          ),
-        ],
+            'Pebble stops backing up new changes. Everything stays on this '
+            'phone, and you can turn backup back on any time.',
         primaryLabel: 'Pause backup',
-        primaryTone: _BackupSheetButtonTone.warning,
-        onPrimaryPressed: () async {
+        destructive: true,
+        onPrimary: () async {
           Navigator.of(sheetContext).pop();
           await _withdrawCloudBackupConsent();
         },
-        secondaryLabel: 'Cancel',
-        onSecondaryPressed: () => Navigator.of(sheetContext).pop(),
+        secondaryLabel: 'Keep backup on',
       ),
     );
   }
@@ -503,25 +431,6 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
     }
   }
 
-  bool _isActionBusy(BackupDashboardAction action) {
-    return switch (action) {
-      BackupDashboardAction.turnOnBackup ||
-      BackupDashboardAction.pauseBackup ||
-      BackupDashboardAction.keepBackupOff => _consentInFlight,
-      BackupDashboardAction.backUpNow => _manualSyncInFlight,
-      BackupDashboardAction.tryAgain => _verificationInFlight,
-      BackupDashboardAction.useCurrentAccount => _linkLocalDataInFlight,
-      _ => false,
-    };
-  }
-
-  bool _showHeroAction(BackupDashboardPresentation presentation) {
-    return presentation.primaryActionLabel != null &&
-        presentation.primaryAction != BackupDashboardAction.none &&
-        presentation.primaryAction != BackupDashboardAction.useCurrentAccount &&
-        presentation.primaryAction != BackupDashboardAction.keepBackupOff;
-  }
-
   void _openPhotoVault() {
     ref.read(historyViewModeProvider.notifier).state = HistoryViewMode.vault;
     ref.read(navIndexProvider.notifier).state = 1;
@@ -553,10 +462,83 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
     return raw;
   }
 
+  /// The one action the status card offers, if any.
+  ({String label, IconData icon, VoidCallback onTap, bool primary, bool busy})?
+  _cardAction(BackupStatus status, BackupDashboardPresentation presentation) {
+    switch (status.phase) {
+      case BackupPhase.notIncluded:
+        return (
+          label: 'Get Premium',
+          icon: LucideIcons.sparkles,
+          onTap: () => _handleAction(BackupDashboardAction.getPremium),
+          primary: true,
+          busy: false,
+        );
+      case BackupPhase.paused:
+        return (
+          label: 'Renew Premium',
+          icon: LucideIcons.sparkles,
+          onTap: () => _handleAction(BackupDashboardAction.getPremium),
+          primary: true,
+          busy: false,
+        );
+      case BackupPhase.signedOut:
+        return (
+          label: 'Sign in',
+          icon: LucideIcons.logIn,
+          onTap: () => _handleAction(BackupDashboardAction.signIn),
+          primary: true,
+          busy: false,
+        );
+      case BackupPhase.off:
+        return (
+          label: 'Turn on backup',
+          icon: LucideIcons.cloudUpload,
+          onTap: () => _handleAction(BackupDashboardAction.turnOnBackup),
+          primary: true,
+          busy: _consentInFlight,
+        );
+      case BackupPhase.needsAttention:
+        if (presentation.showOwnershipMismatch) return null;
+        final verify =
+            presentation.primaryAction == BackupDashboardAction.tryAgain;
+        return (
+          label: 'Try again',
+          icon: LucideIcons.rotateCw,
+          onTap: () => verify ? _refreshBackupVerification() : _runManualSync(),
+          primary: true,
+          busy: verify ? _verificationInFlight : _manualSyncInFlight,
+        );
+      case BackupPhase.waiting:
+        return (
+          label: 'Back up now',
+          icon: LucideIcons.refreshCw,
+          onTap: _runManualSync,
+          primary: false,
+          busy: _manualSyncInFlight,
+        );
+      case BackupPhase.upToDate:
+        return (
+          label: 'Back up now',
+          icon: LucideIcons.refreshCw,
+          onTap: _runManualSync,
+          primary: false,
+          busy: _manualSyncInFlight,
+        );
+      case BackupPhase.checking:
+      case BackupPhase.backingUp:
+        return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final foundation = context.darkFoundation;
     final presentation = ref.watch(backupDashboardPresentationProvider);
+    final status = ref.watch(backupStatusProvider);
+    final auth = ref.watch(authSessionProvider);
+    final action = _cardAction(status, presentation);
+    final now = DateTime.now();
 
     return PopScope(
       canPop: false,
@@ -566,567 +548,286 @@ class _CloudBackupScreenState extends ConsumerState<CloudBackupScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: colorScheme.surface,
-        appBar: PebbleSubscreenAppBar(
-          title: 'Backup',
-          subtitle: 'Manage your backup',
-          onBack: _exitBackup,
-        ),
+        backgroundColor: foundation.bgBase,
+        appBar: PebbleSubscreenAppBar(title: 'Backup', onBack: _exitBackup),
         body: ListView(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 60),
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 48),
           children: [
-            _BackupHero(
-              state: presentation,
-              onSwitchChanged: presentation.backupSwitchEnabled
+            BackupStatusCard(
+              status: status,
+              now: now,
+              email: status.phase == BackupPhase.notIncluded
+                  ? null
+                  : auth.email,
+              switchValue: status.isOn,
+              onSwitchChanged: status.isOn && presentation.backupSwitchEnabled
                   ? _handleBackupSwitch
                   : null,
-              primaryBusy: _isActionBusy(presentation.primaryAction),
-              onPrimary: _showHeroAction(presentation)
-                  ? () => _handleAction(presentation.primaryAction)
-                  : null,
-              onSignIn:
-                  presentation.secondaryAction == BackupDashboardAction.signIn
-                  ? () => _handleAction(BackupDashboardAction.signIn)
-                  : null,
             ),
-            if (presentation.pendingBannerText != null) ...[
-              const SizedBox(height: 16),
-              _PendingChangesBanner(text: presentation.pendingBannerText!),
+            if (action != null) ...[
+              const SizedBox(height: PebbleSpacing.md),
+              if (action.primary)
+                PebbleButton.primary(
+                  key: const ValueKey('backup_card_action'),
+                  label: action.label,
+                  icon: action.icon,
+                  busy: action.busy,
+                  onPressed: action.onTap,
+                )
+              else
+                PebbleButton.secondary(
+                  key: const ValueKey('backup_card_action'),
+                  label: action.label,
+                  icon: action.icon,
+                  busy: action.busy,
+                  onPressed: action.onTap,
+                ),
             ],
+            if (status.phase == BackupPhase.notIncluded && !auth.isSignedIn)
+              Padding(
+                padding: const EdgeInsets.only(top: PebbleSpacing.xs),
+                child: PebbleButton.tertiary(
+                  label: 'Already have Premium? Sign in',
+                  expand: true,
+                  onPressed: () => _handleAction(BackupDashboardAction.signIn),
+                ),
+              ),
             if (presentation.showOwnershipMismatch) ...[
-              const SizedBox(height: 16),
-              _OwnershipMismatchCard(
-                state: presentation,
-                onUseCurrentAccount:
-                    _isActionBusy(BackupDashboardAction.useCurrentAccount)
-                    ? null
-                    : () => _handleAction(
-                        BackupDashboardAction.useCurrentAccount,
-                      ),
-                onKeepBackupOff:
-                    _isActionBusy(BackupDashboardAction.keepBackupOff)
-                    ? null
-                    : () => _handleAction(BackupDashboardAction.keepBackupOff),
+              const SizedBox(height: PebbleSpacing.md),
+              _OwnershipChoice(
+                title:
+                    presentation.ownershipTitle ??
+                    'Which account should this phone use?',
+                detail: presentation.ownershipDetail,
+                busy: _linkLocalDataInFlight || _consentInFlight,
+                onUseCurrentAccount: () =>
+                    _handleAction(BackupDashboardAction.useCurrentAccount),
+                onKeepBackupOff: () =>
+                    _handleAction(BackupDashboardAction.keepBackupOff),
               ),
             ],
-            // The stepper earns its place only while there is a step left to
-            // take; once backup is on, the screen is a quiet dashboard.
-            if (!presentation.setupComplete) ...[
-              const SizedBox(height: 32),
-              _BackupSetupStepper(steps: presentation.setupSteps),
-            ],
-            const SizedBox(height: 32),
-            _BackupDataSection(
-              items: presentation.dataItems,
-              live: presentation.dataItemsLive,
-              footer: presentation.dataFooter,
-              onOpenPhotoVault: _openPhotoVault,
+            const SizedBox(height: PebbleSpacing.xxl),
+            _LinkRow(
+              key: const ValueKey('backup_whats_included'),
+              icon: LucideIcons.listChecks,
+              label: "What's backed up",
+              value: 'Routines, history, photos',
+              onTap: () => _showWhatsBackedUp(presentation),
+            ),
+            if (presentation.dataItemsLive)
+              _LinkRow(
+                icon: LucideIcons.image,
+                label: 'Proof photos',
+                onTap: _openPhotoVault,
+              ),
+            _LinkRow(
+              icon: LucideIcons.info,
+              label: 'How backup works',
+              onTap: () => showHowBackupWorks(context),
             ),
           ],
         ),
       ),
     );
   }
+
+  Future<void> _showWhatsBackedUp(BackupDashboardPresentation presentation) {
+    return showPebbleSimpleSheet<void>(
+      context: context,
+      builder: (sheetContext) => PebbleSimpleSheet(
+        title: "What's backed up",
+        body: presentation.dataItemsLive
+            ? 'Pebble backs up new changes by itself, a few seconds after '
+                  'you make them.'
+            : 'Once backup is on, Pebble backs up changes by itself.',
+        content: Column(
+          children: [
+            for (final item in presentation.dataItems)
+              _BackupItemLine(item: item, live: presentation.dataItemsLive),
+          ],
+        ),
+        primaryLabel: 'Done',
+        onPrimary: () => Navigator.of(sheetContext).pop(),
+        secondaryLabel: null,
+      ),
+    );
+  }
 }
 
-class _BackupHero extends StatelessWidget {
-  const _BackupHero({
-    required this.state,
-    required this.onSwitchChanged,
-    required this.primaryBusy,
-    required this.onPrimary,
-    this.onSignIn,
+/// The answer to "is my stuff backed up?", in one card: an icon, a two-word
+/// headline and one line ("Backed up · 2 min ago"). Reused by Account.
+class BackupStatusCard extends StatelessWidget {
+  const BackupStatusCard({
+    super.key,
+    required this.status,
+    required this.now,
+    this.email,
+    this.switchValue = false,
+    this.onSwitchChanged,
   });
 
-  final BackupDashboardPresentation state;
+  final BackupStatus status;
+  final DateTime now;
+  final String? email;
+  final bool switchValue;
   final ValueChanged<bool>? onSwitchChanged;
-  final bool primaryBusy;
-  final VoidCallback? onPrimary;
-
-  /// Secondary sign-in link for returning Premium users.
-  final VoidCallback? onSignIn;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final accent = _toneColor(colorScheme, state.tone);
-
-    // No box around the hero: the headline and one supporting line carry the
-    // state, and the rest of the screen gets room to breathe.
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Text(
-                state.statusLabel,
-                style: PebbleFonts.serif(
-                  color: colorScheme.onSurface,
-                  fontSize: 36,
-                  fontWeight: FontWeight.w400,
-                  letterSpacing: 0,
-                  height: 1.05,
-                ),
-              ),
-            ),
-            // A switch you cannot use is noise: only show it while backup is
-            // on, where flipping it means pause.
-            if (state.backupSwitchValue) ...[
-              const SizedBox(width: 12),
-              Switch.adaptive(
-                value: state.backupSwitchValue,
-                onChanged: onSwitchChanged,
-                activeTrackColor: colorScheme.primary,
-                thumbColor: WidgetStateProperty.resolveWith(
-                  (states) => states.contains(WidgetState.selected)
-                      ? colorScheme.onPrimary
-                      : null,
-                ),
-              ),
-            ],
-          ],
-        ),
-        const SizedBox(height: 10),
-        Text(
-          state.detail,
-          style: PebbleFonts.sans(
-            color: colorScheme.onSurface.withValues(alpha: 0.66),
-            fontSize: 14.5,
-            fontWeight: FontWeight.w300,
-            letterSpacing: 0,
-            height: 1.5,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            if (state.needsAttention)
-              Container(
-                width: 8,
-                height: 8,
-                margin: const EdgeInsets.only(right: 8),
-                decoration: BoxDecoration(
-                  color: accent,
-                  shape: BoxShape.circle,
-                ),
-              ),
-            Icon(
-              LucideIcons.history,
-              size: 13,
-              color: colorScheme.onSurface.withValues(alpha: 0.42),
-            ),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                state.lastBackupText,
-                overflow: TextOverflow.ellipsis,
-                style: PebbleFonts.sans(
-                  color: colorScheme.onSurface.withValues(alpha: 0.5),
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 0,
-                ),
-              ),
-            ),
-          ],
-        ),
-        if (onPrimary != null) ...[
-          const SizedBox(height: 22),
-          FilledButton.icon(
-            onPressed: primaryBusy ? null : onPrimary,
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(54),
-              shape: const StadiumBorder(),
-            ),
-            icon: Icon(_buttonIcon(state.primaryAction), size: 18),
-            label: Text(
-              primaryBusy ? 'Working...' : state.primaryActionLabel ?? '',
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
-        if (onSignIn != null) ...[
-          const SizedBox(height: 10),
-          OutlinedButton.icon(
-            onPressed: onSignIn,
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(50),
-              shape: const StadiumBorder(),
-            ),
-            icon: const Icon(LucideIcons.logIn, size: 17),
-            label: Text(
-              state.secondaryActionLabel ?? 'Sign in',
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _BackupSetupStepper extends StatelessWidget {
-  const _BackupSetupStepper({required this.steps});
-
-  final List<BackupSetupStep> steps;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final currentNumber =
-        steps.indexWhere((step) => step.state != BackupSetupStepState.done) + 1;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 16),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'How to set it up',
-                  style: PebbleFonts.sans(
-                    color: colorScheme.onSurface.withValues(alpha: 0.56),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-              ),
-              if (currentNumber > 0)
-                Text(
-                  'Step $currentNumber of ${steps.length}',
-                  style: PebbleFonts.sans(
-                    color: colorScheme.primary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-            ],
-          ),
-        ),
-        for (var index = 0; index < steps.length; index++)
-          _BackupStepperRow(
-            number: index + 1,
-            step: steps[index],
-            isLast: index == steps.length - 1,
-          ),
-      ],
-    );
-  }
-}
-
-class _BackupStepperRow extends StatelessWidget {
-  const _BackupStepperRow({
-    required this.number,
-    required this.step,
-    required this.isLast,
-  });
-
-  final int number;
-  final BackupSetupStep step;
-  final bool isLast;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isCurrent =
-        step.state == BackupSetupStepState.current ||
-        step.state == BackupSetupStepState.attention;
-    final isLocked = step.state == BackupSetupStepState.locked;
-    final accent = step.state == BackupSetupStepState.attention
-        ? colorScheme.error
-        : colorScheme.primary;
-
-    final indicator = switch (step.state) {
-      BackupSetupStepState.done => Container(
-        width: 32,
-        height: 32,
+    final foundation = context.darkFoundation;
+    final type = PebbleType.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final (icon, tint) = backupPhaseIcon(context, status);
+    return Semantics(
+      container: true,
+      label: '${status.headline}. ${status.line(now)}',
+      child: Container(
+        key: const ValueKey('backup_status_card'),
+        padding: const EdgeInsets.all(PebbleSpacing.lg),
         decoration: BoxDecoration(
-          color: accent.withValues(alpha: 0.13),
-          shape: BoxShape.circle,
-          border: Border.all(color: accent.withValues(alpha: 0.30)),
-        ),
-        child: Icon(LucideIcons.check, size: 15, color: accent),
-      ),
-      BackupSetupStepState.current ||
-      BackupSetupStepState.attention => Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
-        alignment: Alignment.center,
-        child: Text(
-          '$number',
-          style: PebbleFonts.sans(
-            color: colorScheme.onPrimary,
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            height: 1,
-          ),
-        ),
-      ),
-      BackupSetupStepState.locked => Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: colorScheme.outline.withValues(alpha: 0.24),
-          ),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          '$number',
-          style: PebbleFonts.sans(
-            color: colorScheme.onSurface.withValues(alpha: 0.38),
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            height: 1,
-          ),
-        ),
-      ),
-    };
-
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Column(
-            children: [
-              indicator,
-              if (!isLast)
-                Expanded(
-                  child: Container(
-                    width: 2,
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    decoration: BoxDecoration(
-                      color: step.state == BackupSetupStepState.done
-                          ? accent.withValues(alpha: 0.30)
-                          : colorScheme.outline.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(1),
-                    ),
-                  ),
+          color: isDark ? foundation.surfaceLow : foundation.bgBase,
+          borderRadius: PebbleRadius.lgAll,
+          border: isDark
+              ? null
+              : Border.all(
+                  color: foundation.textPrimary.withValues(alpha: 0.10),
                 ),
-            ],
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(top: 5, bottom: isLast ? 0 : 22),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        ),
+        child: ExcludeSemantics(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  Text(
-                    step.label,
-                    style: PebbleFonts.sans(
-                      color: colorScheme.onSurface.withValues(
-                        alpha: isLocked ? 0.45 : 1,
-                      ),
-                      fontSize: 15,
-                      fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w600,
-                      letterSpacing: 0,
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: tint.withValues(alpha: 0.14),
+                      shape: BoxShape.circle,
                     ),
+                    alignment: Alignment.center,
+                    child:
+                        status.phase == BackupPhase.backingUp ||
+                            status.phase == BackupPhase.checking
+                        ? SizedBox.square(
+                            dimension: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: tint,
+                            ),
+                          )
+                        : Icon(icon, size: 24, color: tint),
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    step.detail,
-                    style: PebbleFonts.sans(
-                      color: colorScheme.onSurface.withValues(
-                        alpha: isLocked ? 0.38 : 0.62,
-                      ),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w300,
-                      letterSpacing: 0,
-                      height: 1.4,
+                  const Spacer(),
+                  if (onSwitchChanged != null)
+                    Switch.adaptive(
+                      key: const ValueKey('backup_switch'),
+                      value: switchValue,
+                      onChanged: onSwitchChanged,
                     ),
-                  ),
                 ],
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PendingChangesBanner extends StatelessWidget {
-  const _PendingChangesBanner({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final accent = colorScheme.tertiary;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: accent.withValues(alpha: 0.22)),
-      ),
-      child: Row(
-        children: [
-          Icon(LucideIcons.cloudUpload, size: 17, color: accent),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              text,
-              style: PebbleFonts.sans(
-                color: colorScheme.onSurface.withValues(alpha: 0.78),
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                letterSpacing: 0,
-                height: 1.35,
+              const SizedBox(height: PebbleSpacing.md),
+              Text(
+                status.headline,
+                key: const ValueKey('backup_status_headline'),
+                style: type.title1.copyWith(color: foundation.textPrimary),
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BackupDataSection extends StatelessWidget {
-  const _BackupDataSection({
-    required this.items,
-    required this.live,
-    required this.footer,
-    required this.onOpenPhotoVault,
-  });
-
-  final List<BackupDataItem> items;
-  final bool live;
-  final String footer;
-  final VoidCallback onOpenPhotoVault;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 10),
-          child: Text(
-            live ? "What's backed up" : 'What backup keeps for 21 days',
-            style: PebbleFonts.sans(
-              color: colorScheme.onSurface.withValues(alpha: 0.56),
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.3,
-            ),
-          ),
-        ),
-        // Off: three quiet tokens, because there is nothing to report yet.
-        // On: the full list with live counts, because now it is a dashboard.
-        if (!live)
-          Row(
-            children: [
-              for (var index = 0; index < items.length; index++) ...[
-                Expanded(child: _BackupDataToken(item: items[index])),
-                if (index != items.length - 1) const SizedBox(width: 8),
+              const SizedBox(height: PebbleSpacing.xxs),
+              Text(
+                status.line(now),
+                key: const ValueKey('backup_status_line'),
+                style: type.body.copyWith(color: context.readableSecondaryText),
+              ),
+              if (email != null) ...[
+                const SizedBox(height: PebbleSpacing.sm),
+                Text(
+                  email!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: type.caption.copyWith(
+                    color: context.readableSecondaryText,
+                  ),
+                ),
               ],
             ],
-          )
-        else
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: colorScheme.outline.withValues(alpha: 0.12),
-              ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Column(
-                children: [
-                  for (var index = 0; index < items.length; index++) ...[
-                    _BackupDataRow(
-                      item: items[index],
-                      onTap: items[index].opensPhotoVault
-                          ? onOpenPhotoVault
-                          : null,
-                    ),
-                    if (index != items.length - 1)
-                      Divider(
-                        height: 1,
-                        color: colorScheme.outline.withValues(alpha: 0.10),
-                      ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(4, 12, 4, 0),
-          child: Row(
-            children: [
-              Icon(
-                LucideIcons.wandSparkles,
-                size: 13,
-                color: colorScheme.onSurface.withValues(alpha: 0.42),
-              ),
-              const SizedBox(width: 7),
-              Expanded(
-                child: Text(
-                  footer,
-                  style: PebbleFonts.sans(
-                    color: colorScheme.onSurface.withValues(alpha: 0.5),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    letterSpacing: 0,
-                    height: 1.35,
-                  ),
-                ),
-              ),
-            ],
           ),
         ),
-      ],
+      ),
     );
   }
 }
 
-class _BackupDataToken extends StatelessWidget {
-  const _BackupDataToken({required this.item});
+/// The icon and tint for a backup phase, shared by the card and status rows.
+(IconData, Color) backupPhaseIcon(BuildContext context, BackupStatus status) {
+  final foundation = context.darkFoundation;
+  final colorScheme = Theme.of(context).colorScheme;
+  return switch (status.phase) {
+    BackupPhase.upToDate => (LucideIcons.cloudCheck, context.done),
+    BackupPhase.backingUp ||
+    BackupPhase.checking => (LucideIcons.cloudUpload, colorScheme.primary),
+    BackupPhase.waiting => (
+      status.offline ? LucideIcons.wifiOff : LucideIcons.cloudUpload,
+      foundation.textSecondary,
+    ),
+    BackupPhase.needsAttention => (LucideIcons.cloudAlert, colorScheme.error),
+    BackupPhase.notIncluded ||
+    BackupPhase.off ||
+    BackupPhase.signedOut ||
+    BackupPhase.paused => (LucideIcons.cloudOff, foundation.textSecondary),
+  };
+}
 
-  final BackupDataItem item;
+class _OwnershipChoice extends StatelessWidget {
+  const _OwnershipChoice({
+    required this.title,
+    required this.detail,
+    required this.busy,
+    required this.onUseCurrentAccount,
+    required this.onKeepBackupOff,
+  });
+
+  final String title;
+  final String? detail;
+  final bool busy;
+  final VoidCallback onUseCurrentAccount;
+  final VoidCallback onKeepBackupOff;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final foundation = context.darkFoundation;
+    final type = PebbleType.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+      padding: const EdgeInsets.all(PebbleSpacing.lg),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.10)),
+        color: foundation.surfaceHigh,
+        borderRadius: PebbleRadius.lgAll,
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(
-            item.icon,
-            size: 19,
-            color: colorScheme.onSurface.withValues(alpha: 0.55),
-          ),
-          const SizedBox(height: 7),
           Text(
-            item.label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: PebbleFonts.sans(
-              color: colorScheme.onSurface.withValues(alpha: 0.82),
-              fontSize: 12.5,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0,
+            title,
+            style: type.headline.copyWith(color: foundation.textPrimary),
+          ),
+          if (detail != null) ...[
+            const SizedBox(height: PebbleSpacing.xxs),
+            Text(
+              detail!,
+              style: type.body.copyWith(color: context.readableSecondaryText),
             ),
+          ],
+          const SizedBox(height: PebbleSpacing.md),
+          PebbleButton.primary(
+            label: 'Use this account',
+            busy: busy,
+            onPressed: busy ? null : onUseCurrentAccount,
+          ),
+          PebbleButton.tertiary(
+            label: 'Keep backup off',
+            expand: true,
+            onPressed: busy ? null : onKeepBackupOff,
           ),
         ],
       ),
@@ -1134,622 +835,157 @@ class _BackupDataToken extends StatelessWidget {
   }
 }
 
-class _BackupDataRow extends StatelessWidget {
-  const _BackupDataRow({required this.item, this.onTap});
+class _LinkRow extends StatelessWidget {
+  const _LinkRow({
+    super.key,
+    required this.icon,
+    required this.label,
+    this.value,
+    required this.onTap,
+  });
 
-  final BackupDataItem item;
-  final VoidCallback? onTap;
+  final IconData icon;
+  final String label;
+  final String? value;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    // No trailing icon while backup is off: a column of dashes reads like
-    // something is wrong, when really there is just nothing to report yet.
-    final (IconData?, Color?) trailing = switch (item.state) {
-      BackupDataItemState.saved => (LucideIcons.check, colorScheme.primary),
-      BackupDataItemState.pending => (
-        LucideIcons.clock3,
-        colorScheme.onSurface.withValues(alpha: 0.5),
+    final foundation = context.darkFoundation;
+    final type = PebbleType.of(context);
+    final secondary = context.readableSecondaryText;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: PebbleRadius.mdAll,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 52),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: PebbleSpacing.xs),
+          child: Row(
+            children: [
+              Icon(icon, size: 20, color: secondary),
+              const SizedBox(width: PebbleSpacing.sm),
+              Expanded(
+                child: Text(
+                  label,
+                  style: type.body.copyWith(color: foundation.textPrimary),
+                ),
+              ),
+              if (value != null) ...[
+                const SizedBox(width: PebbleSpacing.xs),
+                Flexible(
+                  child: Text(
+                    value!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.end,
+                    style: type.caption.copyWith(color: secondary),
+                  ),
+                ),
+              ],
+              const SizedBox(width: PebbleSpacing.xxs),
+              Icon(LucideIcons.chevronRight, size: 18, color: secondary),
+            ],
+          ),
+        ),
       ),
-      BackupDataItemState.attention => (
-        LucideIcons.circleAlert,
-        colorScheme.error,
-      ),
-      BackupDataItemState.off => (null, null),
-    };
-    final (stateIcon, stateColor) = trailing;
+    );
+  }
+}
 
-    final row = Padding(
-      padding: const EdgeInsets.symmetric(vertical: 13),
+class _BackupItemLine extends StatelessWidget {
+  const _BackupItemLine({required this.item, required this.live});
+
+  final BackupDataItem item;
+  final bool live;
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+    final type = PebbleType.of(context);
+    final secondary = context.readableSecondaryText;
+    final trailing = !live
+        ? null
+        : switch (item.state) {
+            BackupDataItemState.saved => Icon(
+              LucideIcons.check,
+              size: 18,
+              color: context.done,
+            ),
+            BackupDataItemState.pending => Icon(
+              LucideIcons.clock,
+              size: 18,
+              color: secondary,
+            ),
+            BackupDataItemState.attention => Icon(
+              LucideIcons.circleAlert,
+              size: 18,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            BackupDataItemState.off => null,
+          };
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: PebbleSpacing.xs),
       child: Row(
         children: [
-          Icon(
-            item.icon,
-            size: 19,
-            color: colorScheme.onSurface.withValues(alpha: 0.54),
-          ),
-          const SizedBox(width: 13),
+          Icon(item.icon, size: 20, color: secondary),
+          const SizedBox(width: PebbleSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   item.label,
-                  style: PebbleFonts.sans(
-                    color: colorScheme.onSurface,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0,
-                  ),
+                  style: type.body.copyWith(color: foundation.textPrimary),
                 ),
-                const SizedBox(height: 3),
                 Text(
                   item.detail,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: PebbleFonts.sans(
-                    color: colorScheme.onSurface.withValues(alpha: 0.58),
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w300,
-                    letterSpacing: 0,
-                    height: 1.3,
-                  ),
+                  style: type.caption.copyWith(color: secondary),
                 ),
               ],
             ),
           ),
-          if (stateIcon != null) ...[
-            const SizedBox(width: 12),
-            Icon(stateIcon, size: 18, color: stateColor),
-          ],
-          if (onTap != null) ...[
-            const SizedBox(width: 10),
-            Icon(
-              LucideIcons.chevronRight,
-              size: 16,
-              color: colorScheme.onSurface.withValues(alpha: 0.34),
-            ),
-          ],
+          ?trailing,
         ],
       ),
     );
-
-    if (onTap == null) {
-      return row;
-    }
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(onTap: onTap, child: row),
-    );
   }
 }
 
-class _OwnershipMismatchCard extends StatelessWidget {
-  const _OwnershipMismatchCard({
-    required this.state,
-    required this.onUseCurrentAccount,
-    required this.onKeepBackupOff,
-  });
-
-  final BackupDashboardPresentation state;
-  final VoidCallback? onUseCurrentAccount;
-  final VoidCallback? onKeepBackupOff;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final accent = colorScheme.error;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colorScheme.errorContainer.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: accent.withValues(alpha: 0.28)),
+/// "How backup works": the detail that used to crowd the backup screens.
+Future<void> showHowBackupWorks(BuildContext context) {
+  return PebbleDetailsPage.push(
+    context,
+    title: 'How backup works',
+    sections: const [
+      (
+        'What it keeps',
+        'Your routines and their steps, reminders, voice tips and your check '
+            'history. Proof photos are kept for 21 days.',
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                _ToneIcon(icon: LucideIcons.shieldAlert, color: accent),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    state.ownershipTitle ?? 'Review this phone',
-                    style: PebbleFonts.sans(
-                      color: colorScheme.onSurface,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              state.ownershipDetail ??
-                  'Nothing on this phone is uploaded until you choose.',
-              style: PebbleFonts.sans(
-                color: colorScheme.onSurface.withValues(alpha: 0.68),
-                fontSize: 13,
-                fontWeight: FontWeight.w300,
-                letterSpacing: 0,
-                height: 1.45,
-              ),
-            ),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: onUseCurrentAccount,
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(50),
-                shape: const StadiumBorder(),
-              ),
-              child: const Text('Use this account'),
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton(
-              onPressed: onKeepBackupOff,
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(48),
-                shape: const StadiumBorder(),
-              ),
-              child: const Text('Keep backup off'),
-            ),
-          ],
-        ),
+      (
+        'When it backs up',
+        'By itself, a few seconds after each change, whenever you are online. '
+            'If you are offline, changes wait on this phone and go up when '
+            'you are back online.',
       ),
-    );
-  }
-}
-
-class _ToneIcon extends StatelessWidget {
-  const _ToneIcon({required this.icon, required this.color});
-
-  final IconData icon;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 46,
-      height: 46,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.13),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.20)),
+      (
+        'Getting it back',
+        'Sign in with the same account on a new phone and Pebble brings your '
+            'routines and history back.',
       ),
-      alignment: Alignment.center,
-      child: Icon(icon, size: 23, color: color),
-    );
-  }
-}
-
-IconData _buttonIcon(BackupDashboardAction action) {
-  switch (action) {
-    case BackupDashboardAction.turnOnBackup:
-      return LucideIcons.cloudUpload;
-    case BackupDashboardAction.backUpNow:
-      return LucideIcons.refreshCw;
-    case BackupDashboardAction.tryAgain:
-      return LucideIcons.rotateCw;
-    case BackupDashboardAction.useCurrentAccount:
-      return LucideIcons.userCheck;
-    case BackupDashboardAction.signIn:
-      return LucideIcons.logIn;
-    case BackupDashboardAction.getPremium:
-      return LucideIcons.sparkles;
-    case BackupDashboardAction.pauseBackup:
-    case BackupDashboardAction.keepBackupOff:
-      return LucideIcons.cloudOff;
-    case BackupDashboardAction.none:
-      return LucideIcons.circle;
-  }
-}
-
-Color _toneColor(ColorScheme colorScheme, BackupDashboardTone tone) {
-  switch (tone) {
-    case BackupDashboardTone.active:
-      return colorScheme.primary;
-    case BackupDashboardTone.syncing:
-      return colorScheme.tertiary;
-    case BackupDashboardTone.paused:
-      return colorScheme.secondary;
-    case BackupDashboardTone.attention:
-      return colorScheme.error;
-    case BackupDashboardTone.neutral:
-      return colorScheme.onSurface.withValues(alpha: 0.62);
-  }
-}
-
-Future<T?> _showBackupActionSheet<T>({
-  required BuildContext context,
-  required WidgetBuilder builder,
-}) {
-  return showModalBottomSheet<T>(
-    context: context,
-    backgroundColor: Colors.transparent,
-    barrierColor: Colors.black.withValues(alpha: 0.66),
-    isScrollControlled: true,
-    builder: builder,
+      (
+        'Turning it off',
+        'You can pause backup at any time. Everything stays on this phone. '
+            'Backup comes with Personal Premium; if Premium ends, backup '
+            'pauses.',
+      ),
+      (
+        'Your privacy',
+        'Routines, photos and history can say something personal about you, '
+            'such as your health or your home. Only your account can read '
+            'your backup. Deleting your account deletes the backup.',
+      ),
+    ],
   );
-}
-
-enum _BackupSheetButtonTone { primary, warning }
-
-class _BackupActionSheet extends StatelessWidget {
-  const _BackupActionSheet({
-    required this.icon,
-    required this.eyebrow,
-    required this.title,
-    required this.body,
-    required this.accentColor,
-    required this.primaryLabel,
-    required this.onPrimaryPressed,
-    required this.secondaryLabel,
-    required this.onSecondaryPressed,
-    this.details = const [],
-    this.primaryTone = _BackupSheetButtonTone.primary,
-    this.primaryEnabled = true,
-    this.secondaryEnabled = true,
-    this.footer,
-  });
-
-  final IconData icon;
-  final String eyebrow;
-  final String title;
-  final String body;
-  final Color accentColor;
-  final List<Widget> details;
-  final String primaryLabel;
-  final VoidCallback? onPrimaryPressed;
-  final _BackupSheetButtonTone primaryTone;
-  final bool primaryEnabled;
-  final String secondaryLabel;
-  final VoidCallback? onSecondaryPressed;
-  final bool secondaryEnabled;
-  final String? footer;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final mediaQuery = MediaQuery.of(context);
-    final foreground = colorScheme.onSurface;
-    final secondaryText = foreground.withValues(alpha: 0.68);
-    final mutedText = foreground.withValues(alpha: 0.48);
-
-    return Padding(
-      padding: EdgeInsets.only(bottom: mediaQuery.viewInsets.bottom),
-      child: Align(
-        alignment: Alignment.bottomCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerLow,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(28),
-              ),
-              border: Border(
-                top: BorderSide(
-                  color: accentColor.withValues(alpha: 0.42),
-                  width: 1,
-                ),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.34),
-                  blurRadius: 34,
-                  offset: const Offset(0, -12),
-                ),
-              ],
-            ),
-            child: SafeArea(
-              top: false,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(28, 14, 28, 28),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 36,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                    const SizedBox(height: 26),
-                    _BackupSheetIcon(icon: icon, accentColor: accentColor),
-                    const SizedBox(height: 22),
-                    Text(
-                      eyebrow.toUpperCase(),
-                      textAlign: TextAlign.center,
-                      style: PebbleFonts.sans(
-                        color: accentColor,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.25,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      title,
-                      textAlign: TextAlign.center,
-                      style: PebbleFonts.serif(
-                        color: foreground,
-                        fontSize: 30,
-                        fontWeight: FontWeight.w400,
-                        letterSpacing: 0,
-                        height: 1.12,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      body,
-                      textAlign: TextAlign.center,
-                      style: PebbleFonts.sans(
-                        color: secondaryText,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w300,
-                        letterSpacing: 0,
-                        height: 1.62,
-                      ),
-                    ),
-                    if (details.isNotEmpty) ...[
-                      const SizedBox(height: 22),
-                      ...details,
-                    ],
-                    const SizedBox(height: 24),
-                    Divider(
-                      height: 1,
-                      color: colorScheme.outline.withValues(alpha: 0.12),
-                    ),
-                    const SizedBox(height: 24),
-                    _BackupSheetButton(
-                      label: primaryLabel,
-                      tone: primaryTone,
-                      accentColor: accentColor,
-                      enabled: primaryEnabled,
-                      onPressed: onPrimaryPressed,
-                    ),
-                    const SizedBox(height: 10),
-                    _BackupSheetButton(
-                      label: secondaryLabel,
-                      tone: _BackupSheetButtonTone.primary,
-                      accentColor: accentColor,
-                      enabled: secondaryEnabled,
-                      outlined: true,
-                      onPressed: onSecondaryPressed,
-                    ),
-                    if (footer != null) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        footer!,
-                        textAlign: TextAlign.center,
-                        style: PebbleFonts.sans(
-                          color: mutedText,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w300,
-                          letterSpacing: 0,
-                          height: 1.35,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _BackupSheetIcon extends StatelessWidget {
-  const _BackupSheetIcon({required this.icon, required this.accentColor});
-
-  final IconData icon;
-  final Color accentColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 72,
-      height: 72,
-      decoration: BoxDecoration(
-        color: accentColor.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: accentColor.withValues(alpha: 0.28)),
-      ),
-      alignment: Alignment.center,
-      child: Icon(icon, color: accentColor, size: 34),
-    );
-  }
-}
-
-class _BackupSheetButton extends StatelessWidget {
-  const _BackupSheetButton({
-    required this.label,
-    required this.tone,
-    required this.accentColor,
-    required this.enabled,
-    required this.onPressed,
-    this.outlined = false,
-  });
-
-  final String label;
-  final _BackupSheetButtonTone tone;
-  final Color accentColor;
-  final bool enabled;
-  final VoidCallback? onPressed;
-  final bool outlined;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final background = switch (tone) {
-      _BackupSheetButtonTone.warning => accentColor,
-      _BackupSheetButtonTone.primary => accentColor,
-    };
-    final shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(18),
-    );
-
-    if (outlined) {
-      return SizedBox(
-        width: double.infinity,
-        height: 54,
-        child: OutlinedButton(
-          onPressed: enabled ? onPressed : null,
-          style: OutlinedButton.styleFrom(
-            foregroundColor: colorScheme.onSurface.withValues(alpha: 0.72),
-            side: BorderSide(
-              color: colorScheme.outline.withValues(alpha: 0.22),
-            ),
-            shape: shape,
-          ),
-          child: Text(label),
-        ),
-      );
-    }
-
-    return SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: FilledButton(
-        onPressed: enabled ? onPressed : null,
-        style: FilledButton.styleFrom(
-          backgroundColor: background,
-          foregroundColor: colorScheme.onPrimary,
-          disabledBackgroundColor: background.withValues(alpha: 0.32),
-          disabledForegroundColor: colorScheme.onPrimary.withValues(
-            alpha: 0.64,
-          ),
-          shape: shape,
-        ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-        ),
-      ),
-    );
-  }
-}
-
-class _BackupSheetPill extends StatelessWidget {
-  const _BackupSheetPill({required this.value, required this.label});
-
-  final String value;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.11)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 11),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                value,
-                maxLines: 1,
-                style: PebbleFonts.serif(
-                  color: colorScheme.onSurface,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w400,
-                  letterSpacing: 0,
-                  height: 1,
-                ),
-              ),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              label.toUpperCase(),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: PebbleFonts.sans(
-                color: colorScheme.onSurface.withValues(alpha: 0.58),
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.4,
-                height: 1,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _BackupSheetPillRow extends StatelessWidget {
-  const _BackupSheetPillRow({required this.pills});
-
-  final List<_BackupSheetPill> pills;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        for (var index = 0; index < pills.length; index++) ...[
-          Expanded(child: pills[index]),
-          if (index != pills.length - 1) const SizedBox(width: 8),
-        ],
-      ],
-    );
-  }
-}
-
-class _BackupConsentCheck extends StatelessWidget {
-  const _BackupConsentCheck({
-    required this.accepted,
-    required this.enabled,
-    required this.onChanged,
-  });
-
-  final bool accepted;
-  final bool enabled;
-  final ValueChanged<bool?> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    // Material (not DecoratedBox) so the tile's ink renders on this surface;
-    // Flutter 3.44's debug assert rejects a decorated ancestor hiding ink.
-    return Material(
-      color: colorScheme.surfaceContainerHigh,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: colorScheme.outline.withValues(alpha: 0.12)),
-      ),
-      child: CheckboxListTile.adaptive(
-        contentPadding: const EdgeInsets.fromLTRB(10, 6, 14, 6),
-        controlAffinity: ListTileControlAffinity.leading,
-        value: accepted,
-        onChanged: enabled ? onChanged : null,
-        title: Text(
-          cloudBackupConsentText,
-          style: PebbleFonts.sans(
-            color: colorScheme.onSurface.withValues(alpha: 0.74),
-            fontSize: 13,
-            fontWeight: FontWeight.w400,
-            letterSpacing: 0,
-            height: 1.42,
-          ),
-        ),
-      ),
-    );
-  }
 }
