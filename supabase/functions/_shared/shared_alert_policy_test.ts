@@ -1,9 +1,11 @@
 import { buildCompletionEmail, buildInviteEmail } from './shared_alert_email.ts';
 import {
+  completionTimeParts,
   confirmPageUrl,
   createToken,
   effectivePurpose,
   formatCompletionTime,
+  formatStepTime,
   inviteDecision,
   isPlausibleToken,
   isValidRecipientEmail,
@@ -148,6 +150,68 @@ Deno.test('completion email hides the routine name and steps when asked', () => 
   assert(email.text.includes('jamie@example.com completed a routine'), 'generic sentence');
 });
 
+Deno.test('step list: optional, cleaned, never fails the request', () => {
+  const base = {
+    routineKey: 'local:1', routineTitle: 'Night', runId: 'r1', completedAt: '2026-10-03T21:41:00Z',
+    utcOffsetMinutes: 60, completedSteps: 2, totalSteps: 3,
+  };
+  const none = parseCompletionInput(base, NOW);
+  assert(none.ok && none.value.steps.length === 0, 'older builds send no steps');
+  const bad = parseCompletionInput({ ...base, steps: 'nope' }, NOW);
+  assert(bad.ok && bad.value.steps.length === 0, 'non-list ignored');
+  const parsed = parseCompletionInput({
+    ...base,
+    steps: [
+      { title: ' Front\u202E door ', status: 'done', completedAt: '2026-10-03T21:38:00Z' },
+      { title: 'Hob', status: 'skipped', completedAt: '2026-10-03T21:39:00Z' },
+      { title: 'Future', status: 'done', completedAt: '2026-10-04T21:39:00Z' },
+      { title: '', status: 'done' },
+      42,
+      { title: 'x'.repeat(300), status: 'done', completedAt: 'not a date' },
+    ],
+  }, NOW);
+  assert(parsed.ok, 'parsed');
+  const steps = parsed.value.steps;
+  assert(steps.length === 4, `kept 4, got ${steps.length}`);
+  assert(steps[0].title === 'Front door' && steps[0].completedAt?.toISOString() === '2026-10-03T21:38:00.000Z', 'cleaned');
+  assert(steps[1].skipped && steps[1].completedAt === null, 'skipped has no time');
+  assert(steps[2].completedAt === null, 'time after the run dropped');
+  assert(Array.from(steps[3].title).length === 90 && steps[3].completedAt === null, 'long title cut, bad time dropped');
+});
+
+Deno.test('completion time parts and step times use the sender clock', () => {
+  const run = { completedAt: new Date('2026-10-03T23:10:00Z'), utcOffsetMinutes: 60, completedAtHasZone: true };
+  const parts = completionTimeParts(run);
+  assert(parts.time === '00:10' && parts.day === 'Sunday 4 October 2026' && parts.zone === 'UTC+1', JSON.stringify(parts));
+  assert(formatStepTime(new Date('2026-10-03T23:05:00Z'), run) === '00:05', 'same day');
+  assert(formatStepTime(new Date('2026-10-03T22:55:00Z'), run) === '3 Oct, 23:55', 'earlier day');
+  const legacy = completionTimeParts({ completedAt: new Date('2026-10-03T22:41:00Z'), utcOffsetMinutes: null, completedAtHasZone: false });
+  assert(legacy.time === '22:41' && legacy.zone === null, 'legacy wall clock');
+});
+
+Deno.test('completion email lists steps with times, and hides them when asked', () => {
+  const common = {
+    sender: 'jamie@example.com', privacyUrl: 'https://p.example/privacy.html',
+    routineTitle: 'Leaving the house', completedAtText: '3 Oct 2026, 08:02 (UTC+1)',
+    completedAtParts: { time: '08:02', day: 'Friday 3 October 2026', zone: 'UTC+1' },
+    stepList: [
+      { title: 'Front <door>', time: '08:01', skipped: false },
+      { title: 'Hob off', time: null, skipped: true },
+    ],
+    moreSteps: 2,
+    stopUrl: 'https://p.example/s', blockUrl: 'https://p.example/b', oneClickUrl: 'https://f.example/o',
+  };
+  const shown = buildCompletionEmail({ ...common, steps: { completed: 3, total: 4 } });
+  assert(shown.html.includes('Front &lt;door&gt;') && !shown.html.includes('<door>'), 'step title escaped');
+  assert(shown.html.includes('08:01') && shown.html.includes('Skipped'), 'time and skipped shown');
+  assert(shown.html.includes('and 2 more steps'), 'more steps');
+  assert(shown.text.includes('✓ Front <door>  08:01') && shown.text.includes('– Hob off  Skipped'), 'plain text rows');
+  assert(shown.text.includes('Steps: 3 of 4, 1 skipped'), 'summary');
+  assert(shown.html.includes('Friday 3 October 2026'), 'hero day');
+  const hidden = buildCompletionEmail({ ...common, steps: null });
+  assert(!hidden.html.includes('Front') && !hidden.text.includes('Front') && !hidden.text.includes('Steps:'), 'steps hidden');
+});
+
 Deno.test('invite email names the sender and contains no sender-written text', () => {
   const email = buildInviteEmail({
     sender: 'jamie@example.com', privacyUrl: 'https://p.example/privacy.html',
@@ -158,6 +222,7 @@ Deno.test('invite email names the sender and contains no sender-written text', (
   assert(email.text.includes('jamie@example.com would like Pebble Routines to email you'), 'sender named');
   assert(email.text.includes('17 October 2026'), 'expiry shown');
   assert(!email.text.includes('routine name'), 'hidden routine name not promised');
+  assert(email.text.includes('Each step, and the time it was checked') && email.text.includes('Photos are never emailed.'), 'steps and photos explained');
   assert(email.html.includes('lang="en-GB"') && email.html.includes('prefers-color-scheme: dark'), 'lang + dark mode');
 });
 

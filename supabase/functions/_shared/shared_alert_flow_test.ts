@@ -243,11 +243,32 @@ Deno.test('hiding the routine name keeps it out of the email and the log', async
   const id = t.store.contacts[0].id;
   const patched = await t.call(t.contact, 'PATCH', { contactId: id, includeRoutineName: false, includeStepCount: false });
   assert(patched.body.contact.includeRoutineName === false, 'patched');
-  await t.finish('run-1', { routineTitle: 'Evening medication check' });
+  await t.finish('run-1', {
+    routineTitle: 'Evening medication check',
+    steps: [{ title: 'Take tablets', status: 'done', completedAt: '2026-10-03T20:58:00Z' }],
+  });
   const mail = t.sent[1];
   assert(!mail.text.includes('medication') && !mail.html.includes('medication'), 'title not emailed');
   assert(!mail.text.includes('Steps:'), 'steps hidden');
+  assert(!mail.text.includes('tablets') && !mail.html.includes('tablets'), 'step names not emailed');
   assert(t.store.events[0].routine_title === '', 'title not stored');
+});
+
+Deno.test('steps are listed with their times and never stored', async () => {
+  const t = setup();
+  await t.invite();
+  await t.confirm('accept', tokenFrom(t.sent[0].text, 'accept'));
+  await t.finish('run-1', {
+    completedSteps: 1, totalSteps: 2,
+    steps: [
+      { title: 'Front door locked', status: 'done', completedAt: '2026-10-03T20:58:00Z' },
+      { title: 'Hob off', status: 'skipped' },
+    ],
+  });
+  const mail = t.sent[1];
+  assert(mail.text.includes('✓ Front door locked  21:58') && mail.text.includes('– Hob off  Skipped'), 'rows in text');
+  assert(mail.html.includes('Front door locked') && mail.html.includes('Skipped'), 'rows in html');
+  assert(!JSON.stringify(t.store.events).includes('Front door'), 'step names not stored');
 });
 
 Deno.test('other users cannot read or change a contact; bad input is rejected', async () => {
@@ -274,7 +295,7 @@ Deno.test('invite email failure is reported without provider details', async () 
 Deno.test('AI photo descriptions: emailed only with consent, labelled as AI, filtered and capped', async () => {
   const t = setup();
   await t.invite();
-  assert(t.sent[0].text.includes('The photos themselves are never emailed.'), 'invite says photos are never emailed');
+  assert(t.sent[0].text.includes('Photos are never emailed.'), 'invite says photos are never emailed');
   await t.confirm('accept', tokenFrom(t.sent[0].text, 'accept'));
   const descriptions = [
     'A white door with the handle pointing up.',
