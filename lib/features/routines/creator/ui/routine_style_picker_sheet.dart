@@ -233,7 +233,7 @@ class _RoutineStylePickerSheetState extends State<RoutineStylePickerSheet> {
             Text('Home header', style: type.headline),
             const SizedBox(height: PebbleSpacing.xxs),
             Text(
-              'Shown softly behind Home. Kept on this phone.',
+              'A soft picture behind the top of Home.',
               style: type.caption.copyWith(
                 color: context.readableSecondaryText,
               ),

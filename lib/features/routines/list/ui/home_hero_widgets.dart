@@ -165,6 +165,7 @@ class HomeCheckedCard extends ConsumerWidget {
     required this.tally,
     required this.photoPaths,
     this.compact = false,
+    this.onOpen,
   });
 
   final int routineId;
@@ -173,6 +174,10 @@ class HomeCheckedCard extends ConsumerWidget {
   final RunStepTally tally;
   final List<String> photoPaths;
   final bool compact;
+
+  /// Opens this check. The whole card is the way in, so Home needs no
+  /// separate "See this check" link.
+  final VoidCallback? onOpen;
 
   static const int maxThumbs = 4;
 
@@ -219,11 +224,13 @@ class HomeCheckedCard extends ConsumerWidget {
 
     return Semantics(
       container: true,
+      button: onOpen != null,
       label: '$routineTitle, checked at $time. $summary',
+      hint: onOpen == null ? null : 'Opens this check',
       child: Container(
         key: const ValueKey('home_hero_checked_card'),
         width: double.infinity,
-        padding: EdgeInsets.all(compact ? PebbleSpacing.md : PebbleSpacing.lg),
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: fill,
           borderRadius: PebbleRadius.lgAll,
@@ -236,79 +243,100 @@ class HomeCheckedCard extends ConsumerWidget {
             ),
           ],
         ),
-        child: ExcludeSemantics(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Hero(
-                    tag: 'cairn-$routineId',
-                    // Scoped inside the Hero so the flight keeps the
-                    // routine's colour.
-                    child: RoutineAccentScope(
-                      colorHex: colorHex,
-                      child: PebbleCairn(
-                        total: total == 0 ? 1 : total,
-                        skipped: tally.skipped,
-                        size: 40,
-                        showCount: false,
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            onTap: onOpen,
+            child: Padding(
+              padding: EdgeInsets.all(
+                compact ? PebbleSpacing.md : PebbleSpacing.lg,
+              ),
+              child: ExcludeSemantics(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Hero(
+                          tag: 'cairn-$routineId',
+                          // Scoped inside the Hero so the flight keeps the
+                          // routine's colour.
+                          child: RoutineAccentScope(
+                            colorHex: colorHex,
+                            child: PebbleCairn(
+                              total: total == 0 ? 1 : total,
+                              skipped: tally.skipped,
+                              size: 40,
+                              showCount: false,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: PebbleSpacing.sm),
+                        Expanded(
+                          child: Text(
+                            overline.toUpperCase(),
+                            key: const ValueKey('home_hero_checked_overline'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: type.overline.copyWith(color: accent),
+                          ),
+                        ),
+                        if (onOpen != null)
+                          Icon(
+                            LucideIcons.chevronRight,
+                            size: 18,
+                            color: secondary,
+                          ),
+                      ],
+                    ),
+                    SizedBox(
+                      height: compact ? PebbleSpacing.xs : PebbleSpacing.sm,
+                    ),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: PebbleBigTime(
+                        at: finishedAt,
+                        style: type.displayXL.copyWith(
+                          fontSize: compact ? 48 : 56,
+                          color: foundation.textPrimary,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: PebbleSpacing.sm),
-                  Expanded(
-                    child: Text(
-                      overline.toUpperCase(),
-                      key: const ValueKey('home_hero_checked_overline'),
-                      maxLines: 1,
+                    const SizedBox(height: PebbleSpacing.xxs),
+                    Text(
+                      summary,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: type.overline.copyWith(color: accent),
+                      style: type.body.copyWith(color: secondary),
                     ),
-                  ),
-                ],
-              ),
-              SizedBox(height: compact ? PebbleSpacing.xs : PebbleSpacing.sm),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: PebbleBigTime(
-                  at: finishedAt,
-                  style: type.displayXL.copyWith(
-                    fontSize: compact ? 48 : 56,
-                    color: foundation.textPrimary,
-                  ),
-                ),
-              ),
-              const SizedBox(height: PebbleSpacing.xxs),
-              Text(
-                summary,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: type.body.copyWith(color: secondary),
-              ),
-              if (shown.isNotEmpty) ...[
-                SizedBox(height: compact ? PebbleSpacing.sm : PebbleSpacing.md),
-                Row(
-                  children: [
-                    for (var i = 0; i < shown.length; i++) ...[
-                      if (i > 0) const SizedBox(width: PebbleSpacing.xs),
-                      PhotoThumb(
-                        key: ValueKey('home_checked_photo_$i'),
-                        size: 48,
-                        overlayLabel: i == shown.length - 1 && extra > 0
-                            ? '+$extra'
-                            : null,
-                        load: () => ref
-                            .read(routineSessionProofStorageProvider)
-                            .resolveStoredFile(shown[i]),
+                    if (shown.isNotEmpty) ...[
+                      SizedBox(
+                        height: compact ? PebbleSpacing.sm : PebbleSpacing.md,
+                      ),
+                      Row(
+                        children: [
+                          for (var i = 0; i < shown.length; i++) ...[
+                            if (i > 0) const SizedBox(width: PebbleSpacing.xs),
+                            PhotoThumb(
+                              key: ValueKey('home_checked_photo_$i'),
+                              size: 48,
+                              overlayLabel: i == shown.length - 1 && extra > 0
+                                  ? '+$extra'
+                                  : null,
+                              load: () => ref
+                                  .read(routineSessionProofStorageProvider)
+                                  .resolveStoredFile(shown[i]),
+                            ),
+                          ],
+                        ],
                       ),
                     ],
                   ],
                 ),
-              ],
-            ],
+              ),
+            ),
           ),
         ),
       ),

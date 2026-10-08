@@ -2149,34 +2149,24 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
           tally: tally,
           photoPaths: heroState.photoPaths,
           compact: metrics.compact,
+          onOpen: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => RoutineRunDetailScreen(run: run),
+            ),
+          ),
         ),
         SizedBox(height: metrics.previewCtaGap),
-        // The answer is the card; nothing here should invite re-checking.
-        // Two quiet actions: look at this check, or run the routine again.
+        // The answer is the card (tap it to open the check). Run again is
+        // one clear tonal button, never the filled Start, so it doesn't
+        // invite re-checking.
         SizedBox(
           key: const ValueKey('home_hero_cta_box'),
           width: double.infinity,
-          child: Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              PebbleButton.tertiary(
-                key: const ValueKey('home_hero_view_check'),
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => RoutineRunDetailScreen(run: run),
-                  ),
-                ),
-                trailingIcon: LucideIcons.chevronRight,
-                label: 'See this check',
-              ),
-              PebbleButton.tertiary(
-                key: const ValueKey('home_hero_cta'),
-                onPressed: widget.onBegin,
-                icon: LucideIcons.rotateCcw,
-                label: 'Run again',
-              ),
-            ],
+          child: PebbleButton.secondary(
+            key: const ValueKey('home_hero_cta'),
+            onPressed: widget.onBegin,
+            icon: LucideIcons.rotateCcw,
+            label: 'Run again',
           ),
         ),
         SizedBox(height: metrics.ctaMetaGap),

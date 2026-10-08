@@ -21,6 +21,7 @@ import 'package:pebble_routines/features/routines/execution/data/models/routine_
 import 'package:pebble_routines/features/routines/execution/data/repositories/routine_session_repository.dart';
 import 'package:pebble_routines/features/routines/execution/ui/routine_player_screen.dart';
 import 'package:pebble_routines/features/history/domain/checked_window.dart';
+import 'package:pebble_routines/features/history/ui/routine_run_detail_screen.dart';
 import 'package:pebble_routines/features/routines/list/providers/home_hero_state_provider.dart';
 import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
 import 'package:pebble_routines/features/routines/list/ui/home_hero_widgets.dart';
@@ -1066,8 +1067,12 @@ void _checkedTests() {
     );
     expect(find.text('Leaving the house · all 5 steps'), findsOneWidget);
     // Quiet actions only: no filled Start competing with the answer.
-    expect(find.text('See this check'), findsOneWidget);
+    expect(find.text('See this check'), findsNothing);
     expect(find.text('Run again'), findsOneWidget);
+    // The card itself opens the check.
+    await tester.tap(find.byKey(const ValueKey('home_hero_checked_card')));
+    await tester.pumpAndSettle();
+    expect(find.byType(RoutineRunDetailScreen), findsOneWidget);
     expect(find.text('Start'), findsNothing);
     expect(find.text('UP NEXT'), findsNothing);
     expect(tester.takeException(), isNull);
