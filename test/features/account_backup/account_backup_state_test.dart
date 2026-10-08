@@ -1545,10 +1545,10 @@ void main() {
         await _pumpAccountWidget(tester, harness, const AccountHubScreen());
 
         expect(find.text('Renew Premium'), findsOneWidget);
-        expect(find.textContaining('From '), findsWidgets);
+        expect(find.textContaining('you can see all 21 days'), findsWidgets);
         expect(find.textContaining('is locked'), findsNothing);
         expect(
-          find.textContaining('If backup was on, your account keeps a copy'),
+          find.textContaining('Older history is hidden, not deleted'),
           findsOneWidget,
         );
         await tester.scrollUntilVisible(

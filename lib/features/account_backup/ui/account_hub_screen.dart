@@ -1016,29 +1016,30 @@ class _LapsedPremiumSection extends StatelessWidget {
           graceEndDate: summary.graceEndDateLabel,
         ),
         const SizedBox(height: 24),
+        // Routines first: which ones stay is the one choice to make here.
+        if (summary.hasMoreRoutinesThanFree) ...[
+          _RiskCard(
+            icon: LucideIcons.listChecks,
+            title: 'Your routines',
+            body: _routinesBody(summary),
+            countdown: summary.inGrace
+                ? _countdownLabel(state.graceDays)
+                : 'FREE LIMITS APPLY',
+            progress: summary.inGrace ? state.graceDays / 7 : 0,
+            actionLabel: 'Choose your ${summary.freeRoutineLimit} routines',
+            onAction: onChooseRoutines,
+          ),
+          const SizedBox(height: 10),
+        ],
         _RiskCard(
           icon: LucideIcons.clock3,
-          title: 'Longer history',
+          title: 'History',
           body: _historyBody(summary),
           countdown: summary.inGrace
               ? _countdownLabel(state.graceDays)
               : 'FREE LIMITS APPLY',
           progress: summary.inGrace ? state.graceDays / 7 : 0,
         ),
-        if (summary.hasMoreRoutinesThanFree) ...[
-          const SizedBox(height: 10),
-          _RiskCard(
-            icon: LucideIcons.listChecks,
-            title: 'Extra routines and steps',
-            body: _routinesBody(summary),
-            countdown: summary.inGrace
-                ? _countdownLabel(state.graceDays)
-                : 'FREE LIMITS APPLY',
-            progress: summary.inGrace ? state.graceDays / 7 : 0,
-            actionLabel: 'Choose ${summary.freeRoutineLimit} routines to keep',
-            onAction: onChooseRoutines,
-          ),
-        ],
         const SizedBox(height: 24),
         Divider(height: 1, color: colorScheme.outline.withValues(alpha: 0.12)),
         const SizedBox(height: 20),
@@ -1067,39 +1068,29 @@ class _LapsedPremiumSection extends StatelessWidget {
       '$days ${days == 1 ? 'DAY' : 'DAYS'} LEFT';
 
   static String _historyBody(PremiumLapseSummary summary) {
-    final backupLine = summary.isSignedIn
-        ? ' If backup was on, your account keeps a copy, and the last 21 days '
-              'come back when you renew.'
-        : ' If backup was on, your account keeps a copy. Renew and sign in to '
-              'bring back the last 21 days.';
-    if (summary.inGrace) {
-      final date = summary.graceEndDateLabel;
-      if (summary.olderHistoryRunCount == 0) {
-        return 'Your history is still here. From $date, Free shows the last '
-            '48 hours.$backupLine';
-      }
-      final count = summary.olderHistoryRunCount;
-      return '$count completed ${count == 1 ? 'routine' : 'routines'} older '
-          'than 48 hours stay visible until $date. After that they are '
-          'hidden, because Free shows 48 hours. They stay on this phone for '
-          'up to 21 days, so renewing shows them again.$backupLine';
-    }
-    return 'Free shows the last 48 hours of history. Older history stays on '
-        'this phone for up to 21 days, and renewing shows it again.'
-        '$backupLine';
+    final hidden = summary.inGrace
+        ? 'Until ${summary.graceEndDateLabel} you can see all 21 days. After '
+              'that, History shows the last 48 hours.'
+        : 'History shows the last 48 hours.';
+    return '$hidden Older history is hidden, not deleted, and comes back '
+        'when you renew.';
   }
 
   static String _routinesBody(PremiumLapseSummary summary) {
     final limit = summary.freeRoutineLimit;
+    final locked = summary.lockedRoutineCount;
+    final others =
+        'The other $locked ${locked == 1 ? 'locks' : 'lock'}, but nothing is '
+        'deleted, and renewing unlocks everything.';
+    final kept = summary.keptRoutineTitles.join(' and ');
+    final keeping = kept.isEmpty ? '' : ' Keeping: $kept.';
     if (summary.inGrace) {
       return 'Free includes $limit routines with up to 10 steps each. From '
-          '${summary.graceEndDateLabel}, the others lock until you renew. '
-          'Nothing is deleted, and you choose which $limit stay unlocked.';
+          '${summary.graceEndDateLabel}, you keep the $limit you choose. '
+          '$others$keeping';
     }
-    final locked = summary.lockedRoutineCount;
-    return '$locked ${locked == 1 ? 'routine is' : 'routines are'} locked and '
-        'still saved. Steps after the 10th are locked too. Everything unlocks '
-        'again when you renew.';
+    return 'Free includes $limit routines with up to 10 steps each. '
+        '$others$keeping';
   }
 }
 
@@ -1245,17 +1236,13 @@ class _RiskCard extends StatelessWidget {
                   ),
                 ),
                 if (actionLabel != null) ...[
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton(
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        minimumSize: const Size(0, 40),
-                      ),
-                      onPressed: onAction,
-                      child: Text(actionLabel),
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(44),
                     ),
+                    onPressed: onAction,
+                    child: Text(actionLabel),
                   ),
                 ],
               ],

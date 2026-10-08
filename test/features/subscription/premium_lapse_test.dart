@@ -54,7 +54,7 @@ void main() {
       expect(summary.needsAttention, isFalse);
     });
 
-    test('grace warns about older history with the removal date', () {
+    test('grace leads with the routine choice and its date', () {
       final summary = buildPremiumLapseSummary(
         lifecycle: SubscriptionLifecycle(
           phase: SubscriptionLifecyclePhase.expiredGrace,
@@ -77,9 +77,10 @@ void main() {
       expect(summary.needsAttention, isTrue);
       expect(
         premiumLapseHeadline(summary),
-        '2 completed routines older than 48 hours will be hidden on '
-        '8 October. Renew to keep seeing them.',
+        'From 8 October, Free keeps 2 of your 5 routines. Choose which 2. '
+        'Nothing is deleted.',
       );
+      expect(summary.keptRoutineTitles, ['Routine 1', 'Routine 2']);
     });
 
     test('after grace, locked routines are counted using the kept choice', () {
@@ -101,9 +102,10 @@ void main() {
       expect(summary.lockedRoutineCount, 3);
       expect(
         premiumLapseHeadline(summary),
-        '3 routines are locked but still saved. Choose which 2 to keep, or '
-        'renew.',
+        'Free keeps 2 of your 5 routines. The other 3 are locked, not '
+        'deleted.',
       );
+      expect(summary.keptRoutineTitles, ['Routine 4', 'Routine 5']);
     });
 
     test('a lapsed user within Free limits is not interrupted', () {
