@@ -1268,7 +1268,7 @@ List<Override> _homeOverrides({
     currentColorThemeProvider.overrideWithValue(ThemeId.highNoon),
     routineListProvider.overrideWith((ref) => Stream.value(routines)),
     routineRepositoryProvider.overrideWithValue(repository),
-    routineHistoryVmProvider.overrideWith((ref) => Stream.value(runs)),
+    storedRoutineRunsProvider.overrideWith((ref) => Stream.value(runs)),
     activeRoutineSessionsProvider.overrideWith(
       (ref) => Stream.value(resumeSessions),
     ),

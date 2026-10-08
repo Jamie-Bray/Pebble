@@ -124,6 +124,21 @@ Added by the read-only audit in `docs/review/BACKEND_LIVE_AUDIT.md`. Nothing her
 - **Proposed smoke check for Order step 6:** `select jobname, schedule, active from cron.job;` should list three jobs: `cleanup-proof-retention-daily`, `reconcile-profile-tiers-daily`, `prune-shared-alert-data-daily`. Today only the first exists.
 - **Proposed test before launch:** one real billing-retry (grace period) case, to confirm the webhook keeps Premium on while the store is retrying payment. See risk 6 in the audit.
 
+## Proposed (policy dates for the 21-day history window, 8 Oct 2026; not yet approved or done)
+
+**Why.** Every plan now keeps 21 days of history on the phone and Free shows the last 48 hours, so `web/privacy.html` and `web/terms.html` changed and their date is now 8 October 2026. The app records that date with each backup consent, and `public.has_current_cloud_backup_consent` checks it.
+
+**Proposed step.** Apply `supabase/migrations/024_history_window_policy_dates.sql` (staging first, then production). It accepts consents recorded under either the 5 October or the 8 October pages, so build 38 and earlier keep backing up, and the new build works too. Same consent sentence and hash as 022. The consent hash test checks this file.
+
+**Order.**
+1. Apply 024. Safe at any time: old builds are unaffected.
+2. Publish the updated `web/privacy.html` and `web/terms.html`.
+3. Release the app build with this change. Before step 1, the new build's consents would be refused by the database and backup would not upload (nothing is lost).
+
+**Smoke check.** Same as 022 below, and the consent row should show `privacy_version = '2026-10-08'`.
+
+**Roll back** by re-running `022_voice_tip_backup_consent_text.sql`, only together with rolling back the app build.
+
 ## Proposed (backup consent text, 5 Oct 2026; not yet agreed or done)
 
 Added with the legal accuracy pass (branch `fix/legal-accuracy`). Nothing here has been run. The matching migration is prepared as 022_voice_tip_backup_consent_text.sql. The sections above are unchanged.

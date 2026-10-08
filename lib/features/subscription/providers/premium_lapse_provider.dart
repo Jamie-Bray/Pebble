@@ -45,7 +45,7 @@ class PremiumLapseSummary {
   final DateTime? graceEndsAt;
 
   /// Completed routines older than the 48-hour Free window. During grace
-  /// these are removed from this phone when grace ends.
+  /// these are hidden (not deleted) when grace ends.
   final int olderHistoryRunCount;
 
   final int routineCount;
@@ -121,7 +121,7 @@ final premiumLapseSummaryProvider = Provider<PremiumLapseSummary>((ref) {
   return buildPremiumLapseSummary(
     lifecycle: lifecycle,
     routines: ref.watch(routineListProvider).valueOrNull ?? const [],
-    runs: ref.watch(routineHistoryVmProvider).valueOrNull ?? const [],
+    runs: ref.watch(storedRoutineRunsProvider).valueOrNull ?? const [],
     policy: ref.watch(routineLimitPolicyProvider),
     keptRoutineIds: ref.watch(keptRoutinesProvider),
     isSignedIn: ref.watch(authSessionProvider).isSignedIn,

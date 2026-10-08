@@ -44,7 +44,7 @@ account, backup, or subscription behaviour changes.
 ## Current Behaviour To Keep Aligned
 
 - Pebble works without an account.
-- Free keeps recent local history and Pebble-owned proof-photo copies for 48 hours.
+- Free keeps 21 days of local history and Pebble-owned proof-photo copies, and shows the last 48 hours.
 - Premium backup requires paid subscription, sign-in, and explicit backup consent.
 - Premium recent history and proof-photo backup uses a rolling 21-day window.
 - Pebble deletes only its own private app copies, never the user's camera roll or photo library.

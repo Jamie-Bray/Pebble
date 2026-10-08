@@ -335,7 +335,9 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
     Routine? highlightedRoutine,
     Routine? focusedRoutine,
   ) {
-    final runs = ref.watch(routineHistoryVmProvider).valueOrNull ?? const [];
+    // Every kept run, so the routine done last still leads after Free hides
+    // it from History.
+    final runs = ref.watch(storedRoutineRunsProvider).valueOrNull ?? const [];
     return focusedRoutine ??
         highlightedRoutine ??
         selectHomeSpotlightRoutine(routines: routines, runs: runs);

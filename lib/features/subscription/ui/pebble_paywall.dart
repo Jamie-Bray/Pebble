@@ -1322,7 +1322,7 @@ class _PaywallHeader extends StatelessWidget {
     };
     final body = switch (entrySource) {
       PremiumEntrySource.backup =>
-        'Free keeps history on this phone for 48 hours. Premium keeps it for 21 days, and backs it up if you turn backup on.',
+        'Free shows the last 48 hours of history. Premium shows the full 21 days, and backs it up if you turn backup on.',
       PremiumEntrySource.proofPhotoLimit =>
         'Free includes one photo per step. Premium lets you add up to four, for checks that need more than one angle.',
       PremiumEntrySource.guidanceAudio =>

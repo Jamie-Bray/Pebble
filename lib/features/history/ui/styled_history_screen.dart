@@ -69,6 +69,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
     final proofStorage = ref.watch(routineSessionProofStorageProvider);
     final premiumPolicy = ref.watch(premiumFeaturePolicyProvider);
     final backupStatus = ref.watch(accountStatusPresentationProvider);
+    final hiddenCount = ref.watch(hiddenHistoryRunCountProvider);
 
     return runsAsync.when(
       loading: () => const _ThemeScaffold(
@@ -136,6 +137,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
                             proofStorage,
                             premiumPolicy,
                             backupStatus,
+                            hiddenCount: query.isEmpty ? hiddenCount : 0,
                           )
                         : _buildVaultView(filtered, byId, proofStorage),
                   ),
@@ -226,23 +228,31 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
     Map<String, Routine> byId,
     RoutineSessionProofStorage proofStorage,
     PremiumFeaturePolicy premiumPolicy,
-    AccountStatusPresentation backupStatus,
-  ) {
-    if (filtered.isEmpty) return _buildEmptyState(context, premiumPolicy);
+    AccountStatusPresentation backupStatus, {
+    required int hiddenCount,
+  }) {
+    if (filtered.isEmpty) {
+      if (hiddenCount > 0) {
+        return _buildHiddenOnlyState(context, hiddenCount);
+      }
+      return _buildEmptyState(context, premiumPolicy);
+    }
 
     final grouped = _groupRuns(filtered);
 
     return RefreshIndicator(
       onRefresh: () async {
-        ref.invalidate(routineHistoryVmProvider);
+        ref.invalidate(storedRoutineRunsProvider);
       },
       child: AdaptiveContentWidth(
         child: ListView.builder(
           padding: const EdgeInsets.fromLTRB(24, 20, 24, 124),
-          itemCount: grouped.length + (backupStatus.showRunSyncState ? 0 : 1),
+          itemCount:
+              grouped.length +
+              (backupStatus.showRunSyncState && hiddenCount == 0 ? 0 : 1),
           itemBuilder: (context, index) {
             if (index >= grouped.length) {
-              return const _HistoryBackupFooter();
+              return _HistoryBackupFooter(hiddenCount: hiddenCount);
             }
 
             final section = grouped.keys.elementAt(index);
@@ -535,6 +545,54 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
                 fontWeight: FontWeight.w300,
                 color: context.readableSecondaryText,
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Free with nothing in the last 48 hours, but older history kept.
+  Widget _buildHiddenOnlyState(BuildContext context, int hiddenCount) {
+    final foundation = context.darkFoundation;
+    final cs = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const PebbleStones(scene: PebbleStonesScene.scattered, size: 132),
+            const SizedBox(height: 20),
+            Text(
+              'Nothing in the last 48 hours',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w500,
+                color: foundation.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${_olderRunsSaved(hiddenCount)}. Personal Premium shows '
+              'your full 21 days.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.35,
+                fontWeight: FontWeight.w300,
+                color: context.readableSecondaryText,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: () =>
+                  context.push(premiumRoute(source: PremiumEntrySource.backup)),
+              style: TextButton.styleFrom(
+                foregroundColor: context.readableAccentText(cs.primary),
+              ),
+              child: const Text('See all 21 days'),
             ),
           ],
         ),
@@ -1455,8 +1513,14 @@ class _HistorySheetAction extends StatelessWidget {
   }
 }
 
+String _olderRunsSaved(int count) =>
+    '$count older ${count == 1 ? 'routine' : 'routines'} saved';
+
 class _HistoryBackupFooter extends StatelessWidget {
-  const _HistoryBackupFooter();
+  const _HistoryBackupFooter({required this.hiddenCount});
+
+  /// Runs older than 48 hours that Free keeps but doesn't show.
+  final int hiddenCount;
 
   @override
   Widget build(BuildContext context) {
@@ -1467,7 +1531,9 @@ class _HistoryBackupFooter extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              'Free keeps 48 hours of history',
+              hiddenCount > 0
+                  ? _olderRunsSaved(hiddenCount)
+                  : 'Free shows the last 48 hours',
               style: TextStyle(
                 fontSize: 11,
                 height: 1.2,
@@ -1492,7 +1558,9 @@ class _HistoryBackupFooter extends StatelessWidget {
                 letterSpacing: 0.1,
               ),
             ),
-            child: const Text('Back up with Premium'),
+            child: Text(
+              hiddenCount > 0 ? 'See all 21 days' : 'Get the full 21 days',
+            ),
           ),
         ],
       ),

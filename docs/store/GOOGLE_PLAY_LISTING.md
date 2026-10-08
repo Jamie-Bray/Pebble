@@ -115,7 +115,7 @@ PRIVATE BY DEFAULT
 • Works without an account. No sign-up needed to start.
 • Your routines, history and photos are stored on this device.
 • No ads. Pebble does not sell your data.
-• On the free plan, photos and history are kept for 48 hours, then Pebble deletes its own copies. Pebble never deletes anything from your camera roll.
+• Pebble keeps 21 days of photos and history on this device, then deletes its own copies. The free plan shows the last 48 hours. Pebble never deletes anything from your camera roll.
 • Cloud backup only starts if you have Premium, sign in, and choose to turn it on.
 
 FREE
@@ -127,7 +127,7 @@ FREE
 PERSONAL PREMIUM (MONTHLY OR YEARLY)
 • Unlimited routines and steps
 • Up to 4 photos per step
-• 21 days of recent history
+• The full 21 days of history
 • Voice prompts on any step
 • Extra themes
 • Optional cloud backup and account recovery (needs sign-in and your consent)
