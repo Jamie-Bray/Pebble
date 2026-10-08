@@ -214,7 +214,7 @@ still applies; older workers show a generic budget message for that refusal.
 Keep the additive tables during rollback; do not delete history
 or roll back the backup-consent gate independently of the app.
 
-## Proposed (email redesign, 7 Oct 2026; not yet agreed or done)
+## Email redesign, 7 to 8 Oct 2026 (Jamie approved the live steps on 8 Oct)
 
 New look for the invitation, completion and sign-in code emails, and the
 completion email now lists each step with the time it was checked (only when
@@ -229,6 +229,22 @@ No database change.
    Pebble sign-in code"). Hosted projects don't read `config.toml`.
 3. Publish `web/privacy.html` (completion emails paragraph only; the date is
    unchanged on purpose, because backup consent checks the exact policy date).
+
+Live record, 8 Oct 2026 (Claude):
+
+- **Live change:** deployed `send-routine-completion-alert`, now version 20,
+  and `request-shared-alert-contact`, now version 18, from `main` (PR #31).
+  Both were fetched back and every file matches `main`.
+- Versions 18 and 19 of `send-routine-completion-alert` were live for about 15
+  minutes with a deploy-tool escaping fault: the title clean-up stripped
+  backslashes and the characters u, 0, 2, 8 and 9 from routine and step names. Version 20 fixed it. No
+  completion email was sent in that window (`shared_alert_events` had no rows).
+  When deploying through the Supabase MCP tool, write a `\uXXXX` escape in the
+  source as `\u005cuXXXX` in the tool's JSON, then fetch the function back and
+  diff it against git.
+- Not done by Claude: step 2 (dashboard template paste, Jamie) and step 3. The
+  website is a Cloudflare Worker uploaded by hand (see the 5 October record
+  below), which Claude can't reach.
 
 ## Live preparation record — 5 October 2026 (Codex)
 
