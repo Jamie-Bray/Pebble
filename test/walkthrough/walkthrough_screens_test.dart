@@ -42,6 +42,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pebble_routines/core/config/app_runtime_config.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
+import 'package:pebble_routines/core/share/shared_routine_link.dart';
+import 'package:pebble_routines/features/routines/shared_import/shared_routine_screen.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/data/remote/supabase_client_provider.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
@@ -1614,6 +1616,27 @@ void main() {
     await env.shot('template_detail');
     await env.scrollDown(600);
     await env.shot('template_detail_scrolled');
+  });
+
+  // ---- Shared routine ("Add to Pebble" link) ------------------------------
+  _capture('shared routine', (env) async {
+    await env.push(
+      sharedRoutineLocation(
+        const SharedRoutine(
+          title: 'House sitter handover',
+          steps: [
+            RoutineStep.check(label: 'Water the plants in the kitchen'),
+            RoutineStep.info(message: 'The spare key is under the blue pot'),
+            RoutineStep.check(label: 'Feed the cat', allowSkip: true),
+            RoutineStep.timer(duration: 300),
+            RoutineStep.check(label: 'Lock the back door', requiresPhoto: true),
+          ],
+        ),
+      ),
+    );
+    await env.shot('shared_routine');
+    await env.push('$sharedRoutinePath?d=broken');
+    await env.shot('shared_routine_broken_link');
   });
 
   // ---- Paywall -----------------------------------------------------------

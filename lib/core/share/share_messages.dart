@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
+import 'package:pebble_routines/core/share/shared_routine_link.dart';
 import 'package:pebble_routines/features/history/domain/run_step_tally.dart';
 
 /// The Pebble website, linked from shared routines and "Tell a friend".
@@ -135,11 +136,15 @@ class ShareMessages {
   /// 2. Lock the back door
   /// Note: the spare key is under the blue pot
   ///
-  /// Made in Pebble, a checklist app: pebbleroutines.com
+  /// Add it to Pebble: https://pebbleroutines.com/r#…
   /// ```
+  ///
+  /// The link opens the routine in Pebble, or a page with the steps and the
+  /// app store links for someone without the app.
   static String routineChecklist({
     required String routineTitle,
     required List<RoutineStep> steps,
+    bool includeAddLink = true,
   }) {
     final buffer = StringBuffer()..writeln(_titleOr(routineTitle, 'Routine'));
     if (steps.isNotEmpty) buffer.writeln();
@@ -153,9 +158,13 @@ class ShareMessages {
       number++;
       buffer.writeln('$number. ${stepLabel(step)}');
     }
-    buffer
-      ..writeln()
-      ..write('Made in Pebble, a checklist app: $pebbleShareWebsite');
+    buffer.writeln();
+    final shared = SharedRoutine(title: routineTitle, steps: steps);
+    if (includeAddLink && steps.whereType<CheckStep>().isNotEmpty) {
+      buffer.write('Add it to Pebble: ${shared.toLink()}');
+    } else {
+      buffer.write('Made in Pebble, a checklist app: $pebbleShareWebsite');
+    }
     return buffer.toString();
   }
 

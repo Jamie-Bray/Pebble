@@ -41,6 +41,18 @@
 				<string>$(GOOGLE_IOS_REVERSED_CLIENT_ID)</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>CFBundleURLName</key>
+			<string>com.pebbleroutines.shared-routine</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<!-- "Add to Pebble" links (pebbleroutines://r#...), opened by the
+				     button on pebbleroutines.com/r and read in lib/main.dart. -->
+				<string>pebbleroutines</string>
+			</array>
+		</dict>
 	</array>
 	<!-- Pebble opens routines from notifications in Dart, never from URLs
 	     pushed to the router. Keep Flutter's deep linking off so a URL the app

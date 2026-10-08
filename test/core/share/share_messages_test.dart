@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/share/share_messages.dart';
+import 'package:pebble_routines/core/share/shared_routine_link.dart';
 import 'package:pebble_routines/features/routines/execution/ui/routine_complete_screen.dart';
 
 String _hhmm(DateTime at) =>
@@ -113,6 +114,7 @@ void main() {
     test('numbers the steps and keeps notes unnumbered', () {
       final text = ShareMessages.routineChecklist(
         routineTitle: 'House sitter handover',
+        includeAddLink: false,
         steps: const [
           RoutineStep.check(label: 'Water the plants'),
           RoutineStep.info(message: 'Spare key is under the blue pot'),
@@ -132,6 +134,22 @@ void main() {
         '\n'
         'Made in Pebble, a checklist app: pebbleroutines.com',
       );
+    });
+
+    test('ends with an "Add to Pebble" link that opens the same routine', () {
+      final text = ShareMessages.routineChecklist(
+        routineTitle: 'Gym bag',
+        steps: const [RoutineStep.check(label: 'Towel')],
+      );
+      final line = text.split('\n').last;
+      expect(
+        line,
+        startsWith('Add it to Pebble: https://pebbleroutines.com/r#'),
+      );
+      final link = Uri.parse(line.substring('Add it to Pebble: '.length));
+      final shared = SharedRoutine.fromLink(link)!;
+      expect(shared.title, 'Gym bag');
+      expect(shared.steps, const [RoutineStep.check(label: 'Towel')]);
     });
 
     test('reads a saved routine, including the older step shape', () {
