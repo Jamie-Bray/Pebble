@@ -476,7 +476,15 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
       steps: ShareMessages.stepsFromRun(run),
       formatTime: (at) => formatCheckTime(button, at),
     );
-    unawaited(ref.read(pebbleShareProvider).shareText(button, text));
+    unawaited(
+      ref
+          .read(pebbleShareProvider)
+          .shareText(
+            button,
+            text,
+            subject: ShareMessages.runSubject(run.routineTitle),
+          ),
+    );
   }
 
   /// The AI description under a photo in the full-screen viewer, kept up

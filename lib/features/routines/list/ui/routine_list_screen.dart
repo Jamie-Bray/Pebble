@@ -1627,6 +1627,9 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                                   .shareText(
                                     context,
                                     ShareMessages.routineChecklistFor(routine),
+                                    subject: ShareMessages.routineSubject(
+                                      routine.title,
+                                    ),
                                   );
                             },
                           ),

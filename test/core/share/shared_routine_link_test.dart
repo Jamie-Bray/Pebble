@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
@@ -37,6 +38,41 @@ void main() {
     ]);
   });
 
+  test('links are compressed, and older uncompressed links still open', () {
+    expect(routine.data, startsWith('z'));
+    final plain = base64Url
+        .encode(
+          utf8.encode(
+            jsonEncode({
+              'v': 1,
+              't': 'House sitter handover',
+              's': [
+                {'c': 'Water the plants', 'k': 1},
+                {'i': 'Spare key is under the blue pot'},
+              ],
+            }),
+          ),
+        )
+        .replaceAll('=', '');
+    expect(routine.data.length, lessThan(plain.length + 60));
+    final old = SharedRoutine.fromLink(
+      Uri.parse('https://pebbleroutines.com/r#$plain'),
+    );
+    expect(
+      old?.steps.first,
+      const RoutineStep.check(label: 'Water the plants', allowSkip: true),
+    );
+  });
+
+  test('a link that inflates into megabytes is refused', () {
+    final bomb = ZLibCodec(raw: true, level: 9).encode(
+      utf8.encode('{"v":1,"t":"${'a' * (2 * 1024 * 1024)}","s":[{"c":"x"}]}'),
+    );
+    final data = 'z${base64Url.encode(bomb).replaceAll('=', '')}';
+    expect(data.length, lessThan(8 * 1024));
+    expect(SharedRoutine.fromData(data), isNull);
+  });
+
   test('the app link from the web page reads the same', () {
     final app = Uri.parse('pebbleroutines://r#${routine.data}');
     expect(SharedRoutine.fromLink(app)?.steps, hasLength(4));
@@ -56,8 +92,11 @@ void main() {
       ],
     );
     final json = utf8.decode(
-      base64Url.decode(base64Url.normalize(withAudio.data)),
+      ZLibCodec(raw: true).decode(
+        base64Url.decode(base64Url.normalize(withAudio.data.substring(1))),
+      ),
     );
+    expect(json, contains('Meds'));
     expect(json, isNot(contains('audio')));
   });
 

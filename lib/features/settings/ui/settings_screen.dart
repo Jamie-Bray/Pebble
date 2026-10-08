@@ -246,6 +246,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                                 .shareText(
                                   tileContext,
                                   ShareMessages.appInvite,
+                                  subject: ShareMessages.appInviteSubject,
                                 ),
                           ),
                         ),

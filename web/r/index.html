@@ -6,6 +6,18 @@
     <meta name="robots" content="noindex" />
     <meta name="referrer" content="no-referrer" />
     <meta name="description" content="A routine someone shared with you from Pebble." />
+    <!-- Link previews in WhatsApp, Messages and email. Crawlers never see the
+         part after #, so the preview is the same for every shared routine. -->
+    <meta property="og:title" content="A routine shared with you" />
+    <meta property="og:description" content="See the steps and add it to Pebble, the app for the checks you do every day." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://pebbleroutines.com/r" />
+    <meta property="og:site_name" content="Pebble" />
+    <meta property="og:image" content="https://pebbleroutines.com/og-shared-routine.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="A routine shared from Pebble" />
+    <meta name="twitter:card" content="summary_large_image" />
     <title>Shared routine | Pebble Routines</title>
     <link rel="icon" href="../favicon.ico" sizes="any" />
     <link rel="icon" type="image/png" sizes="96x96" href="../favicon-96x96.png" />
@@ -132,19 +144,39 @@
         var openApp = document.getElementById('open-app');
         var getApp = document.getElementById('get-app');
 
-        function problem() {
+        function problem(error) {
+          if (error && error.message === 'old browser') {
+            title.textContent = "This browser can't open the routine";
+            body.textContent =
+              'Update your browser, or open the link on a phone with Pebble installed.';
+            return;
+          }
           title.textContent = "This link doesn't work";
           body.textContent =
             'Part of it may be missing. Ask the person who sent it to share the routine again.';
         }
 
+        // Links start with "z" when the JSON is raw-deflated (what the app
+        // writes); older links are plain base64url JSON.
         function decode(data) {
-          var b64 = data.replace(/-/g, '+').replace(/_/g, '/');
+          if (!data || data.length > 65536) return Promise.resolve(null);
+          var compressed = data.charAt(0) === 'z';
+          var b64 = (compressed ? data.slice(1) : data).replace(/-/g, '+').replace(/_/g, '/');
           while (b64.length % 4) b64 += '=';
           var bytes = Uint8Array.from(atob(b64), function (c) {
             return c.charCodeAt(0);
           });
-          return JSON.parse(new TextDecoder().decode(bytes));
+          if (!compressed) {
+            return Promise.resolve(JSON.parse(new TextDecoder().decode(bytes)));
+          }
+          if (typeof DecompressionStream === 'undefined') {
+            return Promise.reject(new Error('old browser'));
+          }
+          var stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+          return new Response(stream).text().then(function (text) {
+            if (text.length > 131072) return null;
+            return JSON.parse(text);
+          });
         }
 
         function clean(value, max) {
@@ -184,53 +216,57 @@
         }
 
         var data = window.location.hash.replace(/^#/, '');
-        var routine;
+        var decoding;
         try {
-          routine = data && data.length <= 65536 ? decode(data) : null;
+          decoding = decode(data);
         } catch (e) {
-          routine = null;
+          decoding = Promise.resolve(null);
         }
-        if (!routine || routine.v !== 1 || !Array.isArray(routine.s)) {
-          problem();
-          return;
-        }
+        decoding.then(render, problem);
 
-        var name = clean(routine.t, 120) || 'Shared routine';
-        var number = 0;
-        routine.s.slice(0, 60).forEach(function (step) {
-          if (!step || typeof step !== 'object') return;
-          if (typeof step.c === 'string') {
-            var label = clean(step.c, 500);
-            if (label) row(String(++number), label, step.p === 1 ? 'With a photo' : '', false);
-          } else if (typeof step.i === 'string') {
-            var note = clean(step.i, 500);
-            if (note) row('i', note, '', true);
-          } else if (typeof step.w === 'number' && step.w > 0 && step.w <= 86400) {
-            row(String(++number), wait(Math.floor(step.w)), '', false);
+        function render(routine) {
+          if (!routine || routine.v !== 1 || !Array.isArray(routine.s)) {
+            problem();
+            return;
           }
-        });
-        if (number === 0) {
-          problem();
-          return;
+
+          var name = clean(routine.t, 120) || 'Shared routine';
+          var number = 0;
+          routine.s.slice(0, 60).forEach(function (step) {
+            if (!step || typeof step !== 'object') return;
+            if (typeof step.c === 'string') {
+              var label = clean(step.c, 500);
+              if (label) row(String(++number), label, step.p === 1 ? 'With a photo' : '', false);
+            } else if (typeof step.i === 'string') {
+              var note = clean(step.i, 500);
+              if (note) row('i', note, '', true);
+            } else if (typeof step.w === 'number' && step.w > 0 && step.w <= 86400) {
+              row(String(++number), wait(Math.floor(step.w)), '', false);
+            }
+          });
+          if (number === 0) {
+            problem();
+            return;
+          }
+
+          document.title = name + ' | Pebble Routines';
+          title.textContent = name;
+          body.textContent =
+            'Someone shared this routine with you. Open it in Pebble to save your own copy.';
+          openApp.href = 'pebbleroutines://r#' + data;
+
+          var stores = [];
+          if (PLAY_URL) stores.push('<a href="' + PLAY_URL + '">Google Play</a>');
+          if (APP_STORE_URL) stores.push('<a href="' + APP_STORE_URL + '">the App Store</a>');
+          getApp.innerHTML = stores.length
+            ? "Don't have Pebble yet? Get it from " + stores.join(' or ') +
+              ', then tap the link you were sent again.'
+            : "Don't have Pebble yet? It's coming to Google Play soon. " +
+              '<a href="../">Find out more</a>.';
+
+          list.hidden = false;
+          actions.hidden = false;
         }
-
-        document.title = name + ' | Pebble Routines';
-        title.textContent = name;
-        body.textContent =
-          'Someone shared this routine with you. Open it in Pebble to save your own copy.';
-        openApp.href = 'pebbleroutines://r#' + data;
-
-        var stores = [];
-        if (PLAY_URL) stores.push('<a href="' + PLAY_URL + '">Google Play</a>');
-        if (APP_STORE_URL) stores.push('<a href="' + APP_STORE_URL + '">the App Store</a>');
-        getApp.innerHTML = stores.length
-          ? "Don't have Pebble yet? Get it from " + stores.join(' or ') +
-            ', then tap the link you were sent again.'
-          : "Don't have Pebble yet? It's coming to Google Play soon. " +
-            '<a href="../">Find out more</a>.';
-
-        list.hidden = false;
-        actions.hidden = false;
       })();
     </script>
   </body>

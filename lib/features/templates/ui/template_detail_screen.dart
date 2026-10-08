@@ -104,9 +104,11 @@ class _TemplateDetailContent extends ConsumerWidget {
                           for (final step in template.steps)
                             RoutineStep.check(
                               label: Template.cleanStepLabel(step),
+                              requiresPhoto: Template.stepRequiresPhoto(step),
                             ),
                         ],
                       ),
+                      subject: ShareMessages.routineSubject(template.title),
                     ),
               ),
             ),

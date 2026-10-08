@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io' show RawZLibFilter, ZLibCodec;
+import 'dart:typed_data';
 
 import 'package:pebble_routines/core/database/routine_step.dart';
 
@@ -13,7 +15,9 @@ import 'package:pebble_routines/core/database/routine_step.dart';
 /// pebbleroutines://r#<data>               (the web page's "Open in Pebble")
 /// ```
 ///
-/// `<data>` is base64url JSON: `{"v":1,"t":"title","s":[...]}` where each
+/// `<data>` is `z` plus base64url of the raw-deflated JSON
+/// `{"v":1,"t":"title","s":[...]}`, which keeps links about 40% shorter.
+/// Links from before compression (plain base64url JSON) still open. Each
 /// step is `{"c":"label","p":1,"k":1}` (a check, with photo and skip flags),
 /// `{"i":"note"}` or `{"w":seconds}` (a timer). `web/r/index.html` reads the
 /// same format, so change both together.
@@ -33,6 +37,29 @@ class SharedRoutine {
   static const int maxSteps = 60;
   static const int maxTimerSeconds = 24 * 60 * 60;
 
+  /// Marks compressed data. Plain base64url JSON always starts with `e`.
+  static const String compressedPrefix = 'z';
+  static final ZLibCodec _deflate = ZLibCodec(raw: true, level: 9);
+
+  /// More than any real routine needs, so a crafted link can't expand into
+  /// megabytes on the phone.
+  static const int maxJsonBytes = 128 * 1024;
+
+  static List<int>? _inflate(List<int> input, int maxBytes) {
+    final filter = RawZLibFilter.inflateFilter(raw: true);
+    filter.process(input, 0, input.length);
+    final out = BytesBuilder(copy: false);
+    for (
+      var chunk = filter.processed(end: true);
+      chunk != null;
+      chunk = filter.processed(end: true)
+    ) {
+      out.add(chunk);
+      if (out.length > maxBytes) return null;
+    }
+    return out.takeBytes();
+  }
+
   /// The link to share. Guidance audio and photo prompts stay on this phone.
   Uri toLink() {
     final payload = <String, Object?>{
@@ -40,9 +67,9 @@ class SharedRoutine {
       't': title.trim(),
       's': [for (final step in steps) _encodeStep(step)],
     };
-    final data = base64Url
-        .encode(utf8.encode(jsonEncode(payload)))
-        .replaceAll('=', '');
+    final compressed = _deflate.encode(utf8.encode(jsonEncode(payload)));
+    final data =
+        '$compressedPrefix${base64Url.encode(compressed).replaceAll('=', '')}';
     return Uri(scheme: 'https', host: webHost, path: webPath, fragment: data);
   }
 
@@ -62,8 +89,13 @@ class SharedRoutine {
   static SharedRoutine? fromData(String data) {
     if (data.isEmpty || data.length > 64 * 1024) return null;
     try {
-      final padded = data.padRight((data.length + 3) ~/ 4 * 4, '=');
-      final decoded = jsonDecode(utf8.decode(base64Url.decode(padded)));
+      final isCompressed = data.startsWith(compressedPrefix);
+      final body = isCompressed ? data.substring(1) : data;
+      final padded = body.padRight((body.length + 3) ~/ 4 * 4, '=');
+      List<int>? bytes = base64Url.decode(padded);
+      if (isCompressed) bytes = _inflate(bytes, maxJsonBytes);
+      if (bytes == null || bytes.length > maxJsonBytes) return null;
+      final decoded = jsonDecode(utf8.decode(bytes));
       if (decoded is! Map || decoded['v'] != version) return null;
       final title = _clean(decoded['t'], maxTitleChars);
       final rawSteps = decoded['s'];
