@@ -1216,7 +1216,12 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
       return;
     }
     final tour = ref.read(onboardingTourProvider);
-    unawaited(tour.recordCompletedCheck());
+    unawaited(
+      tour.recordCompletedCheck().then((_) {
+        // Home is already built under the player; tell it to look again.
+        if (mounted) ref.read(onboardingTourVersionProvider.notifier).state++;
+      }),
+    );
     if (_isPractice(
       ref.read(routinePlayerProvider(widget.sessionId)).session,
     )) {

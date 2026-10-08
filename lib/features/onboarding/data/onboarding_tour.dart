@@ -81,6 +81,10 @@ class OnboardingTour {
       shouldShow(PebbleHint.styleCard);
 }
 
+/// Bumped when the tour's counts change, so screens that are already built
+/// (Home under the player) read them again.
+final onboardingTourVersionProvider = StateProvider<int>((ref) => 0);
+
 final onboardingTourProvider = Provider<OnboardingTour>((ref) {
   SharedPreferences? prefs;
   try {

@@ -2080,13 +2080,16 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
   }
 
   /// "Make it yours", once, after a few checks (OnboardingTour).
-  late bool _showStyleCard = ref
-      .read(onboardingTourProvider)
-      .shouldShowStyleCard;
+  /// Read on each build, which [onboardingTourVersionProvider] triggers
+  /// when a check is counted while Home waits under the player.
+  bool _styleCardDismissed = false;
+  bool get _showStyleCard =>
+      !_styleCardDismissed &&
+      ref.read(onboardingTourProvider).shouldShowStyleCard;
 
   void _dismissStyleCard() {
-    if (!_showStyleCard) return;
-    setState(() => _showStyleCard = false);
+    if (_styleCardDismissed) return;
+    setState(() => _styleCardDismissed = true);
     unawaited(ref.read(onboardingTourProvider).markSeen(PebbleHint.styleCard));
   }
 
@@ -2104,6 +2107,7 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(onboardingTourVersionProvider);
     final heroState = ref.watch(homeHeroStateProvider(widget.routine.id));
     final animateHero = _heroLoaded;
     _heroLoaded =

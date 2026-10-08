@@ -1262,6 +1262,9 @@ void main() {
     },
     (env) async {
       await _runLeavingHouseToHome(env);
+      await env.tapText('Done');
+      await env.settle(20);
+      await env.realWait(4);
       await env.shot('tips_home_make_it_yours');
       await env.tapFinder(find.byTooltip('Routine settings').first);
       await env.settle(20);
