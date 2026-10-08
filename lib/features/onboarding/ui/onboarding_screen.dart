@@ -17,8 +17,8 @@ import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
+import 'package:pebble_routines/features/onboarding/data/onboarding_tour.dart';
 import 'package:pebble_routines/features/routines/data/models/routine_icon_catalog.dart';
-import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_controller.dart';
 
@@ -127,9 +127,16 @@ const _starterRoutines = [
 const _defaultOnboardingThemeId = ThemeId.highNoon;
 
 class OnboardingScreen extends ConsumerStatefulWidget {
-  const OnboardingScreen({super.key, this.initialPage = 0});
+  const OnboardingScreen({
+    super.key,
+    this.initialPage = 0,
+    this.replay = false,
+  });
 
   final int initialPage;
+
+  /// Opened from Settings with "Replay the intro": keep the person's theme.
+  final bool replay;
 
   @override
   ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -147,7 +154,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     super.initState();
     _currentPage = widget.initialPage.clamp(0, 3).toInt();
     _pageController = PageController(initialPage: _currentPage);
-    if (_currentPage == 0) {
+    if (_currentPage == 0 && !widget.replay) {
       _selectedThemeId = _defaultOnboardingThemeId;
       Future.microtask(
         () => ref.read(themeProvider.notifier).setColorTheme(_selectedThemeId),
@@ -188,6 +195,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Future<void> _markOnboardingComplete() async {
     final prefs = await SharedPreferences.getInstance();
     await PlayerSettingsController.applyNewInstallDefaults(prefs);
+    await OnboardingTour(prefs).start();
     await prefs.setBool('has_completed_onboarding', true);
   }
 
@@ -217,16 +225,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     try {
       final routine = await _createStarterRoutine(_selectedStarter);
       await _markOnboardingComplete();
+      final prefs = await SharedPreferences.getInstance();
+      await OnboardingTour(prefs).startPracticeRun(routine.id);
 
       if (!mounted) return;
       ref.read(navIndexProvider.notifier).state = 0;
-      ref
-          .read(homeRoutineHighlightProvider.notifier)
-          .state = HomeRoutineHighlight(
-        routineId: routine.id,
-        message: '${routine.title} is ready',
-      );
-      GoRouter.of(context).go('/');
+      // The practice run: the real player on the routine just picked.
+      GoRouter.of(context).go('/play/${routine.id}');
     } finally {
       if (mounted) {
         setState(() => _isCreatingStarter = false);
@@ -272,7 +277,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final activeTheme = _currentPage == 0
+    final activeTheme = _currentPage == 0 && !widget.replay
         ? AppTheme.fromId(_defaultOnboardingThemeId)
         : AppTheme.fromId(_selectedThemeId);
 
@@ -2314,11 +2319,11 @@ class _StarterPreviewPage extends StatelessWidget {
           PebbleButton.primary(
             onPressed: onUseStarter,
             busy: isCreating,
-            label: 'Use this starter routine',
+            label: 'Try it now',
           ),
           const SizedBox(height: 12),
           Text(
-            'You can change any step, or add your own, later.',
+            'Do it for real. You can change any step, or add your own, later.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: foundation.textSecondary,

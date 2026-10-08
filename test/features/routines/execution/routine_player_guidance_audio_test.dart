@@ -97,6 +97,42 @@ void main() {
     }
   }
 
+  testWidgets('the practice run shows Skip and one hint', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'pebble.tour.hints_enabled': true,
+      'pebble.tour.practice_routine_id': 1,
+    });
+    final repository = _FakeRoutineSessionRepository();
+    await pumpPlayer(
+      tester,
+      const RoutineStep.check(label: 'Lock the door'),
+      repository,
+    );
+
+    expect(find.byKey(const ValueKey('practice-skip')), findsOneWidget);
+    expect(find.text('1 of 1'), findsNothing);
+    expect(
+      find.text('Do the step for real, then tap below to check it off.'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Got it'));
+    await tester.pump();
+    expect(find.text('Got it'), findsNothing);
+  });
+
+  testWidgets('a normal run shows no practice hint', (tester) async {
+    SharedPreferences.setMockInitialValues({'pebble.tour.hints_enabled': true});
+    final repository = _FakeRoutineSessionRepository();
+    await pumpPlayer(
+      tester,
+      const RoutineStep.check(label: 'Lock the door'),
+      repository,
+    );
+
+    expect(find.byKey(const ValueKey('practice-skip')), findsNothing);
+    expect(find.text('Got it'), findsNothing);
+  });
+
   testWidgets('text-only steps show no guidance audio control', (tester) async {
     final repository = _FakeRoutineSessionRepository();
     await pumpPlayer(

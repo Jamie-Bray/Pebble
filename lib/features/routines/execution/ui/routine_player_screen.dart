@@ -18,6 +18,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/ui/pebble_buttons.dart';
+import 'package:pebble_routines/core/ui/pebble_hint.dart';
 import 'package:pebble_routines/core/ui/pebble_time.dart';
 import 'package:pebble_routines/core/share/pebble_share.dart';
 import 'package:pebble_routines/core/share/share_messages.dart';
@@ -33,6 +34,8 @@ import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/core/ui/pebble_photo_gallery_viewer.dart';
 import 'package:pebble_routines/features/ai_photo/ai_photo_settings.dart';
 import 'package:pebble_routines/features/history/ui/routine_run_detail_screen.dart';
+import 'package:pebble_routines/features/onboarding/data/onboarding_tour.dart';
+import 'package:pebble_routines/features/routines/list/ui/reminder_editor_sheet.dart';
 import 'package:pebble_routines/features/history/providers/routine_history_vm.dart';
 import 'package:pebble_routines/features/sync/backup_status.dart';
 import 'package:pebble_routines/features/routines/data/shared_reminder_preferences_repository.dart';
@@ -92,6 +95,48 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
   /// completion screen fades in.
   bool _holdCompletion = false;
   final List<Timer> _checkOffTimers = <Timer>[];
+
+  /// The onboarding practice run: the first routine, tried straight after
+  /// onboarding. Read once, so it stays true on the completion screen.
+  bool? _practice;
+
+  /// The step each practice hint first showed on, so it stays for that step.
+  final Map<PebbleHint, int> _hintSteps = <PebbleHint, int>{};
+  final Set<PebbleHint> _dismissedHints = <PebbleHint>{};
+
+  bool _isPractice(RoutineSession? session) {
+    if (session == null) return _practice ?? false;
+    return _practice ??= ref
+        .read(onboardingTourProvider)
+        .isPracticeRun(session.routineId);
+  }
+
+  /// One hint per step in the practice run: the photo hint on the first
+  /// photo step, the tick hint on the first other step.
+  PebbleHint? _practiceHint(int stepIndex, {required bool photoStep}) {
+    for (final entry in _hintSteps.entries) {
+      if (entry.value == stepIndex) {
+        return _dismissedHints.contains(entry.key) ? null : entry.key;
+      }
+    }
+    final tour = ref.read(onboardingTourProvider);
+    final candidate =
+        photoStep && !_hintSteps.containsKey(PebbleHint.playerPhoto)
+        ? PebbleHint.playerPhoto
+        : PebbleHint.playerTick;
+    if (_hintSteps.containsKey(candidate) || !tour.shouldShow(candidate)) {
+      return null;
+    }
+    _hintSteps[candidate] = stepIndex;
+    unawaited(tour.markSeen(candidate));
+    return candidate;
+  }
+
+  static String _practiceHintText(PebbleHint hint) => switch (hint) {
+    PebbleHint.playerPhoto =>
+      'Take a photo as proof. Pebble saves it with the time, so you can look back later.',
+    _ => 'Do the step for real, then tap below to check it off.',
+  };
 
   @override
   void initState() {
@@ -462,6 +507,11 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
       onLanded: settings.stepCompleteSound ? _playCompletionSound : null,
       onOpenPhoto: (index) => _openRunPhotos(proofs, index),
       onBackToHome: _goHome,
+      onSetReminder: _isPractice(session)
+          ? () => _setPracticeReminder(
+              summary?.run.finishedAt ?? session?.completedAt ?? DateTime.now(),
+            )
+          : null,
       onReviewRoutine: _openVault,
       onShare: run == null ? null : (button) => _shareRun(button, run),
     );
@@ -710,8 +760,24 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
         : playerState.primaryLabel;
     final isBusy = !holdingFinal && !savingStep && playerState.isPrimaryBusy;
 
+    final practice = _isPractice(session);
+    final hint = practice && !isStepLocked && readyPhase
+        ? _practiceHint(
+            playerState.currentStepIndex,
+            photoStep: playerState.hasPhotoRequirement,
+          )
+        : null;
+
     return _RoutineStepSurface(
       routineName: session.routineTitleSnapshot,
+      onSkipPractice: practice ? _skipPracticeRun : null,
+      hint: hint == null
+          ? null
+          : PebbleHintBubble(
+              key: ValueKey('practice-hint-${hint.name}'),
+              message: _practiceHintText(hint),
+              onDismiss: () => setState(() => _dismissedHints.add(hint)),
+            ),
       stepIndex: playerState.currentStepIndex,
       stepCount: playerState.totalSteps,
       progress: playerState.progress,
@@ -1149,6 +1215,18 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
     if (run == null) {
       return;
     }
+    final tour = ref.read(onboardingTourProvider);
+    unawaited(
+      tour.recordCompletedCheck().then((_) {
+        // Home is already built under the player; tell it to look again.
+        if (mounted) ref.read(onboardingTourVersionProvider.notifier).state++;
+      }),
+    );
+    if (_isPractice(
+      ref.read(routinePlayerProvider(widget.sessionId)).session,
+    )) {
+      unawaited(tour.endPracticeRun());
+    }
     await _enqueueSharedReminderIfNeeded(run);
   }
 
@@ -1229,9 +1307,61 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
     GoRouter.of(context).go('/');
   }
 
+  /// "Skip" in the practice run: nothing is saved, and Home shows the new
+  /// routine ready to go.
+  Future<void> _skipPracticeRun() async {
+    final playerState = ref.read(routinePlayerProvider(widget.sessionId));
+    if (playerState.isForegroundBusy) {
+      return;
+    }
+    final session = playerState.session;
+    await ref
+        .read(routinePlayerProvider(widget.sessionId).notifier)
+        .discardSession();
+    await ref.read(onboardingTourProvider).endPracticeRun();
+    if (!mounted) return;
+    if (session != null) {
+      ref
+          .read(homeRoutineHighlightProvider.notifier)
+          .state = HomeRoutineHighlight(
+        routineId: session.routineId,
+        message: '${session.routineTitleSnapshot} is ready',
+      );
+    }
+    _goHome();
+  }
+
+  /// "Set a reminder" on the practice run's completion screen: the usual
+  /// reminder sheet, set to every day at about the time of this check.
+  Future<void> _setPracticeReminder(DateTime finishedAt) async {
+    final session = ref.read(routinePlayerProvider(widget.sessionId)).session;
+    if (session == null) return;
+    final db = ref.read(localDbProvider);
+    final routine = await db.routineDao.getRoutineById(session.routineId);
+    if (routine == null || !mounted) return;
+    await ReminderSheet.show(
+      context,
+      routine,
+      initialTime: roundedReminderTime(finishedAt),
+      initialDays: const {1, 2, 3, 4, 5, 6, 7},
+    );
+    if (!mounted) return;
+    final reminders = await db.routineReminderDao.getRemindersForRoutine(
+      routine.id,
+    );
+    if (reminders.isNotEmpty && mounted) {
+      _goHome();
+    }
+  }
+
   Future<void> _attemptExit() async {
     final playerState = ref.read(routinePlayerProvider(widget.sessionId));
     if (playerState.isForegroundBusy) {
+      return;
+    }
+    if (_isPractice(playerState.session) &&
+        playerState.screenPhase != RoutinePlayerScreenPhase.completion) {
+      await _skipPracticeRun();
       return;
     }
 
@@ -1411,9 +1541,17 @@ class _RoutineStepSurface extends StatelessWidget {
     required this.onComplete,
     required this.secondaryActions,
     this.alignTop = false,
+    this.onSkipPractice,
+    this.hint,
   });
 
   final String routineName;
+
+  /// The practice run swaps "2 of 4" for a Skip link.
+  final Future<void> Function()? onSkipPractice;
+
+  /// A one-time hint above the main button.
+  final Widget? hint;
   final int stepIndex;
   final int stepCount;
   final double progress;
@@ -1478,16 +1616,29 @@ class _RoutineStepSurface extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: PebbleSpacing.sm),
-              ExcludeSemantics(
-                child: Text(
-                  '${stepIndex + 1} of $stepCount',
-                  style: type.caption.copyWith(
-                    color: context.readableSecondaryText,
-                    fontWeight: FontWeight.w600,
-                    fontFeatures: const [FontFeature.tabularFigures()],
+              if (onSkipPractice case final skip?)
+                TextButton(
+                  key: const ValueKey('practice-skip'),
+                  onPressed: () => unawaited(skip()),
+                  child: Text(
+                    'Skip',
+                    style: type.caption.copyWith(
+                      fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                )
+              else
+                ExcludeSemantics(
+                  child: Text(
+                    '${stepIndex + 1} of $stepCount',
+                    style: type.caption.copyWith(
+                      color: context.readableSecondaryText,
+                      fontWeight: FontWeight.w600,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
         ),
@@ -1535,6 +1686,7 @@ class _RoutineStepSurface extends StatelessWidget {
           ),
         ),
         _RoutineStepFooter(
+          hint: hint,
           isBusy: isBusy,
           primaryLabel: primaryLabel,
           primaryIcon: primaryIcon,
@@ -1590,6 +1742,7 @@ class _LockedStepBoundaryBanner extends StatelessWidget {
 
 class _RoutineStepFooter extends StatelessWidget {
   const _RoutineStepFooter({
+    this.hint,
     required this.isBusy,
     required this.primaryLabel,
     this.primaryIcon,
@@ -1604,11 +1757,13 @@ class _RoutineStepFooter extends StatelessWidget {
   final bool isPrimaryEnabled;
   final Future<void> Function() onComplete;
   final Widget secondaryActions;
+  final Widget? hint;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final onSurface = theme.colorScheme.onSurface;
+    final hint = this.hint;
     return Container(
       decoration: BoxDecoration(
         color: theme.colorScheme.surface.withValues(alpha: 0.97),
@@ -1623,6 +1778,7 @@ class _RoutineStepFooter extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (hint != null) ...[hint, const SizedBox(height: 6)],
               PebbleButton.primary(
                 label: primaryLabel,
                 icon: primaryIcon,

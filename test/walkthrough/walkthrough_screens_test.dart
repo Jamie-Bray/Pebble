@@ -1221,6 +1221,56 @@ void main() {
   _onboardingSet('');
   _onboardingSet('', device: _small);
   _onboardingSet('a11y2x_', textScale: 2.0);
+  _capture(
+    'onboarding practice run',
+    account: _Account.signedInPremium,
+    extraPrefs: const {
+      'pebble.tour.hints_enabled': true,
+      'pebble.tour.practice_routine_id': 1,
+      'has_seen_camera_rationale': true,
+    },
+    (env) async {
+      await _openPlayer(env, 1);
+      await env.shot('practice_1_first_step');
+      for (var i = 0; i < 3; i++) {
+        await _tapPrimary(env);
+        await env.realWait(2);
+      }
+      await env.shot('practice_2_photo_step');
+      await _tapPrimary(env);
+      await env.realWait(12);
+      await _tapPrimary(env);
+      await env.realWait(2);
+      await _tapPrimary(env);
+      await env.realWait(10);
+      await env.settle(20);
+      await env.realWait(4);
+      await env.shot('practice_3_complete');
+      await env.tapText('Set a reminder');
+      await env.settle(20);
+      await env.realWait(2);
+      await env.shot('practice_4_reminder_sheet');
+    },
+  );
+  _capture(
+    'tips after onboarding',
+    account: _Account.signedInPremium,
+    extraPrefs: const {
+      'pebble.tour.hints_enabled': true,
+      'pebble.tour.completed_checks': 2,
+      'has_seen_camera_rationale': true,
+    },
+    (env) async {
+      await _runLeavingHouseToHome(env);
+      await env.tapText('Done');
+      await env.settle(20);
+      await env.realWait(4);
+      await env.shot('tips_home_make_it_yours');
+      await env.tapFinder(find.byTooltip('Routine settings').first);
+      await env.settle(20);
+      await env.shot('tips_routine_settings');
+    },
+  );
   _capture('onboarding possibilities', onboarded: false, seed: _Seed.empty, (
     env,
   ) async {

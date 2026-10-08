@@ -236,6 +236,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                           },
                         ),
                         const _Hairline(),
+                        _FlowTile(
+                          icon: LucideIcons.rotateCcw,
+                          title: 'Replay the intro',
+                          subtitle: 'See the welcome and the tips again',
+                          onTap: () async {
+                            await ref
+                                .read(sharedPreferencesProvider)
+                                .setBool('has_completed_onboarding', false);
+                            if (context.mounted) {
+                              context.go('/onboarding?replay=1');
+                            }
+                          },
+                        ),
+                        const _Hairline(),
                         Builder(
                           builder: (tileContext) => _FlowTile(
                             icon: LucideIcons.share,

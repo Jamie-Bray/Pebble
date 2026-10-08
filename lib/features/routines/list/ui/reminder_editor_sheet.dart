@@ -14,22 +14,45 @@ import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/core/notifications/notification_service.dart';
 import 'package:pebble_routines/features/routines/list/ui/routine_reminders_screen.dart';
 
+/// About [at], to the nearest quarter hour: the onboarding practice run
+/// offers a daily reminder at the time the person just checked.
+TimeOfDay roundedReminderTime(DateTime at) {
+  final minutes = ((at.hour * 60 + at.minute) / 15).round() * 15 % (24 * 60);
+  return TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60);
+}
+
 class ReminderSheet extends ConsumerStatefulWidget {
   final Routine routine;
   final RoutineReminder? reminderToEdit;
-  const ReminderSheet({super.key, required this.routine, this.reminderToEdit});
+
+  /// A new reminder starts with these, instead of no day at 9:00 AM.
+  final TimeOfDay? initialTime;
+  final Set<int>? initialDays;
+  const ReminderSheet({
+    super.key,
+    required this.routine,
+    this.reminderToEdit,
+    this.initialTime,
+    this.initialDays,
+  });
 
   static Future<void> show(
     BuildContext context,
     Routine routine, {
     RoutineReminder? reminderToEdit,
+    TimeOfDay? initialTime,
+    Set<int>? initialDays,
   }) {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) =>
-          ReminderSheet(routine: routine, reminderToEdit: reminderToEdit),
+      builder: (ctx) => ReminderSheet(
+        routine: routine,
+        reminderToEdit: reminderToEdit,
+        initialTime: initialTime,
+        initialDays: initialDays,
+      ),
     );
   }
 
@@ -98,12 +121,16 @@ class _ReminderSheetState extends ConsumerState<ReminderSheet>
     if (!mounted) return;
     setState(() {
       _selectedDays = {
-        if (targetReminder?.dayOfWeek != null) targetReminder!.dayOfWeek,
+        if (targetReminder?.dayOfWeek != null)
+          targetReminder!.dayOfWeek
+        else
+          ...?widget.initialDays,
       };
       // Start with a time already chosen, like the system alarm app, so
       // saving only needs a day selection.
       _time =
           _parseTime(targetReminder?.time) ??
+          widget.initialTime ??
           const TimeOfDay(hour: 9, minute: 0);
       _isLoading = false;
     });

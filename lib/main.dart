@@ -205,8 +205,10 @@ final _routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: '/onboarding',
-        builder: (context, state) =>
-            OnboardingScreen(initialPage: _onboardingInitialPage(state)),
+        builder: (context, state) => OnboardingScreen(
+          initialPage: _onboardingInitialPage(state),
+          replay: state.uri.queryParameters['replay'] == '1',
+        ),
       ),
       GoRoute(
         path: '/',
