@@ -25,6 +25,8 @@ import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/features/routines/list/providers/home_hero_state_provider.dart';
 import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
 import 'package:pebble_routines/features/routines/list/ui/home_hero_widgets.dart';
+import 'package:pebble_routines/features/onboarding/data/onboarding_tour.dart';
+import 'package:pebble_routines/core/ui/pebble_hint.dart';
 import 'package:pebble_routines/features/routines/list/providers/routine_management_provider.dart';
 import 'package:pebble_routines/core/ui/zen_notifications.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
@@ -542,6 +544,8 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                               onBegin: () {
                                 _onPlayRoutine(spotlightRoutine);
                               },
+                              onStyle: () =>
+                                  _openStyleSheet(spotlightRoutine, themeData),
                               onPreviewStepTap: (stepIndex) {
                                 _onEditRoutine(
                                   spotlightRoutine,
@@ -1419,6 +1423,10 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
     // Ask the server again each time the actions open; the row keeps showing
     // the last answer while this loads.
     ref.invalidate(aiPhotoServerEnabledProvider);
+    // The first time a routine's settings open after onboarding, one hint.
+    final tour = ref.read(onboardingTourProvider);
+    final showHint = tour.shouldShow(PebbleHint.routineSettings);
+    if (showHint) unawaited(tour.markSeen(PebbleHint.routineSettings));
     showModalBottomSheet(
       context: context,
       useRootNavigator: true,
@@ -1428,6 +1436,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
         final foundation = sheetContext.darkFoundation;
         final accent = _routineAccentColor(routine, themeData, 0);
         var deleteOpen = false;
+        var showSettingsHint = showHint;
         return StatefulBuilder(
           builder: (sheetContext, setSheetState) {
             final maxHeight = MediaQuery.sizeOf(sheetContext).height * 0.75;
@@ -1471,6 +1480,17 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                             routine,
                             accent,
                           ),
+                          if (showSettingsHint) ...[
+                            const SizedBox(height: 12),
+                            PebbleHintBubble(
+                              key: const ValueKey('routine-settings-hint'),
+                              message:
+                                  "Everything for this routine is here: change its steps, set reminders, or give it a style.",
+                              pointsDown: false,
+                              onDismiss: () =>
+                                  setSheetState(() => showSettingsHint = false),
+                            ),
+                          ],
                           const SizedBox(height: 16),
                           _buildSectionHeader(sheetContext, 'MANAGE'),
                           const SizedBox(height: 8),
@@ -2020,6 +2040,7 @@ class _HomeHeroStage extends ConsumerStatefulWidget {
     required this.availableHeight,
     required this.onSettings,
     required this.onBegin,
+    required this.onStyle,
     required this.onPreviewStepTap,
   });
 
@@ -2032,6 +2053,9 @@ class _HomeHeroStage extends ConsumerStatefulWidget {
   /// Opens the routine's actions sheet (edit, reminders, emails...).
   final VoidCallback onSettings;
   final VoidCallback onBegin;
+
+  /// Opens Style Studio for this routine (the one-time "Make it yours" card).
+  final VoidCallback onStyle;
   final ValueChanged<int> onPreviewStepTap;
 
   @override
@@ -2053,6 +2077,17 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
             .read(sharedPreferencesProvider)
             .getBool(_homeStepsPreviewExpandedKey) ??
         false;
+  }
+
+  /// "Make it yours", once, after a few checks (OnboardingTour).
+  late bool _showStyleCard = ref
+      .read(onboardingTourProvider)
+      .shouldShowStyleCard;
+
+  void _dismissStyleCard() {
+    if (!_showStyleCard) return;
+    setState(() => _showStyleCard = false);
+    unawaited(ref.read(onboardingTourProvider).markSeen(PebbleHint.styleCard));
   }
 
   void _setPreviewExpanded(bool expanded) {
@@ -2189,6 +2224,17 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
         ),
         SizedBox(height: metrics.ctaMetaGap),
         Center(child: metaLine),
+        if (_showStyleCard)
+          Padding(
+            padding: const EdgeInsets.only(top: PebbleSpacing.lg),
+            child: HomeMakeItYoursCard(
+              onOpen: () {
+                _dismissStyleCard();
+                widget.onStyle();
+              },
+              onDismiss: _dismissStyleCard,
+            ),
+          ),
         Consumer(
           builder: (context, ref, _) {
             final earlier =

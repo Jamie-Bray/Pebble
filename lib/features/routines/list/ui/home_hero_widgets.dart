@@ -437,3 +437,91 @@ class HomeEarlierChecks extends StatelessWidget {
         : '${tally.done} of $total $steps';
   }
 }
+
+/// "Make it yours": shown once on Home after a few checks, to point at Style
+/// Studio. Tapping it opens Style; the cross hides it for good.
+class HomeMakeItYoursCard extends StatelessWidget {
+  const HomeMakeItYoursCard({
+    super.key,
+    required this.onOpen,
+    required this.onDismiss,
+  });
+
+  final VoidCallback onOpen;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final type = PebbleType.of(context);
+    final foundation = context.darkFoundation;
+    final brightness = Theme.of(context).brightness;
+    return Material(
+      key: const ValueKey('home_make_it_yours'),
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onOpen,
+        borderRadius: BorderRadius.circular(PebbleRadius.md),
+        child: Ink(
+          padding: const EdgeInsets.fromLTRB(14, 10, 4, 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(PebbleRadius.md),
+            border: Border.all(color: foundation.borderSubtle),
+          ),
+          child: Row(
+            children: [
+              ExcludeSemantics(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final stone in RoutinePalette.stones.take(3))
+                      Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: stone.forBrightness(brightness),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const SizedBox(width: 14, height: 14),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: PebbleSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Make it yours',
+                      style: type.body.copyWith(
+                        color: foundation.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      'Pick a colour, an icon and a header for this routine',
+                      style: type.caption.copyWith(
+                        color: context.readableSecondaryText,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: 'Hide',
+                onPressed: onDismiss,
+                icon: Icon(
+                  LucideIcons.x,
+                  size: 18,
+                  color: context.readableSecondaryText,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
