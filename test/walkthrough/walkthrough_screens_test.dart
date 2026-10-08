@@ -1642,6 +1642,25 @@ void main() {
         await env.go('/');
         await _openPlayer(env, 1);
         await env.shot('${prefix}step_description_player');
+        // Read more unfolds in place; Listen and Note step aside.
+        await env.tapFinder(
+          find.byKey(const ValueKey('routine-step-read-more')),
+        );
+        await env.shot('${prefix}step_description_player_read_more');
+        await env.tapFinder(
+          find.byKey(const ValueKey('routine-step-read-more')),
+        );
+        // The note bar sits where the footer was (on a phone, on top of the
+        // keyboard), then the saved note shows as one soft line.
+        await env.tapFinder(find.byKey(const ValueKey('player-note-tool')));
+        await env.tester.enterText(
+          find.byKey(const ValueKey('player-note-field')),
+          'Left the plates on the rack to dry',
+        );
+        await env.shot('${prefix}step_note_composer');
+        await env.tapFinder(find.byKey(const ValueKey('player-note-save')));
+        await env.realWait();
+        await env.shot('${prefix}step_note_saved');
         if (prefix == 'small_') {
           await env.scrollDown(250);
           await env.shot('${prefix}step_description_player_scrolled');
