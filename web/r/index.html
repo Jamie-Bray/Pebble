@@ -52,7 +52,14 @@
       .shared-routine-actions {
         display: grid;
         gap: 10px;
-        margin-top: 20px;
+      }
+      .shared-alert-copy h1 {
+        font-size: clamp(36px, 6vw, 52px);
+      }
+      .shared-alert-copy .body-copy {
+        font-family: inherit;
+        font-size: 18px;
+        line-height: 1.5;
       }
       .shared-routine-actions .button {
         text-align: center;
@@ -100,12 +107,12 @@
             </div>
           </noscript>
 
-          <ol class="shared-routine-steps" id="steps" hidden></ol>
-
           <div class="shared-routine-actions" id="actions" hidden>
             <a class="button primary" id="open-app" href="#">Open in Pebble</a>
             <p id="get-app"></p>
           </div>
+
+          <ol class="shared-routine-steps" id="steps" hidden></ol>
         </div>
       </section>
       <p class="shared-alert-footer">
@@ -210,8 +217,7 @@
         document.title = name + ' | Pebble Routines';
         title.textContent = name;
         body.textContent =
-          'Someone shared this routine from Pebble, an app for the checks you do every day. ' +
-          'Open it in Pebble to add it to your routines.';
+          'Someone shared this routine with you. Open it in Pebble to save your own copy.';
         openApp.href = 'pebbleroutines://r#' + data;
 
         var stores = [];

@@ -355,3 +355,84 @@ class HomeCheckedCard extends ConsumerWidget {
     );
   }
 }
+
+/// Up to two earlier checks of the routine, under the Checked card, so
+/// "when did I last do this?" rarely needs a trip to History.
+class HomeEarlierChecks extends StatelessWidget {
+  const HomeEarlierChecks({
+    super.key,
+    required this.runs,
+    required this.onOpen,
+  });
+
+  final List<RoutineRun> runs;
+  final ValueChanged<RoutineRun> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    if (runs.isEmpty) return const SizedBox.shrink();
+    final type = PebbleType.of(context);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    String dayLabel(DateTime at) {
+      final day = DateTime(at.year, at.month, at.day);
+      if (day == today) return 'Today';
+      if (day == today.subtract(const Duration(days: 1))) return 'Yesterday';
+      return MaterialLocalizations.of(context).formatMediumDate(at);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Kept quiet: sentence case and caption size, so the past checks sit
+        // behind the Checked card rather than competing with it.
+        Text(
+          'Earlier',
+          style: type.caption.copyWith(color: context.readableSecondaryText),
+        ),
+        const SizedBox(height: PebbleSpacing.xs),
+        for (final run in runs)
+          InkWell(
+            borderRadius: PebbleRadius.mdAll,
+            onTap: () => onOpen(run),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 11),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${dayLabel(run.finishedAt)} · '
+                      '${formatCheckTime(context, run.finishedAt)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: type.caption.copyWith(
+                        color: context.readableSecondaryText,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: PebbleSpacing.sm),
+                  Text(
+                    _tallyLabel(RunStepTally.fromRun(run)),
+                    style: type.caption.copyWith(
+                      color: context.readableSecondaryText,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  static String _tallyLabel(RunStepTally tally) {
+    final total = tally.total;
+    if (total == 0) return 'Checked';
+    final steps = total == 1 ? 'step' : 'steps';
+    return tally.skipped == 0 && tally.done >= total
+        ? 'all $total $steps'
+        : '${tally.done} of $total $steps';
+  }
+}
