@@ -16,8 +16,9 @@ import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 
 // Screens and sheets for the end of Personal Premium. The rules they explain:
 // nothing is deleted at the moment Premium ends; extra routines lock (and the
-// user picks which stay unlocked); history older than 48 hours stays on this
-// phone for 7 days after the lapse is confirmed, and the date is always shown.
+// user picks which stay unlocked); history older than 48 hours stays visible
+// for 7 days after the lapse is confirmed, and the date is always shown. After
+// that it is hidden, not deleted: every plan keeps 21 days on the phone.
 
 /// Sheet shown when a locked routine is tapped.
 Future<void> showLockedRoutineSheet(BuildContext context, Routine routine) {
@@ -349,8 +350,7 @@ String premiumLapseHeadline(PremiumLapseSummary summary) {
     if (summary.hasHistoryAtRisk) {
       final count = summary.olderHistoryRunCount;
       return '$count completed ${count == 1 ? 'routine' : 'routines'} older '
-          'than 48 hours will be removed from this phone on $date. '
-          'Renew to keep them.';
+          'than 48 hours will be hidden on $date. Renew to keep seeing them.';
     }
     return 'From $date, Free limits apply: ${summary.freeRoutineLimit} '
         'routines stay unlocked. Nothing is deleted.';

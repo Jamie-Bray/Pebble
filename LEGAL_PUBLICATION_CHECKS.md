@@ -29,7 +29,7 @@ store.
 
 ### High-risk product items to keep aligned
 
-- Free proof-photo and history retention: 48 hours on this device.
+- Free proof-photo and history retention: 21 days on this device, last 48 hours shown.
 - Personal Premium proof-photo and history retention: rolling 21-day window.
 - Pebble must only delete its own private proof-photo copies, never the user's camera roll or photo library.
 - Household, Workspace, Growth, and Enterprise plans are not launch products. Do not describe them in public launch copy unless separate terms and implementation are ready.

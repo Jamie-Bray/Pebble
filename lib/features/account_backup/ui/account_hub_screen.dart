@@ -1075,16 +1075,18 @@ class _LapsedPremiumSection extends StatelessWidget {
     if (summary.inGrace) {
       final date = summary.graceEndDateLabel;
       if (summary.olderHistoryRunCount == 0) {
-        return 'Your history is still here. From $date, Free keeps the last '
-            '48 hours on this phone.$backupLine';
+        return 'Your history is still here. From $date, Free shows the last '
+            '48 hours.$backupLine';
       }
       final count = summary.olderHistoryRunCount;
       return '$count completed ${count == 1 ? 'routine' : 'routines'} older '
-          'than 48 hours stay on this phone until $date. After that they are '
-          'removed from this phone, because Free keeps 48 hours. Renew before '
-          'then to keep them.$backupLine';
+          'than 48 hours stay visible until $date. After that they are '
+          'hidden, because Free shows 48 hours. They stay on this phone for '
+          'up to 21 days, so renewing shows them again.$backupLine';
     }
-    return 'Free keeps the last 48 hours of history on this phone.$backupLine';
+    return 'Free shows the last 48 hours of history. Older history stays on '
+        'this phone for up to 21 days, and renewing shows it again.'
+        '$backupLine';
   }
 
   static String _routinesBody(PremiumLapseSummary summary) {

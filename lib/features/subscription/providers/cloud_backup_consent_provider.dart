@@ -24,10 +24,10 @@ const cloudBackupConsentFeature = 'personal_cloud_backup';
 // two drift apart.
 
 /// The "Last updated" date on web/privacy.html, as YYYY-MM-DD.
-const cloudBackupConsentPrivacyVersion = '2026-10-05';
+const cloudBackupConsentPrivacyVersion = '2026-10-08';
 
 /// The "Last updated" date on web/terms.html, as YYYY-MM-DD.
-const cloudBackupConsentTermsVersion = '2026-10-05';
+const cloudBackupConsentTermsVersion = '2026-10-08';
 
 /// Recorded as the app version when the platform can't report one.
 const cloudBackupConsentUnknownAppVersion = 'unknown';

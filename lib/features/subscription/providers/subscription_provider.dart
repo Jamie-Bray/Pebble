@@ -48,6 +48,9 @@ final subscriptionLifecycleProvider = Provider<SubscriptionLifecycle>((ref) {
   );
 });
 
+/// How much history this account can see: 48 hours on Free, 21 days with
+/// Premium (and during the grace period after it ends). The phone keeps
+/// [ProofMediaFairUsePolicy.storedHistoryRetention] either way.
 final accountHistoryRetentionProvider = Provider<Duration>((ref) {
   final lifecycle = ref.watch(subscriptionLifecycleProvider);
 

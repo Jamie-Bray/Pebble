@@ -43,11 +43,12 @@ Free includes:
 - Up to 2 routines.
 - Up to 10 steps per routine.
 - Recent local history.
-- Pebble-owned proof-photo copies retained for 48 hours.
+- The last 48 hours of history and proof photos shown (21 days kept on the device).
 - Two standard themes plus accessibility themes.
 
-After 48 hours, expired free history runs and Pebble-owned proof-photo copies are
-deleted from Pebble's private app storage. Pebble must not delete camera-roll or
+Free history older than 48 hours is hidden, not deleted. After 21 days, history
+runs and Pebble-owned proof-photo copies are deleted from Pebble's private app
+storage on every plan, so upgrading shows the hidden days. Pebble must not delete camera-roll or
 photo-library originals.
 
 ## Premium
@@ -85,8 +86,8 @@ Current lifecycle model:
 - Active Premium: 21-day recent history/proof retention and cloud backup can run.
 - Recently ended Premium: 7-day grace state, no new cloud uploads, extended
   history remains visible for now.
-- After grace: revert to free behaviour and prune local history/proofs older
-  than 48 hours.
+- After grace: revert to free behaviour and hide local history/proofs older
+  than 48 hours (still deleted at 21 days).
 
 Expiry and grace behaviour should stay explicit in code rather than hidden in a
 generic free-tier cleanup path.
@@ -213,7 +214,7 @@ Play Console URLs:
 
 The website must match the app before upload:
 
-- Free local history/proof retention: 48 hours.
+- Free local history/proof: 21 days kept, last 48 hours shown.
 - Premium recent history/proof backup retention: 21 days.
 - Pebble never deletes the user's camera roll or photo library.
 - Pebble works without an account.

@@ -120,7 +120,7 @@ PRIVATE BY DEFAULT
 • Works without an account. No sign-up needed to start.
 • Your routines, history and photos are stored on this device.
 • No ads or tracking, and Pebble does not sell your data.
-• On the free plan, photos and history are kept for 48 hours, then Pebble deletes its own copies. Pebble never deletes anything from your photo library.
+• Pebble keeps 21 days of photos and history on this device, then deletes its own copies. The free plan shows the last 48 hours. Pebble never deletes anything from your photo library.
 • Cloud backup only starts if you have Premium, sign in, and choose to turn it on.
 
 FREE
@@ -132,7 +132,7 @@ FREE
 PERSONAL PREMIUM (MONTHLY OR YEARLY)
 • Unlimited routines and steps
 • Up to 4 photos per step
-• 21 days of recent history
+• The full 21 days of history
 • Voice prompts on any step
 • Extra themes
 • Optional cloud backup and account recovery (needs sign-in and your consent)
@@ -203,7 +203,7 @@ NO ACCOUNT NEEDED
 Every core feature works without signing in. Sign-in is optional and is only used for Premium cloud backup, account recovery, and completion emails. Options: Sign in with Apple, Google, or an email one-time code (any email address works).
 
 FREE VS PREMIUM
-Free: 2 routines, 10 steps per routine, 1 photo per step, 48 hours of history.
+Free: 2 routines, 10 steps per routine, 1 photo per step, the last 48 hours of history shown (the device keeps 21 days, which Premium shows).
 Personal Premium (auto-renewable, monthly or yearly, subscription group "Pebble Premium"): unlimited routines and steps, up to 4 photos per step, 21 days of history, recorded voice prompts, extra themes, and optional cloud backup and completion emails after sign-in.
 
 HOW TO REACH THE SUBSCRIPTION SCREEN

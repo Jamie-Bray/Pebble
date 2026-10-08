@@ -77,8 +77,8 @@ void main() {
       expect(summary.needsAttention, isTrue);
       expect(
         premiumLapseHeadline(summary),
-        '2 completed routines older than 48 hours will be removed from this '
-        'phone on 8 October. Renew to keep them.',
+        '2 completed routines older than 48 hours will be hidden on '
+        '8 October. Renew to keep seeing them.',
       );
     });
 

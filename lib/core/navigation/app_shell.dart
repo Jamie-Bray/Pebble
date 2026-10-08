@@ -32,9 +32,10 @@ class _AppShellState extends ConsumerState<AppShell> {
         .watch(routineListProvider)
         .maybeWhen(data: (l) => l.isEmpty, orElse: () => false);
     // A first-run Home stays uncluttered, but once there are saved runs the
-    // bar stays, so History is still reachable after every routine is deleted.
+    // bar stays, so History is still reachable after every routine is deleted
+    // (and Free can still find the history it is hiding).
     final hasHistory = ref
-        .watch(routineHistoryVmProvider)
+        .watch(storedRoutineRunsProvider)
         .maybeWhen(data: (runs) => runs.isNotEmpty, orElse: () => false);
     final hideChrome = hasNoRoutines && !hasHistory;
     final idx = hideChrome ? 0 : ref.watch(navIndexProvider);
