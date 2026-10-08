@@ -134,45 +134,58 @@ void main() {
     expect(find.text('UP NEXT'), findsOneWidget);
     expect(find.text('Start'), findsOneWidget);
     expect(find.text('Last Run.'), findsOneWidget);
-    expect(find.text('Settings'), findsNothing);
     expect(find.byTooltip('App settings'), findsOneWidget);
     expect(find.text('Reminders'), findsNothing);
     expect(find.text('Email'), findsNothing);
-    // The unlabelled bell/mail/gear bar is gone: a meta line opens the
+    // The unlabelled bell/mail/gear bar is gone: one Settings pill opens the
     // routine's actions instead.
     expect(find.byTooltip('Reminders'), findsNothing);
     expect(find.byTooltip('Email'), findsNothing);
     expect(find.byTooltip('Routine settings'), findsOneWidget);
-    expect(find.text('2 steps'), findsOneWidget);
+    expect(find.text('2 steps'), findsWidgets);
+    // Every routine is listed on the page, with no drawer to open.
     expect(find.text('Your routines'), findsOneWidget);
     expect(find.text('2 routines'), findsOneWidget);
-    expect(find.text('Last Run'), findsNothing);
-    expect(find.text('Newest'), findsNothing);
-    await tester.tap(find.text('Your routines'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 250));
-
-    expect(find.text('Your routines'), findsOneWidget);
     expect(find.text('Last Run'), findsOneWidget);
     expect(find.text('Newest'), findsOneWidget);
+    expect(find.text('Not checked yet'), findsWidgets);
 
-    await tester.drag(find.text('Your routines'), const Offset(0, 320));
+    await tester.ensureVisible(find.text('Newest'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 350));
-
-    expect(find.text('Your routines'), findsOneWidget);
-    expect(find.text('Newest'), findsNothing);
-
-    await tester.drag(find.text('Your routines'), const Offset(0, -90));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 350));
-
     await tester.tap(find.text('Newest'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('Newest.'), findsOneWidget);
-    expect(find.text('Your routines'), findsWidgets);
+    expect(find.text('Last Run.'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the routine list shows when each routine was last checked', (
+    tester,
+  ) async {
+    final now = DateTime(2026, 10, 8, 18);
+    await _pumpHome(
+      tester,
+      surfaceSize: const Size(390, 1400),
+      clock: () => now,
+      routines: [
+        _routine(id: 1, title: 'Front door'),
+        _routine(id: 2, title: 'Hob'),
+        _routine(id: 3, title: 'Car'),
+      ],
+      runs: [
+        _run(routineId: 1, finishedAt: DateTime(2026, 10, 8, 8, 2)),
+        _run(routineId: 2, finishedAt: DateTime(2026, 10, 7, 21)),
+      ],
+    );
+
+    expect(find.text('1 checked today'), findsOneWidget);
+    expect(find.textContaining(RegExp(r'^(08:02|8:02\s?AM)$')), findsWidgets);
+    expect(find.text('Yesterday'), findsOneWidget);
+    expect(find.text('Not checked yet'), findsWidgets);
+    expect(find.text('Hold a routine to reorder'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('template handoff highlights the new routine on Home', (
@@ -208,18 +221,11 @@ void main() {
     expect(find.text('Leaving Home.'), findsOneWidget);
     expect(find.text('Start'), findsOneWidget);
     expect(find.text('Your routines'), findsOneWidget);
-    expect(find.text('Leaving Home'), findsNothing);
     expect(find.text('Add step'), findsNothing);
     expect(find.text('Style'), findsNothing);
-
-    await tester.tap(find.text('Your routines'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 350));
-
-    expect(find.text('Your routines'), findsOneWidget);
   });
 
-  testWidgets('routine library scrolls beyond four routines', (tester) async {
+  testWidgets('routine list scrolls beyond four routines', (tester) async {
     final routines = List.generate(
       7,
       (index) => _routine(id: index + 1, title: 'Routine ${index + 1}'),
@@ -239,26 +245,22 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('Routine 1.'), findsOneWidget);
-    expect(find.text('Routine 1'), findsNothing);
     expect(find.text('Ready when you are'), findsNothing);
     expect(find.text('Your routines'), findsOneWidget);
     expect(find.text('7 routines'), findsOneWidget);
 
-    await tester.tap(find.text('Your routines'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 350));
-
-    await tester.drag(
-      find.byType(CustomScrollView).last,
-      const Offset(0, -420),
+    await tester.dragUntilVisible(
+      find.text('Routine 7'),
+      find.byKey(const ValueKey('home_scroll')),
+      const Offset(0, -200),
     );
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('Routine 7'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
-  testWidgets('hero layout is ordered, stable, and above the routine shelf', (
+  testWidgets('hero layout is ordered and sits above the routine list', (
     tester,
   ) async {
     await _pumpHome(
@@ -278,130 +280,61 @@ void main() {
       ],
     );
 
+    double top(String key) => tester.getTopLeft(find.byKey(ValueKey(key))).dy;
+    double bottom(String key) =>
+        tester.getBottomLeft(find.byKey(ValueKey(key))).dy;
+
     final headerBottom = tester
         .getBottomLeft(find.text('Small steps, big ripples'))
         .dy;
-    final overlineTop = tester
-        .getTopLeft(find.byKey(const ValueKey('home_hero_overline')))
-        .dy;
-    expect(overlineTop - headerBottom, greaterThanOrEqualTo(16));
-
-    final overlineBottom = tester
-        .getBottomLeft(find.byKey(const ValueKey('home_hero_overline')))
-        .dy;
-    final titleTop = tester
-        .getTopLeft(find.byKey(const ValueKey('home_hero_title')))
-        .dy;
-    expect(titleTop - overlineBottom, closeTo(10, 1));
-
-    final titleBottom = tester
-        .getBottomLeft(find.byKey(const ValueKey('home_hero_title')))
-        .dy;
-    expect(find.text('Settings'), findsNothing);
+    expect(top('home_hero_overline'), greaterThan(headerBottom));
+    expect(top('home_hero_title'), greaterThan(bottom('home_hero_overline')));
     expect(find.byKey(const ValueKey('home_hero_action_strip')), findsNothing);
-    // "4 steps" is the meta line, between the title and the steps preview.
-    expect(find.text('4 steps'), findsOneWidget);
-    final metaLineTop = tester
-        .getTopLeft(find.byKey(const ValueKey('home_hero_routine_meta')))
-        .dy;
-    expect(metaLineTop, greaterThan(titleBottom));
-
-    final previewTop = tester
-        .getTopLeft(find.byKey(const ValueKey('home_hero_preview_card')))
-        .dy;
-    expect(previewTop, greaterThan(titleBottom));
-
-    final headerTop = tester
-        .getTopLeft(find.byKey(const ValueKey('home_hero_preview_header')))
-        .dy;
-    final metaTop = tester
-        .getTopLeft(find.byKey(const ValueKey('home_hero_meta_row')))
-        .dy;
+    // "4 steps" is the meta line, between the title and the steps.
     expect(
-      metaLineTop,
-      lessThan(
-        tester
-            .getTopLeft(find.byKey(const ValueKey('home_hero_preview_card')))
-            .dy,
+      tester
+          .widget<Text>(find.byKey(const ValueKey('home_hero_routine_meta')))
+          .data,
+      '4 steps',
+    );
+    expect(
+      top('home_hero_routine_meta'),
+      greaterThan(bottom('home_hero_title')),
+    );
+    expect(
+      top('home_hero_preview_list'),
+      greaterThan(bottom('home_hero_routine_meta')),
+    );
+    // The settings pill sits in the card's top row, not among the steps.
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('home_hero_preview_list')),
+        matching: find.byTooltip('Routine settings'),
       ),
+      findsNothing,
     );
-    final settingsCog = find.descendant(
-      of: find.byKey(const ValueKey('home_hero_preview_header')),
-      matching: find.byTooltip('Routine settings'),
+    expect(find.byType(ShaderMask), findsNothing);
+    expect(
+      top('home_hero_cta_box'),
+      greaterThan(bottom('home_hero_preview_list')),
     );
-    final previewHeaderReminders = find.descendant(
-      of: find.byKey(const ValueKey('home_hero_preview_header')),
-      matching: find.byTooltip('Reminders'),
+    expect(top('home_hero_meta_row'), greaterThan(bottom('home_hero_cta_box')));
+    expect(
+      tester.getSize(find.byKey(const ValueKey('home_hero_cta_box'))).height,
+      greaterThanOrEqualTo(54),
     );
-    final previewHeaderEmail = find.descendant(
-      of: find.byKey(const ValueKey('home_hero_preview_header')),
-      matching: find.byTooltip('Email'),
-    );
-    final previewCardReminders = find.descendant(
-      of: find.byKey(const ValueKey('home_hero_preview_card')),
-      matching: find.text('Reminders'),
-    );
-    final previewCardEmail = find.descendant(
-      of: find.byKey(const ValueKey('home_hero_preview_card')),
-      matching: find.text('Email'),
-    );
-    final previewMask = find.descendant(
-      of: find.byKey(const ValueKey('home_hero_preview_card')),
-      matching: find.byType(ShaderMask),
-    );
-    expect(find.text('Steps'), findsOneWidget);
-    expect(settingsCog, findsNothing);
-    expect(previewHeaderReminders, findsNothing);
-    expect(previewHeaderEmail, findsNothing);
-    expect(previewCardReminders, findsNothing);
-    expect(previewCardEmail, findsNothing);
-    expect(previewMask, findsNothing);
-    expect(headerTop, greaterThanOrEqualTo(previewTop));
 
-    final previewBottom = tester
-        .getBottomLeft(find.byKey(const ValueKey('home_hero_preview_card')))
-        .dy;
-    expect(metaTop, greaterThan(previewBottom));
-
-    final ctaTop = tester
-        .getTopLeft(find.byKey(const ValueKey('home_hero_cta_box')))
-        .dy;
-    expect(ctaTop, greaterThan(previewBottom));
-    expect(metaTop, greaterThan(ctaTop));
-
-    final ctaSize = tester.getSize(
-      find.byKey(const ValueKey('home_hero_cta_box')),
-    );
-    expect(ctaSize.height, greaterThanOrEqualTo(56));
-
-    final ctaBottom = tester
-        .getBottomLeft(find.byKey(const ValueKey('home_hero_cta_box')))
-        .dy;
-    final shelfTop = tester.getTopLeft(find.text('Your routines')).dy;
-    expect(ctaBottom, lessThan(shelfTop));
+    final listTop = tester.getTopLeft(find.text('Your routines')).dy;
+    expect(bottom('home_hero_meta_row'), lessThan(listTop));
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('hero preview viewport height is stable for long routines', (
+  testWidgets('Up next lists three steps and opens the rest in place', (
     tester,
   ) async {
     await _pumpHome(
       tester,
-      surfaceSize: const Size(390, 844),
-      routines: [
-        _routine(id: 1, title: 'Short Routine', steps: [_step('One thing')]),
-      ],
-    );
-
-    await tester.tap(find.byTooltip('Show steps'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 220));
-    final shortHeight = tester
-        .getSize(find.byKey(const ValueKey('home_hero_preview_card')))
-        .height;
-
-    await _pumpHome(
-      tester,
+      surfaceSize: const Size(390, 1600),
       routines: [
         _routine(
           id: 1,
@@ -411,48 +344,23 @@ void main() {
       ],
     );
 
-    final longHeight = tester
-        .getSize(find.byKey(const ValueKey('home_hero_preview_card')))
-        .height;
-    expect(longHeight, shortHeight);
+    expect(find.text('Long step 3'), findsOneWidget);
+    expect(find.text('Long step 4'), findsNothing);
+    expect(find.text('Show all 12 steps'), findsOneWidget);
 
-    final ctaTopBefore = tester
-        .getTopLeft(find.byKey(const ValueKey('home_hero_cta_box')))
-        .dy;
-    final headerTopBefore = tester
-        .getTopLeft(find.byKey(const ValueKey('home_hero_preview_header')))
-        .dy;
-    final metaTopBefore = tester
-        .getTopLeft(find.byKey(const ValueKey('home_hero_meta_row')))
-        .dy;
-    await tester.drag(
-      find.byKey(const ValueKey('home_hero_preview_list')),
-      const Offset(0, -420),
-    );
+    await tester.tap(find.text('Show all 12 steps'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 260));
 
-    final ctaTopAfter = tester
-        .getTopLeft(find.byKey(const ValueKey('home_hero_cta_box')))
-        .dy;
-    final heightAfterScroll = tester
-        .getSize(find.byKey(const ValueKey('home_hero_preview_card')))
-        .height;
-    final headerTopAfter = tester
-        .getTopLeft(find.byKey(const ValueKey('home_hero_preview_header')))
-        .dy;
-    final metaTopAfter = tester
-        .getTopLeft(find.byKey(const ValueKey('home_hero_meta_row')))
-        .dy;
-    expect(heightAfterScroll, longHeight);
-    expect(ctaTopAfter, ctaTopBefore);
-    expect(headerTopAfter, headerTopBefore);
-    expect(metaTopAfter, metaTopBefore);
+    expect(find.text('Long step 12'), findsOneWidget);
+    expect(find.text('Show fewer'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
   testWidgets('home Steps collapses and expands', (tester) async {
     await _pumpHome(
       tester,
+      surfaceSize: const Size(390, 1200),
       routines: [
         _routine(
           id: 1,
@@ -461,67 +369,86 @@ void main() {
             _step('Check windows'),
             _step('Pack wallet'),
             _step('Lock door'),
+            _step('Keys in hand'),
           ],
         ),
       ],
     );
 
-    expect(find.text('Steps'), findsOneWidget);
-    expect(find.text('Check windows'), findsNothing);
-    expect(find.text('Start'), findsOneWidget);
-    expect(find.byTooltip('Show steps'), findsOneWidget);
-    expect(find.byType(ShaderMask), findsNothing);
-
-    await tester.tap(find.byTooltip('Show steps'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 220));
-
-    expect(find.text('Steps'), findsOneWidget);
     expect(find.text('Check windows'), findsOneWidget);
+    expect(find.text('Keys in hand'), findsNothing);
     expect(find.text('Start'), findsOneWidget);
-    expect(find.byTooltip('Hide steps'), findsOneWidget);
-    expect(find.byType(ShaderMask), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Hide steps'));
+    await tester.tap(find.text('Show all 4 steps'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 220));
+    await tester.pump(const Duration(milliseconds: 260));
 
-    expect(find.text('Check windows'), findsNothing);
-    expect(find.byTooltip('Show steps'), findsOneWidget);
-    expect(find.byType(ShaderMask), findsNothing);
+    expect(find.text('Keys in hand'), findsOneWidget);
+    expect(find.text('Start'), findsOneWidget);
+
+    await tester.tap(find.text('Show fewer'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 260));
+
+    expect(find.text('Keys in hand'), findsNothing);
+    expect(find.text('Show all 4 steps'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('collapsed home Steps persists after rebuild', (tester) async {
+  testWidgets('a routine of three steps or fewer has nothing to expand', (
+    tester,
+  ) async {
+    await _pumpHome(
+      tester,
+      routines: [
+        _routine(
+          id: 1,
+          title: 'Departure Check',
+          steps: [_step('Check windows'), _step('Pack wallet')],
+        ),
+      ],
+    );
+
+    expect(find.text('Check windows'), findsOneWidget);
+    expect(find.text('Pack wallet'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('home_hero_preview_toggle')),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('expanded home Steps persists after rebuild', (tester) async {
     final routines = [
       _routine(
         id: 1,
         title: 'Departure Check',
-        steps: [_step('Check windows'), _step('Pack wallet')],
+        steps: List.generate(5, (i) => _step('Step ${i + 1}')),
       ),
     ];
 
-    await _pumpHome(tester, routines: routines);
-    expect(find.text('Check windows'), findsNothing);
+    await _pumpHome(
+      tester,
+      surfaceSize: const Size(390, 1200),
+      routines: routines,
+    );
+    expect(find.text('Step 5'), findsNothing);
 
-    await tester.tap(find.byTooltip('Show steps'));
+    await tester.tap(find.text('Show all 5 steps'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 220));
-    expect(find.text('Check windows'), findsOneWidget);
-
-    await tester.tap(find.byTooltip('Hide steps'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 220));
-    expect(find.text('Check windows'), findsNothing);
+    await tester.pump(const Duration(milliseconds: 260));
+    expect(find.text('Step 5'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
-    await _pumpHome(tester, routines: routines);
+    await _pumpHome(
+      tester,
+      surfaceSize: const Size(390, 1200),
+      routines: routines,
+    );
 
-    expect(find.text('Steps'), findsOneWidget);
-    expect(find.text('Check windows'), findsNothing);
-    expect(find.text('Start'), findsOneWidget);
-    expect(find.byTooltip('Show steps'), findsOneWidget);
+    expect(find.text('Step 5'), findsOneWidget);
+    expect(find.text('Show fewer'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -543,19 +470,9 @@ void main() {
       ],
     );
 
-    await tester.tap(find.byTooltip('Show steps'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 220));
+    expect(find.bySemanticsLabel('Edit step: Pack wallet'), findsOneWidget);
 
-    await tester.drag(
-      find.byKey(const ValueKey('home_hero_preview_list')),
-      const Offset(0, -90),
-    );
-    await tester.pump();
-
-    expect(find.byTooltip('Edit step: Pack wallet'), findsOneWidget);
-
-    await tester.tap(find.byTooltip('Edit step: Pack wallet'));
+    await tester.tap(find.text('Pack wallet'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pump(const Duration(milliseconds: 350));
@@ -570,9 +487,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('long preview scrolls and tapped rows still deep-link', (
-    tester,
-  ) async {
+  testWidgets('a step from the opened list still deep-links', (tester) async {
     await _pumpHome(
       tester,
       routines: [
@@ -584,33 +499,20 @@ void main() {
       ],
     );
 
-    await tester.tap(find.byTooltip('Show steps'));
+    await tester.tap(find.text('Show all 12 steps'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 220));
+    await tester.pump(const Duration(milliseconds: 260));
 
-    final previewHeightBefore = tester
-        .getSize(find.byKey(const ValueKey('home_hero_preview_card')))
-        .height;
-
-    final targetTooltip = find.byTooltip('Edit step: Long step 8');
+    final target = find.text('Long step 8');
     await tester.dragUntilVisible(
-      targetTooltip,
-      find.byKey(const ValueKey('home_hero_preview_list')),
+      target,
+      find.byKey(const ValueKey('home_scroll')),
       const Offset(0, -80),
       maxIteration: 20,
     );
     await tester.pump();
 
-    expect(
-      tester
-          .getSize(find.byKey(const ValueKey('home_hero_preview_card')))
-          .height,
-      previewHeightBefore,
-    );
-
-    expect(targetTooltip, findsOneWidget);
-
-    await tester.tap(targetTooltip);
+    await tester.tap(target);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pump(const Duration(milliseconds: 350));
@@ -647,13 +549,6 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
 
       expect(find.text('The Anxiety-Free Departure.'), findsOneWidget);
-      expect(find.text('The Anxiety-Free Departure'), findsNothing);
-      expect(find.text('Car Security & Parking Peace'), findsNothing);
-
-      await tester.tap(find.text('Your routines'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 350));
-
       expect(find.text('The Anxiety-Free Departure'), findsOneWidget);
       expect(find.text('Car Security & Parking Peace'), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -686,7 +581,6 @@ void main() {
 
     expect(find.text('UP NEXT'), findsOneWidget);
     expect(find.text('Morning Reset.'), findsOneWidget);
-    expect(find.text('Settings'), findsNothing);
     expect(find.byTooltip('App settings'), findsOneWidget);
     expect(find.text('Reminders'), findsNothing);
     expect(find.text('Email'), findsNothing);
@@ -878,18 +772,24 @@ void main() {
     expect(wordmark, findsOneWidget);
     expect(tester.getSize(wordmark).height, lessThan(40));
 
-    // Start is on screen, above the routine shelf, without scrolling.
+    // Start is reachable and comes before the routine list.
     final cta = find.byKey(const ValueKey('home_hero_cta_box'));
     expect(cta, findsOneWidget);
-    final ctaBottom = tester.getBottomLeft(cta).dy;
-    final shelfTop = tester.getTopLeft(find.text('Your routines')).dy;
-    expect(ctaBottom, lessThan(shelfTop));
-    expect(tester.getTopLeft(cta).dy, greaterThan(0));
-
-    // The expanded routine list grows its rows instead of clipping them.
-    await tester.tap(find.text('Your routines'));
+    await tester.ensureVisible(cta);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 350));
+    expect(tester.getTopLeft(cta).dy, greaterThanOrEqualTo(0));
+
+    // The routine list grows its rows instead of clipping them.
+    await tester.dragUntilVisible(
+      find.text('Morning reset'),
+      find.byKey(const ValueKey('home_scroll')),
+      const Offset(0, -200),
+    );
+    await tester.pump();
+    expect(
+      tester.getTopLeft(find.text('Your routines')).dy,
+      greaterThan(tester.getBottomLeft(cta).dy),
+    );
     expect(find.text('Morning reset'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -968,12 +868,12 @@ void main() {
 
     expect(
       find.textContaining(
-        RegExp(r'^Last checked yesterday, (13:27|1:27\s?PM)$'),
+        RegExp(r'^Last checked yesterday, (13:27|1:27\s?PM) · '),
       ),
       findsOneWidget,
     );
-    expect(find.text('3 of 4 steps · 1 skipped'), findsOneWidget);
-    expect(find.text('4 of 4 steps'), findsNothing);
+    expect(find.textContaining('3 of 4 steps · 1 skipped'), findsOneWidget);
+    expect(find.textContaining('4 of 4 steps'), findsNothing);
   });
 
   _checkedTests();

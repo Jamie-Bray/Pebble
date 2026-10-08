@@ -63,6 +63,7 @@ class PebbleGlassIconButton extends StatelessWidget {
     required this.onPressed,
     this.iconColor,
     this.backgroundColor,
+    this.flat = false,
   });
 
   final IconData icon;
@@ -70,6 +71,10 @@ class PebbleGlassIconButton extends StatelessWidget {
   final VoidCallback onPressed;
   final Color? iconColor;
   final Color? backgroundColor;
+
+  /// No shadow: for a header that sits on the page rather than over
+  /// scrolling content (Home).
+  final bool flat;
 
   static const double size = 44;
 
@@ -92,13 +97,17 @@ class PebbleGlassIconButton extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.32 : 0.08),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
-              ),
-            ],
+            boxShadow: flat
+                ? null
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(
+                        alpha: isDark ? 0.32 : 0.08,
+                      ),
+                      blurRadius: 24,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
           ),
           child: ClipOval(
             child: BackdropFilter(
@@ -108,7 +117,7 @@ class PebbleGlassIconButton extends StatelessWidget {
                 shape: CircleBorder(
                   side: BorderSide(
                     color: foundation.textPrimary.withValues(
-                      alpha: isDark ? 0.08 : 0.06,
+                      alpha: flat ? 0.12 : (isDark ? 0.08 : 0.06),
                     ),
                   ),
                 ),
