@@ -71,7 +71,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('A quick look first'), findsOneWidget);
-      expect(find.text('Use this starter routine'), findsOneWidget);
+      expect(find.text('Try it now'), findsOneWidget);
       expect(find.text('Pick another starting point'), findsOneWidget);
       expect(prefs.getBool('has_completed_onboarding'), isFalse);
 
