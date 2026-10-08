@@ -238,6 +238,6 @@ final aiPhotoActiveRoutineIdsProvider = Provider<Set<int>>((ref) {
       (policy) => policy.hasActiveLocalPremium,
     ),
   );
-  if (!premium || ids.isEmpty) return const {};
+  if (!aiPhotoFeatureVisible || !premium || ids.isEmpty) return const {};
   return {for (final id in ids.split(',')) int.parse(id)};
 });

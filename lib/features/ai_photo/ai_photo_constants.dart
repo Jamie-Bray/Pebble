@@ -7,6 +7,14 @@
 // earlier consent then stops counting, on the phone and on the server, and
 // people are asked again.
 
+/// Whether the app shows AI photo descriptions at all. Off for launch
+/// (decided 8 October 2026): real-world descriptions were too easy to misread
+/// and could add worry. While off, nothing is sent for description, no AI
+/// rows, toggles or captions appear, and saved descriptions stay in the
+/// database untouched. Set the default to true to bring the feature back.
+/// Not const only so the AI tests can switch it on.
+bool aiPhotoFeatureVisible = false;
+
 /// Recorded with each consent, with the time it was given.
 const aiPhotoConsentVersion = '2026-10-05.7';
 

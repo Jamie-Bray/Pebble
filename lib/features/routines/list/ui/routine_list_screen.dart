@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pebble_routines/features/ai_photo/ai_photo_constants.dart';
 import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:pebble_routines/core/ui/pebble_buttons.dart';
@@ -1541,7 +1542,8 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                                       .watch(aiPhotoServerEnabledProvider)
                                       .valueOrNull ??
                                   false;
-                              if (!serverEnabled && !ai.isOn) {
+                              if (!aiPhotoFeatureVisible ||
+                                  (!serverEnabled && !ai.isOn)) {
                                 return const SizedBox.shrink();
                               }
                               final hasPremium = rowRef

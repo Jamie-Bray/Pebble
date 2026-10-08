@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:pebble_routines/features/ai_photo/ai_photo_constants.dart';
 import 'package:pebble_routines/features/ai_photo/ai_photo_service.dart';
 import 'package:pebble_routines/features/ai_photo/ai_photo_settings.dart';
 import 'package:pebble_routines/core/ui/pebble_time.dart';
@@ -660,7 +661,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
           // nobody reads about something they can't find.
           body:
               'The routine name and each step with the time you checked it (you can hide either), plus the completion time. Photos are never emailed.'
-              '${(ref.watch(aiPhotoServerEnabledProvider).valueOrNull ?? false) || ref.watch(aiPhotoControllerProvider).isOn ? ' If you use AI photo descriptions, you can choose to add them. Photos are never emailed.' : ''}',
+              '${aiPhotoFeatureVisible && ((ref.watch(aiPhotoServerEnabledProvider).valueOrNull ?? false) || ref.watch(aiPhotoControllerProvider).isOn) ? ' If you use AI photo descriptions, you can choose to add them. Photos are never emailed.' : ''}',
         ),
       ],
     );
@@ -830,7 +831,8 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
             _buildRoutineNameToggle(cs, contact),
             const SizedBox(height: 10),
             _buildStepsToggle(cs, contact),
-            if (widget.routine != null &&
+            if (aiPhotoFeatureVisible &&
+                widget.routine != null &&
                 ref
                     .watch(aiPhotoControllerProvider)
                     .isOnFor(widget.routine!.id)) ...[
