@@ -2188,7 +2188,7 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
           ),
         ),
         SizedBox(height: metrics.ctaMetaGap),
-        Align(alignment: Alignment.centerLeft, child: metaLine),
+        Center(child: metaLine),
         Consumer(
           builder: (context, ref, _) {
             final earlier =
@@ -2260,7 +2260,7 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
           ),
         ),
         SizedBox(height: metrics.titleMetaGap),
-        Align(alignment: Alignment.centerLeft, child: metaLine),
+        Center(child: metaLine),
         SizedBox(height: metrics.titlePreviewGap - metrics.titleMetaGap - 40),
         _HomeHeroPreviewCard(
           steps: widget.steps,
