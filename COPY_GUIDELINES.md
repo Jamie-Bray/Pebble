@@ -280,7 +280,7 @@ Use:
 - "Saved on this phone."
 - "Stored on this phone."
 - "Recent history."
-- "Retained for 48 hours."
+- "Free shows the last 48 hours."
 - "Retained for 21 days."
 - "Backup is on."
 - "Backup is paused."

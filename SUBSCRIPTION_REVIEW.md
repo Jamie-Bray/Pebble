@@ -47,7 +47,7 @@ stateDiagram-v2
 | **Active** (incl. cancelled-but-active and billing retry) | Everything. The account screen now says "Renews on …", "Cancelled. Premium stays on until …", or "The store could not take the last payment. Update your payment method…". |
 | **Unconfirmed** (new) | Treated as grace. Nothing is deleted while the app can't confirm the end. |
 | **Grace** (7 days from *confirmation*) | Routines, steps and 21-day history stay. Backup uploads stop. Voice-prompt recording, extra photos, wallpapers and completion emails are off. A dated warning appears on Home and the account screen. |
-| **Lapsed** | Free limits apply: 2 routines (you choose which), 10 steps each, 48 hours of history on this phone, and 1 photo per step. Nothing else is deleted. |
+| **Lapsed** | Free limits apply: 2 routines (you choose which), 10 steps each, the last 48 hours of history shown (older history stays hidden on the phone until it is 21 days old), and 1 photo per step. Nothing else is deleted. |
 
 Where this lives in the code:
 
@@ -99,7 +99,7 @@ Where this lives in the code:
 | Routines | 2 | Unlimited | `SubscriptionGuard.canCreateRoutine` (create and duplicate). Locked routines: `restrictedRoutineIdsProvider` (home list, play button, `/play/:id` in `main.dart`). |
 | Steps | 10 per routine | Unlimited | `SubscriptionGuard.canAddStep`. In the player: `RoutineLimitPolicy.isStepRestricted`. |
 | Photos per step | 1 | 4 | `player_state_provider.dart:818` |
-| History on phone | 48 hours | 21 days | `accountHistoryRetentionProvider` → `RoutineRunRepository.enforceRetentionPolicy`, plus photo files in `CloudSyncCoordinator.kick` |
+| History shown | 48 hours (21 days kept, the rest hidden) | 21 days | Shown: `accountHistoryRetentionProvider` → `routineHistoryVmProvider`. Kept on every plan: `ProofMediaFairUsePolicy.storedHistoryRetention` → `RoutineRunRepository.enforceRetentionPolicy`, plus photo files in `CloudSyncCoordinator.kick` |
 | Voice prompts | Can't record | Record | `canUseGuidanceAudio` (composer). **Playback is never blocked.** |
 | Themes and wallpapers | Basic | All | `canUsePremiumThemes` |
 | Backup | Off | Needs sign-in and a choice to turn it on | `canUseCloudBackup` + RLS (`has_active_personal_entitlement`) |
@@ -111,7 +111,7 @@ The checks are consistent: every gate reads one `premiumFeaturePolicyProvider`.
 
 | Thing | Before my changes | After |
 |---|---|---|
-| **History older than 48 hours** | Deleted from the phone 7 days after the *period end*. A user who first opened the app later than that lost it at once, with no warning. A renewing subscriber who hadn't opened the app for a week could lose it too (bug). The screen said it was "locked". | Deleted from the phone 7 days after the store **confirms** the end, so the user always gets 7 days' notice. Home and the account screen show the count and the date ("3 completed routines older than 48 hours will be removed from this phone on 8 October. Renew to keep them."). Nothing is ever deleted on a guess. |
+| **History older than 48 hours** (8 Oct 2026: now hidden at grace end, not deleted; every plan keeps 21 days on the phone) | Deleted from the phone 7 days after the *period end*. A user who first opened the app later than that lost it at once, with no warning. A renewing subscriber who hadn't opened the app for a week could lose it too (bug). The screen said it was "locked". | Deleted from the phone 7 days after the store **confirms** the end, so the user always gets 7 days' notice. Home and the account screen show the count and the date ("3 completed routines older than 48 hours will be removed from this phone on 8 October. Renew to keep them."). Nothing is ever deleted on a guess. |
 | **Photos in backup** | Deleted from the cloud at the same moment. | Only this phone's copy is removed. The cloud copy is left for the normal 21-day server cleanup. |
 | **History in backup** | Kept indefinitely; never deleted by lapse. | Unchanged. On renewal and sign-in, the restore merges it back. The copy now says so. |
 | **Routines beyond 2** | Locked. The 2 unlocked were always "pinned, then newest". Tapping a locked one went straight to the paywall. | Locked, but **the user chooses which 2 stay unlocked** (saved on this phone). Tapping a locked routine opens a sheet with Renew Premium and "Choose 2 routines to keep". "Nothing is deleted" is stated on every lock screen. |

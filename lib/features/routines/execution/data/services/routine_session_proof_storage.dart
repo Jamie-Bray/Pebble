@@ -329,7 +329,9 @@ class LocalRoutineSessionProofStorage implements RoutineSessionProofStorage {
     if (isPremium) {
       return;
     }
-    const localRetention = ProofMediaFairUsePolicy.localRetentionDuration;
+    // Free shows 48 hours of history but keeps 21 days of it, photos
+    // included, so upgrading shows them again.
+    const localRetention = ProofMediaFairUsePolicy.storedHistoryRetention;
 
     final root = await _rootDirectory();
     if (!await root.exists()) return;

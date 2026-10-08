@@ -120,7 +120,7 @@ List<AccountProfileLimit> _limitsFor(PremiumFeaturePolicy policy) {
     ];
   }
   return const [
-    AccountProfileLimit(value: '48h', label: 'History kept'),
+    AccountProfileLimit(value: '48h', label: 'History shown'),
     AccountProfileLimit(value: '2', label: 'Routines'),
     AccountProfileLimit(value: '10', label: 'Steps each'),
   ];

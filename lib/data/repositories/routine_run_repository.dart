@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'routine_repository.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
+import 'package:pebble_routines/features/subscription/data/fair_use_policy.dart';
 import 'package:pebble_routines/features/subscription/providers/cloud_access_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
 import 'package:pebble_routines/features/sync/cloud_sync_coordinator.dart';
@@ -121,12 +122,14 @@ class RoutineRunRepositoryImpl implements RoutineRunRepository {
   }
 
   Future<List<RoutineRun>> _pruneExpiredRuns(List<RoutineRun> runs) async {
-    // Until the stored plan has loaded the account reads as Free, which would
-    // prune a Premium user's 21-day history down to 48 hours at start-up.
+    // Every plan keeps 21 days on this phone. Free only hides what is older
+    // than 48 hours (see visibleHistoryRuns), so upgrading shows it again.
+    // Waiting for the stored plan keeps the first history emission from
+    // reading a Premium account as Free.
     await _ref.read(subscriptionAccountControllerProvider.notifier).whenLoaded;
-    final retention = _ref.read(accountHistoryRetentionProvider);
-
-    final cutoff = DateTime.now().subtract(retention);
+    final cutoff = DateTime.now().subtract(
+      ProofMediaFairUsePolicy.storedHistoryRetention,
+    );
     final expiredRuns = runs
         .where((run) => !run.finishedAt.isAfter(cutoff))
         .toList(growable: false);

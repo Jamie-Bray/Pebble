@@ -10,6 +10,7 @@ import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/data/repositories/routine_run_repository.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
+import 'package:pebble_routines/features/history/providers/routine_history_vm.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
 import 'package:pebble_routines/features/subscription/domain/subscription_lifecycle.dart';
@@ -92,31 +93,40 @@ void main() {
       expect(queued.single.operation, SyncOperation.delete);
     });
 
-    test('free history and proof photos are removed after 48 hours', () async {
+    test('free history and proof photos are kept for 21 days, and only the '
+        'last 48 hours are shown', () async {
       await buildHarness(UserTier.personalFree);
       final now = DateTime.now();
       final expired = _run(
         id: 'expired',
-        finishedAt: now.subtract(const Duration(hours: 49)),
+        finishedAt: now.subtract(const Duration(days: 21, hours: 1)),
         stepCompletionData: _completionData(
           proofPath: 'routine_session_proofs/session/proof.webp',
           remoteObjectKey: 'users/user/runs/expired/proof.webp',
           legacyPath: 'legacy/photo.jpg',
         ),
       );
-      final retained = _run(
-        id: 'retained',
+      final hidden = _run(
+        id: 'hidden',
+        finishedAt: now.subtract(const Duration(hours: 49)),
+        stepCompletionData: _completionData(
+          proofPath: 'routine_session_proofs/hidden/proof.webp',
+        ),
+      );
+      final shown = _run(
+        id: 'shown',
         finishedAt: now.subtract(const Duration(hours: 47)),
       );
       await database.routineRunDao.insertOrUpdateRun(expired);
-      await database.routineRunDao.insertOrUpdateRun(retained);
+      await database.routineRunDao.insertOrUpdateRun(hidden);
+      await database.routineRunDao.insertOrUpdateRun(shown);
 
       await container
           .read(routineRunRepositoryProvider)
           .enforceRetentionPolicy();
 
       final runs = await database.routineRunDao.getAllRuns();
-      expect(runs.map((run) => run.id), contains('retained'));
+      expect(runs.map((run) => run.id), containsAll(['shown', 'hidden']));
       expect(runs.map((run) => run.id), isNot(contains('expired')));
       expect(
         proofStorage.deletedProofs,
@@ -125,9 +135,37 @@ void main() {
           'legacy/photo.jpg',
         ]),
       );
+      expect(
+        proofStorage.deletedProofs,
+        isNot(contains('routine_session_proofs/hidden/proof.webp')),
+      );
       // Retention clears this phone only. The cloud copy is left for the
       // server's 21-day cleanup, so a renewing subscriber can get it back.
       expect(proofStorage.deletedRemoteProofs, isEmpty);
+
+      final sub = container.listen(storedRoutineRunsProvider, (_, _) {});
+      await container.read(storedRoutineRunsProvider.future);
+      final visible = container.read(routineHistoryVmProvider).requireValue;
+      expect(visible.map((run) => run.id), ['shown']);
+      expect(container.read(hiddenHistoryRunCountProvider), 1);
+      sub.close();
+    });
+
+    test('premium shows the full 21 days', () async {
+      await buildHarness(UserTier.personalPremium);
+      await database.routineRunDao.insertOrUpdateRun(
+        _run(
+          id: 'old',
+          finishedAt: DateTime.now().subtract(const Duration(days: 10)),
+        ),
+      );
+
+      final sub = container.listen(storedRoutineRunsProvider, (_, _) {});
+      await container.read(storedRoutineRunsProvider.future);
+      final visible = container.read(routineHistoryVmProvider).requireValue;
+      expect(visible.map((run) => run.id), ['old']);
+      expect(container.read(hiddenHistoryRunCountProvider), 0);
+      sub.close();
     });
 
     test(
@@ -279,59 +317,62 @@ void main() {
       },
     );
 
-    test(
-      'a confirmed lapse keeps history for 7 days, then applies Free limits',
-      () async {
-        final container = await containerWithStoredAccount((writer) async {
-          await writer.applyRevenueCatEntitlement(
-            UserTier.personalPremium,
-            periodEndsAt: DateTime.now().subtract(const Duration(days: 9)),
-          );
-          await writer.applyExpiredStoreEntitlement();
-        });
-        await database.routineRunDao.insertOrUpdateRun(
-          _run(
-            id: 'three-days-old',
-            finishedAt: DateTime.now().subtract(const Duration(days: 3)),
-          ),
+    test('a confirmed lapse shows 21 days for 7 days, then hides what is older '
+        'than 48 hours without deleting it', () async {
+      final container = await containerWithStoredAccount((writer) async {
+        await writer.applyRevenueCatEntitlement(
+          UserTier.personalPremium,
+          periodEndsAt: DateTime.now().subtract(const Duration(days: 9)),
         );
+        await writer.applyExpiredStoreEntitlement();
+      });
+      await database.routineRunDao.insertOrUpdateRun(
+        _run(
+          id: 'three-days-old',
+          finishedAt: DateTime.now().subtract(const Duration(days: 3)),
+        ),
+      );
 
-        await container
-            .read(routineRunRepositoryProvider)
-            .enforceRetentionPolicy();
+      await container
+          .read(routineRunRepositoryProvider)
+          .enforceRetentionPolicy();
 
-        // Confirmed just now, so grace runs 7 days from today even though
-        // the period ended 9 days ago: the user gets the full warning.
-        var runs = await database.routineRunDao.getAllRuns();
-        expect(runs.map((run) => run.id), ['three-days-old']);
-        expect(
-          container.read(subscriptionLifecycleProvider).phase,
-          SubscriptionLifecyclePhase.expiredGrace,
-        );
+      // Confirmed just now, so grace runs 7 days from today even though
+      // the period ended 9 days ago: the user gets the full warning.
+      var runs = await database.routineRunDao.getAllRuns();
+      expect(runs.map((run) => run.id), ['three-days-old']);
+      expect(
+        container.read(subscriptionLifecycleProvider).phase,
+        SubscriptionLifecyclePhase.expiredGrace,
+      );
 
-        container.dispose();
-        // Simulate the grace window having passed: the lapse was confirmed
-        // 8 days ago. The next launch reads that and applies Free limits.
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString(
-          'pebble.entitlement.lapse_noticed_at',
-          DateTime.now().subtract(const Duration(days: 8)).toIso8601String(),
-        );
-        final afterGrace = await containerWithStoredAccount(
-          (_) async {},
-          resetPrefs: false,
-        );
-        await afterGrace
-            .read(routineRunRepositoryProvider)
-            .enforceRetentionPolicy();
-        expect(
-          afterGrace.read(subscriptionLifecycleProvider).phase,
-          SubscriptionLifecyclePhase.expired,
-        );
-        runs = await database.routineRunDao.getAllRuns();
-        expect(runs, isEmpty);
-      },
-    );
+      container.dispose();
+      // Simulate the grace window having passed: the lapse was confirmed
+      // 8 days ago. The next launch reads that and applies Free limits.
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        'pebble.entitlement.lapse_noticed_at',
+        DateTime.now().subtract(const Duration(days: 8)).toIso8601String(),
+      );
+      final afterGrace = await containerWithStoredAccount(
+        (_) async {},
+        resetPrefs: false,
+      );
+      await afterGrace
+          .read(routineRunRepositoryProvider)
+          .enforceRetentionPolicy();
+      expect(
+        afterGrace.read(subscriptionLifecycleProvider).phase,
+        SubscriptionLifecyclePhase.expired,
+      );
+      runs = await database.routineRunDao.getAllRuns();
+      expect(runs.map((run) => run.id), ['three-days-old']);
+      final sub = afterGrace.listen(storedRoutineRunsProvider, (_, _) {});
+      await afterGrace.read(storedRoutineRunsProvider.future);
+      expect(afterGrace.read(routineHistoryVmProvider).requireValue, isEmpty);
+      expect(afterGrace.read(hiddenHistoryRunCountProvider), 1);
+      sub.close();
+    });
   });
 }
 

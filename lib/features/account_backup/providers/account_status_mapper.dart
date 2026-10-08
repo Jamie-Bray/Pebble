@@ -517,7 +517,7 @@ _PlanFacts _planFacts({required PremiumFeaturePolicy policy}) {
   return const _PlanFacts(
     label: 'Free plan',
     chips: [
-      AccountPlanChip(value: '48h', label: 'History kept'),
+      AccountPlanChip(value: '48h', label: 'History shown'),
       AccountPlanChip(value: '2', label: 'Routines'),
       AccountPlanChip(value: '10', label: 'Steps each'),
     ],

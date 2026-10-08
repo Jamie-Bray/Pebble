@@ -185,7 +185,7 @@ final accountBackupStatusSummaryProvider = Provider<AccountBackupStatusSummary>(
         kind: AccountBackupStatusKind.localOnly,
         label: 'Saved on this phone',
         detail:
-            'Everything works on this phone without an account. Free keeps the last 48 hours of history.',
+            'Everything works on this phone without an account. Free shows the last 48 hours of history.',
         historyLabel: 'Saved on this phone',
         showRunSyncState: false,
       );

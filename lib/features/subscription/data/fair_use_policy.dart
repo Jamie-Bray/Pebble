@@ -19,9 +19,18 @@ class ProofMediaFairUsePolicy {
   static const double warningThreshold = 0.8;
   static const int uploadRollingWindowDays = 30;
   static const int cloudRetentionDays = 21;
+
+  /// How much history Free shows. Older history is hidden, not deleted.
   static const int localRetentionHours = 48;
   static const Duration localRetentionDuration = Duration(
     hours: localRetentionHours,
+  );
+
+  /// How long history and proof photos stay on this phone, on every plan.
+  /// Free only shows the last [localRetentionDuration] of it; Personal
+  /// Premium shows all of it.
+  static const Duration storedHistoryRetention = Duration(
+    days: cloudRetentionDays,
   );
 }
 

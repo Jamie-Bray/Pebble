@@ -35,7 +35,7 @@ void main() {
           ),
           currentColorThemeProvider.overrideWithValue(ThemeId.highNoon),
           routineListProvider.overrideWith((ref) => Stream.value(<Routine>[])),
-          routineHistoryVmProvider.overrideWith(
+          storedRoutineRunsProvider.overrideWith(
             (ref) => Stream.value([...runs]),
           ),
           activeRoutineSessionsProvider.overrideWith(

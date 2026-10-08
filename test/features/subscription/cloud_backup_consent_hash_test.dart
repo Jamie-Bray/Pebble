@@ -36,17 +36,24 @@ void main() {
   test('the database step for the consent gate matches the app', () {
     // Check the executable migration, not just the proposed deployment prose.
     final step = File(
-      'supabase/migrations/022_voice_tip_backup_consent_text.sql',
+      'supabase/migrations/024_history_window_policy_dates.sql',
     ).readAsStringSync();
 
     expect(step, contains("'$cloudBackupConsentTextHash'"));
+    // The gate also accepts the previous dates, so older builds keep working.
     expect(
       step,
-      contains("c.privacy_version = '$cloudBackupConsentPrivacyVersion'"),
+      contains(
+        "c.privacy_version in ('2026-10-05', "
+        "'$cloudBackupConsentPrivacyVersion')",
+      ),
     );
     expect(
       step,
-      contains("c.terms_version = '$cloudBackupConsentTermsVersion'"),
+      contains(
+        "c.terms_version in ('2026-10-05', "
+        "'$cloudBackupConsentTermsVersion')",
+      ),
     );
   });
 

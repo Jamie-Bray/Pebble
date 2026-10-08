@@ -18,6 +18,7 @@ import 'package:pebble_routines/features/routines/execution/data/models/routine_
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
 import 'package:pebble_routines/features/subscription/data/entitlement_flow_messages.dart';
 import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
+import 'package:pebble_routines/features/subscription/data/fair_use_policy.dart';
 import 'package:pebble_routines/features/subscription/data/models/subscription_account_state.dart';
 import 'package:pebble_routines/features/subscription/providers/cloud_access_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
@@ -121,7 +122,6 @@ class CloudSyncCoordinator {
     final hasPremiumHistory = _ref.read(
       accountHasPremiumHistoryRetentionProvider,
     );
-    final historyRetention = _ref.read(accountHistoryRetentionProvider);
     await _syncInternal(userInitiated: false);
     await _proofStorage.enforceRetentionPolicy(isPremium: hasPremiumHistory);
 
@@ -138,7 +138,11 @@ class CloudSyncCoordinator {
     await _runGuidanceAudioGarbageCollection();
 
     if (!hasPremiumHistory) {
-      final cutoff = DateTime.now().subtract(historyRetention);
+      // Free hides history older than 48 hours but keeps 21 days, so
+      // upgrading shows it again.
+      final cutoff = DateTime.now().subtract(
+        ProofMediaFairUsePolicy.storedHistoryRetention,
+      );
       await _database.routineRunDao.deleteRunsOlderThan(cutoff);
     }
   }
