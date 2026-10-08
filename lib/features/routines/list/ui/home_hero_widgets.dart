@@ -373,7 +373,6 @@ class HomeEarlierChecks extends StatelessWidget {
   Widget build(BuildContext context) {
     if (runs.isEmpty) return const SizedBox.shrink();
     final type = PebbleType.of(context);
-    final foundation = context.darkFoundation;
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
@@ -388,9 +387,11 @@ class HomeEarlierChecks extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
+        // Kept quiet: sentence case and caption size, so the past checks sit
+        // behind the Checked card rather than competing with it.
         Text(
-          'EARLIER',
-          style: type.overline.copyWith(color: context.readableSecondaryText),
+          'Earlier',
+          style: type.caption.copyWith(color: context.readableSecondaryText),
         ),
         const SizedBox(height: PebbleSpacing.xs),
         for (final run in runs)
@@ -398,7 +399,7 @@ class HomeEarlierChecks extends StatelessWidget {
             borderRadius: PebbleRadius.mdAll,
             onTap: () => onOpen(run),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
+              padding: const EdgeInsets.symmetric(vertical: 11),
               child: Row(
                 children: [
                   Expanded(
@@ -407,13 +408,15 @@ class HomeEarlierChecks extends StatelessWidget {
                       '${formatCheckTime(context, run.finishedAt)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: type.body.copyWith(color: foundation.textPrimary),
+                      style: type.caption.copyWith(
+                        color: context.readableSecondaryText,
+                      ),
                     ),
                   ),
                   const SizedBox(width: PebbleSpacing.sm),
                   Text(
                     _tallyLabel(RunStepTally.fromRun(run)),
-                    style: type.body.copyWith(
+                    style: type.caption.copyWith(
                       color: context.readableSecondaryText,
                     ),
                   ),
