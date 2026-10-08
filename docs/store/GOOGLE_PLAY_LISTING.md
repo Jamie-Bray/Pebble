@@ -1,11 +1,19 @@
 # Google Play Store Listing: Pebble Routines
 
-Last updated: 4 October 2026
+Last updated: 8 October 2026
 
 Ready-to-paste copy for Play Console > Grow > Store presence > Main store
 listing, plus the policy questionnaires. Every limited field is in a fenced
 block with a `limit` marker. Run `python3 docs/store/check_limits.py` after
 any edit. The latest counts are in the table at the end.
+
+Positioning (decided by Jamie, 8 October 2026): Pebble is a routine
+checklist app you reuse every day. Every check is saved with the time, and you
+can add a photo to any step. Photos are optional. The listing leads with those
+three things (routines you reuse, a photo when it helps, history to look back
+on) and fits the search phrases around them, rather than letting one phrase
+set the brand. The full plan, keyword research and reasoning are in the
+"Pebble launch marketing plan" doc in the project.
 
 Copy rules applied (from `COPY_GUIDELINES.md` and `COPY_RISK_SCAN.md`):
 
@@ -15,15 +23,22 @@ Copy rules applied (from `COPY_GUIDELINES.md` and `COPY_RISK_SCAN.md`):
   listing. Using them would present Pebble as a health product, invite Play
   health-claim review, and risk reading as a promise to people who are
   struggling. The audience still finds Pebble through the words they actually
-  type: "did I lock the door", "leaving the house checklist", "hair
-  straighteners", "stove off".
+  type: "routine checklist", "did I lock the door", "leaving the house
+  checklist", "hair straighteners", "stove off".
 - Backup always comes with "if you have Premium, sign in, and turn it on".
 - "Photo" in daily copy. "Proof photos" only as a feature name.
+- AI photo descriptions are not mentioned anywhere in the listing or the
+  screenshots. They are expected to be off at launch.
 
-Search terms used: did I lock the door, checklist, leaving the house, leaving
-home, hair straighteners, straighteners, curling iron, stove, oven, unplug,
-front door, locked, routine, reminder, photo, bedtime check, hotel checkout,
-car lock, trip.
+Search terms used: routine checklist, routine, checklist, reusable checklist,
+daily routine, photo, did I lock the door, leaving the house, leaving home,
+hair straighteners, straighteners, curling iron, stove, oven, unplug, front
+door, locked, reminder, bedtime check, hotel checkout, car lock, trip.
+
+Google Play has no keyword field. The title counts most, then the short
+description, then the full description. Repeating a word many times does not
+help and can break Play's metadata policy, so each search phrase appears once
+or twice in natural sentences.
 
 About "peace of mind": the brief lists it as a search term, but
 `COPY_GUIDELINES.md` lists "Unlock peace of mind" as copy to avoid. It is left
@@ -35,66 +50,75 @@ describes what people say, not what Pebble promises.
 
 ## App name (max 30)
 
-Recommended:
+Chosen (Jamie, 8 October 2026):
 
 <!-- limit:30 id:play-name -->
 ```text
-Pebble Routines: Checklist
+Pebble: Routine Checklist
 ```
 
-Alternatives, if you would rather put the top search phrase in the title.
-Google Play allows descriptive phrases in titles. It does not allow "free",
-"best", "#1", emoji or all caps.
+Alternatives considered. Google Play allows descriptive phrases in titles. It
+does not allow "free", "best", "#1", emoji or all caps.
 
 <!-- limit:30 id:play-name-alt-1 -->
 ```text
-Pebble: Leaving Home Checklist
+Pebble: Photo Checklist
 ```
 
 <!-- limit:30 id:play-name-alt-2 -->
 ```text
-Pebble: Did I Lock The Door?
+Pebble: Leaving Home Checklist
 ```
+
+"Pebble: Did I Lock The Door?" was dropped: it chases one search phrase and
+describes only one of Pebble's routines.
 
 Note: the launcher label in `AndroidManifest.xml` is "Pebble Routines". A Play
 title that is different from the launcher label is allowed.
 
 ## Short description (max 80)
 
-Recommended:
+Recommended (waiting for Jamie's final yes):
 
 <!-- limit:80 id:play-short -->
 ```text
-Did I lock the door? Run your leaving-home checks step by step and add a photo.
+Reusable routine checklists. Add a photo and see when each check was done.
 ```
 
 Alternatives:
 
 <!-- limit:80 id:play-short-alt-1 -->
 ```text
-A step-by-step checklist for the door, the stove and the hair straighteners.
+Routine checklists you reuse, with the time saved and a photo if you want one.
 ```
 
 <!-- limit:80 id:play-short-alt-2 -->
 ```text
-Check the door, stove and straighteners, with a photo and the time saved.
+Step-by-step routines for leaving home, bedtime and more. Add a photo to a step.
 ```
 
 ## Full description (max 4000)
 
 <!-- limit:4000 id:play-full -->
 ```text
-Did I lock the door? Did I unplug the hair straighteners? Is the stove off?
+Set up a routine once and run it whenever you need it. Pebble saves every check with the time you did it, and you can add a photo to any step.
 
-Pebble Routines turns the checks you do before leaving the house into a step-by-step checklist. Go through each step, mark it done, and add a photo when you want something to look back on later. Every completed check is saved with the time you did it.
+Leaving the house, bedtime, the school run, locking up the office: the same steps, in the same order, every time. Did I lock the door? Are the hair straighteners unplugged? Is the stove off? Open the routine, go through it, and the answer is saved.
 
-Pebble is for anyone who has turned back at the front door to check it again, or taken a photo of the straighteners just in case.
-
-HOW IT WORKS
-• Create a routine. For example "Leaving the house": straighteners or curling iron unplugged, stove and oven off, windows shut, back door locked, front door locked.
+ROUTINES YOU REUSE
+• Build a routine in a minute, or start from a ready-made one and edit it.
 • Run it step by step. One clear screen per step, so the next check is always obvious.
-• Add a photo on any step. Take it in the moment, or choose one you already have.
-• Look back. Recent history shows what you checked and when.
+• Tick each step as you go. Skip one if it does not apply today.
+
+A PHOTO WHEN IT HELPS
+• Add a photo to any step you like: the straighteners on their heat mat, the oven dials, the back door.
+• Take it in the moment, or choose one you already have.
+• Photos are optional. Plenty of routines work fine without them.
+
+HISTORY TO LOOK BACK ON
+• Every run is saved with the date and time each step was checked.
+• Look back through your recent runs, with any photos alongside.
+• Run a routine again with one tap from Home.
 
 READY-MADE ROUTINES YOU CAN EDIT
 • Everyday departure check: hair tools, stove and oven, toaster, sink, heaters, windows and doors
@@ -104,18 +128,18 @@ READY-MADE ROUTINES YOU CAN EDIT
 • Big trip home shutdown
 • School morning run, gym bag, morning pet routine, office switch-off and more
 
-USEFUL EXTRAS
-• Reminders: a notification at the time you usually leave
+MAKE IT YOURS
+• Themes and colours, including a calm dark mode and accessibility themes
+• Reminders: a notification at the time you usually start
 • Home-screen widget: start a routine with one tap
 • Voice prompts: record a short note in your own voice for any step (Premium)
 • Save a copy to Photos: keep a photo from Pebble in your own gallery
-• Themes, including accessibility themes
 
 PRIVATE BY DEFAULT
 • Works without an account. No sign-up needed to start.
 • Your routines, history and photos are stored on this device.
 • No ads. Pebble does not sell your data.
-• On the free plan, photos and history are kept for 48 hours, then Pebble deletes its own copies. Pebble never deletes anything from your camera roll.
+• Pebble keeps 21 days of photos and history on this device, then deletes its own copies. The free plan shows the last 48 hours. Pebble never deletes anything from your camera roll.
 • Cloud backup only starts if you have Premium, sign in, and choose to turn it on.
 
 FREE
@@ -127,7 +151,7 @@ FREE
 PERSONAL PREMIUM (MONTHLY OR YEARLY)
 • Unlimited routines and steps
 • Up to 4 photos per step
-• 21 days of recent history
+• The full 21 days of history
 • Voice prompts on any step
 • Extra themes
 • Optional cloud backup and account recovery (needs sign-in and your consent)
@@ -143,7 +167,7 @@ Support: support@pebbleroutines.com
 ```
 
 Optional neutral line, only if you decide you want "peace of mind" indexed. Put
-it after the paragraph that starts "Pebble is for anyone who...":
+it after the paragraph that starts "Leaving the house, bedtime...":
 
 ```text
 Some people call it peace of mind. Pebble calls it a checklist with the time on it.
@@ -226,87 +250,89 @@ policy states Pebble is not directed at children under 13.
 | Photo and video permissions | No declaration needed | The app does not request `READ_MEDIA_IMAGES` or `READ_MEDIA_VIDEO`. Choosing a photo uses the system picker. |
 | Foreground service, exact alarm, full-screen intent | Not used | `SCHEDULE_EXACT_ALARM` was removed; reminders are inexact |
 
-## Screenshot captions (8)
+## Screenshot captions (6)
 
-Phone screenshots, portrait, 1080 x 1920 or larger. Put the caption at the top
-in large type, with the real app screen below. Keep captions to one short
-line. Avoid "safe", "proof you", "never forget".
+Phone screenshots, portrait, 1080 x 1920. Each one has a large serif headline
+with one word in italic clay, a one-line subline, a growing cairn at the top
+(one pebble per screenshot) and the real app screen in a phone frame below.
+The cream background carries soft ripples that run across all six, so the row
+reads as one picture in the store. Draft set:
+`/mnt/project-files/marketing/screenshots-v2/` in the project (re-render from
+the screenshot harness with sample data once the theme work settles).
+
+Keep captions to one short line. Avoid "safe", "proof you", "never forget".
+Do not show AI photo descriptions.
 
 <!-- limit:40 id:play-shot-1 -->
 ```text
-Did I lock the door? Check it here.
+Routines you reuse
 ```
-Screen: routine list with "Everyday departure check" at the top.
+Subline: "Set it up once. Run it every day." Screen: Home with the last check
+("Checked 7:13 PM, Leaving the house, all 5 steps") and the Earlier rows.
 
 <!-- limit:40 id:play-shot-2 -->
 ```text
-Your leaving-home checks, step by step
+One check at a time
 ```
-Screen: routine player on "Front door locked", progress bar visible.
+Subline: "Each step is saved as you go." Screen: routine player mid-run, with
+the ticked steps and their times enlarged.
 
 <!-- limit:40 id:play-shot-3 -->
 ```text
-Straighteners off? Take a photo.
+See when you checked
 ```
-Screen: photo step with a photo of unplugged straighteners on a heat mat.
+Subline: "Every routine, with the time it was done." Screen: History timeline
+with several runs across the day.
 
 <!-- limit:40 id:play-shot-4 -->
 ```text
-See what you checked, and when
+A photo when it helps
 ```
-Screen: history list showing completion times for today.
+Subline: "Add one to any step you like." Screen: Everyday departure check
+details, with the "Hair tools" photo step enlarged. Use a sample photo of
+straighteners on a heat mat.
 
 <!-- limit:40 id:play-shot-5 -->
 ```text
-Start from a ready-made routine
+All checked
 ```
-Screen: template picker (departure, bedtime, car, hotel, trip).
+Subline: "Small steps, big ripples." Screen: the completion screen with the
+cairn and the time.
 
 <!-- limit:40 id:play-shot-6 -->
 ```text
-A reminder at the time you leave
+Make it yours
 ```
-Screen: reminders screen with a weekday 08:00 reminder.
+Subline: "Themes, colours and a calm dark mode." Screen: three Home screens in
+different themes, fanned.
 
-<!-- limit:40 id:play-shot-7 -->
-```text
-Start a routine from your home screen
-```
-Screen: Android home screen with the Pebble widget.
-
-<!-- limit:40 id:play-shot-8 -->
-```text
-No account needed. No ads.
-```
-Screen: privacy section or paywall footer: "Pebble has no ads, does not sell
-your data, and backup only starts when you choose to turn it on."
+Later, if there is enough store traffic for a store listing experiment, test a
+reminder or widget screenshot in place of number 5.
 
 Use sample data only: no real addresses, faces, house numbers, or car plates
 in screenshot photos.
 
 ## Feature graphic concept (1024 x 500)
 
-- **Background:** Pebble forest green `#2C4434` (the adaptive icon
-  background), with a soft lighter band behind the phone.
-- **Left half:** the cairn icon and "Pebble Routines" in the site serif, with
-  one line below: "Leaving-home checks, step by step".
-- **Right half:** a cropped phone showing three check cards, matching the
-  website hero: "Straighteners unplugged, 08:02" with a small photo
-  thumbnail, "Stove off, 08:02", "Front door locked" as the active step.
+- **Background:** the same cream as the screenshots, with the clay ripples.
+- **Left half:** the cairn icon and "Pebble" in the serif, with one line
+  below: "Routine checklists you reuse".
+- **Right half:** a cropped phone showing Home with the last check and its
+  time.
 - **No** price, ratings, "free", award badges, or small text. Google crops
   and overlays the graphic, so keep important content away from the edges.
-- **Accessibility:** white text on the green passes contrast. Do not put
-  text over the photo thumbnail.
+- **Accessibility:** keep the ink-on-cream contrast. Do not put text over
+  photos.
 
 ## Character count results
 
-Output of `python3 docs/store/check_limits.py` on 4 October 2026:
+Output of `python3 docs/store/check_limits.py` on 8 October 2026:
 
 | Field | Chars | Max |
 | --- | --- | --- |
-| App name (recommended) | 26 | 30 |
-| App name alt 1 / alt 2 | 30 / 28 | 30 |
-| Short description (recommended) | 79 | 80 |
-| Short description alt 1 / alt 2 | 76 / 73 | 80 |
-| Full description | 2970 | 4000 |
-| Screenshot captions 1 to 8 | 26 to 38 | 40 (house style, not a Play limit) |
+| App name (chosen) | 25 | 30 |
+| App name alt 1 / alt 2 | 23 / 30 | 30 |
+| Short description (recommended) | 74 | 80 |
+| Short description alt 1 / alt 2 | 78 / 80 | 80 |
+| Full description | 3294 | 4000 |
+| Screenshot captions 1 to 6 | 11 to 21 | 40 (house style, not a Play limit) |
