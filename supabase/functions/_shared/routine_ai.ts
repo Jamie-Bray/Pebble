@@ -93,7 +93,7 @@ export function hasBlockedWording(text: string): boolean {
 
 function cleanLine(value: unknown, max: number): string | null {
   if (typeof value !== 'string') return null;
-  const line = value.replace(/\s+/g, ' ').trim().replace(/[.。]+$/, '');
+  const line = value.replace(/\s+/g, ' ').trim().replace(/\.+$/, '');
   if (!line || line.length > max) return null;
   if (hasBlockedWording(line)) return null;
   return line;

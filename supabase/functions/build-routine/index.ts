@@ -1,7 +1,7 @@
 // Drafts a routine from a sentence with AI. Logic: ./handler.ts, provider: ./provider.ts
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { ROUTINE_AI_LIMITS } from '../_shared/routine_ai.ts';
-import { serviceClient, supabaseAuthenticator } from '../_shared/shared_alert_runtime.ts';
+import { optionalAuthenticator, serviceClient } from './supabase.ts';
 import { createRoutineAiHandler, supabaseRoutineAiStore } from './handler.ts';
 import { anthropicRoutineAi } from './provider.ts';
 
@@ -34,7 +34,7 @@ serve(
         monthlyCalls: positiveInt('ROUTINE_AI_MONTHLY_CALLS', ROUTINE_AI_LIMITS.monthlyCalls),
       },
       store: supabaseRoutineAiStore(serviceClient({ supabaseUrl, serviceRoleKey })),
-      authenticate: supabaseAuthenticator({ supabaseUrl, anonKey }),
+      authenticate: optionalAuthenticator({ supabaseUrl, anonKey }),
       ask: apiKey ? anthropicRoutineAi(apiKey) : null,
     }),
 );

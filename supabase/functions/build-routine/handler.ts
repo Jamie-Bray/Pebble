@@ -26,7 +26,7 @@ import {
   ROUTINE_AI_LIMITS,
   validateBuildRequest,
 } from '../_shared/routine_ai.ts';
-import type { AuthUser } from '../_shared/shared_alert_runtime.ts';
+import type { AuthUser } from './supabase.ts';
 import type { AskRoutineAi } from './provider.ts';
 
 export type Reservation =
