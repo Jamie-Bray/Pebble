@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
+import 'package:pebble_routines/core/share/pebble_share.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/features/account_backup/providers/account_status_mapper.dart';
 import 'package:pebble_routines/features/history/domain/run_step_tally.dart';
@@ -114,6 +115,51 @@ void main() {
     expect(find.text('Steps done'), findsOneWidget);
     expect(find.textContaining('Skipped'), findsNothing);
   });
+
+  testWidgets('run detail shares the steps and times, never photos', (
+    tester,
+  ) async {
+    final run = _run(jsonEncode(_completionData(skipped: const {3})));
+    final share = _FakeShare();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          routineRunProvider(run.id).overrideWith((ref) => Stream.value(run)),
+          routineSessionProofStorageProvider.overrideWithValue(
+            _NoopProofStorage(),
+          ),
+          accountStatusPresentationProvider.overrideWithValue(_presentation),
+          pebbleShareProvider.overrideWithValue(share),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.fromId(ThemeId.highNoon),
+          home: RoutineRunDetailScreen(run: run),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('run_detail_share')));
+    final text = share.texts.single;
+    expect(text, startsWith('Morning reset\nCompleted at 8:06 AM'));
+    expect(text, contains('✓ Open the curtains'));
+    expect(text, contains('– Make the bed, skipped'));
+    expect(text, isNot(contains('photo')));
+  });
+}
+
+class _FakeShare extends PebbleShare {
+  final texts = <String>[];
+
+  @override
+  Future<void> shareText(
+    BuildContext context,
+    String text, {
+    String? subject,
+  }) async {
+    texts.add(text);
+  }
 }
 
 const _steps = <RoutineStep>[

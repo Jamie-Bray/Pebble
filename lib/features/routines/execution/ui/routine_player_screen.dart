@@ -19,6 +19,8 @@ import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/ui/pebble_buttons.dart';
 import 'package:pebble_routines/core/ui/pebble_time.dart';
+import 'package:pebble_routines/core/share/pebble_share.dart';
+import 'package:pebble_routines/core/share/share_messages.dart';
 import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/core/navigation/app_shell.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
@@ -461,7 +463,20 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
       onOpenPhoto: (index) => _openRunPhotos(proofs, index),
       onBackToHome: _goHome,
       onReviewRoutine: _openVault,
+      onShare: run == null ? null : (button) => _shareRun(button, run),
     );
+  }
+
+  /// Hands this run's steps and times to the share sheet. Photos are never
+  /// included.
+  void _shareRun(BuildContext button, RoutineRun run) {
+    final text = ShareMessages.runSummary(
+      routineTitle: run.routineTitle,
+      finishedAt: run.finishedAt,
+      steps: ShareMessages.stepsFromRun(run),
+      formatTime: (at) => formatCheckTime(button, at),
+    );
+    unawaited(ref.read(pebbleShareProvider).shareText(button, text));
   }
 
   /// The AI description under a photo in the full-screen viewer, kept up

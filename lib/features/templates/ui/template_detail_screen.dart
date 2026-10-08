@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/navigation/app_shell.dart';
+import 'package:pebble_routines/core/database/routine_step.dart';
+import 'package:pebble_routines/core/share/pebble_share.dart';
+import 'package:pebble_routines/core/share/share_messages.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/ui/readable_colors.dart';
@@ -86,6 +89,27 @@ class _TemplateDetailContent extends ConsumerWidget {
             onBack: fromOnboarding
                 ? () => context.go('/templates?from=onboarding')
                 : null,
+            trailing: Builder(
+              builder: (buttonContext) => PebbleGlassIconButton(
+                key: const ValueKey('template_share'),
+                icon: LucideIcons.share,
+                tooltip: 'Share',
+                onPressed: () => ref
+                    .read(pebbleShareProvider)
+                    .shareText(
+                      buttonContext,
+                      ShareMessages.routineChecklist(
+                        routineTitle: template.title,
+                        steps: [
+                          for (final step in template.steps)
+                            RoutineStep.check(
+                              label: Template.cleanStepLabel(step),
+                            ),
+                        ],
+                      ),
+                    ),
+              ),
+            ),
           ),
           Expanded(
             child: CustomScrollView(

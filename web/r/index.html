@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="description" content="A routine someone shared with you from Pebble." />
+    <title>Shared routine | Pebble Routines</title>
+    <link rel="icon" href="../favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="96x96" href="../favicon-96x96.png" />
+    <link rel="stylesheet" href="../legal.css" />
+    <style>
+      .shared-routine-steps[hidden],
+      .shared-routine-actions[hidden] {
+        display: none;
+      }
+      .shared-routine-steps {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 8px;
+      }
+      .shared-routine-steps li {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        padding: 12px 14px;
+        border: 1px solid rgba(44, 68, 52, 0.12);
+        border-radius: 14px;
+        line-height: 1.4;
+      }
+      .shared-routine-steps .n {
+        flex: 0 0 28px;
+        height: 28px;
+        border-radius: 9px;
+        display: grid;
+        place-items: center;
+        font-weight: 800;
+        font-size: 13px;
+        background: rgba(44, 68, 52, 0.1);
+      }
+      .shared-routine-steps li.note {
+        border-style: dashed;
+        opacity: 0.85;
+      }
+      .shared-routine-steps small {
+        display: block;
+        opacity: 0.7;
+      }
+      .shared-routine-actions {
+        display: grid;
+        gap: 10px;
+        margin-top: 20px;
+      }
+      .shared-routine-actions .button {
+        text-align: center;
+        text-decoration: none;
+      }
+      .shared-routine-actions p {
+        margin: 0;
+        font-size: 14px;
+        opacity: 0.8;
+      }
+    </style>
+  </head>
+  <!--
+    "Add to Pebble" links open this page as /r#<data>. The routine travels in
+    the URL fragment, which browsers never send to a server, so nothing about
+    it is stored or logged. The format is documented (and written) in
+    lib/core/share/shared_routine_link.dart; change both together.
+
+    With the app installed, the link opens Pebble directly once the files in
+    /.well-known/ are live (see web/.well-known/README.md). Until then, and on
+    phones without Pebble, this page shows the steps and an "Open in Pebble"
+    button.
+  -->
+  <body class="shared-alert-page">
+    <main class="shared-alert-shell" aria-labelledby="page-title">
+      <section class="shared-alert-card" id="card">
+        <div class="shared-alert-inner">
+          <div class="shared-alert-brand">
+            <div class="brand" aria-label="Pebble Routines">
+              <span class="brand-mark" aria-hidden="true">P</span>
+              <span>Pebble Routines</span>
+            </div>
+            <div class="shared-alert-badge">Shared routine</div>
+          </div>
+
+          <div class="shared-alert-copy">
+            <h1 id="page-title">Opening this routine…</h1>
+            <p class="body-copy" id="body-copy">One moment.</p>
+          </div>
+
+          <noscript>
+            <div class="shared-alert-note">
+              <span aria-hidden="true"></span>
+              <p>This page needs JavaScript to show the routine.</p>
+            </div>
+          </noscript>
+
+          <ol class="shared-routine-steps" id="steps" hidden></ol>
+
+          <div class="shared-routine-actions" id="actions" hidden>
+            <a class="button primary" id="open-app" href="#">Open in Pebble</a>
+            <p id="get-app"></p>
+          </div>
+        </div>
+      </section>
+      <p class="shared-alert-footer">
+        Pebble Routines · <a href="../">About Pebble</a> · <a href="../privacy.html">Privacy</a>
+      </p>
+    </main>
+    <script>
+      (function () {
+        // Flip these on as each store listing goes live.
+        var PLAY_URL = null; // 'https://play.google.com/store/apps/details?id=com.vix.pebble_routines'
+        var APP_STORE_URL = null;
+
+        var title = document.getElementById('page-title');
+        var body = document.getElementById('body-copy');
+        var list = document.getElementById('steps');
+        var actions = document.getElementById('actions');
+        var openApp = document.getElementById('open-app');
+        var getApp = document.getElementById('get-app');
+
+        function problem() {
+          title.textContent = "This link doesn't work";
+          body.textContent =
+            'Part of it may be missing. Ask the person who sent it to share the routine again.';
+        }
+
+        function decode(data) {
+          var b64 = data.replace(/-/g, '+').replace(/_/g, '/');
+          while (b64.length % 4) b64 += '=';
+          var bytes = Uint8Array.from(atob(b64), function (c) {
+            return c.charCodeAt(0);
+          });
+          return JSON.parse(new TextDecoder().decode(bytes));
+        }
+
+        function clean(value, max) {
+          if (typeof value !== 'string') return '';
+          var text = value.replace(/[\u0000-\u001F\u007F]/g, ' ').replace(/\s+/g, ' ').trim();
+          return text.length > max ? text.slice(0, max).trim() : text;
+        }
+
+        function wait(seconds) {
+          if (seconds >= 60 && seconds % 60 === 0) {
+            var m = seconds / 60;
+            return 'Wait ' + m + (m === 1 ? ' minute' : ' minutes');
+          }
+          if (seconds > 60) {
+            return 'Wait ' + Math.floor(seconds / 60) + ' min ' + (seconds % 60) + ' sec';
+          }
+          return 'Wait ' + seconds + (seconds === 1 ? ' second' : ' seconds');
+        }
+
+        function row(lead, text, extra, isNote) {
+          var li = document.createElement('li');
+          if (isNote) li.className = 'note';
+          var n = document.createElement('span');
+          n.className = 'n';
+          n.setAttribute('aria-hidden', 'true');
+          n.textContent = lead;
+          var label = document.createElement('span');
+          label.textContent = text;
+          if (extra) {
+            var small = document.createElement('small');
+            small.textContent = extra;
+            label.appendChild(small);
+          }
+          li.appendChild(n);
+          li.appendChild(label);
+          list.appendChild(li);
+        }
+
+        var data = window.location.hash.replace(/^#/, '');
+        var routine;
+        try {
+          routine = data && data.length <= 65536 ? decode(data) : null;
+        } catch (e) {
+          routine = null;
+        }
+        if (!routine || routine.v !== 1 || !Array.isArray(routine.s)) {
+          problem();
+          return;
+        }
+
+        var name = clean(routine.t, 120) || 'Shared routine';
+        var number = 0;
+        routine.s.slice(0, 60).forEach(function (step) {
+          if (!step || typeof step !== 'object') return;
+          if (typeof step.c === 'string') {
+            var label = clean(step.c, 500);
+            if (label) row(String(++number), label, step.p === 1 ? 'With a photo' : '', false);
+          } else if (typeof step.i === 'string') {
+            var note = clean(step.i, 500);
+            if (note) row('i', note, '', true);
+          } else if (typeof step.w === 'number' && step.w > 0 && step.w <= 86400) {
+            row(String(++number), wait(Math.floor(step.w)), '', false);
+          }
+        });
+        if (number === 0) {
+          problem();
+          return;
+        }
+
+        document.title = name + ' | Pebble Routines';
+        title.textContent = name;
+        body.textContent =
+          'Someone shared this routine from Pebble, an app for the checks you do every day. ' +
+          'Open it in Pebble to add it to your routines.';
+        openApp.href = 'pebbleroutines://r#' + data;
+
+        var stores = [];
+        if (PLAY_URL) stores.push('<a href="' + PLAY_URL + '">Google Play</a>');
+        if (APP_STORE_URL) stores.push('<a href="' + APP_STORE_URL + '">the App Store</a>');
+        getApp.innerHTML = stores.length
+          ? "Don't have Pebble yet? Get it from " + stores.join(' or ') +
+            ', then tap the link you were sent again.'
+          : "Don't have Pebble yet? It's coming to Google Play soon. " +
+            '<a href="../">Find out more</a>.';
+
+        list.hidden = false;
+        actions.hidden = false;
+      })();
+    </script>
+  </body>
+</html>

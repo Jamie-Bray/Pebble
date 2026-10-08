@@ -1,0 +1,10 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["REPLACE_WITH_TEAM_ID.com.vix.pebbleroutines"],
+        "components": [{ "/": "/r", "comment": "Add to Pebble links" }]
+      }
+    ]
+  }
+}

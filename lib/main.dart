@@ -2,6 +2,9 @@
 import 'dart:async';
 
 import 'package:pebble_routines/core/ui/pebble_time.dart';
+import 'package:app_links/app_links.dart';
+import 'package:pebble_routines/core/share/shared_routine_link.dart';
+import 'package:pebble_routines/features/routines/shared_import/shared_routine_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -186,8 +189,11 @@ final _routerProvider = Provider<GoRouter>((ref) {
       final hasCompletedOnboarding =
           prefs.getBool('has_completed_onboarding') ?? false;
       final isGoingToOnboarding = state.uri.path == '/onboarding';
+      // A shared routine opens before onboarding too: adding it is a fine
+      // way to start.
       if (!hasCompletedOnboarding &&
           !isGoingToOnboarding &&
+          state.uri.path != sharedRoutinePath &&
           !_isOnboardingTemplateRequest(state)) {
         return '/onboarding';
       }
@@ -249,6 +255,11 @@ final _routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/reminders',
         builder: (context, state) => const GlobalRemindersScreen(),
+      ),
+      GoRoute(
+        path: sharedRoutinePath,
+        builder: (context, state) =>
+            SharedRoutineScreen(data: state.uri.queryParameters['d']),
       ),
       GoRoute(
         path: '/premium',
@@ -639,6 +650,19 @@ Future<void> _startPebble(AppRuntimeConfig appRuntimeConfig) async {
         .catchError((Object _) {}),
   );
 
+  // "Add to Pebble" links. Other links the app receives (such as the
+  // Google Sign-In redirect) aren't shared routines and are ignored here.
+  void openSharedLink(Uri? uri) {
+    final shared = uri == null ? null : SharedRoutine.fromLink(uri);
+    if (shared != null) unawaited(_openSharedRoutine(shared));
+  }
+
+  final appLinks = AppLinks();
+  appLinks.uriLinkStream.listen(openSharedLink, onError: (Object _) {});
+  unawaited(
+    appLinks.getInitialLink().then(openSharedLink).catchError((Object _) {}),
+  );
+
   runApp(
     ProviderScope(
       overrides: [
@@ -692,6 +716,32 @@ Future<void> _openRoutineFromExternalLaunch(int routineId) async {
         refreshSession: () =>
             container.invalidate(routineSessionEntryProvider(routineId)),
       );
+      return;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+  }
+}
+
+String? _lastSharedLocation;
+DateTime? _lastSharedAt;
+
+/// Opens the "Add to Pebble" screen over whatever is showing, so a routine
+/// in progress isn't lost. The same link reported twice at launch (initial
+/// link and stream) opens once. Retries while the router mounts, as above.
+Future<void> _openSharedRoutine(SharedRoutine shared) async {
+  final location = sharedRoutineLocation(shared);
+  final now = DateTime.now();
+  if (location == _lastSharedLocation &&
+      _lastSharedAt != null &&
+      now.difference(_lastSharedAt!) < const Duration(seconds: 3)) {
+    return;
+  }
+  _lastSharedLocation = location;
+  _lastSharedAt = now;
+  for (var attempt = 0; attempt < 40; attempt++) {
+    final context = _rootNavigatorKey.currentContext;
+    if (context != null && context.mounted) {
+      unawaited(GoRouter.of(context).push<void>(location));
       return;
     }
     await Future<void>.delayed(const Duration(milliseconds: 250));
