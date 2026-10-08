@@ -255,9 +255,9 @@ Live record, 8 Oct 2026 (Claude):
   App Links and iOS Universal Links remain pending the store signing IDs.
 - Existing custom SMTP was already enabled in Supabase with
   `smtp.resend.com` on port 465 and a stored password when checked on 8 Oct.
-  A sign-in code request to a second address returned HTTP 200. Inbox receipt
-  and completing sign-in still need confirmation; no SMTP credential was
-  changed during this check.
+  A sign-in code sent to an external Proton Mail address arrived, and
+  `auth/v1/verify` accepted the code (HTTP 200, session issued). No SMTP
+  credential was changed during this check.
 
 ## Live preparation record — 5 October 2026 (Codex)
 
