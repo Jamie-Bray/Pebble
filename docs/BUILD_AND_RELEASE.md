@@ -233,5 +233,5 @@ Google needs the app's first upload to be done by hand. That's already done, sin
 
 - Flutter is pinned to **3.47.6** in both `ci.yml` (`FLUTTER_VERSION`) and `codemagic.yaml` (`environment.flutter`). Bump both together.
 - The builds pass the same `--dart-define` values as `build_production_aab.ps1`, plus `REVENUECAT_IOS_API_KEY` and `SUPABASE_GOOGLE_IOS_CLIENT_ID` for iOS. `ios/Flutter/GoogleSignIn.xcconfig` is written at build time.
-- Build number = max(latest in TestFlight or Play + 1, 32). If the store can't be read, it falls back to `31 + Codemagic build counter`. Change `BUILD_NUMBER_FLOOR` in `codemagic.yaml` to raise the floor.
+- Build number = max(latest in TestFlight or Play + 1, floor). The floor is 32 for iOS and 39 for Android. If the store can't be read, it falls back to `floor - 1 + Codemagic build counter`. Change `BUILD_NUMBER_FLOOR` in `codemagic.yaml` to raise the floor.
 - The `dart format` check is off in CI because the codebase isn't fully formatted yet. Run `dart format lib test` in a dedicated change, then uncomment the step in `ci.yml`.

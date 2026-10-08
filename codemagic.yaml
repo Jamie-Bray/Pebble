@@ -183,9 +183,9 @@ workflows:
       vars:
         APP_ENV: production
         PACKAGE_NAME: com.vix.pebble_routines
-        # Play Console already has build 28 and pubspec.yaml is at 31, so the
-        # first Codemagic build is at least 32.
-        BUILD_NUMBER_FLOOR: "32"
+        # pubspec.yaml reached build 38 on main, so the next Android release
+        # is at least 39. Play rejects any versionCode it has already seen.
+        BUILD_NUMBER_FLOOR: "39"
       flutter: 3.47.6 # keep in step with .github/workflows/ci.yml
       java: 17
     scripts:
