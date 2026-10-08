@@ -357,7 +357,7 @@ class HomeCheckedCard extends ConsumerWidget {
   }
 }
 
-/// Up to three earlier checks of the routine, under the Checked card, so
+/// Up to two earlier checks of the routine, under the Checked card, so
 /// "when did I last do this?" rarely needs a trip to History.
 class HomeEarlierChecks extends StatelessWidget {
   const HomeEarlierChecks({

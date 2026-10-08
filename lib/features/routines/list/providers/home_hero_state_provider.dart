@@ -108,7 +108,7 @@ final homeHeroStateProvider = Provider.autoDispose.family<HomeHeroState, int>((
   return HomeHeroState(kind: HomeHeroKind.ready, latestRun: run);
 });
 
-/// The few checks before the latest one, newest first, for the "Earlier"
+/// The two checks before the latest one, newest first, for the "Earlier"
 /// lines under the Checked card. History still holds everything.
 final earlierRoutineRunsProvider = StreamProvider.autoDispose
     .family<List<RoutineRun>, int>((ref, routineId) {
@@ -116,7 +116,7 @@ final earlierRoutineRunsProvider = StreamProvider.autoDispose
       final query = db.select(db.routineRuns)
         ..where((r) => r.routineId.equals(routineId.toString()))
         ..orderBy([(r) => OrderingTerm.desc(r.finishedAt)])
-        ..limit(4);
+        ..limit(3);
       return query.watch().map((runs) => runs.skip(1).toList());
     });
 
