@@ -5,10 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
+import 'package:pebble_routines/features/routine_ai/routine_ai_service.dart';
+import 'package:pebble_routines/features/routine_ai/ui/routine_ai_sheet.dart';
 import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
 import 'package:pebble_routines/features/subscription/ui/subscription_guard.dart';
 
-enum RoutineCreationChoice { template, scratch }
+enum RoutineCreationChoice { ai, template, scratch }
 
 Future<void> openRoutineCreationChoice(
   BuildContext context,
@@ -29,6 +31,8 @@ Future<void> openRoutineCreationChoice(
   if (!context.mounted || choice == null) return;
 
   switch (choice) {
+    case RoutineCreationChoice.ai:
+      await openRoutineAiBuilder(context, ref);
     case RoutineCreationChoice.template:
       unawaited(context.push('/templates'));
     case RoutineCreationChoice.scratch:
@@ -36,11 +40,12 @@ Future<void> openRoutineCreationChoice(
   }
 }
 
-class _RoutineCreationChoiceSheet extends StatelessWidget {
+class _RoutineCreationChoiceSheet extends ConsumerWidget {
   const _RoutineCreationChoiceSheet();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ai = ref.watch(routineAiStatusProvider).valueOrNull;
     final foundation = context.darkFoundation;
     final cs = Theme.of(context).colorScheme;
 
@@ -97,6 +102,18 @@ class _RoutineCreationChoiceSheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
+          if (ai?.enabled == true) ...[
+            _CreationChoiceTile(
+              icon: LucideIcons.sparkles,
+              title: 'Build with AI',
+              subtitle: ai!.canBuild
+                  ? 'Say what you check in a sentence. Pebble drafts the steps.'
+                  : 'Build more routines with AI with Personal Premium.',
+              accent: cs.primary,
+              onTap: () => Navigator.of(context).pop(RoutineCreationChoice.ai),
+            ),
+            const SizedBox(height: 10),
+          ],
           _CreationChoiceTile(
             icon: LucideIcons.layoutTemplate,
             title: 'Start from a template',

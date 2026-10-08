@@ -31,6 +31,7 @@ enum PremiumEntrySource {
   stepLimit,
   guidanceAudio,
   proofPhotoLimit,
+  aiBuilder,
 }
 
 extension PremiumEntrySourceParsing on PremiumEntrySource {
@@ -42,6 +43,7 @@ extension PremiumEntrySourceParsing on PremiumEntrySource {
       'step_limit' => PremiumEntrySource.stepLimit,
       'guidance_audio' => PremiumEntrySource.guidanceAudio,
       'proof_photo_limit' => PremiumEntrySource.proofPhotoLimit,
+      'ai_builder' => PremiumEntrySource.aiBuilder,
       _ => PremiumEntrySource.general,
     };
   }
@@ -55,6 +57,7 @@ extension PremiumEntrySourceParsing on PremiumEntrySource {
       PremiumEntrySource.stepLimit => 'step_limit',
       PremiumEntrySource.guidanceAudio => 'guidance_audio',
       PremiumEntrySource.proofPhotoLimit => 'proof_photo_limit',
+      PremiumEntrySource.aiBuilder => 'ai_builder',
     };
   }
 }
@@ -1318,6 +1321,7 @@ class _PaywallHeader extends StatelessWidget {
         'Say it once,\nhear it ',
         'every time.',
       ),
+      PremiumEntrySource.aiBuilder => ('Build routines\n', 'in a sentence.'),
       _ => ('Keep three weeks\n', 'of checks.'),
     };
     final body = switch (entrySource) {
@@ -1327,6 +1331,8 @@ class _PaywallHeader extends StatelessWidget {
         'Free includes one photo per step. Premium lets you add up to four, for checks that need more than one angle.',
       PremiumEntrySource.guidanceAudio =>
         'Record a few seconds on any step saying what to check, and play it back when you get there.',
+      PremiumEntrySource.aiBuilder =>
+        'Build more routines with AI with Personal Premium. Describe one in a sentence and Pebble drafts the steps for you to change.',
       _ =>
         'Free includes 2 routines with up to 10 steps each. Premium gives you unlimited routines, 21 days of history, and backup if you turn it on.',
     };
@@ -1486,7 +1492,9 @@ class _FeaturesList extends StatelessWidget {
       PremiumEntrySource.backup => 'Longer history and backup',
       PremiumEntrySource.proofPhotoLimit => 'More photos per step',
       PremiumEntrySource.guidanceAudio => 'Voice tips',
-      PremiumEntrySource.general || PremiumEntrySource.premiumTheme => null,
+      PremiumEntrySource.general ||
+      PremiumEntrySource.premiumTheme ||
+      PremiumEntrySource.aiBuilder => null,
     };
     if (title == null) {
       return null;

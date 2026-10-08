@@ -112,7 +112,7 @@ class RoutineCompleteScreen extends StatefulWidget {
     this.onLanded,
     this.onOpenPhoto,
     required this.onBackToHome,
-    this.onSetReminder,
+    this.onFinishPractice,
     required this.onReviewRoutine,
     this.onShare,
   });
@@ -160,10 +160,9 @@ class RoutineCompleteScreen extends StatefulWidget {
   /// "Done".
   final VoidCallback onBackToHome;
 
-  /// The onboarding practice run asks once about a reminder: "Set a
-  /// reminder", with "Not now" in place of Done. Null shows the usual
-  /// buttons.
-  final VoidCallback? onSetReminder;
+  /// The onboarding practice run: "Build your first routine" in place of
+  /// Done. Null shows the usual buttons.
+  final VoidCallback? onFinishPractice;
 
   /// "See details": opens the run detail.
   final VoidCallback onReviewRoutine;
@@ -291,7 +290,7 @@ class _RoutineCompleteScreenState extends State<RoutineCompleteScreen>
         (widget.showPhotoSummary ? math.max(73.0, row(1)) : 0) +
         (widget.completionEmailNote == null ? 0 : 16 + 44 * ts) +
         (_aiLine == null ? 0 : 12 + 20 * ts) +
-        (widget.onSetReminder == null ? 0 : 52 + 20 * ts);
+        (widget.onFinishPractice == null ? 0 : 20 * ts);
     return ((available - rest) / (168 + 88 * ts)).clamp(0.5, 1.0);
   }
 
@@ -532,10 +531,10 @@ class _RoutineCompleteScreenState extends State<RoutineCompleteScreen>
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (widget.onSetReminder case final setReminder?) ...[
+                      if (widget.onFinishPractice case final finish?) ...[
                         Text(
-                          'This check is in History now. Want a reminder for it?',
-                          key: const ValueKey('completion-reminder-offer'),
+                          "That's how every check works. It's in History now, with the time.",
+                          key: const ValueKey('completion-practice-done'),
                           textAlign: TextAlign.center,
                           style: type.body.copyWith(
                             color: context.readableSecondaryText,
@@ -543,15 +542,8 @@ class _RoutineCompleteScreenState extends State<RoutineCompleteScreen>
                         ),
                         const SizedBox(height: PebbleSpacing.sm),
                         PebbleButton.primary(
-                          icon: LucideIcons.bell,
-                          onPressed: setReminder,
-                          label: 'Set a reminder',
-                        ),
-                        const SizedBox(height: PebbleSpacing.xxs),
-                        PebbleButton.tertiary(
-                          expand: true,
-                          onPressed: widget.onBackToHome,
-                          label: 'Not now',
+                          onPressed: finish,
+                          label: 'Build your first routine',
                         ),
                       ] else ...[
                         PebbleButton.primary(

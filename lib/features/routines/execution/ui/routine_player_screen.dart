@@ -35,7 +35,6 @@ import 'package:pebble_routines/core/ui/pebble_photo_gallery_viewer.dart';
 import 'package:pebble_routines/features/ai_photo/ai_photo_settings.dart';
 import 'package:pebble_routines/features/history/ui/routine_run_detail_screen.dart';
 import 'package:pebble_routines/features/onboarding/data/onboarding_tour.dart';
-import 'package:pebble_routines/features/routines/list/ui/reminder_editor_sheet.dart';
 import 'package:pebble_routines/features/history/providers/routine_history_vm.dart';
 import 'package:pebble_routines/features/sync/backup_status.dart';
 import 'package:pebble_routines/features/routines/data/shared_reminder_preferences_repository.dart';
@@ -507,11 +506,7 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
       onLanded: settings.stepCompleteSound ? _playCompletionSound : null,
       onOpenPhoto: (index) => _openRunPhotos(proofs, index),
       onBackToHome: _goHome,
-      onSetReminder: _isPractice(session)
-          ? () => _setPracticeReminder(
-              summary?.run.finishedAt ?? session?.completedAt ?? DateTime.now(),
-            )
-          : null,
+      onFinishPractice: _isPractice(session) ? _finishPractice : null,
       onReviewRoutine: _openVault,
       onShare: run == null ? null : (button) => _shareRun(button, run),
     );
@@ -1315,51 +1310,36 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
     GoRouter.of(context).go('/');
   }
 
-  /// "Skip" in the practice run: nothing is saved, and Home shows the new
-  /// routine ready to go.
+  /// "Skip" in the practice run: nothing is saved.
   Future<void> _skipPracticeRun() async {
     final playerState = ref.read(routinePlayerProvider(widget.sessionId));
     if (playerState.isForegroundBusy) {
       return;
     }
-    final session = playerState.session;
     await ref
         .read(routinePlayerProvider(widget.sessionId).notifier)
         .discardSession();
-    await ref.read(onboardingTourProvider).endPracticeRun();
-    if (!mounted) return;
-    if (session != null) {
-      ref
-          .read(homeRoutineHighlightProvider.notifier)
-          .state = HomeRoutineHighlight(
-        routineId: session.routineId,
-        message: '${session.routineTitleSnapshot} is ready',
-      );
-    }
-    _goHome();
+    await _finishPractice();
   }
 
-  /// "Set a reminder" on the practice run's completion screen: the usual
-  /// reminder sheet, set to every day at about the time of this check.
-  Future<void> _setPracticeReminder(DateTime finishedAt) async {
-    final session = ref.read(routinePlayerProvider(widget.sessionId)).session;
-    if (session == null) return;
-    final db = ref.read(localDbProvider);
-    final routine = await db.routineDao.getRoutineById(session.routineId);
-    if (routine == null || !mounted) return;
-    await ReminderSheet.show(
-      context,
-      routine,
-      initialTime: roundedReminderTime(finishedAt),
-      initialDays: const {1, 2, 3, 4, 5, 6, 7},
-    );
-    if (!mounted) return;
-    final reminders = await db.routineReminderDao.getRemindersForRoutine(
-      routine.id,
-    );
-    if (reminders.isNotEmpty && mounted) {
-      _goHome();
+  /// The end of the practice run, finished or skipped: the practice routine
+  /// is removed (a finished check stays in History) and onboarding moves on
+  /// to "Time to build your own".
+  Future<void> _finishPractice() async {
+    final tour = ref.read(onboardingTourProvider);
+    final routineId =
+        tour.practiceRoutineId ??
+        ref.read(routinePlayerProvider(widget.sessionId)).session?.routineId;
+    await tour.endPracticeRun();
+    if (routineId != null) {
+      try {
+        await ref.read(routineRepositoryProvider).deleteRoutine(routineId);
+      } catch (_) {
+        // A leftover practice routine is harmless; it can be deleted later.
+      }
     }
+    if (!mounted) return;
+    GoRouter.of(context).go('/first-routine');
   }
 
   Future<void> _attemptExit() async {

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pebble_routines/features/routine_ai/routine_ai_service.dart';
 import 'package:pebble_routines/core/home_widget/home_widget_setup.dart';
 import 'package:pebble_routines/features/sync/backup_status.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
@@ -98,11 +99,36 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('Start with one routine.'), findsOneWidget);
-    expect(find.text('Create routine'), findsOneWidget);
-    expect(find.text('Use template'), findsOneWidget);
+    // AI is off here (no server), so scratch leads.
+    expect(find.text('Build with AI'), findsNothing);
+    expect(find.text('Start from scratch'), findsOneWidget);
+    expect(find.text('Use a template'), findsOneWidget);
     expect(find.byTooltip('Reminders'), findsNothing);
     expect(find.text('Life flows better\nwith routines'), findsNothing);
     expect(find.textContaining('organized humans'), findsNothing);
+  });
+
+  testWidgets('empty home offers Build with AI when the server has it on', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ..._homeOverrides(routines: const [], runs: const []),
+          routineAiClientProvider.overrideWithValue(_AiOn()),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.fromId(ThemeId.highNoon),
+          home: const RoutineListScreen(),
+        ),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('Build with AI'), findsOneWidget);
+    expect(find.text('Start from scratch'), findsOneWidget);
   });
 
   testWidgets('non-empty home spotlights last-run routine', (tester) async {
@@ -1484,4 +1510,18 @@ RoutineRun _run({required int routineId, required DateTime finishedAt}) {
     syncMetadataJson: null,
     updatedAt: finishedAt,
   );
+}
+
+class _AiOn implements RoutineAiClient {
+  @override
+  Future<RoutineAiStatus> status() async =>
+      const RoutineAiStatus(enabled: true);
+
+  @override
+  Future<RoutineAiReply> build({
+    required String buildKey,
+    required String description,
+    List<RoutineAiAnswer> answers = const [],
+    bool askQuestions = false,
+  }) async => const RoutineAiReply.refused('featureOff');
 }

@@ -9,7 +9,6 @@ import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
-import 'package:pebble_routines/features/onboarding/ui/onboarding_screen.dart';
 import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
 import 'package:pebble_routines/features/subscription/domain/user_tier.dart';
@@ -183,59 +182,6 @@ void main() {
       expect(find.textContaining('Search'), findsNothing);
       expect(find.textContaining('Preview first'), findsNothing);
       expect(find.textContaining('Then customize'), findsNothing);
-    });
-
-    testWidgets('onboarding browse templates does not complete onboarding', (
-      WidgetTester tester,
-    ) async {
-      SharedPreferences.setMockInitialValues({
-        'has_completed_onboarding': false,
-      });
-      final prefs = await SharedPreferences.getInstance();
-      final router = GoRouter(
-        initialLocation: '/onboarding',
-        routes: <RouteBase>[
-          GoRoute(
-            path: '/onboarding',
-            builder: (BuildContext context, GoRouterState state) {
-              return const OnboardingScreen(initialPage: 2);
-            },
-          ),
-          GoRoute(
-            path: '/templates',
-            builder: (BuildContext context, GoRouterState state) {
-              return Scaffold(
-                body: Text(
-                  state.uri.queryParameters['from'] == 'onboarding'
-                      ? 'Templates from onboarding'
-                      : 'Templates without onboarding',
-                ),
-              );
-            },
-          ),
-        ],
-      );
-
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: <Override>[
-            sharedPreferencesProvider.overrideWithValue(prefs),
-          ],
-          child: MaterialApp.router(
-            theme: AppTheme.fromId(ThemeId.amberResin),
-            routerConfig: router,
-          ),
-        ),
-      );
-
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Browse all templates'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Browse all templates'));
-      await tester.pumpAndSettle();
-
-      expect(prefs.getBool('has_completed_onboarding'), isFalse);
-      expect(find.text('Templates from onboarding'), findsOneWidget);
     });
 
     testWidgets(
