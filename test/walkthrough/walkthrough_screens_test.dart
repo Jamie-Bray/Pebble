@@ -39,6 +39,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:pebble_routines/features/routine_ai/routine_ai_service.dart';
 import 'package:pebble_routines/core/theme/routine_palette.dart';
 import 'package:pebble_routines/features/routines/cover/routine_cover.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
@@ -948,6 +949,8 @@ void _capture(
   String? aiDescription = _aiSampleDescription,
   // Replaces the fixed answer, for scenes that need a caption on its way.
   AiProofDescriber? aiDescriber,
+  // The AI routine builder: on, with the free build still there.
+  bool routineAi = false,
 }) {
   final skip =
       !_enabled ||
@@ -1050,6 +1053,8 @@ void _capture(
                 sharedReminderPreferencesRepositoryProvider.overrideWithValue(
                   _FakeSharedReminders(sharedContact),
                 ),
+              if (routineAi)
+                routineAiClientProvider.overrideWithValue(_FakeRoutineAi()),
               if (ai || aiOnForHero) ...[
                 aiPhotoServiceProvider.overrideWithValue(_FakeAiPhotoService()),
                 aiProofDescriberProvider.overrideWithValue(
@@ -1201,17 +1206,9 @@ void _onboardingSet(
       await env.scrollDown(400);
       await env.shot('${prefix}onboarding_1_welcome_scrolled');
       await _onboardingPage(env, 1);
-      await env.shot('${prefix}onboarding_2_theme');
+      await env.shot('${prefix}onboarding_2_practice_preview');
       await env.scrollDown(500);
-      await env.shot('${prefix}onboarding_2_theme_scrolled');
-      await _onboardingPage(env, 2);
-      await env.shot('${prefix}onboarding_3_starting_point');
-      await env.scrollDown(500);
-      await env.shot('${prefix}onboarding_3_starting_point_scrolled');
-      await _onboardingPage(env, 3);
-      await env.shot('${prefix}onboarding_4_starter_preview');
-      await env.scrollDown(500);
-      await env.shot('${prefix}onboarding_4_starter_preview_scrolled');
+      await env.shot('${prefix}onboarding_2_practice_preview_scrolled');
     },
   );
 }
@@ -1246,12 +1243,48 @@ void main() {
       await env.settle(20);
       await env.realWait(4);
       await env.shot('practice_3_complete');
-      await env.tapText('Set a reminder');
+      await env.tapText('Build your first routine');
       await env.settle(20);
       await env.realWait(2);
-      await env.shot('practice_4_reminder_sheet');
+      await env.shot('practice_4_first_routine');
+    },
+    routineAi: true,
+  );
+  _capture(
+    'first routine with AI',
+    seed: _Seed.empty,
+    routineAi: true,
+    (env) async {
+      await env.push('/first-routine');
+      await env.settle(20);
+      await env.shot('first_routine_1_choices');
+      await env.tapText('Build it with AI');
+      await env.settle(20);
+      await env.shot('first_routine_2_ai_sheet');
+      await env.tester.enterText(
+        find.byKey(const ValueKey('routine-ai-description')),
+        'Leaving for work: straighteners, the hob and the back door',
+      );
+      await env.settle(10);
+      await env.tapText('Ask me a couple of questions first');
+      await env.settle(20);
+      await env.shot('first_routine_3_questions');
+      await env.tapText('Yes');
+      await env.tapText('Build it');
+      await env.settle(20);
+      await env.shot('first_routine_4_draft');
+      await env.tapText('Use this routine');
+      await env.settle(30);
+      await env.realWait(2);
+      await env.settle(20);
+      await env.shot('first_routine_5_editor');
     },
   );
+  _capture('home empty with AI', seed: _Seed.empty, routineAi: true, (
+    env,
+  ) async {
+    await env.shot('home_empty_ai');
+  });
   _capture(
     'tips after onboarding',
     account: _Account.signedInPremium,
@@ -2386,4 +2419,43 @@ void main() {
     await env.realWait(3);
     await env.shot('sub_delete_account_sheet');
   });
+}
+
+class _FakeRoutineAi implements RoutineAiClient {
+  @override
+  Future<RoutineAiStatus> status() async =>
+      const RoutineAiStatus(enabled: true);
+
+  @override
+  Future<RoutineAiReply> build({
+    required String buildKey,
+    required String description,
+    List<RoutineAiAnswer> answers = const [],
+    bool askQuestions = false,
+  }) async {
+    if (askQuestions) {
+      return const RoutineAiReply.questions([
+        RoutineAiQuestion(
+          question: 'Do you leave by car?',
+          options: ['Yes', 'No'],
+        ),
+        RoutineAiQuestion(
+          question: 'Any pets at home?',
+          options: ['Cat', 'Dog', 'None'],
+        ),
+      ]);
+    }
+    return const RoutineAiReply.draft(
+      RoutineAiDraft(
+        name: 'Leaving for work',
+        steps: [
+          RoutineAiStep(label: 'Straighteners unplugged', photo: true),
+          RoutineAiStep(label: 'Hob dials off', photo: true),
+          RoutineAiStep(label: 'Back door locked', photo: false),
+          RoutineAiStep(label: 'Windows shut', photo: false),
+          RoutineAiStep(label: 'Car locked', photo: true),
+        ],
+      ),
+    );
+  }
 }
