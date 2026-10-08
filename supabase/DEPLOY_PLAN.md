@@ -231,11 +231,29 @@ still applies; older workers show a generic budget message for that refusal.
 Keep the additive tables during rollback; do not delete history
 or roll back the backup-consent gate independently of the app.
 
-## Proposed (AI routine builder, 8 Oct 2026; not yet agreed or done)
+## AI routine builder (applied 8 Oct 2026; Jamie approved the live steps)
 
-**No live changes made.** Plan: `/mnt/project-files/ai-routine-builder/PLAN.md`
-(project files). The app hides "Build with AI" until the function says it is on,
-so a build can ship before these steps.
+Plan: `/mnt/project-files/ai-routine-builder/PLAN.md` (project files). The app
+hides "Build with AI" until the function says it is on.
+
+**Done on production (`yncgjqbjjzbinqkpukug`), 8 Oct 2026:**
+
+- `025_routine_ai_builds.sql` run as plain SQL through the Supabase connector
+  (not `supabase db push`, so the migration history table is untouched and has
+  no row for 025). Checked afterwards: the three `routine_ai_*` tables exist
+  with row level security on, both RPCs exist, `paused` is false, and `anon`
+  can neither read `routine_ai_builds` nor call `reserve_routine_ai_call`.
+- `build-routine` deployed (version 1, `verify_jwt = false`) from branch
+  `claude/project-thread-nnbrfg` at 44d6232.
+- `GET /functions/v1/build-routine` with the anon key returned
+  `{"enabled":true}`. The function only says that when `ANTHROPIC_API_KEY` is
+  set, so the key is present (the connector cannot list secret names).
+- `ROUTINE_AI_ENABLED` was not set; the function is on unless it is "false".
+
+**Not done yet:** the "off first" check in step 4, a real build from a fresh
+install (and the `freeUsed` and Personal Premium checks), and step 5.
+
+The steps as planned:
 
 1. Apply `025_routine_ai_builds.sql` (additive: `routine_ai_settings`,
    `routine_ai_builds`, `routine_ai_budget` and two service-role RPCs). It needs

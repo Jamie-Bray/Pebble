@@ -1,6 +1,6 @@
 -- AI routine builder (/mnt/project-files/ai-routine-builder/PLAN.md).
--- NOT APPLIED: see the "Proposed (AI routine builder)" section of
--- supabase/DEPLOY_PLAN.md.
+-- APPLIED to production on 8 Oct 2026 (run as plain SQL, not db push): see
+-- the "AI routine builder" section of supabase/DEPLOY_PLAN.md.
 --
 -- Additive only. Nothing here stores what the person typed or the routine
 -- that came back: the tables hold one row per build (to count the free build
