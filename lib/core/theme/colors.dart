@@ -33,6 +33,7 @@ enum ThemeId {
   oliveGrove,
   heather,
   ember,
+  seasonal,
 }
 
 enum ThemePickerCategory { included, premium, accessibility }
@@ -394,6 +395,85 @@ class EmberThemeFactory {
   );
 }
 
+/// The four seasons of the Seasons theme (northern hemisphere, by month).
+enum PebbleSeason {
+  spring,
+  summer,
+  autumn,
+  winter;
+
+  static PebbleSeason of(DateTime date) => switch (date.month) {
+    3 || 4 || 5 => PebbleSeason.spring,
+    6 || 7 || 8 => PebbleSeason.summer,
+    9 || 10 || 11 => PebbleSeason.autumn,
+    _ => PebbleSeason.winter,
+  };
+
+  String get label => switch (this) {
+    PebbleSeason.spring => 'Spring',
+    PebbleSeason.summer => 'Summer',
+    PebbleSeason.autumn => 'Autumn',
+    PebbleSeason.winter => 'Winter',
+  };
+}
+
+/// Seasons (Premium): changes by itself through the year. Primrose and
+/// bluebell in spring, sea and sun in summer, rust and oat in autumn, and a
+/// cosy fireside dark in winter. Nobody has to change it by hand.
+class SeasonalThemeFactory {
+  /// Pins the season for screenshots and tests.
+  @visibleForTesting
+  static PebbleSeason? debugSeason;
+
+  static ThemeData build([PebbleSeason? season]) =>
+      switch (season ?? debugSeason ?? PebbleSeason.of(DateTime.now())) {
+        PebbleSeason.spring => _BaseThemeFactory.build(
+          id: ThemeId.seasonal,
+          bg: const Color(0xFFFAF8EC), // primrose cream
+          fg: const Color(0xFF26304A), // bluebell ink
+          accent: const Color(0xFF45569A), // bluebell
+          secondary: const Color(0xFF8A6E12), // primrose, deepened
+          categoryAccents: const [
+            Color(0xFF45569A),
+            Color(0xFFC9A227),
+            Color(0xFF6E8F5A),
+          ],
+        ),
+        PebbleSeason.summer => _BaseThemeFactory.build(
+          id: ThemeId.seasonal,
+          bg: const Color(0xFFF7F5EE), // sunlit linen
+          fg: const Color(0xFF1E3134), // deep sea ink
+          accent: const Color(0xFF2C6A6F), // sea
+          secondary: const Color(0xFFA8622A), // sun-baked orange
+          categoryAccents: const [
+            Color(0xFF2C6A6F),
+            Color(0xFFD08B3A),
+            Color(0xFF7FA7A3),
+          ],
+        ),
+        PebbleSeason.autumn => _BaseThemeFactory.build(
+          id: ThemeId.seasonal,
+          bg: const Color(0xFFF5EEE2), // oat
+          fg: const Color(0xFF35251C), // conker ink
+          accent: const Color(0xFF94472A), // rust
+          secondary: const Color(0xFF5E6B32), // moss
+          categoryAccents: const [
+            Color(0xFF94472A),
+            Color(0xFFC08A3E),
+            Color(0xFF6F7A3C),
+          ],
+        ),
+        PebbleSeason.winter => _BaseThemeFactory.build(
+          id: ThemeId.seasonal,
+          bg: const Color(0xFF1E1916), // fireside dark
+          fg: const Color(0xFFF2E8DC), // candlelit cream
+          accent: const Color(0xFFE3A566), // ember amber
+          secondary: const Color(0xFFB9C9B0), // frosted sage
+          isDark: true,
+        ),
+      };
+}
+
 /// 7. Rose Quartz (Premium Spa)
 class RoseQuartzThemeFactory {
   static ThemeData build() => _BaseThemeFactory.build(
@@ -662,6 +742,8 @@ class AppTheme {
         return HeatherThemeFactory.build();
       case ThemeId.ember:
         return EmberThemeFactory.build();
+      case ThemeId.seasonal:
+        return SeasonalThemeFactory.build();
     }
   }
 }
@@ -1145,6 +1227,17 @@ class ThemeMetadata {
       description: 'Dark green with a fresh green accent.',
       category: ThemePickerCategory.premium,
       sortOrder: 130,
+    ),
+    ThemeId.seasonal: ThemeMetadata(
+      id: ThemeId.seasonal,
+      name: 'Seasons',
+      icon: LucideIcons.leaf,
+      subtitle: 'Changes by itself',
+      description:
+          'Primrose and bluebell in spring, sea and sun in summer, rust and '
+          'oat in autumn, and a cosy dark in winter.',
+      category: ThemePickerCategory.premium,
+      sortOrder: 95,
     ),
     ThemeId.ember: ThemeMetadata(
       id: ThemeId.ember,

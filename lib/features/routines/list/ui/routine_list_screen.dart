@@ -29,6 +29,12 @@ import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/features/routines/composer/ui/routine_composer_screen.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
+import 'package:pebble_routines/core/theme/routine_palette.dart';
+import 'package:pebble_routines/core/ui/pebble_stones.dart';
+import 'package:pebble_routines/features/routines/cover/routine_cover.dart';
+import 'package:pebble_routines/features/routines/cover/routine_cover_view.dart';
+import 'package:pebble_routines/features/routines/execution/data/services/routine_player_photo_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
 import 'package:pebble_routines/features/history/providers/routine_history_vm.dart';
 import 'package:pebble_routines/features/history/ui/routine_run_detail_screen.dart';
@@ -72,158 +78,58 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
   double _maxSheetExtent = 0;
 
   Future<void> _openStyleSheet(Routine routine, ThemeData themeData) async {
-    final cs = themeData.colorScheme;
+    // Open to everyone: the free icons and stones are for making a routine
+    // your own; locked ones open Personal Premium.
     final hasPremiumStyleAccess = ref
         .read(premiumFeaturePolicyProvider)
         .canUsePremiumThemes;
-    if (!hasPremiumStyleAccess) {
-      _showPremiumStyleUpsell(routine, themeData);
-      return;
-    }
 
-    final swatches = <Color>[
-      cs.primary,
-      cs.secondary,
-      cs.tertiary,
-      cs.primaryContainer,
-      cs.secondaryContainer,
-      cs.tertiaryContainer,
-    ];
-
-    await showModalBottomSheet<RoutineStylePickerResult>(
+    final result = await showModalBottomSheet<RoutineStylePickerResult>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => RoutineStylePickerSheet.asScaffold(
         context: ctx,
         initialIconKey: routine.emoji ?? RoutineIconCatalog.defaultKey,
-        initialColor: (routine.colorHex != null && routine.colorHex != 0)
-            ? Color(routine.colorHex!)
-            : themeData.colorScheme.primary,
-        iconChoices: RoutineIconCatalog.all,
-        swatches: swatches,
-        hasPremiumIconAccess: hasPremiumStyleAccess,
-        title: 'Style Studio',
+        initialColorHex: routine.colorHex,
+        routineTitle: routine.title,
+        hasPremiumAccess: hasPremiumStyleAccess,
+        onPremiumTap: () =>
+            ctx.push(premiumRoute(source: PremiumEntrySource.premiumTheme)),
+        initialCover: ref.read(routineCoverProvider(routine.id)),
+        onPickPhoto: () async {
+          final file = await ref
+              .read(routinePlayerPhotoPickerProvider)
+              .pickImage(
+                source: ImageSource.gallery,
+                imageQuality: 82,
+                maxWidth: 1600,
+              );
+          return file?.path;
+        },
       ),
-    ).then((result) async {
-      if (result != null && mounted) {
-        final management = ref.read(routineManagementProvider);
-        await management.updateRoutineAppearance(
-          id: routine.id,
-          iconKey: RoutineIconCatalog.sanitizeForStorage(
-            result.iconKey,
-            hasPremiumAccess: hasPremiumStyleAccess,
-          ),
-          colorHex: result.colorHex,
-        );
-      }
-    });
-  }
-
-  void _showPremiumStyleUpsell(Routine routine, ThemeData themeData) {
-    final accent = _routineAccentColor(routine, themeData, 0);
-    final icon = RoutineIconCatalog.resolve(routine.emoji).icon;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) {
-        final cs = Theme.of(ctx).colorScheme;
-        return Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                cs.surface,
-                Color.lerp(cs.surface, accent, 0.12) ?? cs.surface,
-              ],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-            border: Border(
-              top: BorderSide(color: accent.withValues(alpha: 0.24)),
-            ),
-          ),
-          padding: const EdgeInsets.only(
-            top: 8,
-            left: 24,
-            right: 24,
-            bottom: 32,
-          ),
-          child: SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 48,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 24),
-                  decoration: BoxDecoration(
-                    color: cs.outline.withValues(alpha: 0.22),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                Container(
-                  width: 76,
-                  height: 76,
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: accent.withValues(alpha: 0.28)),
-                  ),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Icon(icon, size: 30, color: accent),
-                      Positioned(
-                        right: 13,
-                        top: 13,
-                        child: Icon(LucideIcons.lock, size: 14, color: accent),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Routine style',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: cs.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Choosing an icon and colour for each routine comes with Personal Premium.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 15,
-                    height: 1.5,
-                    color: cs.onSurface.withValues(alpha: 0.72),
-                  ),
-                ),
-                const SizedBox(height: 30),
-                PebbleButton.primary(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    context.push(
-                      premiumRoute(source: PremiumEntrySource.backup),
-                    );
-                  },
-                  label: 'See Personal Premium',
-                ),
-                const SizedBox(height: PebbleSpacing.xs),
-                PebbleButton.tertiary(
-                  onPressed: () => Navigator.pop(ctx),
-                  label: 'Not now',
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
+    if (result == null || !mounted) return;
+    final existingCover = ref.read(routineCoverProvider(routine.id));
+    // A new photo needs Premium; one chosen earlier stays if untouched.
+    final cover =
+        result.cover is RoutineCoverPhoto &&
+            !hasPremiumStyleAccess &&
+            result.cover != existingCover
+        ? existingCover
+        : result.cover;
+    if (cover != existingCover) {
+      await saveRoutineCover(ref, routine.id, cover);
+      if (!mounted) return;
+    }
+    await ref
+        .read(routineManagementProvider)
+        .updateRoutineAppearance(
+          id: routine.id,
+          iconKey: result.iconKey,
+          // 0 means "the theme's colour" (null would keep the old one).
+          colorHex: result.colorHex ?? 0,
+        );
   }
 
   @override
@@ -305,6 +211,13 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Spacer(),
+                            // The stone waits where the first routine will
+                            // go. It leaves once there is one.
+                            const PebbleStones(
+                              scene: PebbleStonesScene.ripple,
+                              size: 148,
+                            ),
+                            const SizedBox(height: PebbleSpacing.xl),
                             Text(
                               'Start with one routine.',
                               style: PebbleFonts.serif(
@@ -541,6 +454,38 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
 
         return Stack(
           children: [
+            // The hero routine's header: soft and dimmed behind the top of
+            // Home, fading out before the main button.
+            if (spotlightRoutine != null)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: constraints.maxHeight * 0.46,
+                child: Consumer(
+                  builder: (context, ref, _) {
+                    final cover = ref.watch(
+                      routineCoverProvider(spotlightRoutine.id),
+                    );
+                    return RoutineAccentScope(
+                      colorHex: spotlightRoutine.colorHex,
+                      child: AnimatedSwitcher(
+                        duration: MediaQuery.disableAnimationsOf(context)
+                            ? Duration.zero
+                            : PebbleMotion.standard,
+                        child: cover == null
+                            ? const SizedBox.expand()
+                            : RoutineCoverBackdrop(
+                                key: ValueKey(
+                                  '${spotlightRoutine.id}:${cover.encode()}',
+                                ),
+                                cover: cover,
+                              ),
+                      ),
+                    );
+                  },
+                ),
+              ),
             // Content column caps at 640 on wide screens; the scrim and
             // ambient background behind it stay full-bleed.
             AdaptiveContentWidth(
@@ -739,7 +684,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
               ),
               PebbleGlassIconButton(
                 tooltip: 'App settings',
-                icon: LucideIcons.slidersHorizontal,
+                icon: LucideIcons.settings,
                 onPressed: () => context.push('/settings'),
               ),
               const SizedBox(width: PebbleSpacing.xs),
@@ -1216,9 +1161,8 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
   }
 
   Color _routineAccentColor(Routine routine, ThemeData themeData, int index) {
-    if (routine.colorHex != null && routine.colorHex != 0) {
-      return Color(routine.colorHex!);
-    }
+    final own = context.routineAccent(routine.colorHex);
+    if (own != null) return own;
     final palette = [
       themeData.colorScheme.primary,
       themeData.colorScheme.secondary,
@@ -1470,9 +1414,6 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
     Routine routine,
     ThemeData themeData,
   ) {
-    final hasPremiumStyleAccess = ref
-        .read(premiumFeaturePolicyProvider)
-        .canUsePremiumThemes;
     // Ask the server again each time the actions open; the row keeps showing
     // the last answer while this loads.
     ref.invalidate(aiPhotoServerEnabledProvider);
@@ -1617,11 +1558,8 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                             sheetContext,
                             icon: LucideIcons.palette,
                             label: 'Style',
-                            subtitle: hasPremiumStyleAccess
-                                ? 'Change the icon and colour'
-                                : 'Icon and colour, with Premium',
+                            subtitle: 'Change the icon and colour',
                             accent: accent,
-                            premiumLocked: !hasPremiumStyleAccess,
                             onTap: () async {
                               Navigator.pop(sheetContext);
                               await _openStyleSheet(routine, themeData);
@@ -2211,34 +2149,24 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
           tally: tally,
           photoPaths: heroState.photoPaths,
           compact: metrics.compact,
+          onOpen: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => RoutineRunDetailScreen(run: run),
+            ),
+          ),
         ),
         SizedBox(height: metrics.previewCtaGap),
-        // The answer is the card; nothing here should invite re-checking.
-        // Two quiet actions: look at this check, or run the routine again.
+        // The answer is the card (tap it to open the check). Run again is
+        // one clear tonal button, never the filled Start, so it doesn't
+        // invite re-checking.
         SizedBox(
           key: const ValueKey('home_hero_cta_box'),
           width: double.infinity,
-          child: Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              PebbleButton.tertiary(
-                key: const ValueKey('home_hero_view_check'),
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => RoutineRunDetailScreen(run: run),
-                  ),
-                ),
-                trailingIcon: LucideIcons.chevronRight,
-                label: 'See this check',
-              ),
-              PebbleButton.tertiary(
-                key: const ValueKey('home_hero_cta'),
-                onPressed: widget.onBegin,
-                icon: LucideIcons.rotateCcw,
-                label: 'Run again',
-              ),
-            ],
+          child: PebbleButton.secondary(
+            key: const ValueKey('home_hero_cta'),
+            onPressed: widget.onBegin,
+            icon: LucideIcons.rotateCcw,
+            label: 'Run again',
           ),
         ),
         SizedBox(height: metrics.ctaMetaGap),

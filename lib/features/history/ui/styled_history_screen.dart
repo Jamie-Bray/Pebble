@@ -11,6 +11,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/ui/adaptive_layout.dart';
+import 'package:pebble_routines/core/ui/pebble_stones.dart';
 import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/core/ui/pebble_confirmation_sheet.dart';
 import 'package:pebble_routines/core/ui/pebble_photo_gallery_viewer.dart';
@@ -24,6 +25,7 @@ import 'package:pebble_routines/features/routines/execution/data/services/routin
 import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
+import 'package:pebble_routines/core/theme/routine_palette.dart';
 import 'package:pebble_routines/core/ui/zen_error_view.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/ui/pebble_time.dart';
@@ -425,11 +427,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            LucideIcons.cameraOff,
-            size: 38,
-            color: foundation.textPrimary.withValues(alpha: 0.24),
-          ),
+          const PebbleStones(size: 88),
           const SizedBox(height: 16),
           Text(
             'No photos yet',
@@ -515,8 +513,8 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.history, size: 48, color: foundation.textMuted),
-            const SizedBox(height: 18),
+            const PebbleStones(scene: PebbleStonesScene.scattered, size: 132),
+            const SizedBox(height: 20),
             Text(
               'Nothing here yet',
               style: TextStyle(
@@ -976,7 +974,11 @@ class _HistoryCard extends StatelessWidget {
     final stepCount = tally.total;
     final completedStepCount = tally.done;
     final isComplete = tally.isComplete;
-    final accent = Theme.of(context).colorScheme.primary;
+    // The routine's own colour, so runs of different routines are told apart
+    // at a glance.
+    final accent =
+        context.routineAccent(r?.colorHex) ??
+        Theme.of(context).colorScheme.primary;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),

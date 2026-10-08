@@ -17,6 +17,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'core/theme/pebble_fonts.dart';
 import 'core/theme/tokens.dart';
 import 'core/ui/pebble_buttons.dart';
+import 'core/theme/colors.dart';
 import 'core/theme/theme_provider.dart';
 import 'core/config/app_runtime_config.dart';
 import 'core/config/pebble_locale.dart';
@@ -731,6 +732,11 @@ class _PebbleAppState extends ConsumerState<PebbleApp>
       ref.read(cloudSyncCoordinatorProvider).setAppInForeground(true);
       unawaited(_refreshPurchasesAndCloudAccess());
       ref.read(routineRunRepositoryProvider).enforceRetentionPolicy();
+      // Seasons picks its colours from today's date; rebuild it on return
+      // so a new season shows without restarting.
+      if (ref.read(currentColorThemeProvider) == ThemeId.seasonal) {
+        ref.invalidate(currentThemeDataProvider);
+      }
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
       // The periodic retry only runs while Pebble is on screen.

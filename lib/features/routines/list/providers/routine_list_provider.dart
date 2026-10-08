@@ -90,3 +90,14 @@ final restrictedRoutineIdsProvider = Provider<Set<int>>((ref) {
     keptRoutineIds: ref.watch(keptRoutinesProvider),
   );
 });
+
+/// The stored colour of routine [routineId] (null for none), for painting
+/// the player, completion and history in the routine's colour.
+final routineColorHexProvider = Provider.family<int?, int>((ref, routineId) {
+  final routines = ref.watch(routineListProvider).valueOrNull;
+  if (routines == null) return null;
+  for (final routine in routines) {
+    if (routine.id == routineId) return routine.colorHex;
+  }
+  return null;
+});
