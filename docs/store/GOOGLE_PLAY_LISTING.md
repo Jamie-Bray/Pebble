@@ -78,7 +78,7 @@ title that is different from the launcher label is allowed.
 
 ## Short description (max 80)
 
-Recommended (waiting for Jamie's final yes):
+Chosen (Jamie, 8 October 2026):
 
 <!-- limit:80 id:play-short -->
 ```text
@@ -332,7 +332,7 @@ Output of `python3 docs/store/check_limits.py` on 8 October 2026:
 | --- | --- | --- |
 | App name (chosen) | 25 | 30 |
 | App name alt 1 / alt 2 | 23 / 30 | 30 |
-| Short description (recommended) | 74 | 80 |
+| Short description (chosen) | 74 | 80 |
 | Short description alt 1 / alt 2 | 78 / 80 | 80 |
 | Full description | 3294 | 4000 |
 | Screenshot captions 1 to 6 | 11 to 21 | 40 (house style, not a Play limit) |
