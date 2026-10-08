@@ -162,8 +162,8 @@ Deno.test('step list: optional, cleaned, never fails the request', () => {
   const parsed = parseCompletionInput({
     ...base,
     steps: [
-      { title: ' Front\u202E door ', status: 'done', completedAt: '2026-10-03T21:38:00Z' },
-      { title: 'Hob', status: 'skipped', completedAt: '2026-10-03T21:39:00Z' },
+      { title: ' Front\u202E door ', status: 'done', completedAt: '2026-10-03T21:38:00Z', note: ' Keys\u202E in   the bowl ' },
+      { title: 'Hob', status: 'skipped', completedAt: '2026-10-03T21:39:00Z', note: 'n'.repeat(400) },
       { title: 'Future', status: 'done', completedAt: '2026-10-04T21:39:00Z' },
       { title: '', status: 'done' },
       42,
@@ -177,6 +177,9 @@ Deno.test('step list: optional, cleaned, never fails the request', () => {
   assert(steps[1].skipped && steps[1].completedAt === null, 'skipped has no time');
   assert(steps[2].completedAt === null, 'time after the run dropped');
   assert(Array.from(steps[3].title).length === 90 && steps[3].completedAt === null, 'long title cut, bad time dropped');
+  assert(steps[0].note === 'Keys in the bowl', 'note cleaned');
+  assert(Array.from(steps[1].note ?? '').length === 140, 'long note cut');
+  assert(steps[2].note === null, 'no note is null');
 });
 
 Deno.test('completion time parts and step times use the sender clock', () => {
@@ -195,7 +198,7 @@ Deno.test('completion email lists steps with times, and hides them when asked', 
     routineTitle: 'Leaving the house', completedAtText: '3 Oct 2026, 08:02 (UTC+1)',
     completedAtParts: { time: '08:02', day: 'Friday 3 October 2026', zone: 'UTC+1' },
     stepList: [
-      { title: 'Front <door>', time: '08:01', skipped: false },
+      { title: 'Front <door>', time: '08:01', skipped: false, note: 'Keys in the <bowl>' },
       { title: 'Hob off', time: null, skipped: true },
     ],
     moreSteps: 2,
@@ -207,9 +210,12 @@ Deno.test('completion email lists steps with times, and hides them when asked', 
   assert(shown.html.includes('and 2 more steps'), 'more steps');
   assert(shown.text.includes('✓ Front <door>  08:01') && shown.text.includes('– Hob off  Skipped'), 'plain text rows');
   assert(shown.text.includes('Steps: 3 of 4, 1 skipped'), 'summary');
+  assert(shown.html.includes('Keys in the &lt;bowl&gt;') && !shown.html.includes('<bowl>'), 'step note escaped');
+  assert(shown.text.includes('   Note: Keys in the <bowl>'), 'plain text note');
   assert(shown.html.includes('Friday 3 October 2026'), 'hero day');
   const hidden = buildCompletionEmail({ ...common, steps: null });
   assert(!hidden.html.includes('Front') && !hidden.text.includes('Front') && !hidden.text.includes('Steps:'), 'steps hidden');
+  assert(!hidden.html.includes('bowl') && !hidden.text.includes('bowl'), 'notes hidden with the steps');
 });
 
 Deno.test('invite email names the sender and contains no sender-written text', () => {

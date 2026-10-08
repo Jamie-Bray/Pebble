@@ -1,3 +1,5 @@
+import 'package:flutter/widgets.dart' show StringCharacters;
+
 import 'package:pebble_routines/core/database/routine_step.dart';
 
 enum RoutineSessionStatus { active, completed, discarded }
@@ -148,11 +150,16 @@ class RoutineSessionStepState {
   final DateTime? completedAt;
   final List<RoutineSessionProofAsset> proofAssets;
 
+  /// What the person wrote on this step while running it ("Moved the
+  /// straighteners onto the kitchen table"). Null when there is none.
+  final String? note;
+
   const RoutineSessionStepState({
     required this.stepIndex,
     required this.status,
     required this.completedAt,
     required this.proofAssets,
+    this.note,
   });
 
   factory RoutineSessionStepState.initial(int stepIndex) {
@@ -179,20 +186,25 @@ class RoutineSessionStepState {
       status: _sessionStepStatusFromString(json['status']?.toString()),
       completedAt: _parseDateTime(json['completedAt']),
       proofAssets: proofAssets,
+      note: cleanStepNote(json['note']),
     );
   }
 
+  /// [note] replaces the note; [clearNote] removes it.
   RoutineSessionStepState copyWith({
     int? stepIndex,
     SessionStepStatus? status,
     DateTime? completedAt,
     List<RoutineSessionProofAsset>? proofAssets,
+    String? note,
+    bool clearNote = false,
   }) {
     return RoutineSessionStepState(
       stepIndex: stepIndex ?? this.stepIndex,
       status: status ?? this.status,
       completedAt: completedAt ?? this.completedAt,
       proofAssets: proofAssets ?? this.proofAssets,
+      note: clearNote ? null : (note ?? this.note),
     );
   }
 
@@ -202,8 +214,24 @@ class RoutineSessionStepState {
       'status': status.name,
       'completedAt': completedAt?.toIso8601String(),
       'proofAssets': proofAssets.map((asset) => asset.toJson()).toList(),
+      if (note != null) 'note': note,
     };
   }
+}
+
+/// The longest step note, in characters. Long enough for a sentence or two,
+/// short enough to read at a glance in History and the completion email.
+const maxStepNoteChars = 140;
+
+/// A step note as stored: trimmed, at most [maxStepNoteChars], and null when
+/// empty, so a blank note is never saved or shown.
+String? cleanStepNote(Object? value) {
+  if (value is! String) return null;
+  final text = value.trim();
+  if (text.isEmpty) return null;
+  return text.characters.length > maxStepNoteChars
+      ? text.characters.take(maxStepNoteChars).toString().trimRight()
+      : text;
 }
 
 class RoutineSessionResumeSummary {

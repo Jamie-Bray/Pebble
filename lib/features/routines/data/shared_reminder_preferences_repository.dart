@@ -463,17 +463,22 @@ class CompletionEmailStep {
     required this.title,
     required this.skipped,
     this.completedAt,
+    this.note,
   });
 
   final String title;
   final bool skipped;
   final DateTime? completedAt;
 
+  /// The note written on the step, shown under it in the email.
+  final String? note;
+
   Map<String, dynamic> toJson() => {
     'title': title,
     'status': skipped ? 'skipped' : 'done',
     if (!skipped && completedAt != null)
       'completedAt': completedAt!.toUtc().toIso8601String(),
+    if (note != null) 'note': note,
   };
 }
 
@@ -495,6 +500,7 @@ List<CompletionEmailStep> completionEmailSteps(RoutineSession session) {
         title: title,
         skipped: state.status == SessionStepStatus.skipped,
         completedAt: state.completedAt,
+        note: state.note,
       ),
     );
   }

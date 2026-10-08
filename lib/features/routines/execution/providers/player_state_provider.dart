@@ -897,6 +897,29 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
     ].take(5).toList();
   }
 
+  /// Saves (or, for blank text, removes) the current step's note. It is
+  /// saved with the step straight away, so it is kept even if the run is
+  /// left and resumed later, and it goes into the finished run with the step.
+  Future<void> setCurrentStepNote(String? text) async {
+    final session = state.session;
+    final stepState = session?.currentStepState;
+    if (session == null || stepState == null || !session.isActive) return;
+    final note = cleanStepNote(text);
+    if (note == stepState.note) return;
+    _mutationVersion += 1;
+    final updatedStates = List<RoutineSessionStepState>.from(
+      session.stepStates,
+    );
+    updatedStates[session.currentStepIndex] = note == null
+        ? stepState.copyWith(clearNote: true)
+        : stepState.copyWith(note: note);
+    try {
+      await _persistSession(session.copyWith(stepStates: updatedStates));
+    } catch (_) {
+      // _persistSession has already shown "Couldn't save your progress".
+    }
+  }
+
   Future<void> removeProof(String proofId) {
     return _runForeground<void>(
       RoutinePlayerOperation.savingPhoto,
