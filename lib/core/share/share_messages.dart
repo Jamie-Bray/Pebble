@@ -40,7 +40,7 @@ class ShareMessages {
   /// ✓ Back door locked, 22:02
   /// – Windows shut, skipped
   ///
-  /// Recorded in Pebble
+  /// Recorded in Pebble · pebbleroutines.com
   /// ```
   ///
   /// [formatTime] matches how the phone shows times (12 or 24 hour).
@@ -75,7 +75,7 @@ class ShareMessages {
     }
     buffer
       ..writeln()
-      ..write('Recorded in Pebble');
+      ..write('Recorded in Pebble · $pebbleShareWebsite');
     return buffer.toString();
   }
 
@@ -136,7 +136,8 @@ class ShareMessages {
   /// 2. Lock the back door
   /// Note: the spare key is under the blue pot
   ///
-  /// Add it to Pebble: https://pebbleroutines.com/r#…
+  /// Add it to Pebble:
+  /// https://pebbleroutines.com/r#…
   /// ```
   ///
   /// The link opens the routine in Pebble, or a page with the steps and the
@@ -161,7 +162,11 @@ class ShareMessages {
     buffer.writeln();
     final shared = SharedRoutine(title: routineTitle, steps: steps);
     if (includeAddLink && steps.whereType<CheckStep>().isNotEmpty) {
-      buffer.write('Add it to Pebble: ${shared.toLink()}');
+      // The link on its own line, so messaging apps show it whole and
+      // build their preview card from it.
+      buffer
+        ..writeln('Add it to Pebble:')
+        ..write(shared.toLink());
     } else {
       buffer.write('Made in Pebble, a checklist app: $pebbleShareWebsite');
     }
@@ -210,6 +215,17 @@ class ShareMessages {
       _ => 'Step',
     };
   }
+
+  /// The email subject for a shared run: "Bedtime house check, completed".
+  static String runSubject(String routineTitle) =>
+      '${_titleOr(routineTitle, 'Routine')}, completed';
+
+  /// The email subject for a shared routine or template.
+  static String routineSubject(String routineTitle) =>
+      _titleOr(routineTitle, 'Routine');
+
+  /// The email subject for "Tell a friend about Pebble".
+  static const String appInviteSubject = 'Pebble';
 
   /// "Tell a friend about Pebble".
   static const String appInvite =

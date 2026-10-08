@@ -37,7 +37,7 @@ void main() {
         '– Windows shut, skipped\n'
         '✓ Hob off\n'
         '\n'
-        'Recorded in Pebble',
+        'Recorded in Pebble · pebbleroutines.com',
       );
     });
 
@@ -141,12 +141,10 @@ void main() {
         routineTitle: 'Gym bag',
         steps: const [RoutineStep.check(label: 'Towel')],
       );
-      final line = text.split('\n').last;
-      expect(
-        line,
-        startsWith('Add it to Pebble: https://pebbleroutines.com/r#'),
-      );
-      final link = Uri.parse(line.substring('Add it to Pebble: '.length));
+      final lines = text.split('\n');
+      expect(lines[lines.length - 2], 'Add it to Pebble:');
+      expect(lines.last, startsWith('https://pebbleroutines.com/r#z'));
+      final link = Uri.parse(lines.last);
       final shared = SharedRoutine.fromLink(link)!;
       expect(shared.title, 'Gym bag');
       expect(shared.steps, const [RoutineStep.check(label: 'Towel')]);
@@ -171,6 +169,11 @@ void main() {
         contains('1. Lights off\n2. Back door\n'),
       );
     });
+  });
+
+  test('email subjects name the routine', () {
+    expect(ShareMessages.runSubject('Bedtime'), 'Bedtime, completed');
+    expect(ShareMessages.routineSubject(' '), 'Routine');
   });
 
   test('the app invite links to the website', () {

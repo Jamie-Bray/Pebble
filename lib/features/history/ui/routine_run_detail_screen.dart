@@ -45,7 +45,13 @@ class RoutineRunDetailScreen extends ConsumerWidget {
           steps: ShareMessages.stepsFromRun(currentRun),
           formatTime: (at) => formatCheckTime(button, at),
         );
-        ref.read(pebbleShareProvider).shareText(button, text);
+        ref
+            .read(pebbleShareProvider)
+            .shareText(
+              button,
+              text,
+              subject: ShareMessages.runSubject(currentRun.routineTitle),
+            );
       },
     );
   }
