@@ -1,16 +1,76 @@
 <!doctype html>
-<html lang="en">
-<body style="margin:0;padding:24px 16px;background:#f3f1ec;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#1d2922;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;margin:0 auto;background:#fffdfa;border:1px solid #deddd7;border-radius:20px;">
-    <tr>
-      <td style="padding:32px;">
-        <p style="margin:0 0 16px;font-size:12px;font-weight:800;color:#24382d;">Pebble</p>
-        <h1 style="margin:0 0 12px;font-size:26px;line-height:1.2;">Your sign-in code</h1>
-        <p style="margin:0 0 20px;color:#536159;font-size:15px;line-height:1.6;">Enter this 8-digit code in Pebble to continue.</p>
-        <p style="margin:0 0 20px;font-size:32px;font-weight:800;letter-spacing:6px;color:#1d2922;">{{ .Token }}</p>
-        <p style="margin:0;color:#748078;font-size:12px;line-height:1.6;">The code expires soon. If you did not ask for it, you can ignore this email.</p>
-      </td>
-    </tr>
-  </table>
+<!--
+  Sign-in code email (Supabase Auth: magic_link and confirmation templates,
+  see config.toml). Same design as the completion emails in
+  functions/_shared/shared_alert_email.ts: High Noon palette, serif heading,
+  the cairn mark drawn without images, and a dark-mode variant.
+  Hosted projects don't read this file: paste it into Authentication >
+  Emails in the Supabase dashboard (a live change, see DEPLOY_PLAN.md).
+-->
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<meta name="x-apple-disable-message-reformatting">
+<title>Your Pebble sign-in code</title>
+<style>
+  body { margin:0 !important; padding:0 !important; width:100% !important; }
+  @media only screen and (max-width:620px) {
+    .pb-outer { padding:16px 10px 28px !important; }
+    .pb-pad { padding-left:22px !important; padding-right:22px !important; }
+    .pb-code { font-size:34px !important; letter-spacing:5px !important; }
+  }
+  @media (prefers-color-scheme: dark) {
+    .pb-bg { background:#121512 !important; }
+    .pb-card { background:#1b1f1b !important; border-color:#2b322c !important; }
+    .pb-heading { color:#e4efe2 !important; }
+    .pb-ink { color:#e9ede6 !important; }
+    .pb-muted { color:#b2bdb3 !important; }
+    .pb-eyebrow { color:#9ccaa1 !important; }
+    .pb-box { background:#222823 !important; border-color:#323b33 !important; }
+    .pb-pebble-0 { background:#8db592 !important; }
+    .pb-pebble-1 { background:#6f9a75 !important; }
+    .pb-pebble-2 { background:#55785b !important; }
+  }
+</style>
+</head>
+<body class="pb-bg" style="margin:0;padding:0;background:#f3ece0;font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1f2a24;-webkit-text-size-adjust:100%;">
+<div style="display:none;max-height:0;max-width:0;overflow:hidden;opacity:0;mso-hide:all;font-size:1px;line-height:1px;color:#f3ece0;">Enter this code in Pebble to sign in.&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;</div>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" class="pb-bg pb-outer" style="width:100%;background:#f3ece0;padding:28px 16px 40px;">
+  <tr><td align="center">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:520px;">
+      <tr><td align="center" style="padding:4px 0 18px;">
+        <!--[if !mso]><!-->
+        <div aria-hidden="true" style="display:inline-block;width:26px;vertical-align:middle;">
+          <div class="pb-pebble-2" style="width:12px;height:7px;margin:0 0 -1px 8px;border-radius:50%;background:#a9c7ab;font-size:0;line-height:0;">&nbsp;</div>
+          <div class="pb-pebble-1" style="width:18px;height:9px;margin:0 0 -1px 3px;border-radius:50%;background:#76a07d;font-size:0;line-height:0;">&nbsp;</div>
+          <div class="pb-pebble-0" style="width:26px;height:12px;margin:0;border-radius:50%;background:#4e7a58;font-size:0;line-height:0;">&nbsp;</div>
+        </div>
+        <!--<![endif]-->
+        <span class="pb-heading" style="display:inline-block;margin-left:8px;color:#193f36;font-family:'DM Serif Display',Georgia,'Times New Roman',serif;font-size:20px;line-height:24px;vertical-align:middle;">Pebble</span>
+      </td></tr>
+    </table>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" class="pb-card" style="width:100%;max-width:520px;background:#fffdf7;border:1px solid #e6decd;border-radius:24px;">
+      <tr><td class="pb-pad" style="padding:36px 36px 32px;">
+        <p class="pb-eyebrow" style="margin:0 0 14px;color:#4e7a58;font-size:12px;line-height:1.4;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;">Sign in</p>
+        <h1 class="pb-heading" style="margin:0 0 12px;color:#193f36;font-family:'DM Serif Display',Georgia,'Times New Roman',serif;font-size:34px;line-height:1.12;font-weight:400;letter-spacing:-0.3px;">Your sign-in code</h1>
+        <p class="pb-ink" style="margin:0 0 24px;color:#2d3a30;font-size:16px;line-height:1.6;">Enter this code in Pebble to continue.</p>
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;margin:0 0 24px;">
+          <tr><td class="pb-box" align="center" style="padding:22px 12px;background:#f4f1e6;border:1px solid #e4e0d0;border-radius:16px;">
+            <p class="pb-code pb-heading" style="margin:0;color:#193f36;font-family:'SF Mono',Menlo,Consolas,'Roboto Mono','Courier New',monospace;font-size:40px;line-height:1.1;font-weight:700;letter-spacing:8px;font-variant-numeric:tabular-nums;">{{ .Token }}</p>
+          </td></tr>
+        </table>
+        <p class="pb-muted" style="margin:0;color:#5b665f;font-size:14px;line-height:1.6;">The code works once and expires soon. If you didn't ask for it, you can ignore this email.</p>
+      </td></tr>
+    </table>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:520px;">
+      <tr><td align="center" style="padding:22px 28px 0;">
+        <p class="pb-muted" style="margin:0;color:#5b665f;font-size:13px;line-height:1.6;">Pebble Routines &nbsp;·&nbsp; <a href="https://pebbleroutines.com/privacy.html" style="color:#193f36;text-decoration:underline;">Privacy</a></p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
 </body>
 </html>

@@ -659,7 +659,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
           // The AI sentence shows only where the feature is offered, so
           // nobody reads about something they can't find.
           body:
-              'The routine name (you can hide it), completion time and step count. Photos and checklist details are not included.'
+              'The routine name and each step with the time you checked it (you can hide either), plus the completion time. Photos are never emailed.'
               '${(ref.watch(aiPhotoServerEnabledProvider).valueOrNull ?? false) || ref.watch(aiPhotoControllerProvider).isOn ? ' If you use AI photo descriptions, you can choose to add them. Photos are never emailed.' : ''}',
         ),
       ],
@@ -828,6 +828,8 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
           if (contact.status == SharedReminderContactStatus.accepted ||
               contact.status == SharedReminderContactStatus.pending) ...[
             _buildRoutineNameToggle(cs, contact),
+            const SizedBox(height: 10),
+            _buildStepsToggle(cs, contact),
             if (widget.routine != null &&
                 ref
                     .watch(aiPhotoControllerProvider)
@@ -960,7 +962,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
                 _buildPreviewLogRow(
                   cs,
                   label: 'Steps',
-                  value: showSteps ? completion : 'Not shown',
+                  value: showSteps ? '$completion, with times' : 'Not shown',
                   isLast: sentTo == null || sentTo.isEmpty,
                 ),
                 if (sentTo != null && sentTo.isNotEmpty)
@@ -1273,6 +1275,39 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
     SharedReminderContact contact,
   ) {
     final isOn = contact.includeRoutineName;
+    return _buildSharingToggle(
+      cs,
+      title: 'Show the routine name',
+      subtitle: isOn
+          ? 'The email names this routine.'
+          : 'The email says "a routine" instead.',
+      value: isOn,
+      onChanged: (shown) =>
+          _setSharingOptions(contact, includeRoutineName: shown),
+    );
+  }
+
+  Widget _buildStepsToggle(ColorScheme cs, SharedReminderContact contact) {
+    final isOn = contact.includeStepCount;
+    return _buildSharingToggle(
+      cs,
+      title: 'Show each step',
+      subtitle: isOn
+          ? 'The email lists each step and the time you checked it.'
+          : 'The email leaves the steps out.',
+      value: isOn,
+      onChanged: (shown) =>
+          _setSharingOptions(contact, includeStepCount: shown),
+    );
+  }
+
+  Widget _buildSharingToggle(
+    ColorScheme cs, {
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
       decoration: BoxDecoration(
@@ -1287,7 +1322,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Show the routine name',
+                  title,
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
@@ -1296,9 +1331,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  isOn
-                      ? 'The email names this routine.'
-                      : 'The email says "a routine" instead.',
+                  subtitle,
                   style: TextStyle(
                     fontSize: 13,
                     height: 1.35,
@@ -1309,12 +1342,12 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
             ),
           ),
           Semantics(
-            label: 'Show the routine name',
+            label: title,
             child: Switch(
-              value: isOn,
+              value: value,
               onChanged: _isSharedContactSaving || _isSharedContactRefreshing
                   ? null
-                  : (enabled) => _setRoutineNameShown(contact, enabled),
+                  : onChanged,
               activeThumbColor: cs.primary,
             ),
           ),
@@ -1379,10 +1412,11 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
     );
   }
 
-  Future<void> _setRoutineNameShown(
-    SharedReminderContact contact,
-    bool shown,
-  ) async {
+  Future<void> _setSharingOptions(
+    SharedReminderContact contact, {
+    bool? includeRoutineName,
+    bool? includeStepCount,
+  }) async {
     if (_isSharedContactSaving) return;
     final repo = ref.read(sharedReminderPreferencesRepositoryProvider);
     setState(() {
@@ -1392,7 +1426,8 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
     try {
       final updated = await repo.setSharingOptions(
         contact: contact,
-        includeRoutineName: shown,
+        includeRoutineName: includeRoutineName,
+        includeStepCount: includeStepCount,
       );
       if (!mounted) return;
       setState(() => _sharedContact = updated);

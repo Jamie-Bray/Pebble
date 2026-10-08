@@ -209,8 +209,8 @@ Recommended pattern:
 Supporting copy:
 
 > Pebble can email one contact when this routine is completed. The email can
-> include the routine name, completion time, and step count. Photos and checklist
-> details are not included.
+> include the routine name, completion time, and each step with the time it was
+> checked. Photos are never emailed.
 
 Where AI photo descriptions are offered, add: "If you use AI photo
 descriptions, you can choose to add them. Photos are never emailed."

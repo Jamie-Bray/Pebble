@@ -723,6 +723,7 @@ class _FakeSharedReminders extends SharedReminderPreferencesRepository {
     required int totalSteps,
     String? routineCloudId,
     List<String> descriptions = const [],
+    List<CompletionEmailStep> steps = const [],
     Duration retryDelay = const Duration(seconds: 4),
   }) async => contact?.canSendCompletionEmail == true
       ? SharedReminderCompletionResult(

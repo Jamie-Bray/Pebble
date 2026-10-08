@@ -131,7 +131,7 @@ PERSONAL PREMIUM (MONTHLY OR YEARLY)
 • Voice prompts on any step
 • Extra themes
 • Optional cloud backup and account recovery (needs sign-in and your consent)
-• Completion emails: Pebble can email one contact when a routine is done. They accept first, and can stop the emails at any time. Photos and checklist details are not included.
+• Completion emails: Pebble can email one contact when a routine is done. They accept first, and can stop the emails at any time. Each email shows the steps and when they were checked. Photos are never emailed.
 
 Premium renews automatically until you cancel in Google Play. Pebble keeps working on the free plan without it.
 

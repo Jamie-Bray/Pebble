@@ -1,5 +1,9 @@
 // POST {routineKey, routineTitle, runId, sessionId?, completedAt,
-//       utcOffsetMinutes?, completedSteps, totalSteps, descriptions?}
+//       utcOffsetMinutes?, completedSteps, totalSteps, descriptions?,
+//       steps?: [{title, status: 'done' | 'skipped', completedAt?}]}
+// `steps` (in run order) are listed with the time each was checked when the
+// contact's step setting is on. They go in the email only and are never
+// stored.
 // `descriptions` are AI photo descriptions the sender chose to add: at most
 // five, cleaned and verdict-filtered here, sent only for an account with a
 // current AI photo consent, and never stored. Photos are never emailed.
@@ -14,11 +18,14 @@
 import { AI_PHOTO_CONSENT_VERSION } from '../_shared/ai_photo.ts';
 import { buildCompletionEmail } from '../_shared/shared_alert_email.ts';
 import {
+  completionTimeParts,
   confirmPageUrl,
   createToken,
   formatCompletionTime,
+  formatStepTime,
   LIMITS,
   MANAGE_TTL_MS,
+  MAX_EMAIL_STEPS,
   oneClickUrl,
   parseCompletionInput,
   senderLabel,
@@ -133,13 +140,25 @@ export function createCompletionHandler(deps: CompletionDeps) {
         ? input.descriptions
         : [];
 
+      // Step names and times go in this email only; they are never stored.
+      const stepList = includeSteps
+        ? input.steps.slice(0, MAX_EMAIL_STEPS).map((s) => ({
+          title: s.title,
+          skipped: s.skipped,
+          time: s.completedAt ? formatStepTime(s.completedAt, input) : null,
+        }))
+        : [];
+
       const email = buildCompletionEmail({
         sender: senderLabel(user.email),
         privacyUrl: deps.links.privacyUrl,
         footerAddress: deps.links.footerAddress,
         routineTitle: includeName ? input.routineTitle : null,
         completedAtText: formatCompletionTime(input),
+        completedAtParts: completionTimeParts(input),
         steps: includeSteps ? { completed: input.completedSteps, total: input.totalSteps } : null,
+        stepList,
+        moreSteps: includeSteps ? Math.max(0, input.steps.length - MAX_EMAIL_STEPS) : 0,
         descriptions,
         stopUrl: confirmPageUrl(deps.links.pagesBase, 'decline', token),
         blockUrl: confirmPageUrl(deps.links.pagesBase, 'block', token),

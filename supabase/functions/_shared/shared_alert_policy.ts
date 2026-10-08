@@ -90,7 +90,7 @@ const FORMAT_CHARS = /\p{Cf}/gu;
  * and cut to MAX_TITLE_LENGTH characters without splitting an emoji.
  * Zero-width joiners inside emoji sequences are kept.
  */
-export function sanitizeTitle(value: unknown): string {
+export function sanitizeTitle(value: unknown, maxLength = MAX_TITLE_LENGTH): string {
   if (typeof value !== 'string') return '';
   const cleaned = value
     .replace(CONTROL_CHARS, ' ')
@@ -98,8 +98,8 @@ export function sanitizeTitle(value: unknown): string {
     .replace(/\s+/g, ' ')
     .trim();
   const chars = Array.from(cleaned);
-  if (chars.length <= MAX_TITLE_LENGTH) return cleaned;
-  return chars.slice(0, MAX_TITLE_LENGTH - 1).join('').trimEnd() + '…';
+  if (chars.length <= maxLength) return cleaned;
+  return chars.slice(0, maxLength - 1).join('').trimEnd() + '…';
 }
 
 export type CompletionInput = {
@@ -116,7 +116,20 @@ export type CompletionInput = {
   totalSteps: number;
   /** AI photo descriptions the sender chose to add. Cleaned, verdict-free, at most five. */
   descriptions: string[];
+  /** The run's steps in order, when the app sent them. Never stored. */
+  steps: CompletionStep[];
 };
+
+export type CompletionStep = {
+  title: string;
+  skipped: boolean;
+  /** When the step was ticked. Null for a skipped step or an unusable time. */
+  completedAt: Date | null;
+};
+
+/** Steps listed in one email. Longer runs end with "and N more steps". */
+export const MAX_EMAIL_STEPS = 40;
+export const MAX_STEP_TITLE_LENGTH = 90;
 
 export function parseCompletionInput(
   body: unknown,
@@ -182,8 +195,38 @@ export function parseCompletionInput(
       completedSteps,
       totalSteps,
       descriptions: cleanEmailDescriptions(b.descriptions),
+      steps: cleanSteps(b.steps, completedAt),
     },
   };
+}
+
+/**
+ * The step list is optional and never fails the request: older app builds
+ * don't send it, and a bad entry is dropped rather than losing the email.
+ * A step time must fall within the run (up to 3 days before it finished,
+ * and not after it).
+ */
+export function cleanSteps(value: unknown, runCompletedAt: Date): CompletionStep[] {
+  if (!Array.isArray(value)) return [];
+  const latest = runCompletedAt.getTime() + 60 * 1000;
+  const earliest = runCompletedAt.getTime() - 3 * DAY_MS;
+  const steps: CompletionStep[] = [];
+  for (const raw of value.slice(0, 1000)) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
+    const r = raw as Record<string, unknown>;
+    const title = sanitizeTitle(r.title, MAX_STEP_TITLE_LENGTH);
+    if (!title) continue;
+    const skipped = r.status === 'skipped';
+    let completedAt: Date | null = null;
+    if (!skipped && typeof r.completedAt === 'string') {
+      const t = new Date(r.completedAt.trim());
+      if (!Number.isNaN(t.getTime()) && t.getTime() <= latest && t.getTime() >= earliest) {
+        completedAt = t;
+      }
+    }
+    steps.push({ title, skipped, completedAt });
+  }
+  return steps;
 }
 
 // ---------------------------------------------------------------------------
@@ -218,6 +261,56 @@ export function formatCompletionTime(input: {
   });
   if (input.utcOffsetMinutes !== null) return `${text} (${offsetLabel(input.utcOffsetMinutes)})`;
   return input.completedAtHasZone ? `${text} (UTC)` : text;
+}
+
+/**
+ * The completion time split for the email's layout: a large clock time, the
+ * day under it, and the zone. Same rules as formatCompletionTime.
+ */
+export function completionTimeParts(input: {
+  completedAt: Date;
+  utcOffsetMinutes: number | null;
+  completedAtHasZone: boolean;
+}): { time: string; day: string; zone: string | null } {
+  const shifted = toSenderClock(input.completedAt, input.utcOffsetMinutes);
+  return {
+    time: clock(shifted),
+    day: shifted.toLocaleDateString('en-GB', {
+      timeZone: 'UTC',
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).replace(',', ''),
+    zone: input.utcOffsetMinutes !== null
+      ? offsetLabel(input.utcOffsetMinutes)
+      : input.completedAtHasZone
+      ? 'UTC'
+      : null,
+  };
+}
+
+/**
+ * A step's time in the sender's zone: "22:38", or "2 Oct, 23:58" when the
+ * step was ticked on an earlier day than the run finished.
+ */
+export function formatStepTime(
+  stepAt: Date,
+  run: { completedAt: Date; utcOffsetMinutes: number | null },
+): string {
+  const step = toSenderClock(stepAt, run.utcOffsetMinutes);
+  const end = toSenderClock(run.completedAt, run.utcOffsetMinutes);
+  if (step.toISOString().slice(0, 10) === end.toISOString().slice(0, 10)) return clock(step);
+  const day = step.toLocaleDateString('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'short' });
+  return `${day}, ${clock(step)}`;
+}
+
+function toSenderClock(date: Date, utcOffsetMinutes: number | null): Date {
+  return utcOffsetMinutes === null ? date : new Date(date.getTime() + utcOffsetMinutes * 60 * 1000);
+}
+
+function clock(shifted: Date): string {
+  return shifted.toLocaleTimeString('en-GB', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
 export function offsetLabel(minutes: number): string {

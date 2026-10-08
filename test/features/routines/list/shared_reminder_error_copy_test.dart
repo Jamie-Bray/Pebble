@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pebble_routines/features/routines/data/shared_reminder_preferences_repository.dart';
+import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/list/ui/routine_reminders_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -109,6 +110,63 @@ void main() {
       expect((body['completedAt'] as String).endsWith('Z'), isTrue);
       expect(sentAt.isAtSameMomentAs(local), isTrue);
       expect(body['utcOffsetMinutes'], local.timeZoneOffset.inMinutes);
+    });
+
+    test('lists checked and skipped steps in order, never pending ones', () {
+      final checkedAt = DateTime.utc(2026, 10, 3, 21, 38);
+      final session = RoutineSession.fromJson({
+        'sessionId': 's-1',
+        'routineId': 1,
+        'routineTitleSnapshot': 'Lock up',
+        'status': 'completed',
+        'totalStepCount': 3,
+        'routineSnapshotSteps': [
+          {'runtimeType': 'check', 'label': 'Front door'},
+          {'runtimeType': 'check', 'label': 'Hob off'},
+          {'runtimeType': 'timer', 'duration': 30},
+        ],
+        'stepStates': [
+          {
+            'stepIndex': 0,
+            'status': 'completed',
+            'completedAt': checkedAt.toIso8601String(),
+          },
+          {'stepIndex': 1, 'status': 'skipped'},
+          {'stepIndex': 2, 'status': 'pending'},
+        ],
+      });
+      final steps = completionEmailSteps(session);
+      expect(steps.map((s) => s.title), ['Front door', 'Hob off']);
+      final body = completionRequestBody(
+        routineKey: 'local:1',
+        routineTitle: 'Lock up',
+        runId: 'run-1',
+        sessionId: 's-1',
+        completedAt: checkedAt,
+        completedSteps: 1,
+        totalSteps: 3,
+        steps: steps,
+      );
+      expect(body['steps'], [
+        {
+          'title': 'Front door',
+          'status': 'done',
+          'completedAt': '2026-10-03T21:38:00.000Z',
+        },
+        {'title': 'Hob off', 'status': 'skipped'},
+      ]);
+      expect(
+        completionRequestBody(
+          routineKey: 'local:1',
+          routineTitle: 'Lock up',
+          runId: 'run-1',
+          sessionId: 's-1',
+          completedAt: checkedAt,
+          completedSteps: 0,
+          totalSteps: 0,
+        ).containsKey('steps'),
+        isFalse,
+      );
     });
 
     test(
