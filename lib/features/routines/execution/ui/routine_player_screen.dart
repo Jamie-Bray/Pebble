@@ -15,6 +15,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:permission_handler/permission_handler.dart' as permissions;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:pebble_routines/features/ai_photo/ai_photo_constants.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/ui/pebble_buttons.dart';
@@ -1262,7 +1263,8 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
       // Only when the person chose to add them for this routine. The
       // server filters them again and never emails a photo.
       final ai = ref.read(aiPhotoControllerProvider);
-      final descriptions = ai.emailDescriptionsFor(session.routineId)
+      final descriptions =
+          aiPhotoFeatureVisible && ai.emailDescriptionsFor(session.routineId)
           ? await _playerController.aiDescriptionsForEmail()
           : const <String>[];
       final result = await sharedReminders.sendCompletionReminder(

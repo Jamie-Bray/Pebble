@@ -70,38 +70,39 @@ class LegalAboutScreen extends StatelessWidget {
                         _openWebPage(context, pebblePrivacyPolicyUrl),
                     intro:
                         'Most of your routine data stays on this phone unless you use an account, a subscription or cloud backup.',
-                    sections: const [
-                      _LegalSection(
+                    sections: [
+                      const _LegalSection(
                         icon: LucideIcons.hardDrive,
                         title: 'On this phone by default',
                         body:
                             'Without an account, Pebble keeps your routines, reminders, history, proof photos, voice tips and settings on your phone.',
                       ),
-                      _LegalSection(
+                      const _LegalSection(
                         icon: LucideIcons.cloud,
                         title: 'Cloud backup is optional',
                         body:
                             'If you sign in, have Premium and turn on cloud backup, Pebble backs up your routines, recent history, proof photos and voice tips to Supabase, along with the account details needed to do that.',
                       ),
-                      _LegalSection(
+                      const _LegalSection(
                         icon: LucideIcons.fileCheck,
                         title: 'Asking before backup',
                         body:
                             'Before backup uploads your routines, photos or voice tips, Pebble asks you to confirm that they may include sensitive details, such as information about your health or home.',
                       ),
-                      _LegalSection(
-                        icon: LucideIcons.scanText,
-                        title: 'AI photo descriptions are optional',
-                        body:
-                            'They are off unless you turn them on for a routine. Then Pebble sends the photos and step titles from that routine\'s photo steps to $aiPhotoProviderName, $aiPhotoProviderDescription, to be described. $aiPhotoRetentionSentence',
-                      ),
-                      _LegalSection(
+                      if (aiPhotoFeatureVisible)
+                        const _LegalSection(
+                          icon: LucideIcons.scanText,
+                          title: 'AI photo descriptions are optional',
+                          body:
+                              'They are off unless you turn them on for a routine. Then Pebble sends the photos and step titles from that routine\'s photo steps to $aiPhotoProviderName, $aiPhotoProviderDescription, to be described. $aiPhotoRetentionSentence',
+                        ),
+                      const _LegalSection(
                         icon: LucideIcons.megaphoneOff,
                         title: 'No ads or AI training',
                         body:
                             "Pebble doesn't sell your personal data, use your routines for advertising, or use your routines, proof photos or voice tips to train AI models.",
                       ),
-                      _LegalSection(
+                      const _LegalSection(
                         icon: LucideIcons.camera,
                         title: 'Permissions',
                         body:

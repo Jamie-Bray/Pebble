@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import 'package:pebble_routines/features/ai_photo/ai_photo_constants.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/share/pebble_share.dart';
@@ -805,9 +806,10 @@ class _RunTimeline extends StatelessWidget {
     }
     final assets = _proofAssetsByPath();
     final descriptions = [
-      for (var i = 0; i < photos.length; i++)
-        if (assets[photos[i]]?.aiDescription case final description?)
-          (index: i, text: description),
+      if (aiPhotoFeatureVisible)
+        for (var i = 0; i < photos.length; i++)
+          if (assets[photos[i]]?.aiDescription case final description?)
+            (index: i, text: description),
     ];
 
     return Container(
@@ -912,7 +914,9 @@ class _RunTimeline extends StatelessWidget {
           resolvePhotoFile: (path) => _resolveRunPhoto(proofStorage, path),
           captionBuilder: (context, index) {
             final text = _proofAssetsByPath()[stepPhotos[index]]?.aiDescription;
-            return text == null ? null : AiDescriptionText(text);
+            return text == null || !aiPhotoFeatureVisible
+                ? null
+                : AiDescriptionText(text);
           },
         ),
         child: Container(

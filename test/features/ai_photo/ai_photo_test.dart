@@ -133,6 +133,9 @@ const _plain = RoutineStep.check(label: 'Keys in bag');
 Future<void> _tick() => Future<void>.delayed(Duration.zero);
 
 void main() {
+  // Hidden for launch; these tests cover the feature for when it returns.
+  aiPhotoFeatureVisible = true;
+
   for (final accountChanged in [true, false]) {
     test(
       'photo preparation stops when ${accountChanged ? 'the account changes' : 'routine consent is withdrawn'}',

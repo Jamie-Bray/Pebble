@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:pebble_routines/features/ai_photo/ai_photo_constants.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/features/ai_photo/ai_photo_service.dart';
@@ -127,6 +128,7 @@ class RoutinePlayerUiState {
   /// The description to show under a photo: one asked for just now, or one
   /// saved with the photo earlier. Null when there is nothing to show.
   ProofAiDescription? aiDescriptionFor(RoutineSessionProofAsset asset) {
+    if (!aiPhotoFeatureVisible) return null;
     final saved = asset.aiDescription;
     final asked = aiDescriptions[asset.proofId];
     if (asked != null && (asked.text != null || saved == null)) return asked;
