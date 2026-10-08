@@ -200,6 +200,74 @@ void main() {
           (await database.routineSessionDao.getAllSessions()).single;
       expect(session.syncMetadataJson, isNot(contains('remoteSessionId')));
     });
+
+    test('after account deletion, its local data becomes unowned and links to '
+        'the next account without the account-switch flow', () async {
+      await database.routineDao.insertOrUpdateRoutine(
+        _routine(ownerUserId: 'deleted-user', cloudId: 'cloud-1'),
+      );
+      await database.routineRunDao.insertOrUpdateRun(
+        _run(ownerUserId: 'deleted-user'),
+      );
+      await database.routineReminderDao.addReminder(
+        _reminder(ownerUserId: 'deleted-user', cloudId: 'reminder-cloud'),
+      );
+      await database.routineSessionDao.insertOrUpdateSession(
+        _session(ownerUserId: 'deleted-user'),
+      );
+      await database.syncOutboxDao.enqueue(
+        SyncOutboxRow(
+          id: 'item-1',
+          entityType: 'routine',
+          entityId: '1',
+          operation: 'upsert',
+          payloadJson: null,
+          attemptCount: 0,
+          lastErrorSummary: null,
+          nextAttemptAt: null,
+          createdAt: DateTime(2026, 1, 1),
+          updatedAt: DateTime(2026, 1, 1),
+        ),
+      );
+
+      await LocalDataOwnershipGuard.releaseDeletedAccountData(
+        database: database,
+        deletedUserId: 'deleted-user',
+      );
+
+      final routine = (await database.routineDao.getAllRoutines()).single;
+      expect(routine.ownerUserId, isNull);
+      expect(routine.cloudId, isNull);
+      final reminder =
+          (await database.routineReminderDao.getAllReminders()).single;
+      expect(reminder.ownerUserId, isNull);
+      expect(reminder.cloudId, isNull);
+      final run = (await database.routineRunDao.getAllRuns()).single;
+      expect(run.id, 'run-1');
+      expect(run.ownerUserId, isNull);
+      expect(await database.syncOutboxDao.allItems(), isEmpty);
+
+      final report = await LocalDataOwnershipGuard.inspect(
+        database: database,
+        signedInUserId: 'new-user',
+      );
+      expect(report.state, LocalDataOwnershipState.unownedOnly);
+    });
+
+    test('account deletion leaves other accounts\' data alone', () async {
+      await database.routineDao.insertOrUpdateRoutine(
+        _routine(ownerUserId: 'other-user', cloudId: 'cloud-1'),
+      );
+
+      await LocalDataOwnershipGuard.releaseDeletedAccountData(
+        database: database,
+        deletedUserId: 'deleted-user',
+      );
+
+      final routine = (await database.routineDao.getAllRoutines()).single;
+      expect(routine.ownerUserId, 'other-user');
+      expect(routine.cloudId, 'cloud-1');
+    });
   });
 }
 

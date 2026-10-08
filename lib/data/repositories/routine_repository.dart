@@ -120,31 +120,30 @@ class RoutineRepositoryImpl implements RoutineRepository {
   Future<void> deleteRoutine(int id) async {
     final existing = await _dao.getRoutineById(id);
     final policy = _ref.read(cloudAccessPolicyProvider);
-    if (policy.canQueuePersonalSync) {
-      // Ensure reminder rows don't linger orphaned. Orphans can keep the sync
-      // queue stuck if they reference a deleted routine.
-      final reminderDao = _dao.attachedDatabase.routineReminderDao;
-      final reminders = await reminderDao.getRemindersForRoutine(id);
-      for (final reminder in reminders) {
+    // Ensure reminder rows don't linger orphaned. Orphans can keep the sync
+    // queue stuck if they reference a deleted routine.
+    final reminderDao = _dao.attachedDatabase.routineReminderDao;
+    final reminders = await reminderDao.getRemindersForRoutine(id);
+    for (final reminder in reminders) {
+      if (_shouldQueueReminderDelete(policy.canQueuePersonalSync, reminder)) {
         await _enqueueReminderDelete(reminder);
       }
-      await reminderDao.deleteRemindersForRoutine(id);
+    }
+    await reminderDao.deleteRemindersForRoutine(id);
 
-      final routineCloudId = existing?.cloudId;
-      if (routineCloudId != null && routineCloudId.isNotEmpty) {
-        await _ref
-            .read(syncOutboxRepositoryProvider)
-            .enqueue(
-              entityType: SyncEntityType.routine,
-              entityId: id.toString(),
-              operation: SyncOperation.delete,
-              payload: {'cloudId': routineCloudId},
-            );
-      }
-    } else {
-      await _dao.attachedDatabase.routineReminderDao.deleteRemindersForRoutine(
-        id,
-      );
+    // A routine with a cloud id may be in the backup, so its delete is queued
+    // even while backup is paused (signed out, or access not confirmed yet).
+    // Otherwise the next restore would bring the deleted routine back.
+    final routineCloudId = existing?.cloudId;
+    if (routineCloudId != null && routineCloudId.isNotEmpty) {
+      await _ref
+          .read(syncOutboxRepositoryProvider)
+          .enqueue(
+            entityType: SyncEntityType.routine,
+            entityId: id.toString(),
+            operation: SyncOperation.delete,
+            payload: {'cloudId': routineCloudId},
+          );
     }
     if (existing != null) {
       await _queueRemovedGuidanceAudio(previousStepsJson: existing.stepsJson);
