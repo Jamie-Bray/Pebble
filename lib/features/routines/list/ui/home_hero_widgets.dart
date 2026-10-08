@@ -126,8 +126,17 @@ class HomeRoutineMetaLine extends StatelessWidget {
             key: const ValueKey('home_hero_routine_meta'),
             borderRadius: PebbleRadius.pillAll,
             onTap: onTap,
-            child: ConstrainedBox(
+            child: Container(
               constraints: const BoxConstraints(minHeight: 40),
+              padding: const EdgeInsets.symmetric(horizontal: PebbleSpacing.md),
+              // A soft pill, so it reads as this routine's settings button
+              // rather than a line of text.
+              decoration: BoxDecoration(
+                borderRadius: PebbleRadius.pillAll,
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.outline,
+                ),
+              ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -142,8 +151,12 @@ class HomeRoutineMetaLine extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: PebbleSpacing.xs),
-                  Icon(LucideIcons.ellipsis, size: 16, color: color),
+                  const SizedBox(width: PebbleSpacing.sm),
+                  Icon(
+                    LucideIcons.slidersHorizontal,
+                    size: 16,
+                    color: context.done,
+                  ),
                 ],
               ),
             ),

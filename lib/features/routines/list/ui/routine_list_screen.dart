@@ -684,7 +684,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
               ),
               PebbleGlassIconButton(
                 tooltip: 'App settings',
-                icon: LucideIcons.slidersHorizontal,
+                icon: LucideIcons.settings,
                 onPressed: () => context.push('/settings'),
               ),
               const SizedBox(width: PebbleSpacing.xs),
