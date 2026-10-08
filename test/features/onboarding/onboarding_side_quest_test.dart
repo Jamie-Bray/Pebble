@@ -117,7 +117,7 @@ void main() {
     expect(prefs.getBool('has_completed_onboarding'), isTrue);
     expect(find.text('Time to build\nyour own.'), findsOneWidget);
     expect(find.text('Build it with AI'), findsOneWidget);
-    expect(find.textContaining('Your first one is free.'), findsOneWidget);
+    expect(find.textContaining('free'), findsNothing);
     expect(find.text('Pick a template'), findsOneWidget);
     expect(find.text('Start from scratch'), findsOneWidget);
     expect(find.text('Skip for now'), findsOneWidget);

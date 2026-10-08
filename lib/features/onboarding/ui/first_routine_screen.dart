@@ -74,10 +74,8 @@ class FirstRoutineScreen extends ConsumerWidget {
                           key: const ValueKey('first-routine-ai'),
                           icon: LucideIcons.sparkles,
                           title: 'Build it with AI',
-                          subtitle: ai!.premium
-                              ? 'Say it in a sentence and Pebble drafts the steps.'
-                              : ai.canBuild
-                              ? 'Say it in a sentence and Pebble drafts the steps. Your first one is free.'
+                          subtitle: ai!.canBuild
+                              ? 'Tell Pebble what you check, answer a couple of questions, and it drafts the steps.'
                               : 'Build more routines with AI with Personal Premium.',
                           accent: cs.primary,
                           highlighted: true,

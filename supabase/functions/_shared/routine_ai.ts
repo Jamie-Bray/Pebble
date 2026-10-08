@@ -21,6 +21,7 @@ export const ROUTINE_AI_LIMITS = {
   maxSteps: 8,
   maxNameChars: 40,
   maxStepChars: 60,
+  maxDetailChars: 140,
   maxQuestionChars: 90,
   maxOptionChars: 30,
 } as const;
@@ -98,7 +99,8 @@ function cleanLine(value: unknown, max: number): string | null {
   return line;
 }
 
-export type DraftStep = { label: string; photo: boolean };
+/** `detail` goes into the step's description in the editor; '' when none. */
+export type DraftStep = { label: string; photo: boolean; detail: string };
 export type RoutineDraft = { name: string; steps: DraftStep[] };
 export type BuildQuestion = { question: string; options: string[] };
 
@@ -120,7 +122,10 @@ export function parseDraftReply(text: string): { ok: true; draft: RoutineDraft }
     const label = cleanLine(raw?.label, ROUTINE_AI_LIMITS.maxStepChars);
     if (!label || seen.has(label.toLowerCase())) continue;
     seen.add(label.toLowerCase());
-    steps.push({ label, photo: raw?.photo === true });
+    const detail = typeof raw?.detail === 'string' && raw.detail.trim()
+      ? cleanLine(raw.detail, ROUTINE_AI_LIMITS.maxDetailChars) ?? ''
+      : '';
+    steps.push({ label, photo: raw?.photo === true, detail: detail && `${detail}.` });
     if (steps.length === ROUTINE_AI_LIMITS.maxSteps) break;
   }
   if (steps.length < ROUTINE_AI_LIMITS.minSteps) return { ok: false, code: 'tooFewSteps' };

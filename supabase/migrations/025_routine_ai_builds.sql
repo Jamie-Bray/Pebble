@@ -15,8 +15,8 @@
 
 -- ---------------------------------------------------------------------------
 -- 1. Off switch. One row. `update public.routine_ai_settings set paused = true;`
---    stops every build on the next request, without a deploy. The
---    ROUTINE_AI_ENABLED function secret must also be "true".
+--    stops every build on the next request, without a deploy. Setting the
+--    ROUTINE_AI_ENABLED function secret to "false" also turns it off.
 -- ---------------------------------------------------------------------------
 create table if not exists public.routine_ai_settings (
   id boolean primary key default true,

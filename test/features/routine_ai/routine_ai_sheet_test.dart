@@ -33,7 +33,11 @@ class _FakeAi implements RoutineAiClient {
 const _draft = RoutineAiDraft(
   name: 'Leaving the house',
   steps: [
-    RoutineAiStep(label: 'Hob dials off', photo: true),
+    RoutineAiStep(
+      label: 'Hob dials off',
+      photo: true,
+      detail: 'Look at each dial on the hob and the oven.',
+    ),
     RoutineAiStep(label: 'Back door locked', photo: false),
     RoutineAiStep(label: 'Front door locked', photo: true),
   ],
@@ -87,7 +91,8 @@ void main() {
       'leaving the house',
     );
     await tester.pump();
-    await tester.tap(find.text('Build it'));
+    expect(find.textContaining('free'), findsNothing);
+    await tester.tap(find.text('Skip the questions and build it'));
     await tester.pumpAndSettle();
 
     expect(find.text('Leaving the house'), findsOneWidget);
@@ -133,7 +138,7 @@ void main() {
       'leaving for work',
     );
     await tester.pump();
-    await tester.tap(find.text('Ask me a couple of questions first'));
+    await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
 
     expect(find.text('Do you drive to work?'), findsOneWidget);
@@ -157,7 +162,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Bedtime'));
     await tester.pump();
-    await tester.tap(find.text('Build it'));
+    await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
 
     expect(find.text("You've used your free AI build"), findsOneWidget);
@@ -178,6 +183,12 @@ void main() {
     ]);
     expect(seed.steps.map((s) => s.requiresPhoto), [true, false, true]);
     expect(seed.steps.map((s) => s.sortOrder), [0, 1, 2]);
+    // The hidden detail becomes the step's description in the editor.
+    expect(
+      seed.steps.first.photoPrompt,
+      'Look at each dial on the hob and the oven.',
+    );
+    expect(seed.steps[1].photoPrompt, '');
   });
 
   test('a draft reply is read safely', () {

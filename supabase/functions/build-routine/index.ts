@@ -25,7 +25,9 @@ serve(
       })
     : createRoutineAiHandler({
       // Read on every request, so the switch is not baked into a warm worker.
-      enabled: () => env('ROUTINE_AI_ENABLED').toLowerCase() === 'true',
+      // On unless set to "false"; the routine_ai_settings.paused row is the
+      // everyday off switch.
+      enabled: () => env('ROUTINE_AI_ENABLED').toLowerCase() !== 'false',
       limits: {
         premiumDailyPerUser: positiveInt('ROUTINE_AI_PREMIUM_DAILY_LIMIT', ROUTINE_AI_LIMITS.premiumDailyPerUser),
         freeDailyCap: positiveInt('ROUTINE_AI_FREE_DAILY_CAP', ROUTINE_AI_LIMITS.freeDailyCap),

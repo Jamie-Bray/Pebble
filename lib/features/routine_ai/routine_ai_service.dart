@@ -11,13 +11,24 @@ import 'package:uuid/uuid.dart';
 /// One step of an AI draft.
 @immutable
 class RoutineAiStep {
-  const RoutineAiStep({required this.label, required this.photo});
+  const RoutineAiStep({
+    required this.label,
+    required this.photo,
+    this.detail = '',
+  });
 
   final String label;
   final bool photo;
 
-  RoutineAiStep copyWith({String? label, bool? photo}) =>
-      RoutineAiStep(label: label ?? this.label, photo: photo ?? this.photo);
+  /// A sentence for the step's description in the editor. Not shown in the
+  /// AI sheet.
+  final String detail;
+
+  RoutineAiStep copyWith({String? label, bool? photo}) => RoutineAiStep(
+    label: label ?? this.label,
+    photo: photo ?? this.photo,
+    detail: detail,
+  );
 }
 
 /// A routine drafted by AI. Nothing is saved until the person taps Save in
@@ -42,6 +53,9 @@ class RoutineAiDraft {
           RoutineAiStep(
             label: (step['label'] as String).trim(),
             photo: step['photo'] == true,
+            detail: step['detail'] is String
+                ? (step['detail'] as String).trim()
+                : '',
           ),
     ];
     if (parsed.isEmpty) return null;

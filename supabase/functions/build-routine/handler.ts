@@ -57,7 +57,7 @@ export interface RoutineAiStore {
 }
 
 export type RoutineAiDeps = {
-  /** The ROUTINE_AI_ENABLED secret. Anything but "true" means off. */
+  /** The ROUTINE_AI_ENABLED secret (off only when set to "false"). */
   enabled: () => boolean;
   limits?: Partial<typeof ROUTINE_AI_LIMITS>;
   store: RoutineAiStore;

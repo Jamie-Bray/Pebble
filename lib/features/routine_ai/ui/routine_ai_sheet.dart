@@ -65,6 +65,7 @@ RoutineComposerSeedData routineAiSeedData(RoutineAiDraft draft) {
           id: uuid.v4(),
           text: step.label,
           requiresPhoto: step.photo,
+          photoPrompt: step.detail,
           allowSkip: false,
           sortOrder: index,
         ),
@@ -247,8 +248,6 @@ class _RoutineAiSheetState extends ConsumerState<RoutineAiSheet> {
   Widget _buildDescribe(BuildContext context) {
     final foundation = context.darkFoundation;
     final type = PebbleType.of(context);
-    final status = ref.watch(routineAiStatusProvider).valueOrNull;
-    final firstFree = status != null && !status.premium;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -300,22 +299,25 @@ class _RoutineAiSheetState extends ConsumerState<RoutineAiSheet> {
           ],
         ),
         const SizedBox(height: 20),
+        // Questions first, so the draft fits the person rather than being
+        // generic. If no useful questions come back, it drafts straight away.
         PebbleButton.primary(
-          icon: LucideIcons.sparkles,
-          onPressed: _hasDescription ? () => _build() : null,
-          label: 'Build it',
+          onPressed: _hasDescription && !_askedQuestions
+              ? () => _build(askQuestions: true)
+              : _hasDescription
+              ? () => _build()
+              : null,
+          trailingIcon: LucideIcons.arrowRight,
+          label: 'Next',
         ),
         const SizedBox(height: 4),
         PebbleButton.tertiary(
           expand: true,
-          onPressed: _hasDescription && !_askedQuestions
-              ? () => _build(askQuestions: true)
-              : null,
-          label: 'Ask me a couple of questions first',
+          onPressed: _hasDescription ? () => _build() : null,
+          label: 'Skip the questions and build it',
         ),
         const SizedBox(height: 10),
         Text(
-          '${firstFree ? 'Your first AI-built routine is free. ' : ''}'
           'What you type goes to $aiPhotoProviderName to draft the steps and is not kept.',
           textAlign: TextAlign.center,
           style: type.caption.copyWith(color: foundation.textMuted),

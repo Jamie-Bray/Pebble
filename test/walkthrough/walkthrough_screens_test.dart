@@ -1266,7 +1266,7 @@ void main() {
         'Leaving for work: straighteners, the hob and the back door',
       );
       await env.settle(10);
-      await env.tapText('Ask me a couple of questions first');
+      await env.tapText('Next');
       await env.settle(20);
       await env.shot('first_routine_3_questions');
       await env.tapText('Yes');
@@ -2449,8 +2449,16 @@ class _FakeRoutineAi implements RoutineAiClient {
       RoutineAiDraft(
         name: 'Leaving for work',
         steps: [
-          RoutineAiStep(label: 'Straighteners unplugged', photo: true),
-          RoutineAiStep(label: 'Hob dials off', photo: true),
+          RoutineAiStep(
+            label: 'Straighteners unplugged',
+            photo: true,
+            detail: 'Check the plug is out of the wall, not just switched off.',
+          ),
+          RoutineAiStep(
+            label: 'Hob dials off',
+            photo: true,
+            detail: 'Look at each dial on the hob and the oven.',
+          ),
           RoutineAiStep(label: 'Back door locked', photo: false),
           RoutineAiStep(label: 'Windows shut', photo: false),
           RoutineAiStep(label: 'Car locked', photo: true),

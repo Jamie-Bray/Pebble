@@ -57,8 +57,8 @@ class FakeStore implements RoutineAiStore {
 const DRAFT = {
   name: 'Leaving the house',
   steps: [
-    { label: 'Hob dials off', photo: true },
-    { label: 'Straighteners unplugged', photo: true },
+    { label: 'Hob dials off', photo: true, detail: 'Look at each dial on the hob and the oven' },
+    { label: 'Straighteners unplugged', photo: true, detail: '' },
     { label: 'Back door locked', photo: false },
     { label: 'Front door locked', photo: true },
   ],
@@ -99,6 +99,8 @@ Deno.test('a free install gets one draft, with a name and steps', async () => {
   assert(res.status === 200 && res.body.ok === true, `built: ${JSON.stringify(res.body)}`);
   assert(res.body.draft.name === 'Leaving the house', 'name');
   assert(res.body.draft.steps.length === 4 && res.body.draft.steps[0].photo === true, 'steps');
+  assert(res.body.draft.steps[0].detail === 'Look at each dial on the hob and the oven.', 'detail kept');
+  assert(res.body.draft.steps[1].detail === '' && res.body.draft.steps[2].detail === '', 'missing detail is empty');
   assert(t.calls[0].model === ROUTINE_AI_MODEL, 'model');
   // A second build on the same install is refused before any provider call.
   const second = await t.draft({ buildKey: 'build-0002' });
@@ -204,6 +206,12 @@ Deno.test('drafts are checked: blocked wording, duplicates and too few steps', (
   const long = parseDraftReply(JSON.stringify({ name: 'A', steps: Array.from({ length: 12 }, (_, i) => ({ label: `Step ${i}`, photo: false })) }));
   assert(long.ok && long.draft.steps.length === ROUTINE_AI_LIMITS.maxSteps, 'capped at max steps');
   assert(!parseDraftReply('not json').ok, 'not json');
+  const reassuring = parseDraftReply(JSON.stringify({ name: 'A', steps: [
+    { label: 'Hob off', photo: false, detail: "Then you know it's safe" },
+    { label: 'Door locked', photo: false, detail: 'Push the handle' },
+    { label: 'Keys', photo: false },
+  ] }));
+  assert(reassuring.ok && reassuring.draft.steps[0].detail === '' && reassuring.draft.steps[1].detail === 'Push the handle.', 'blocked detail dropped, step kept');
   assert(hasBlockedWording('Check for OCD triggers') && !hasBlockedWording('Hob dials off'), 'word filter');
   assert(!hasBlockedWording('Shocked? Clocked in'), 'whole words only');
   const questions = parseQuestionsReply(JSON.stringify({ questions: [{ question: 'Do you worry a lot?', options: ['Yes', 'No'] }, { question: 'Pets?', options: ['Cat'] }] }));
