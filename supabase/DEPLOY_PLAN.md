@@ -242,9 +242,22 @@ Live record, 8 Oct 2026 (Claude):
   When deploying through the Supabase MCP tool, write a `\uXXXX` escape in the
   source as `\u005cuXXXX` in the tool's JSON, then fetch the function back and
   diff it against git.
-- Not done by Claude: step 2 (dashboard template paste, Jamie) and step 3. The
-  website is a Cloudflare Worker uploaded by hand (see the 5 October record
-  below), which Claude can't reach.
+- **Live change (Codex, 8 Oct):** pasted `supabase/templates/email_code.html`
+  from `main` into both the Magic link or OTP and Confirm sign up templates in
+  the production Supabase dashboard. Both subjects are "Your Pebble sign-in
+  code". Reopening each template showed the new design and `{{ .Token }}` in
+  the preview. No `supabase config push` was run.
+- **Live change (Codex, 8 Oct):** uploaded all 24 files in `web/` from `main`
+  at `d03401b` to the existing Cloudflare static-assets Worker
+  `pebbleroutines-site`. Production version `dfc60136` serves the new `/r/`
+  sharing page; a live sample link rendered its name and two steps. The
+  `.well-known` files still contain signing placeholders, so verified Android
+  App Links and iOS Universal Links remain pending the store signing IDs.
+- Existing custom SMTP was already enabled in Supabase with
+  `smtp.resend.com` on port 465 and a stored password when checked on 8 Oct.
+  A sign-in code request to a second address returned HTTP 200. Inbox receipt
+  and completing sign-in still need confirmation; no SMTP credential was
+  changed during this check.
 
 ## Live preparation record — 5 October 2026 (Codex)
 
