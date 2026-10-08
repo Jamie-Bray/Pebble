@@ -253,6 +253,10 @@ Live record, 8 Oct 2026 (Claude):
   sharing page; a live sample link rendered its name and two steps. The
   `.well-known` files still contain signing placeholders, so verified Android
   App Links and iOS Universal Links remain pending the store signing IDs.
+- **Live change (Codex, 8 Oct):** after PR #35 merged, uploaded all 24 files in
+  `web/` from `main` at `75bd42a` to the same Worker. Production version
+  `36055461` places "Open in Pebble" ahead of the steps. Reloading a live
+  sample link confirmed the new layout, app link, and step preview.
 - Existing custom SMTP was already enabled in Supabase with
   `smtp.resend.com` on port 465 and a stored password when checked on 8 Oct.
   A sign-in code sent to an external Proton Mail address arrived, and

@@ -1,7 +1,26 @@
 # Start Here: Pebble Launch Status
 
-**Last updated:** 5 October 2026
-All of this work is on the branch `claude/sharp-keller-f6iiu2`.
+**Last updated:** 8 October 2026
+
+## Current checkpoint
+
+- The backup, sign-in, personalisation, sharing and email-deploy PRs (#28,
+  #30, #29, #32 and #33) are merged into `main`. The account and backup fixes
+  from PR #25 are also on `main`.
+- Production sign-in emails use the new Pebble code template. Custom SMTP was
+  already enabled; an external Proton Mail inbox received a code and Supabase
+  accepted it, issuing a session. The completion email Edge Functions were
+  deployed separately; see `supabase/DEPLOY_PLAN.md` for the live record.
+- The Cloudflare website serves shared-routine previews at `/r/`. The page
+  puts "Open in Pebble" above the steps. Verified Android App Links and iOS
+  Universal Links still need their store signing IDs; the web page works now.
+- The current app passed analysis, 687 active tests, and 158 walkthrough screen
+  cases with no layout errors. Android release and on-phone checks remain with
+  Jamie's next AAB build. Check the build number in Play Console before upload.
+
+The checklist below is the **5 October snapshot**. Some items have since been
+completed or changed; use the current checkpoint and `supabase/DEPLOY_PLAN.md`
+before acting on an older item.
 
 ## Where things stand
 
