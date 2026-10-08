@@ -231,6 +231,35 @@ still applies; older workers show a generic budget message for that refusal.
 Keep the additive tables during rollback; do not delete history
 or roll back the backup-consent gate independently of the app.
 
+## Proposed (AI routine builder, 8 Oct 2026; not yet agreed or done)
+
+**No live changes made.** Plan: `/mnt/project-files/ai-routine-builder/PLAN.md`
+(project files). The app hides "Build with AI" until the function says it is on,
+so a build can ship before these steps.
+
+1. Apply `025_routine_ai_builds.sql` (additive: `routine_ai_settings`,
+   `routine_ai_builds`, `routine_ai_budget` and two service-role RPCs). It needs
+   `has_active_personal_entitlement` from the earlier migrations.
+2. Function secrets: `ANTHROPIC_API_KEY` is already set for the photo feature.
+   Add `ROUTINE_AI_ENABLED=false` first. Optional: `ROUTINE_AI_PREMIUM_DAILY_LIMIT`
+   (default 20), `ROUTINE_AI_FREE_DAILY_CAP` (2,000 free builds a day across
+   everyone), `ROUTINE_AI_MONTHLY_CALLS` (30,000 calls a month, about 20,000
+   builds, roughly £6 with the model in `build-routine/provider.ts`).
+3. Deploy `build-routine` with `verify_jwt = false` (config.toml): onboarding
+   runs before sign-in, so the function checks the install ID and, when present,
+   the user's token itself.
+4. With it off, check `GET` says `{enabled:false}` and the app shows no AI
+   option. Set `ROUTINE_AI_ENABLED=true`, build one routine from a fresh install,
+   check a second build on that install is refused with `freeUsed`, and check a
+   Personal Premium account can build again.
+5. Privacy policy and Play Data safety: one line saying typed routine
+   descriptions go to Anthropic to draft steps and are not kept (Jamie to
+   confirm the wording).
+
+**Stop switch:** set `ROUTINE_AI_ENABLED=false`, or
+`update public.routine_ai_settings set paused = true;`. The app then hides
+"Build with AI" and offers templates and "Start from scratch".
+
 ## Email redesign, 7 to 8 Oct 2026 (Jamie approved the live steps on 8 Oct)
 
 New look for the invitation, completion and sign-in code emails, and the
