@@ -318,10 +318,20 @@ Done so far (Jamie approved "the AI database changes" in the project thread,
 - Steps 2 and 3: `026_routine_ai_pending_builds` and
   `027_privacy_policy_2026_10_09` applied 9 Oct 2026 about 01:10Z through the
   Supabase connector (`apply_migration`), with the SQL from this branch.
-- Still to do: step 4 (deploy `build-routine` v2 from this branch; production
-  still runs v1), step 5 (publish `web/privacy.html`, update Play Data
-  safety) and step 6 (unpause and smoke test). The builder stays paused until
-  then.
+- Step 4: `build-routine` deployed 9 Oct 2026 about 04:30Z through the
+  Supabase connector, `verify_jwt = false`, from PR #45's merged code
+  (fb11c53; identical to `main` for this function). Supabase shows it as
+  version 3.
+- Step 6, unpause only: Jamie asked for it to be turned on before the AAB is
+  built ("deploy the AI function and turn it on - no need to test i'll
+  test"). Ran `update public.routine_ai_settings set paused = false` at
+  04:30Z. Checked: `GET` returns `{"enabled":true}` and
+  `POST {action:'status'}` with a made-up install ID returns
+  `{"enabled":true,"premium":false,"freeBuildUsed":false}`. No build was
+  requested, so `routine_ai_builds` is still empty.
+- Still to do: step 5 (publish the 9 October `web/privacy.html`, update Play
+  Data safety) and the step 6 smoke test (questions, a draft, `freeBuildUsed`,
+  a second build refusal, a signed-in Premium build), which Jamie is doing.
 
 ## Email redesign, 7 to 8 Oct 2026 (Jamie approved the live steps on 8 Oct)
 
