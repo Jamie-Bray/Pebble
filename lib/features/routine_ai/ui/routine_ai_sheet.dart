@@ -1,26 +1,31 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:pebble_routines/core/database/local_db.dart';
+import 'package:pebble_routines/core/database/routine_step.dart';
+import 'package:pebble_routines/core/navigation/app_shell.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:pebble_routines/core/ui/pebble_buttons.dart';
 import 'package:pebble_routines/features/ai_photo/ai_photo_constants.dart';
+import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/features/routine_ai/routine_ai_service.dart';
-import 'package:pebble_routines/features/routines/composer/data/routine_composer_draft_repository.dart';
-import 'package:pebble_routines/features/routines/composer/models/routine_composer_seed_data.dart';
-import 'package:pebble_routines/features/routines/composer/models/routine_composer_step_draft.dart';
+import 'package:pebble_routines/features/routines/data/models/routine_icon_catalog.dart';
+import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
+import 'package:pebble_routines/features/subscription/ui/subscription_guard.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
-/// Opens "Build with AI". When the person takes the draft, it is put in the
-/// routine editor (`/creator`) to change and save; nothing is saved before
-/// they tap Save there. Returns true when the editor was opened.
+/// Opens "Build with AI". When the person takes the draft, it is saved as a
+/// routine and Home opens with it ready to run; they can edit it later.
+/// Returns true when a routine was saved.
 Future<bool> showRoutineAiBuilder(BuildContext context) async {
   final draft = await showModalBottomSheet<RoutineAiDraft>(
     context: context,
@@ -30,17 +35,24 @@ Future<bool> showRoutineAiBuilder(BuildContext context) async {
   );
   if (draft == null || !context.mounted) return false;
   final container = ProviderScope.containerOf(context, listen: false);
-  await container
-      .read(routineComposerDraftRepositoryProvider)
-      .createFreshDraft(seedData: routineAiSeedData(draft));
   container.invalidate(routineAiStatusProvider);
-  if (!context.mounted) return false;
-  unawaited(GoRouter.of(context).push('/creator'));
+  final routine = routineFromAiDraft(draft, DateTime.now());
+  await container.read(routineRepositoryProvider).saveRoutine(routine);
+  container.read(navIndexProvider.notifier).state = 0;
+  container
+      .read(homeRoutineHighlightProvider.notifier)
+      .state = HomeRoutineHighlight(
+    routineId: routine.id,
+    message: '${routine.title} is ready',
+  );
+  if (!context.mounted) return true;
+  GoRouter.of(context).go('/');
   return true;
 }
 
-/// "Build with AI" from Home or the + button: the builder, or the Personal
-/// Premium page when the free build has been used.
+/// "Build with AI" from Home, the + button or the first run: the builder,
+/// the Personal Premium page when the free build has been used, or the
+/// routine limit explanation when there is no room for another routine.
 Future<void> openRoutineAiBuilder(BuildContext context, WidgetRef ref) async {
   final status = ref.read(routineAiStatusProvider).valueOrNull;
   if (status != null && !status.canBuild) {
@@ -51,27 +63,44 @@ Future<void> openRoutineAiBuilder(BuildContext context, WidgetRef ref) async {
     );
     return;
   }
+  final routineCount = ref.read(routineListProvider).valueOrNull?.length ?? 0;
+  if (!SubscriptionGuard.canCreateRoutine(context, ref, routineCount)) return;
   await showRoutineAiBuilder(context);
 }
 
-/// The draft as the editor's starting point.
-RoutineComposerSeedData routineAiSeedData(RoutineAiDraft draft) {
-  const uuid = Uuid();
-  return RoutineComposerSeedData(
+/// The draft as a routine, saved as it is: each step's detail becomes its
+/// description.
+Routine routineFromAiDraft(RoutineAiDraft draft, DateTime now) {
+  final steps = [
+    for (final step in draft.steps)
+      RoutineStep.check(
+        label: step.label,
+        requiresPhoto: step.photo,
+        photoCount: step.photo ? 1 : 0,
+        photoPrompt: step.detail.trim().isNotEmpty
+            ? step.detail.trim()
+            : step.photo
+            ? 'Take a photo'
+            : null,
+      ),
+  ];
+  return Routine(
+    id: now.millisecondsSinceEpoch,
     title: draft.name,
-    iconKey: null,
+    stepsJson: jsonEncode(steps.map((step) => step.toJson()).toList()),
+    createdAt: now,
+    emoji: RoutineIconCatalog.defaultKey,
     colorHex: null,
-    steps: [
-      for (final (index, step) in draft.steps.indexed)
-        RoutineComposerStepDraft(
-          id: uuid.v4(),
-          text: step.label,
-          requiresPhoto: step.photo,
-          photoPrompt: step.detail,
-          allowSkip: false,
-          sortOrder: index,
-        ),
-    ],
+    isPinned: false,
+    pinnedAt: null,
+    reminderDay: null,
+    reminderTime: null,
+    version: 1,
+    updatedAt: now,
+    cloudId: null,
+    ownerUserId: null,
+    syncStatus: 'localOnly',
+    lastSyncedAt: null,
   );
 }
 

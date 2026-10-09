@@ -21,7 +21,7 @@ export const ROUTINE_AI_LIMITS = {
   maxSteps: 8,
   maxNameChars: 40,
   maxStepChars: 60,
-  maxDetailChars: 140,
+  maxDetailChars: 160,
   maxQuestionChars: 90,
   maxOptionChars: 30,
 } as const;

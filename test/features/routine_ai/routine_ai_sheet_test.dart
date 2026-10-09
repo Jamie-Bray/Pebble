@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/features/routine_ai/routine_ai_service.dart';
 import 'package:pebble_routines/features/routine_ai/ui/routine_ai_sheet.dart';
@@ -224,22 +227,25 @@ void main() {
     expect(find.text('See Personal Premium'), findsOneWidget);
   });
 
-  test('the draft seeds the editor with its steps and photo choices', () {
-    final seed = routineAiSeedData(_draft);
-    expect(seed.title, 'Leaving the house');
-    expect(seed.steps.map((s) => s.text), [
+  test('the draft is saved as a routine with its steps and descriptions', () {
+    final routine = routineFromAiDraft(_draft, DateTime(2026, 10, 9));
+    expect(routine.title, 'Leaving the house');
+    final steps = (jsonDecode(routine.stepsJson) as List)
+        .map((json) => RoutineStep.fromJson(json as Map<String, dynamic>))
+        .cast<CheckStep>()
+        .toList();
+    expect(steps.map((s) => s.label), [
       'Hob dials off',
       'Back door locked',
       'Front door locked',
     ]);
-    expect(seed.steps.map((s) => s.requiresPhoto), [true, false, true]);
-    expect(seed.steps.map((s) => s.sortOrder), [0, 1, 2]);
-    // The hidden detail becomes the step's description in the editor.
+    expect(steps.map((s) => s.requiresPhoto), [true, false, true]);
+    // The hidden detail becomes the step's description.
     expect(
-      seed.steps.first.photoPrompt,
+      steps.first.photoPrompt,
       'Look at each dial on the hob and the oven.',
     );
-    expect(seed.steps[1].photoPrompt, '');
+    expect(steps[1].photoPrompt, isNull);
   });
 
   test('a draft reply is read safely', () {
