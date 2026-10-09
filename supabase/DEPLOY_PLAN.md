@@ -310,6 +310,19 @@ building immediately. Keep the additive tables and existing usage rows; do
 not roll back the backup consent gate independently of the new app version.
 Record the exact live commands and checks here after deployment.
 
+Done so far (Jamie approved "the AI database changes" in the project thread,
+9 Oct 2026 01:08Z):
+
+- Step 1: paused by Codex earlier on 9 Oct; confirmed `paused = true` and no
+  rows in `routine_ai_builds` before applying anything.
+- Steps 2 and 3: `026_routine_ai_pending_builds` and
+  `027_privacy_policy_2026_10_09` applied 9 Oct 2026 about 01:10Z through the
+  Supabase connector (`apply_migration`), with the SQL from this branch.
+- Still to do: step 4 (deploy `build-routine` v2 from this branch; production
+  still runs v1), step 5 (publish `web/privacy.html`, update Play Data
+  safety) and step 6 (unpause and smoke test). The builder stays paused until
+  then.
+
 ## Email redesign, 7 to 8 Oct 2026 (Jamie approved the live steps on 8 Oct)
 
 New look for the invitation, completion and sign-in code emails, and the
