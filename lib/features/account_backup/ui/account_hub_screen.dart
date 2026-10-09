@@ -1072,8 +1072,8 @@ class _LapsedPremiumSection extends StatelessWidget {
         ? 'Until ${summary.graceEndDateLabel} you can see all 21 days. After '
               'that, History shows the last 48 hours.'
         : 'History shows the last 48 hours.';
-    return '$hidden Older history is hidden, not deleted, and comes back '
-        'when you renew.';
+    return '$hidden Earlier checks stay on this phone for up to 21 days '
+        'and reappear if you renew within that time.';
   }
 
   static String _routinesBody(PremiumLapseSummary summary) {

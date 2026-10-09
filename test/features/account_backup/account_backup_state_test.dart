@@ -1548,7 +1548,7 @@ void main() {
         expect(find.textContaining('you can see all 21 days'), findsWidgets);
         expect(find.textContaining('is locked'), findsNothing);
         expect(
-          find.textContaining('Older history is hidden, not deleted'),
+          find.textContaining('Earlier checks stay on this phone for up to 21 days'),
           findsOneWidget,
         );
         await tester.scrollUntilVisible(
