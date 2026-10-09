@@ -1829,6 +1829,9 @@ void main() {
     await env.shot('appearance');
     await env.scrollDown(600);
     await env.shot('appearance_scrolled');
+    // A Premium theme being looked at on a free account.
+    await env.tapText('Dusk');
+    await env.shot('appearance_previewing_premium');
     await env.scrollDown(900);
     await env.shot('appearance_end');
   });
