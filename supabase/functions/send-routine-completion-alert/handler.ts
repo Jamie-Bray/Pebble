@@ -1,6 +1,6 @@
 // POST {routineKey, routineTitle, runId, sessionId?, completedAt,
 //       utcOffsetMinutes?, completedSteps, totalSteps, descriptions?,
-//       steps?: [{title, status: 'done' | 'skipped', completedAt?}]}
+//       steps?: [{title, status: 'done' | 'skipped', completedAt?, note?}]}
 // `steps` (in run order) are listed with the time each was checked when the
 // contact's step setting is on. They go in the email only and are never
 // stored.
@@ -146,6 +146,7 @@ export function createCompletionHandler(deps: CompletionDeps) {
           title: s.title,
           skipped: s.skipped,
           time: s.completedAt ? formatStepTime(s.completedAt, input) : null,
+          note: s.note,
         }))
         : [];
 

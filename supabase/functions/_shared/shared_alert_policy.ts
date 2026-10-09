@@ -125,11 +125,15 @@ export type CompletionStep = {
   skipped: boolean;
   /** When the step was ticked. Null for a skipped step or an unusable time. */
   completedAt: Date | null;
+  /** What the person wrote on the step while running it. Null when none. */
+  note: string | null;
 };
 
 /** Steps listed in one email. Longer runs end with "and N more steps". */
 export const MAX_EMAIL_STEPS = 40;
 export const MAX_STEP_TITLE_LENGTH = 90;
+/** The app keeps notes to 140 characters; anything longer is cut here too. */
+export const MAX_STEP_NOTE_LENGTH = 140;
 
 export function parseCompletionInput(
   body: unknown,
@@ -224,7 +228,8 @@ export function cleanSteps(value: unknown, runCompletedAt: Date): CompletionStep
         completedAt = t;
       }
     }
-    steps.push({ title, skipped, completedAt });
+    const note = sanitizeTitle(r.note, MAX_STEP_NOTE_LENGTH) || null;
+    steps.push({ title, skipped, completedAt, note });
   }
   return steps;
 }

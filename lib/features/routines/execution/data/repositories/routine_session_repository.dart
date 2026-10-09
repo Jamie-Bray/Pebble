@@ -339,6 +339,7 @@ class RoutineSessionRepositoryImpl implements RoutineSessionRepository {
             'proofAssets': stepState.proofAssets
                 .map((asset) => asset.toJson())
                 .toList(),
+            if (stepState.note != null) 'note': stepState.note,
           };
         }).toList(),
       };

@@ -170,13 +170,6 @@ class _PlayerProofZoneState extends State<PlayerProofZone> {
                       icon: LucideIcons.plus,
                       onTap: () => unawaited(_add()),
                     )
-                  : widget.isFreeTier && widget.onPhotoLimitUpgrade != null
-                  ? _PhotoCornerAction(
-                      label: 'Add more',
-                      semanticLabel: 'Add more photos with Premium',
-                      icon: LucideIcons.lock,
-                      onTap: widget.onPhotoLimitUpgrade!,
-                    )
                   : null,
             ),
           );
@@ -194,10 +187,36 @@ class _PlayerProofZoneState extends State<PlayerProofZone> {
           );
         }
 
+        // Free tier, photo taken: one small grey line, never a tile, so it
+        // doesn't nag on every run.
+        final upgrade = widget.onPhotoLimitUpgrade;
+        final showUpgrade =
+            widget.isFreeTier &&
+            upgrade != null &&
+            assets.isNotEmpty &&
+            widget.onTakePhoto == null;
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             photos,
+            if (showUpgrade)
+              Center(
+                child: TextButton(
+                  key: const ValueKey('proof-add-more-premium'),
+                  onPressed: upgrade,
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(0, 36),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    foregroundColor: context.readableSecondaryText,
+                    textStyle: PebbleFonts.sans(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  child: const Text('Add more with Premium'),
+                ),
+              ),
             if (showSlot) ...[
               const SizedBox(height: PebbleSpacing.sm),
               ProofCaptionSlot(

@@ -130,6 +130,7 @@ void main() {
             'stepIndex': 0,
             'status': 'completed',
             'completedAt': checkedAt.toIso8601String(),
+            'note': 'Keys in the bowl',
           },
           {'stepIndex': 1, 'status': 'skipped'},
           {'stepIndex': 2, 'status': 'pending'},
@@ -152,6 +153,7 @@ void main() {
           'title': 'Front door',
           'status': 'done',
           'completedAt': '2026-10-03T21:38:00.000Z',
+          'note': 'Keys in the bowl',
         },
         {'title': 'Hob off', 'status': 'skipped'},
       ]);

@@ -270,6 +270,7 @@ void main() {
               status: SessionStepStatus.completed,
               completedAt: DateTime(2026, 1, 1, 9, 5),
               proofAssets: [proofAsset],
+              note: 'Left them on the table',
             ),
           ],
         );
@@ -293,6 +294,11 @@ void main() {
         expect(runs.single.stepCompletionData, contains('proofAssets'));
         expect(runs.single.stepCompletionData, contains('effectiveSteps'));
         expect(runs.single.stepCompletionData, contains(session.sessionId));
+        final data =
+            jsonDecode(runs.single.stepCompletionData!) as Map<String, dynamic>;
+        final steps = (data['steps'] as List).cast<Map<String, dynamic>>();
+        expect(steps[0].containsKey('note'), isFalse);
+        expect(steps[1]['note'], 'Left them on the table');
       },
     );
 

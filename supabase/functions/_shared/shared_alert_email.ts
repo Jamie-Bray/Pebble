@@ -33,6 +33,8 @@ export type EmailStep = {
   /** "22:38", or null for a skipped step or a step with no usable time. */
   time: string | null;
   skipped: boolean;
+  /** The sender's note on the step, shown under its title. */
+  note?: string | null;
 };
 
 const PHOTO_NOTE = 'Photos are never emailed.';
@@ -161,7 +163,10 @@ export function buildCompletionEmail(input: EmailCommon & {
     '',
     ...(stepList.length
       ? [
-        ...stepList.map((s) => `${s.skipped ? '–' : '✓'} ${s.title}  ${s.skipped ? 'Skipped' : s.time ?? ''}`.trimEnd()),
+        ...stepList.flatMap((s) => [
+          `${s.skipped ? '–' : '✓'} ${s.title}  ${s.skipped ? 'Skipped' : s.time ?? ''}`.trimEnd(),
+          ...(s.note ? [`   Note: ${s.note}`] : []),
+        ]),
         ...(moreSteps ? [`…and ${moreSteps} more ${moreSteps === 1 ? 'step' : 'steps'}`] : []),
         '',
       ]
@@ -331,7 +336,11 @@ function stepRow(step: EmailStep, rule: boolean): string {
       <td class="pb-rule" valign="middle" width="34" style="width:34px;padding:11px 0;${border}">
         <table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr>${marker(!step.skipped)}</tr></table>
       </td>
-      <td class="pb-rule ${step.skipped ? 'pb-muted' : 'pb-ink'}" valign="middle" style="padding:11px 12px 11px 0;${border}color:${step.skipped ? C.muted : C.body};font-size:15px;line-height:1.4;overflow-wrap:anywhere;word-break:break-word;">${esc(step.title)}</td>
+      <td class="pb-rule ${step.skipped ? 'pb-muted' : 'pb-ink'}" valign="middle" style="padding:11px 12px 11px 0;${border}color:${step.skipped ? C.muted : C.body};font-size:15px;line-height:1.4;overflow-wrap:anywhere;word-break:break-word;">${esc(step.title)}${
+    step.note
+      ? `<div class="pb-muted" style="color:${C.muted};font-size:13px;font-style:italic;line-height:1.4;padding-top:2px;">${esc(step.note)}</div>`
+      : ''
+  }</td>
       <td class="pb-rule" align="right" valign="middle" style="padding:11px 0;${border}white-space:nowrap;">${right}</td>
     </tr>`;
 }

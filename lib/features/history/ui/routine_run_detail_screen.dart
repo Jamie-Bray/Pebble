@@ -414,6 +414,7 @@ class _RunTimeline extends StatelessWidget {
             completedAt: completedAt,
             isLast: index == steps.length - 1,
             stepPhotos: stepCompletion?['photos'] as List<dynamic>? ?? [],
+            note: cleanStepNote(stepCompletion?['note']),
             proofStorage: proofStorage,
           );
         },
@@ -431,6 +432,7 @@ class _RunTimeline extends StatelessWidget {
     DateTime? completedAt,
     required bool isLast,
     List<dynamic> stepPhotos = const [],
+    String? note,
     required RoutineSessionProofStorage proofStorage,
   }) {
     final foundation = context.darkFoundation;
@@ -493,7 +495,8 @@ class _RunTimeline extends StatelessWidget {
               if (!isLast)
                 Container(
                   width: 1,
-                  height: hasPhotos ? 128 : 58,
+                  // A note adds a line or two to the card.
+                  height: (hasPhotos ? 128 : 58) + (note == null ? 0 : 30),
                   color: foundation.borderSubtle,
                 ),
             ],
@@ -567,6 +570,35 @@ class _RunTimeline extends StatelessWidget {
                         ],
                       ),
 
+                      if (note != null) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          key: const ValueKey('run-step-note'),
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Icon(
+                                LucideIcons.pencilLine,
+                                size: 13,
+                                color: context.readableSecondaryText,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                note,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  height: 1.4,
+                                  fontStyle: FontStyle.italic,
+                                  color: context.readableSecondaryText,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       if (stepPhotos.isNotEmpty)
                         _buildPhotosSection(
                           stepPhotos,

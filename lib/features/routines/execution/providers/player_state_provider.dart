@@ -42,6 +42,7 @@ enum RoutinePlayerProofAttachResult { attached, limitReached, notAttached }
 enum RoutinePlayerOperation {
   none,
   savingStep,
+  savingNote,
   savingPhoto,
   completing,
   discarding,
@@ -317,6 +318,8 @@ class RoutinePlayerUiState {
         return 'Saving photo';
       case RoutinePlayerOperation.savingStep:
         return 'Saving';
+      case RoutinePlayerOperation.savingNote:
+        return 'Saving note';
       case RoutinePlayerOperation.completing:
         return 'Finishing';
       case RoutinePlayerOperation.discarding:
@@ -895,6 +898,34 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
           for (final asset in stepState.proofAssets)
             if (asset.aiDescription != null) asset.aiDescription!,
     ].take(5).toList();
+  }
+
+  /// Saves (or, for blank text, removes) the current step's note. It is
+  /// saved with the step straight away, so it is kept even if the run is
+  /// left and resumed later, and it goes into the finished run with the step.
+  Future<void> setCurrentStepNote(String? text) async {
+    final session = state.session;
+    final stepState = session?.currentStepState;
+    if (session == null || stepState == null || !session.isActive) return;
+    final note = cleanStepNote(text);
+    if (note == stepState.note) return;
+    await _runForeground<void>(
+      RoutinePlayerOperation.savingNote,
+      fallback: null,
+      task: () async {
+        final updatedStates = List<RoutineSessionStepState>.from(
+          session.stepStates,
+        );
+        updatedStates[session.currentStepIndex] = note == null
+            ? stepState.copyWith(clearNote: true)
+            : stepState.copyWith(note: note);
+        try {
+          await _persistSession(session.copyWith(stepStates: updatedStates));
+        } catch (_) {
+          // _persistSession has already shown "Couldn't save your progress".
+        }
+      },
+    );
   }
 
   Future<void> removeProof(String proofId) {
