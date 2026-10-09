@@ -1,149 +1,247 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
+import 'package:pebble_routines/core/theme/pebble_fonts.dart';
+import 'package:pebble_routines/core/theme/routine_palette.dart';
+import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:pebble_routines/core/ui/adaptive_layout.dart';
-import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/data/repositories/theme_repository.dart';
 import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 
-/// The theme picker: three plain sections (free, Personal Premium, easier to
-/// see), each theme shown as a small painted swatch rather than a mock app.
-class AppearanceScreen extends ConsumerWidget {
+/// Themes and colours: a swipeable gallery of Home painted in each theme,
+/// with every theme also shown as a small pebble to jump to. Looking is free
+/// and instant; nothing changes until the button at the bottom is pressed.
+class AppearanceScreen extends ConsumerStatefulWidget {
   const AppearanceScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AppearanceScreen> createState() => _AppearanceScreenState();
+}
+
+class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
+  // Built once: ThemeData for every theme is needed by both the gallery and
+  // the pebbles, and building it per frame would be wasteful.
+  final Map<ThemeId, ThemeData> _themes = {
+    for (final id in ThemeId.values) id: AppTheme.fromId(id),
+  };
+
+  late final _ThemeGroups _groups;
+  late final PageController _pages;
+  final ScrollController _scroll = ScrollController();
+  late ThemeId _previewId;
+
+  @override
+  void initState() {
+    super.initState();
+    final repository = ref.read(themeRepositoryProvider);
+    _groups = _ThemeGroups(
+      free: repository.getMainPickerThemes(ThemePickerCategory.included),
+      premium: repository.getMainPickerThemes(ThemePickerCategory.premium),
+      older: repository.getMoreOptionsThemes(ThemePickerCategory.premium),
+      accessibility: ThemeMetadata.byCategory(
+        ThemePickerCategory.accessibility,
+      ),
+    );
+    _previewId = ref.read(currentColorThemeProvider);
+    final start = _groups.all.indexWhere((t) => t.id == _previewId);
+    _pages = PageController(
+      viewportFraction: 0.56,
+      initialPage: math.max(0, start),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pages.dispose();
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _showTheme(ThemeId id, {bool bringIntoView = false}) {
+    final index = _groups.all.indexWhere((t) => t.id == id);
+    if (index < 0) return;
+    setState(() => _previewId = id);
+    final instant = MediaQuery.disableAnimationsOf(context);
+    if (instant) {
+      _pages.jumpToPage(index);
+    } else {
+      _pages.animateToPage(
+        index,
+        duration: PebbleMotion.emphasized,
+        curve: Curves.easeOutCubic,
+      );
+    }
+    // A pebble tapped further down the page would change a preview that is
+    // out of sight, so bring the gallery back up to show it.
+    if (bringIntoView && _scroll.hasClients && _scroll.offset > 0) {
+      if (instant) {
+        _scroll.jumpTo(0);
+      } else {
+        _scroll.animateTo(
+          0,
+          duration: PebbleMotion.emphasized,
+          curve: Curves.easeOutCubic,
+        );
+      }
+    }
+  }
+
+  void _showFromPebble(ThemeId id) => _showTheme(id, bringIntoView: true);
+
+  Future<void> _choose(ThemeMetadata meta, {required bool locked}) async {
+    if (locked) {
+      unawaited(
+        context.push(premiumRoute(source: PremiumEntrySource.premiumTheme)),
+      );
+      return;
+    }
+    await ref.read(themeProvider.notifier).setColorTheme(meta.id);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
     final type = PebbleType.of(context);
-    final currentThemeId = ref.watch(currentColorThemeProvider);
-    final currentMeta = ThemeMetadata.get(currentThemeId);
-    final canUsePremiumThemes = ref
+    final currentId = ref.watch(currentColorThemeProvider);
+    final canUsePremium = ref
         .watch(premiumFeaturePolicyProvider)
         .canUsePremiumThemes;
-    final repository = ref.watch(themeRepositoryProvider);
-    final free = repository.getMainPickerThemes(ThemePickerCategory.included);
-    final premium = repository.getMainPickerThemes(ThemePickerCategory.premium);
-    final morePremium = repository.getMoreOptionsThemes(
-      ThemePickerCategory.premium,
-    );
-    final accessibility = ThemeMetadata.byCategory(
-      ThemePickerCategory.accessibility,
-    );
-
-    void open(ThemeMetadata meta) => _openThemePreview(context, ref, meta);
+    final preview = ThemeMetadata.get(_previewId);
+    final previewLocked = _isLocked(preview, canUsePremium);
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
       backgroundColor: foundation.bgBase,
       body: SafeArea(
         bottom: false,
         child: AdaptiveContentWidth(
-          child: CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: <Widget>[
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      PebbleBackChrome(
-                        padding: EdgeInsets.zero,
-                        trailing: _InfoButton(
-                          onTap: () => _showThemeInfoSheet(context),
-                        ),
-                        respectSafeArea: false,
-                      ),
-                      const SizedBox(height: 18),
-                      Text(
-                        'Themes',
-                        style: type.title1.copyWith(
-                          color: foundation.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text.rich(
-                        TextSpan(
-                          children: <InlineSpan>[
-                            const TextSpan(text: 'You’re using '),
-                            TextSpan(
-                              text: currentMeta.name,
-                              style: TextStyle(
+          child: Stack(
+            children: <Widget>[
+              CustomScrollView(
+                key: const ValueKey('appearance_scroll'),
+                controller: _scroll,
+                physics: const BouncingScrollPhysics(),
+                slivers: <Widget>[
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          const PebbleBackChrome(
+                            padding: EdgeInsets.zero,
+                            respectSafeArea: false,
+                          ),
+                          const SizedBox(height: 14),
+                          Semantics(
+                            header: true,
+                            child: Text(
+                              'Themes and colours',
+                              style: type.title1.copyWith(
                                 color: foundation.textPrimary,
-                                fontWeight: FontWeight.w600,
                               ),
                             ),
-                            const TextSpan(
-                              text: '. Tap any theme to try it first.',
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Swipe to look around. Nothing changes until you choose.',
+                            style: type.body.copyWith(
+                              color: context.readableSecondaryText,
                             ),
-                          ],
-                        ),
-                        style: type.body.copyWith(
-                          color: context.readableSecondaryText,
-                        ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                  SliverToBoxAdapter(
+                    child: _Gallery(
+                      controller: _pages,
+                      themes: _groups.all,
+                      themeData: _themes,
+                      previewId: _previewId,
+                      onPageChanged: (index) =>
+                          setState(() => _previewId = _groups.all[index].id),
+                      onCardTap: _showTheme,
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+                      child: _PreviewCaption(
+                        meta: preview,
+                        isDark:
+                            _themes[preview.id]!.brightness == Brightness.dark,
+                        isLocked: previewLocked,
+                      ),
+                    ),
+                  ),
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(20, 8, 20, 140 + bottomInset),
+                    sliver: SliverList(
+                      delegate: SliverChildListDelegate(<Widget>[
+                        _PebbleShelf(
+                          title: 'Free',
+                          themes: _groups.free,
+                          themeData: _themes,
+                          previewId: _previewId,
+                          currentId: currentId,
+                          canUsePremium: canUsePremium,
+                          onTap: _showFromPebble,
+                        ),
+                        _PebbleShelf(
+                          title: 'Personal Premium',
+                          trailing: canUsePremium ? 'Included' : null,
+                          themes: _groups.premium,
+                          themeData: _themes,
+                          previewId: _previewId,
+                          currentId: currentId,
+                          canUsePremium: canUsePremium,
+                          onTap: _showFromPebble,
+                        ),
+                        if (_groups.older.isNotEmpty)
+                          _PebbleShelf(
+                            title: 'Older Premium themes',
+                            themes: _groups.older,
+                            themeData: _themes,
+                            previewId: _previewId,
+                            currentId: currentId,
+                            canUsePremium: canUsePremium,
+                            onTap: _showFromPebble,
+                          ),
+                        _PebbleShelf(
+                          title: 'Easier to see',
+                          trailing: 'Always free',
+                          themes: _groups.accessibility,
+                          themeData: _themes,
+                          previewId: _previewId,
+                          currentId: currentId,
+                          canUsePremium: canUsePremium,
+                          onTap: _showFromPebble,
+                        ),
+                      ]),
+                    ),
+                  ),
+                ],
               ),
-              SliverPadding(
-                padding: EdgeInsets.fromLTRB(
-                  20,
-                  0,
-                  20,
-                  40 + MediaQuery.paddingOf(context).bottom,
-                ),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate(<Widget>[
-                    const _SectionHeader(
-                      title: 'Free for everyone',
-                      subtitle: 'Use any of these, any time.',
-                    ),
-                    _ThemeGrid(
-                      themes: free,
-                      canUsePremiumThemes: canUsePremiumThemes,
-                      currentThemeId: currentThemeId,
-                      onThemeTap: open,
-                    ),
-                    _SectionHeader(
-                      title: 'Personal Premium',
-                      subtitle: canUsePremiumThemes
-                          ? 'Included with your Personal Premium.'
-                          : 'Try any of them first. Using one needs Personal Premium.',
-                    ),
-                    _ThemeGrid(
-                      themes: premium,
-                      canUsePremiumThemes: canUsePremiumThemes,
-                      currentThemeId: currentThemeId,
-                      onThemeTap: open,
-                    ),
-                    if (morePremium.isNotEmpty)
-                      _MoreThemes(
-                        themes: morePremium,
-                        canUsePremiumThemes: canUsePremiumThemes,
-                        currentThemeId: currentThemeId,
-                        onThemeTap: open,
-                      ),
-                    const _SectionHeader(
-                      title: 'Easier to see',
-                      subtitle: 'Accessibility themes. Always free.',
-                    ),
-                    for (final meta in accessibility) ...<Widget>[
-                      _AccessibilityThemeRow(
-                        meta: meta,
-                        isCurrent: meta.id == currentThemeId,
-                        onTap: () => open(meta),
-                      ),
-                      const SizedBox(height: 10),
-                    ],
-                  ]),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: _ChooseBar(
+                  meta: preview,
+                  previewTheme: _themes[preview.id]!,
+                  isCurrent: preview.id == currentId,
+                  isLocked: previewLocked,
+                  onChoose: () => _choose(preview, locked: previewLocked),
                 ),
               ),
             ],
@@ -154,48 +252,467 @@ class AppearanceScreen extends ConsumerWidget {
   }
 }
 
-class _InfoButton extends StatelessWidget {
-  const _InfoButton({required this.onTap});
+class _ThemeGroups {
+  _ThemeGroups({
+    required this.free,
+    required this.premium,
+    required this.older,
+    required this.accessibility,
+  });
 
-  final VoidCallback onTap;
+  final List<ThemeMetadata> free;
+  final List<ThemeMetadata> premium;
+  final List<ThemeMetadata> older;
+  final List<ThemeMetadata> accessibility;
+
+  /// Gallery order: the same order as the pebbles below it.
+  late final List<ThemeMetadata> all = <ThemeMetadata>[
+    ...free,
+    ...premium,
+    ...older,
+    ...accessibility,
+  ];
+}
+
+// ---------------------------------------------------------------------------
+// Gallery
+// ---------------------------------------------------------------------------
+
+/// The size Home is laid out at before being scaled into a gallery card, so
+/// the preview keeps the real proportions of the screen.
+const Size _homeCanvas = Size(330, 600);
+
+class _Gallery extends StatelessWidget {
+  const _Gallery({
+    required this.controller,
+    required this.themes,
+    required this.themeData,
+    required this.previewId,
+    required this.onPageChanged,
+    required this.onCardTap,
+  });
+
+  final PageController controller;
+  final List<ThemeMetadata> themes;
+  final Map<ThemeId, ThemeData> themeData;
+  final ThemeId previewId;
+  final ValueChanged<int> onPageChanged;
+  final ValueChanged<ThemeId> onCardTap;
 
   @override
   Widget build(BuildContext context) {
-    return PebbleGlassIconButton(
-      icon: LucideIcons.info,
-      tooltip: 'About themes',
-      onPressed: onTap,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardWidth = math.min(constraints.maxWidth * 0.56, 230.0);
+        final cardHeight = cardWidth * _homeCanvas.height / _homeCanvas.width;
+        return SizedBox(
+          height: cardHeight + 36,
+          child: PageView.builder(
+            key: const ValueKey('appearance_gallery'),
+            controller: controller,
+            itemCount: themes.length,
+            onPageChanged: onPageChanged,
+            itemBuilder: (context, index) {
+              final meta = themes[index];
+              return Center(
+                child: _GalleryCard(
+                  meta: meta,
+                  theme: themeData[meta.id]!,
+                  width: cardWidth - 16,
+                  height:
+                      cardHeight - 16 * _homeCanvas.height / _homeCanvas.width,
+                  isShown: meta.id == previewId,
+                  onTap: () => onCardTap(meta.id),
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }
 
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, required this.subtitle});
+class _GalleryCard extends StatelessWidget {
+  const _GalleryCard({
+    required this.meta,
+    required this.theme,
+    required this.width,
+    required this.height,
+    required this.isShown,
+    required this.onTap,
+  });
 
-  final String title;
-  final String subtitle;
+  final ThemeMetadata meta;
+  final ThemeData theme;
+  final double width;
+  final double height;
+  final bool isShown;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final type = PebbleType.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: 32, bottom: 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Semantics(
-            header: true,
-            child: Text(
-              title,
-              style: type.title2.copyWith(
-                color: context.darkFoundation.textPrimary,
+    final foundation = context.darkFoundation;
+    final radius = BorderRadius.circular(26);
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    return Semantics(
+      button: true,
+      selected: isShown,
+      label: '${meta.name} preview',
+      excludeSemantics: true,
+      child: AnimatedScale(
+        scale: isShown ? 1 : 0.92,
+        duration: reduceMotion ? Duration.zero : PebbleMotion.standard,
+        curve: Curves.easeOutCubic,
+        child: GestureDetector(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: reduceMotion ? Duration.zero : PebbleMotion.standard,
+            width: width,
+            height: height,
+            decoration: BoxDecoration(
+              borderRadius: radius,
+              border: Border.all(
+                color: isShown
+                    ? foundation.textPrimary
+                    : foundation.borderSubtle,
+                width: isShown ? 2 : 1,
+              ),
+              boxShadow: isShown
+                  ? <BoxShadow>[
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.10),
+                        blurRadius: 24,
+                        offset: const Offset(0, 10),
+                      ),
+                    ]
+                  : const <BoxShadow>[],
+            ),
+            padding: const EdgeInsets.all(3),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(22),
+              child: FittedBox(
+                fit: BoxFit.cover,
+                alignment: Alignment.topCenter,
+                child: SizedBox.fromSize(
+                  size: _homeCanvas,
+                  child: Theme(
+                    data: theme,
+                    // The preview always draws at normal text size: it is a
+                    // picture of Home, scaled down, not something to read.
+                    child: MediaQuery(
+                      data: MediaQuery.of(
+                        context,
+                      ).copyWith(textScaler: TextScaler.noScaling),
+                      child: _HomePreview(
+                        isAccessibility: meta.isAccessibilityTheme,
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: type.caption.copyWith(color: context.readableSecondaryText),
+        ),
+      ),
+    );
+  }
+}
+
+/// A still picture of Home as it looks now (Up next card, then Your
+/// routines), drawn in whatever theme surrounds it.
+class _HomePreview extends StatelessWidget {
+  const _HomePreview({required this.isAccessibility});
+
+  /// Accessibility themes ignore routine colours, as on the real Home.
+  final bool isAccessibility;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final f = context.darkFoundation;
+    final x = theme.extension<PebbleThemeX>()!;
+    final isDark = theme.brightness == Brightness.dark;
+    final secondary = context.readableSecondaryText;
+    final accentText = context.readableAccentText(scheme.primary);
+    final secondRoutine = isAccessibility
+        ? scheme.primary
+        : RoutinePalette.stones[1].forBrightness(theme.brightness);
+    final cardFill = isDark
+        ? f.surfaceLow
+        : Color.alphaBlend(f.textPrimary.withValues(alpha: 0.045), f.bgBase);
+    final sans = PebbleFonts.sans(fontSize: 13, color: f.textPrimary);
+
+    Widget roundButton(IconData icon) => Container(
+      width: 38,
+      height: 38,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: f.borderSubtle),
+      ),
+      child: Icon(icon, size: 17, color: f.textPrimary),
+    );
+
+    Widget stone(Color color, IconData icon) => Container(
+      width: 34,
+      height: 34,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      child: Icon(icon, size: 16, color: isDark ? f.bgBase : Colors.white),
+    );
+
+    Widget step(int n, String label, {bool first = false}) => Container(
+      padding: const EdgeInsets.symmetric(vertical: 9),
+      decoration: BoxDecoration(
+        border: first ? null : Border(top: BorderSide(color: f.borderSubtle)),
+      ),
+      child: Row(
+        children: <Widget>[
+          SizedBox(
+            width: 24,
+            child: Text('$n', style: sans.copyWith(color: secondary)),
+          ),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: sans.copyWith(color: secondary),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return ColoredBox(
+      color: f.bgBase,
+      child: Stack(
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 30, 18, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    Text.rich(
+                      TextSpan(
+                        children: <InlineSpan>[
+                          const TextSpan(text: 'pebble'),
+                          TextSpan(
+                            text: '.',
+                            style: TextStyle(color: scheme.primary),
+                          ),
+                        ],
+                      ),
+                      style: PebbleFonts.serif(
+                        fontSize: 22,
+                        fontStyle: FontStyle.italic,
+                        height: 1,
+                        color: f.textPrimary,
+                      ),
+                    ),
+                    const Spacer(),
+                    roundButton(LucideIcons.settings),
+                    const SizedBox(width: 6),
+                    roundButton(LucideIcons.user),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+                  decoration: BoxDecoration(
+                    color: cardFill,
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      Row(
+                        children: <Widget>[
+                          stone(scheme.primary, LucideIcons.house),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'UP NEXT',
+                              style: PebbleFonts.sans(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 1.6,
+                                color: accentText,
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(color: f.borderSubtle),
+                            ),
+                            child: Row(
+                              children: <Widget>[
+                                Icon(
+                                  LucideIcons.slidersHorizontal,
+                                  size: 12,
+                                  color: f.textPrimary,
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  'Settings',
+                                  style: sans.copyWith(fontSize: 11),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Text.rich(
+                        TextSpan(
+                          children: <InlineSpan>[
+                            const TextSpan(text: 'Leaving the house'),
+                            TextSpan(
+                              text: '.',
+                              style: TextStyle(color: scheme.primary),
+                            ),
+                          ],
+                        ),
+                        style: PebbleFonts.serif(
+                          fontSize: 28,
+                          height: 1.06,
+                          letterSpacing: -0.5,
+                          color: f.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '5 steps · 1 photo',
+                        style: sans.copyWith(fontSize: 12, color: secondary),
+                      ),
+                      const SizedBox(height: 8),
+                      step(1, 'Keys and wallet', first: true),
+                      step(2, 'Back door locked'),
+                      step(3, 'Hob off'),
+                      const SizedBox(height: 10),
+                      Container(
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: scheme.primary,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: <Widget>[
+                            Icon(
+                              LucideIcons.play,
+                              size: 16,
+                              color: scheme.onPrimary,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Start',
+                              style: PebbleFonts.sans(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: scheme.onPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Center(
+                        child: Text(
+                          'Last checked yesterday, 8:15 AM',
+                          style: sans.copyWith(fontSize: 11, color: secondary),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        'Your routines',
+                        style: PebbleFonts.serif(
+                          fontSize: 21,
+                          color: f.textPrimary,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '1 checked today',
+                      style: sans.copyWith(fontSize: 11, color: secondary),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: <Widget>[
+                    stone(secondRoutine, LucideIcons.moon),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text('Wind down', style: sans.copyWith(fontSize: 14)),
+                          Text(
+                            '4 steps',
+                            style: sans.copyWith(
+                              fontSize: 11,
+                              color: secondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(LucideIcons.check, size: 13, color: x.done),
+                    const SizedBox(width: 4),
+                    Text(
+                      '9:12 PM',
+                      style: sans.copyWith(fontSize: 12, color: x.done),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              height: 58,
+              decoration: BoxDecoration(
+                color: isDark ? f.surfaceLow : f.surfaceHigh,
+                border: Border(top: BorderSide(color: f.borderSubtle)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: <Widget>[
+                  Icon(LucideIcons.house, size: 18, color: f.textPrimary),
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: x.actionAccent,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(
+                      LucideIcons.plus,
+                      size: 20,
+                      color: x.onActionAccent,
+                    ),
+                  ),
+                  Icon(LucideIcons.history, size: 18, color: secondary),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -203,64 +720,197 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-/// Two columns of theme cards. Rows size to their content, so long names and
-/// large text never clip.
-class _ThemeGrid extends StatelessWidget {
-  const _ThemeGrid({
-    required this.themes,
-    required this.canUsePremiumThemes,
-    required this.currentThemeId,
-    required this.onThemeTap,
+/// Name, description and light or dark for the theme in the middle of the
+/// gallery.
+class _PreviewCaption extends StatelessWidget {
+  const _PreviewCaption({
+    required this.meta,
+    required this.isDark,
+    required this.isLocked,
   });
 
-  final List<ThemeMetadata> themes;
-  final bool canUsePremiumThemes;
-  final ThemeId currentThemeId;
-  final ValueChanged<ThemeMetadata> onThemeTap;
+  final ThemeMetadata meta;
+  final bool isDark;
+  final bool isLocked;
 
   @override
   Widget build(BuildContext context) {
-    Widget card(ThemeMetadata meta) => _ThemeCard(
-      meta: meta,
-      isCurrent: meta.id == currentThemeId,
-      isLocked: _isLocked(meta, canUsePremiumThemes),
-      onTap: () => onThemeTap(meta),
-    );
-
-    final rows = <Widget>[];
-    for (var i = 0; i < themes.length; i += 2) {
-      final hasPair = i + 1 < themes.length;
-      rows.add(
-        Padding(
-          padding: EdgeInsets.only(top: i == 0 ? 0 : 12),
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                Expanded(child: card(themes[i])),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: hasPair ? card(themes[i + 1]) : const SizedBox(),
-                ),
-              ],
+    final foundation = context.darkFoundation;
+    final type = PebbleType.of(context);
+    final secondary = context.readableSecondaryText;
+    final note = <String>[
+      if (isLocked) 'Personal Premium',
+      if (meta.isAccessibilityTheme) 'Always free',
+    ].join(' · ');
+    return Semantics(
+      liveRegion: true,
+      child: AnimatedSwitcher(
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : PebbleMotion.quick,
+        child: Row(
+          key: ValueKey(meta.id),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    meta.name,
+                    style: PebbleFonts.serif(
+                      fontSize: 26,
+                      height: 1.1,
+                      color: foundation.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    meta.accessibilityNote ?? meta.description,
+                    style: type.caption.copyWith(color: secondary),
+                  ),
+                  if (note.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 4),
+                    Text(
+                      note,
+                      style: type.caption.copyWith(
+                        color: secondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
-          ),
+            const SizedBox(width: 12),
+            Container(
+              margin: const EdgeInsets.only(top: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: foundation.borderSubtle),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Icon(
+                    isDark ? LucideIcons.moon : LucideIcons.sun,
+                    size: 13,
+                    color: secondary,
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    isDark ? 'Dark' : 'Light',
+                    style: type.caption.copyWith(
+                      color: secondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-      );
-    }
-    return Column(children: rows);
+      ),
+    );
   }
 }
 
-class _ThemeCard extends StatelessWidget {
-  const _ThemeCard({
+// ---------------------------------------------------------------------------
+// Pebbles
+// ---------------------------------------------------------------------------
+
+class _PebbleShelf extends StatelessWidget {
+  const _PebbleShelf({
+    required this.title,
+    required this.themes,
+    required this.themeData,
+    required this.previewId,
+    required this.currentId,
+    required this.canUsePremium,
+    required this.onTap,
+    this.trailing,
+  });
+
+  final String title;
+  final String? trailing;
+  final List<ThemeMetadata> themes;
+  final Map<ThemeId, ThemeData> themeData;
+  final ThemeId previewId;
+  final ThemeId currentId;
+  final bool canUsePremium;
+  final ValueChanged<ThemeId> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final type = PebbleType.of(context);
+    final secondary = context.readableSecondaryText;
+    return Padding(
+      padding: const EdgeInsets.only(top: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Semantics(
+                  header: true,
+                  child: Text(
+                    title.toUpperCase(),
+                    style: type.overline.copyWith(color: secondary),
+                  ),
+                ),
+              ),
+              if (trailing != null)
+                Text(trailing!, style: type.caption.copyWith(color: secondary)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const gap = 8.0;
+              final columns = constraints.maxWidth >= 520 ? 6 : 4;
+              final itemWidth =
+                  (constraints.maxWidth - gap * (columns - 1)) / columns;
+              return Wrap(
+                spacing: gap,
+                runSpacing: 14,
+                children: <Widget>[
+                  for (final meta in themes)
+                    SizedBox(
+                      width: itemWidth,
+                      child: _PebbleChoice(
+                        meta: meta,
+                        theme: themeData[meta.id]!,
+                        isShown: meta.id == previewId,
+                        isCurrent: meta.id == currentId,
+                        isLocked: _isLocked(meta, canUsePremium),
+                        onTap: () => onTap(meta.id),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PebbleChoice extends StatelessWidget {
+  const _PebbleChoice({
     required this.meta,
+    required this.theme,
+    required this.isShown,
     required this.isCurrent,
     required this.isLocked,
     required this.onTap,
   });
 
   final ThemeMetadata meta;
+  final ThemeData theme;
+  final bool isShown;
   final bool isCurrent;
   final bool isLocked;
   final VoidCallback onTap;
@@ -269,815 +919,65 @@ class _ThemeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
     final type = PebbleType.of(context);
-    final selected = Theme.of(context).colorScheme.primary;
-    final radius = BorderRadius.circular(20);
-
+    final f = theme.extension<PebbleDarkFoundation>()!;
+    final x = theme.extension<PebbleThemeX>()!;
     return Semantics(
       button: true,
-      selected: isCurrent,
-      label: [
+      selected: isShown,
+      label: <String>[
         meta.name,
         meta.subtitle,
         if (isCurrent) 'in use',
-        if (isLocked) 'needs Personal Premium',
+        if (isLocked) 'Personal Premium',
       ].join(', '),
       excludeSemantics: true,
-      child: Material(
-        color: foundation.surfaceLow,
-        borderRadius: radius,
-        child: InkWell(
-          borderRadius: radius,
-          onTap: onTap,
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: radius,
-              border: Border.all(
-                color: isCurrent ? selected : foundation.borderSubtle,
-                width: isCurrent ? 2 : 1,
-              ),
-            ),
-            padding: const EdgeInsets.all(8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                _ThemeSwatch(themeId: meta.id, height: 92, showLock: isLocked),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(6, 10, 6, 4),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Text(
-                              meta.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: type.body.copyWith(
-                                color: foundation.textPrimary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              isCurrent ? 'In use' : meta.subtitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: type.caption.copyWith(
-                                color: isCurrent
-                                    ? context.readableAccentText(selected)
-                                    : context.readableSecondaryText,
-                                fontWeight: isCurrent ? FontWeight.w700 : null,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (isCurrent) ...<Widget>[
-                        const SizedBox(width: 6),
-                        _CheckBadge(color: selected),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CheckBadge extends StatelessWidget {
-  const _CheckBadge({required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 22,
-      height: 22,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-      child: Icon(
-        LucideIcons.check,
-        size: 13,
-        color: Theme.of(context).colorScheme.onPrimary,
-      ),
-    );
-  }
-}
-
-/// A theme painted as a tiny scene in its own colours: the page, one card
-/// with a checked pebble and two lines of "text", and the action button.
-class _ThemeSwatch extends StatelessWidget {
-  const _ThemeSwatch({
-    required this.themeId,
-    required this.height,
-    this.showLock = false,
-    this.compact = false,
-  });
-
-  final ThemeId themeId;
-  final double height;
-  final bool showLock;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = AppTheme.fromId(themeId);
-    final f = theme.extension<PebbleDarkFoundation>()!;
-    final x = theme.extension<PebbleThemeX>()!;
-    final radius = BorderRadius.circular(compact ? 12 : 14);
-    final pad = compact ? 8.0 : 12.0;
-
-    return ClipRRect(
-      borderRadius: radius,
-      child: Container(
-        height: height,
-        padding: EdgeInsets.all(pad),
-        // A hairline keeps pale themes from melting into a pale page.
-        decoration: BoxDecoration(
-          color: f.bgBase,
-          borderRadius: radius,
-          border: Border.all(color: context.darkFoundation.borderSubtle),
-        ),
-        child: Stack(
-          children: <Widget>[
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Expanded(
-                  child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: pad * 0.8),
-                    decoration: BoxDecoration(
-                      color: f.surfaceHigh,
-                      borderRadius: BorderRadius.circular(compact ? 8 : 10),
-                    ),
-                    child: Row(
-                      children: <Widget>[
-                        Container(
-                          width: compact ? 14 : 18,
-                          height: compact ? 14 : 18,
-                          decoration: BoxDecoration(
-                            color: x.done,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            LucideIcons.check,
-                            size: compact ? 9 : 11,
-                            color: f.bgBase,
-                          ),
-                        ),
-                        SizedBox(width: compact ? 6 : 8),
-                        Expanded(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              _Bar(color: f.textPrimary, widthFactor: 0.85),
-                              SizedBox(height: compact ? 3 : 5),
-                              _Bar(color: f.textSecondary, widthFactor: 0.55),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                if (!compact) ...<Widget>[
-                  const SizedBox(height: 8),
-                  Container(
-                    width: 44,
-                    height: 14,
-                    decoration: BoxDecoration(
-                      color: x.actionAccent,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-            if (showLock)
-              Positioned(
-                right: 0,
-                bottom: 0,
-                child: Container(
-                  width: 22,
-                  height: 22,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.55),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    LucideIcons.lock,
-                    size: 11,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Bar extends StatelessWidget {
-  const _Bar({required this.color, required this.widthFactor});
-
-  final Color color;
-  final double widthFactor;
-
-  @override
-  Widget build(BuildContext context) {
-    return FractionallySizedBox(
-      widthFactor: widthFactor,
-      child: Container(
-        height: 5,
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(999),
-        ),
-      ),
-    );
-  }
-}
-
-/// Older Premium themes, folded away so the main picker stays short.
-class _MoreThemes extends StatefulWidget {
-  const _MoreThemes({
-    required this.themes,
-    required this.canUsePremiumThemes,
-    required this.currentThemeId,
-    required this.onThemeTap,
-  });
-
-  final List<ThemeMetadata> themes;
-  final bool canUsePremiumThemes;
-  final ThemeId currentThemeId;
-  final ValueChanged<ThemeMetadata> onThemeTap;
-
-  @override
-  State<_MoreThemes> createState() => _MoreThemesState();
-}
-
-class _MoreThemesState extends State<_MoreThemes> {
-  // Open by default when the theme in use lives here, so it isn't hidden.
-  late bool _open = widget.themes.any((t) => t.id == widget.currentThemeId);
-
-  @override
-  Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
-    final type = PebbleType.of(context);
-    final count = widget.themes.length;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        const SizedBox(height: 4),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            onPressed: () => setState(() => _open = !_open),
-            style: TextButton.styleFrom(
-              foregroundColor: foundation.textPrimary,
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
-            ),
-            icon: Icon(
-              _open ? LucideIcons.chevronUp : LucideIcons.chevronDown,
-              size: 18,
-            ),
-            label: Text(
-              _open ? 'Show fewer' : 'Show $count more Premium themes',
-              style: type.body.copyWith(fontWeight: FontWeight.w600),
-            ),
-          ),
-        ),
-        if (_open)
-          _ThemeGrid(
-            themes: widget.themes,
-            canUsePremiumThemes: widget.canUsePremiumThemes,
-            currentThemeId: widget.currentThemeId,
-            onThemeTap: widget.onThemeTap,
-          ),
-      ],
-    );
-  }
-}
-
-class _AccessibilityThemeRow extends StatelessWidget {
-  const _AccessibilityThemeRow({
-    required this.meta,
-    required this.isCurrent,
-    required this.onTap,
-  });
-
-  final ThemeMetadata meta;
-  final bool isCurrent;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
-    final type = PebbleType.of(context);
-    final selected = Theme.of(context).colorScheme.primary;
-    final radius = BorderRadius.circular(18);
-
-    return Semantics(
-      button: true,
-      selected: isCurrent,
-      label: [
-        meta.name,
-        meta.accessibilityNote ?? meta.subtitle,
-        if (isCurrent) 'in use',
-      ].join(', '),
-      excludeSemantics: true,
-      child: Material(
-        color: foundation.surfaceLow,
-        borderRadius: radius,
-        child: InkWell(
-          borderRadius: radius,
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              borderRadius: radius,
-              border: Border.all(
-                color: isCurrent ? selected : foundation.borderSubtle,
-                width: isCurrent ? 2 : 1,
-              ),
-            ),
-            child: Row(
-              children: <Widget>[
-                SizedBox(
-                  width: 76,
-                  child: _ThemeSwatch(
-                    themeId: meta.id,
-                    height: 56,
-                    compact: true,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        meta.name,
-                        style: type.body.copyWith(
-                          color: foundation.textPrimary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        isCurrent
-                            ? 'In use'
-                            : meta.accessibilityNote ?? meta.subtitle,
-                        style: type.caption.copyWith(
-                          color: isCurrent
-                              ? context.readableAccentText(selected)
-                              : context.readableSecondaryText,
-                          fontWeight: isCurrent ? FontWeight.w700 : null,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                if (isCurrent)
-                  _CheckBadge(color: selected)
-                else
-                  Icon(
-                    LucideIcons.chevronRight,
-                    size: 18,
-                    color: foundation.textMuted,
-                  ),
-                const SizedBox(width: 4),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StatePill extends StatelessWidget {
-  const _StatePill.active({required this.label}) : _isActive = true;
-  const _StatePill.muted({required this.label}) : _isActive = false;
-
-  final String label;
-  final bool _isActive;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    final foundation = context.darkFoundation;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-      decoration: BoxDecoration(
-        color: _isActive
-            ? accent.withValues(alpha: 0.12)
-            : Colors.white.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: _isActive
-              ? accent.withValues(alpha: 0.18)
-              : foundation.borderSubtle,
-        ),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: _isActive ? accent : context.readableSecondaryText,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-}
-
-class _MiniAppPreview extends StatelessWidget {
-  const _MiniAppPreview({required this.themeData, required this.rows});
-
-  final ThemeData themeData;
-  final int rows;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = themeData.colorScheme;
-    final foundation = themeData.extension<PebbleDarkFoundation>()!;
-    final templateTokens = themeData.extension<PebbleTemplatesTokens>()!;
-    final rowData = <({String label, String count, Color color})>[
-      (label: 'Leaving home', count: '5', color: scheme.primary),
-      (
-        label: 'Everyday departure',
-        count: '10',
-        color: templateTokens.templatesAccentGroup2,
-      ),
-      (
-        label: 'Evening wind-down',
-        count: '7',
-        color: templateTokens.templatesAccentGroup3,
-      ),
-    ].take(rows).toList(growable: false);
-
-    return DecoratedBox(
-      decoration: BoxDecoration(color: scheme.surface),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 10, 10, 9),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: Text.rich(
-                    TextSpan(
-                      text: 'pebble',
-                      children: <InlineSpan>[
-                        TextSpan(
-                          text: '.',
-                          style: TextStyle(color: scheme.primary),
-                        ),
-                      ],
-                    ),
-                    style: TextStyle(
-                      color: scheme.onSurface,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      fontStyle: FontStyle.italic,
-                      height: 1,
-                    ),
-                  ),
-                ),
-                Container(
-                  width: 24,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: scheme.primary,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Good morning',
-              style: TextStyle(
-                color: foundation.textSecondary,
-                fontSize: 8.5,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 7),
-            for (var index = 0; index < rowData.length; index += 1) ...<Widget>[
-              _PreviewRow(
-                label: rowData[index].label,
-                count: rowData[index].count,
-                color: rowData[index].color,
-                foundation: foundation,
-              ),
-              if (index != rowData.length - 1) const SizedBox(height: 4),
-            ],
-            const Spacer(),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children:
-                  <Color>[
-                    scheme.primary,
-                    templateTokens.templatesAccentGroup2,
-                    templateTokens.templatesAccentGroup3,
-                  ].asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final color = entry.value;
-                    return Container(
-                      width: 16,
-                      height: 3,
-                      margin: const EdgeInsets.only(right: 4),
-                      decoration: BoxDecoration(
-                        color: index == 0
-                            ? color
-                            : color.withValues(alpha: index == 1 ? 0.6 : 0.4),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    );
-                  }).toList(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PreviewRow extends StatelessWidget {
-  const _PreviewRow({
-    required this.label,
-    required this.count,
-    required this.color,
-    required this.foundation,
-  });
-
-  final String label;
-  final String count;
-  final Color color;
-  final PebbleDarkFoundation foundation;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 22,
-      decoration: BoxDecoration(
-        color: foundation.surfaceLow,
-        borderRadius: BorderRadius.circular(7),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Row(
-        children: <Widget>[
-          Container(width: 2.5, color: color),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: foundation.textPrimary,
-                fontSize: 7.6,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          Text(
-            count,
-            style: TextStyle(
-              color: foundation.textSecondary,
-              fontSize: 7.2,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(width: 7),
-        ],
-      ),
-    );
-  }
-}
-
-void _openThemePreview(
-  BuildContext context,
-  WidgetRef ref,
-  ThemeMetadata meta,
-) {
-  showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) => _ThemePreviewSheet(meta: meta),
-  );
-}
-
-class _ThemePreviewSheet extends ConsumerWidget {
-  const _ThemePreviewSheet({required this.meta});
-
-  final ThemeMetadata meta;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final currentTheme = Theme.of(context);
-    final foundation = currentTheme.extension<PebbleDarkFoundation>()!;
-    final canUsePremiumThemes = ref
-        .watch(premiumFeaturePolicyProvider)
-        .canUsePremiumThemes;
-    final isLocked = _isLocked(meta, canUsePremiumThemes);
-    final isCurrent = ref.watch(currentColorThemeProvider) == meta.id;
-    final previewTheme = AppTheme.fromId(meta.id);
-    final previewFoundation =
-        previewTheme.extension<PebbleDarkFoundation>() ??
-        PebbleDarkFoundation.fromPalette(
-          bg: previewTheme.colorScheme.surface,
-          fg: previewTheme.colorScheme.onSurface,
-          accent: previewTheme.colorScheme.primary,
-          isDark: previewTheme.brightness == Brightness.dark,
-        );
-
-    return FractionallySizedBox(
-      heightFactor: 0.94,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: foundation.surfaceLow,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
-          border: Border.all(color: foundation.borderSubtle),
-        ),
+      child: InkWell(
+        key: ValueKey('theme_pebble_${meta.id.name}'),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+          padding: const EdgeInsets.symmetric(vertical: 4),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Align(
-                alignment: Alignment.center,
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-              Expanded(
-                child: ListView(
-                  physics: const BouncingScrollPhysics(),
-                  children: <Widget>[
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(18),
-                      child: SizedBox(
-                        height: 230,
-                        child: _MiniAppPreview(
-                          themeData: previewTheme,
-                          rows: 3,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Container(
-                          width: 30,
-                          height: 30,
-                          margin: const EdgeInsets.only(top: 3),
-                          decoration: BoxDecoration(
-                            color: previewTheme.colorScheme.primary.withValues(
-                              alpha: 0.14,
-                            ),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Icon(
-                            meta.icon,
-                            size: 15,
-                            color: previewTheme.colorScheme.primary,
-                          ),
-                        ),
-                        const SizedBox(width: 11),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Text(
-                                meta.name,
-                                style: currentTheme.textTheme.headlineSmall
-                                    ?.copyWith(
-                                      color: foundation.textPrimary,
-                                      fontWeight: FontWeight.w900,
-                                      height: 1.05,
-                                    ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                meta.subtitle,
-                                style: currentTheme.textTheme.bodySmall
-                                    ?.copyWith(color: foundation.textSecondary),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (isCurrent)
-                          const _StatePill.active(label: 'Active')
-                        else if (meta.isAccessibilityTheme)
-                          const _StatePill.muted(label: 'Accessibility')
-                        else if (isLocked)
-                          const _StatePill.muted(label: 'Premium'),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      meta.description,
-                      style: currentTheme.textTheme.bodyMedium?.copyWith(
-                        color: foundation.textSecondary,
-                        height: 1.55,
-                      ),
-                    ),
-                    if (isLocked) ...<Widget>[
-                      const SizedBox(height: 14),
-                      const _SheetNote(
-                        text:
-                            'You can preview this theme. Using it needs Personal Premium.',
-                      ),
-                    ],
-                    if (meta.accessibilityNote != null) ...<Widget>[
-                      const SizedBox(height: 14),
-                      _SheetNote(text: meta.accessibilityNote!),
-                    ],
-                    if (_isCompatibilityPremiumTheme(meta)) ...<Widget>[
-                      const SizedBox(height: 14),
-                      const _SheetNote(
-                        text:
-                            'An older theme, kept for people who already use it.',
-                      ),
-                    ],
-                    const SizedBox(height: 18),
-                    _PreviewPaletteBar(
-                      foundation: previewFoundation,
-                      theme: previewTheme,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
               SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: previewTheme.colorScheme.primary,
-                    foregroundColor: previewTheme.colorScheme.onPrimary,
-                    minimumSize: const Size.fromHeight(52),
-                    shape: const StadiumBorder(),
-                  ),
-                  onPressed: isCurrent
-                      ? null
-                      : () async {
-                          if (isLocked) {
-                            final router = GoRouter.of(context);
-                            Navigator.of(context).pop();
-                            unawaited(
-                              router.push(
-                                premiumRoute(
-                                  source: PremiumEntrySource.premiumTheme,
-                                ),
-                              ),
-                            );
-                            return;
-                          }
-                          await ref
-                              .read(themeProvider.notifier)
-                              .setColorTheme(meta.id);
-                          if (context.mounted) {
-                            Navigator.of(context).pop();
-                          }
-                        },
-                  child: Text(
-                    isCurrent
-                        ? 'Currently active'
-                        : isLocked
-                        ? 'Get Premium'
-                        : 'Use this theme',
+                width: 62,
+                height: 56,
+                child: CustomPaint(
+                  painter: _PebblePainter(
+                    page: f.bgBase,
+                    accent: x.actionAccent,
+                    ink: f.textPrimary,
+                    lockBadge: foundation.textPrimary,
+                    lockGlyph: foundation.bgBase,
+                    ring: isShown ? foundation.textPrimary : null,
+                    lock: isLocked,
+                    hairline: foundation.borderSubtle,
                   ),
                 ),
               ),
-              const SizedBox(height: 9),
-              SizedBox(
-                width: double.infinity,
-                child: TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancel'),
+              const SizedBox(height: 6),
+              Text(
+                meta.name,
+                textAlign: TextAlign.center,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: type.caption.copyWith(
+                  color: foundation.textPrimary,
+                  fontWeight: isShown ? FontWeight.w600 : FontWeight.w400,
+                  height: 1.2,
                 ),
               ),
+              if (isCurrent)
+                Text(
+                  'In use',
+                  style: type.caption.copyWith(
+                    fontSize: 11,
+                    color: context.readableAccentText(
+                      Theme.of(context).colorScheme.primary,
+                    ),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
             ],
           ),
         ),
@@ -1086,132 +986,261 @@ class _ThemePreviewSheet extends ConsumerWidget {
   }
 }
 
-class _SheetNote extends StatelessWidget {
-  const _SheetNote({required this.text});
+/// A theme as a pebble: the page colour is the stone, with its accent and
+/// text colours as two small stones resting on it.
+class _PebblePainter extends CustomPainter {
+  _PebblePainter({
+    required this.page,
+    required this.accent,
+    required this.ink,
+    required this.lockBadge,
+    required this.lockGlyph,
+    required this.ring,
+    required this.lock,
+    required this.hairline,
+  });
 
-  final String text;
+  final Color page;
+  final Color accent;
+  final Color ink;
+  final Color lockBadge;
+  final Color lockGlyph;
+  final Color? ring;
+  final bool lock;
+  final Color hairline;
+
+  Path _pebble(Rect r) {
+    final w = r.width;
+    final h = r.height;
+    return Path()
+      ..moveTo(r.left + w * 0.5, r.top)
+      ..cubicTo(
+        r.left + w * 0.82,
+        r.top,
+        r.right,
+        r.top + h * 0.2,
+        r.right,
+        r.top + h * 0.5,
+      )
+      ..cubicTo(
+        r.right,
+        r.top + h * 0.85,
+        r.left + w * 0.78,
+        r.bottom,
+        r.left + w * 0.48,
+        r.bottom,
+      )
+      ..cubicTo(
+        r.left + w * 0.16,
+        r.bottom,
+        r.left,
+        r.top + h * 0.8,
+        r.left,
+        r.top + h * 0.48,
+      )
+      ..cubicTo(
+        r.left,
+        r.top + h * 0.18,
+        r.left + w * 0.22,
+        r.top,
+        r.left + w * 0.5,
+        r.top,
+      )
+      ..close();
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final outer = Offset.zero & size;
+    final body = outer.deflate(3.5);
+    if (ring != null) {
+      canvas.drawPath(
+        _pebble(outer.deflate(1)),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.2
+          ..color = ring!,
+      );
+    }
+    final shape = _pebble(body);
+    canvas.drawPath(shape, Paint()..color = page);
+    canvas.drawPath(
+      shape,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = hairline,
+    );
+
+    void stone(Offset centre, Size s, double turn, Color color) {
+      canvas.save();
+      canvas.translate(centre.dx, centre.dy);
+      canvas.rotate(turn);
+      canvas.drawOval(
+        Rect.fromCenter(center: Offset.zero, width: s.width, height: s.height),
+        Paint()..color = color,
+      );
+      canvas.restore();
+    }
+
+    final w = size.width;
+    final h = size.height;
+    stone(Offset(w * 0.40, h * 0.55), Size(w * 0.37, h * 0.34), -0.2, accent);
+    stone(Offset(w * 0.65, h * 0.44), Size(w * 0.23, h * 0.21), 0.24, ink);
+
+    if (lock) {
+      final c = Offset(w * 0.82, h * 0.82);
+      final badge = lockBadge;
+      final glyph = lockGlyph;
+      // A ring in the page colour keeps the badge apart from any pebble.
+      canvas.drawCircle(c, 10, Paint()..color = glyph);
+      canvas.drawCircle(c, 8.5, Paint()..color = badge);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: c.translate(0, 1.2), width: 7, height: 5.4),
+          const Radius.circular(1.2),
+        ),
+        Paint()..color = glyph,
+      );
+      canvas.drawArc(
+        Rect.fromCenter(center: c.translate(0, -1.6), width: 4.4, height: 4.4),
+        math.pi,
+        math.pi,
+        false,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.3
+          ..color = glyph,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_PebblePainter old) =>
+      old.page != page ||
+      old.accent != accent ||
+      old.ink != ink ||
+      old.ring != ring ||
+      old.lock != lock ||
+      old.lockBadge != lockBadge ||
+      old.hairline != hairline;
+}
+
+// ---------------------------------------------------------------------------
+// Choose
+// ---------------------------------------------------------------------------
+
+class _ChooseBar extends StatelessWidget {
+  const _ChooseBar({
+    required this.meta,
+    required this.previewTheme,
+    required this.isCurrent,
+    required this.isLocked,
+    required this.onChoose,
+  });
+
+  final ThemeMetadata meta;
+  final ThemeData previewTheme;
+  final bool isCurrent;
+  final bool isLocked;
+  final VoidCallback onChoose;
 
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
+    final type = PebbleType.of(context);
+    final x = previewTheme.extension<PebbleThemeX>()!;
+    final buttonText = PebbleFonts.sans(
+      fontSize: 16,
+      fontWeight: FontWeight.w600,
+    );
+
+    final Widget button;
+    if (isCurrent) {
+      button = OutlinedButton(
+        key: const ValueKey('appearance_choose'),
+        onPressed: null,
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size.fromHeight(54),
+          shape: const StadiumBorder(),
+          side: BorderSide(color: foundation.borderSubtle),
+          // Solid, so the list scrolling underneath never shows through.
+          disabledBackgroundColor: foundation.bgBase,
+          disabledForegroundColor: context.readableSecondaryText,
+          textStyle: buttonText,
+        ),
+        child: Text('${meta.name} is on'),
+      );
+    } else if (isLocked) {
+      button = FilledButton(
+        key: const ValueKey('appearance_choose'),
+        onPressed: onChoose,
+        style: FilledButton.styleFrom(
+          minimumSize: const Size.fromHeight(54),
+          shape: const StadiumBorder(),
+          backgroundColor: foundation.textPrimary,
+          foregroundColor: foundation.bgBase,
+          textStyle: buttonText,
+        ),
+        child: const Text('See Personal Premium'),
+      );
+    } else {
+      button = FilledButton(
+        key: const ValueKey('appearance_choose'),
+        onPressed: onChoose,
+        style: FilledButton.styleFrom(
+          minimumSize: const Size.fromHeight(54),
+          shape: const StadiumBorder(),
+          // The button wears the theme it will apply.
+          backgroundColor: x.actionAccent,
+          foregroundColor: x.onActionAccent,
+          textStyle: buttonText,
+        ),
+        child: Text('Use ${meta.name}'),
+      );
+    }
+
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: foundation.surfaceHigh,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: foundation.borderSubtle),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Text(
-          text,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: foundation.textSecondary,
-            height: 1.45,
-          ),
+        gradient: LinearGradient(
+          begin: Alignment.bottomCenter,
+          end: Alignment.topCenter,
+          stops: const <double>[0, 0.72, 1],
+          colors: <Color>[
+            foundation.bgBase,
+            foundation.bgBase,
+            foundation.bgBase.withValues(alpha: 0),
+          ],
         ),
       ),
-    );
-  }
-}
-
-class _PreviewPaletteBar extends StatelessWidget {
-  const _PreviewPaletteBar({required this.foundation, required this.theme});
-
-  final PebbleDarkFoundation foundation;
-  final ThemeData theme;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = _railColors(theme);
-    return Row(
-      children: colors.take(4).map((color) {
-        return Expanded(
-          child: Container(
-            height: 6,
-            margin: const EdgeInsets.only(right: 4),
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(
-                color: foundation.borderSubtle.withValues(alpha: 0.4),
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-}
-
-void _showThemeInfoSheet(BuildContext context) {
-  final foundation = context.darkFoundation;
-  showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    backgroundColor: foundation.surfaceLow,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-    ),
-    builder: (context) => SafeArea(
-      top: false,
       child: Padding(
         padding: EdgeInsets.fromLTRB(
           20,
+          24,
           20,
-          20,
-          20 + MediaQuery.paddingOf(context).bottom,
+          12 + MediaQuery.paddingOf(context).bottom,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(
-              'Preview first',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: foundation.textPrimary,
-                fontWeight: FontWeight.w900,
+            button,
+            if (isLocked && !isCurrent) ...<Widget>[
+              const SizedBox(height: 8),
+              Text(
+                '${meta.name} comes with Personal Premium. Looking is free.',
+                textAlign: TextAlign.center,
+                style: type.caption.copyWith(
+                  color: context.readableSecondaryText,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Nothing changes until you tap Use this theme. Accessibility themes are always free, and you can preview Premium themes before you buy.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: foundation.textSecondary,
-                height: 1.45,
-              ),
-            ),
+            ],
           ],
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 bool _isLocked(ThemeMetadata meta, bool canUsePremiumThemes) {
   return meta.isPremium && !canUsePremiumThemes;
-}
-
-bool _isCompatibilityPremiumTheme(ThemeMetadata meta) {
-  final subtitle = meta.subtitle.toLowerCase();
-  final description = meta.description.toLowerCase();
-  return subtitle.contains('legacy') ||
-      subtitle.contains('archived') ||
-      description.contains('compatibility') ||
-      description.contains('older');
-}
-
-List<Color> _railColors(ThemeData themeData) {
-  final scheme = themeData.colorScheme;
-  final colors = <Color>[
-    scheme.surface,
-    scheme.onSurface,
-    scheme.primary,
-    scheme.secondary,
-  ];
-  if (scheme.error != const Color(0xFFB3261E) &&
-      scheme.error != const Color(0xFFFFB4AB)) {
-    colors.add(scheme.error);
-  }
-  return colors;
 }

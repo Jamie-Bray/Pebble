@@ -182,119 +182,103 @@ void main() {
     expect(prefs.getBool('stepCompleteSound'), isTrue);
   });
 
-  testWidgets('theme picker shows curated sections for free users', (
+  Future<void> pumpPicker(WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          subscriptionProvider.overrideWithValue(UserTier.personalFree),
+          premiumFeaturePolicyProvider.overrideWithValue(
+            premiumFeaturePolicyForTier(UserTier.personalFree),
+          ),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.fromId(ThemeId.highNoon),
+          home: const AppearanceScreen(),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+
+  Future<void> tapPebble(WidgetTester tester, ThemeId id) async {
+    final pebble = find.byKey(ValueKey('theme_pebble_${id.name}'));
+    final scrollable = find
+        .descendant(
+          of: find.byKey(const ValueKey('appearance_scroll')),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    await tester.scrollUntilVisible(pebble, 240, scrollable: scrollable);
+    // Lift it clear of the choose bar pinned to the bottom of the screen.
+    await tester.drag(scrollable, const Offset(0, -160));
+    await tester.pumpAndSettle();
+    await tester.tap(pebble);
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('theme picker shows every theme as a pebble for free users', (
     tester,
   ) async {
-    SharedPreferences.setMockInitialValues({});
+    await pumpPicker(tester);
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: <Override>[
-          subscriptionProvider.overrideWithValue(UserTier.personalFree),
-          premiumFeaturePolicyProvider.overrideWithValue(
-            premiumFeaturePolicyForTier(UserTier.personalFree),
-          ),
-        ],
-        child: MaterialApp(
-          theme: AppTheme.fromId(ThemeId.highNoon),
-          home: const AppearanceScreen(),
-        ),
-      ),
-    );
-
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-
-    expect(find.text('Themes'), findsOneWidget);
-    expect(find.text('Free for everyone'), findsOneWidget);
-    expect(find.text('High Noon'), findsWidgets);
-    expect(find.text('Tide'), findsWidgets);
-    expect(find.text('Amber Resin'), findsWidgets);
-    // Older Premium themes stay folded away until asked for.
-    expect(find.text('Matcha'), findsNothing);
+    expect(find.text('Themes and colours'), findsOneWidget);
     expect(
-      find.textContaining('Tap any theme to try it first.', findRichText: true),
+      find.text('Swipe to look around. Nothing changes until you choose.'),
       findsOneWidget,
     );
-
-    await tester.scrollUntilVisible(
-      find.text('Personal Premium'),
-      360,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(find.text('Rose Quartz'), findsOneWidget);
-
-    await tester.scrollUntilVisible(
-      find.text('Colour Blind Safe'),
-      240,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(find.text('Paper & Ink'), findsOneWidget);
-    expect(find.text('High Contrast Dark'), findsOneWidget);
-    expect(find.text('Warm Sepia'), findsOneWidget);
-    expect(find.text('Reduced Contrast'), findsOneWidget);
-    expect(find.text('Colour Blind Safe'), findsOneWidget);
-    expect(find.text('More accessibility options'), findsNothing);
+    expect(find.text('FREE', skipOffstage: false), findsOneWidget);
+    expect(find.byKey(const ValueKey('appearance_gallery')), findsOneWidget);
+    // Every theme has a pebble, older Premium ones included.
+    final scrollable = find
+        .descendant(
+          of: find.byKey(const ValueKey('appearance_scroll')),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    final premium = ThemeMetadata.byCategory(ThemePickerCategory.premium);
+    final inPageOrder = <ThemeMetadata>[
+      ...ThemeMetadata.byCategory(ThemePickerCategory.included),
+      ...premium.where((t) => t.isVisibleOnMainPicker),
+      ...premium.where((t) => t.showInMoreOptionsOnly),
+      ...ThemeMetadata.byCategory(ThemePickerCategory.accessibility),
+    ].map((t) => t.id).toList();
+    expect(inPageOrder.toSet(), ThemeId.values.toSet());
+    for (final id in inPageOrder) {
+      await tester.scrollUntilVisible(
+        find.byKey(ValueKey('theme_pebble_${id.name}')),
+        200,
+        scrollable: scrollable,
+      );
+    }
   });
 
-  testWidgets('theme cards open preview before applying', (tester) async {
-    SharedPreferences.setMockInitialValues({});
+  testWidgets('tapping a pebble previews it before anything is applied', (
+    tester,
+  ) async {
+    await pumpPicker(tester);
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: <Override>[
-          subscriptionProvider.overrideWithValue(UserTier.personalFree),
-          premiumFeaturePolicyProvider.overrideWithValue(
-            premiumFeaturePolicyForTier(UserTier.personalFree),
-          ),
-        ],
-        child: MaterialApp(
-          theme: AppTheme.fromId(ThemeId.highNoon),
-          home: const AppearanceScreen(),
-        ),
-      ),
-    );
+    // The theme in use is shown first, and its button is quiet.
+    expect(find.text('High Noon is on'), findsOneWidget);
 
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-
-    await tester.scrollUntilVisible(
-      find.text('Personal Premium'),
-      360,
-      scrollable: find.byType(Scrollable).first,
-    );
-    final roseQuartzCard = find
-        .ancestor(of: find.text('Rose Quartz'), matching: find.byType(InkWell))
-        .last;
-    await tester.ensureVisible(roseQuartzCard);
-    await tester.pumpAndSettle();
-
-    await tester.tap(roseQuartzCard);
-    await tester.pumpAndSettle();
-
-    expect(find.text('Get Premium'), findsOneWidget);
-    expect(find.text('Use this theme'), findsNothing);
+    await tapPebble(tester, ThemeId.roseQuartz);
+    expect(find.text('See Personal Premium'), findsOneWidget);
     expect(
-      find.text('You can preview this theme. Using it needs Personal Premium.'),
+      find.text('Rose Quartz comes with Personal Premium. Looking is free.'),
       findsOneWidget,
     );
 
-    await tester.tap(find.text('Cancel'));
-    await tester.pumpAndSettle();
-
-    await tester.scrollUntilVisible(
-      find.text('Warm Sepia'),
-      240,
-      scrollable: find.byType(Scrollable).first,
+    await tapPebble(tester, ThemeId.warmSepia);
+    expect(find.text('Use Warm Sepia'), findsOneWidget);
+    expect(find.text('See Personal Premium'), findsNothing);
+    expect(
+      find.text('Warm tint for light sensitivity.', skipOffstage: false),
+      findsOneWidget,
     );
-    await tester.ensureVisible(find.text('Warm Sepia'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Warm Sepia'));
-    await tester.pumpAndSettle();
 
-    expect(find.text('Use this theme'), findsOneWidget);
-    expect(find.text('Get Premium'), findsNothing);
-    // Once on the picker row and once in the preview sheet.
-    expect(find.text('Warm tint for light sensitivity.'), findsNWidgets(2));
+    await tester.tap(find.text('Use Warm Sepia'));
+    await tester.pumpAndSettle();
+    expect(find.text('Warm Sepia is on'), findsOneWidget);
   });
 }
