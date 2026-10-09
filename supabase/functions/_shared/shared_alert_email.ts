@@ -145,50 +145,42 @@ export function buildCompletionEmail(input: EmailCommon & {
     ? `${input.steps.completed} of ${input.steps.total}${skipped ? `, ${skipped} skipped` : ''}`
     : null;
   const parts = input.completedAtParts ?? null;
-  const sentNote = 'Pebble sent this automatically when the routine was marked complete.';
   const descriptions = input.descriptions ?? [];
-  const aiNote = `Written by AI from ${input.sender}'s photos. The descriptions can be wrong.`;
-  const sentence = input.routineTitle
-    ? `${esc(input.sender)} completed <strong class="pb-ink" style="color:${C.ink};font-weight:700;">${esc(input.routineTitle)}</strong>.`
-    : `${esc(input.sender)} completed a routine in Pebble Routines.`;
+  // Kept short on purpose: the time and the steps are what the reader wants.
+  const aiLabel = 'Can be wrong';
+  const why = `You agreed to these emails from ${input.sender}. They'll see if you stop them.`;
 
   const text = [
-    'Routine completed',
-    '',
-    `${input.sender} completed ${input.routineTitle ? `“${input.routineTitle}”` : 'a routine in Pebble Routines'}.`,
-    '',
-    ...(input.routineTitle ? [`Routine: ${input.routineTitle}`] : []),
-    `Completed: ${input.completedAtText}`,
+    input.routineTitle ?? 'Routine completed',
+    `Completed by ${input.sender}, ${input.completedAtText}`,
     ...(stepsText ? [`Steps: ${stepsText}`] : []),
     '',
     ...(stepList.length
       ? [
         ...stepList.flatMap((s) => [
           `${s.skipped ? '–' : '✓'} ${s.title}  ${s.skipped ? 'Skipped' : s.time ?? ''}`.trimEnd(),
-          ...(s.note ? [`   Note: ${s.note}`] : []),
+          ...(s.note ? [`   ${s.note}`] : []),
         ]),
         ...(moreSteps ? [`…and ${moreSteps} more ${moreSteps === 1 ? 'step' : 'steps'}`] : []),
         '',
       ]
       : []),
     ...(descriptions.length
-      ? ['Photo descriptions', aiNote, ...descriptions.map((d, i) => `Photo ${i + 1}: ${d}`), '']
+      ? ['AI descriptions (can be wrong)', ...descriptions.map((d, i) => `Photo ${i + 1}: ${d}`), '']
       : []),
-    sentNote,
-    '',
     `Stop these emails: ${input.stopUrl}`,
     `Block this sender: ${input.blockUrl}`,
     '',
-    `You're getting this because you allowed completion emails from ${input.sender}. If you stop them, they'll see that the emails are off.`,
+    why,
     footerText(input),
   ].join('\n');
 
   const hero = parts
     ? `
       <p class="pb-time" style="margin:0;color:${C.forest};font-family:${SERIF};font-size:60px;line-height:1;font-weight:400;letter-spacing:-1px;font-variant-numeric:tabular-nums;">${esc(parts.time)}</p>
-      <p class="pb-muted" style="margin:10px 0 22px;color:${C.muted};font-size:15px;line-height:1.5;">${esc(parts.day)}${parts.zone ? `<span style="color:${C.faint};">&nbsp;&nbsp;·&nbsp;&nbsp;</span>${esc(parts.zone)}` : ''}</p>`
+      <p class="pb-muted" style="margin:10px 0 4px;color:${C.muted};font-size:15px;line-height:1.5;">${esc(parts.day)}${parts.zone ? `<span style="color:${C.faint};">&nbsp;&nbsp;·&nbsp;&nbsp;</span>${esc(parts.zone)}` : ''}</p>`
     : `
-      <p class="pb-heading" style="margin:0 0 22px;color:${C.forest};font-family:${SERIF};font-size:26px;line-height:1.25;">${esc(input.completedAtText)}</p>`;
+      <p class="pb-heading" style="margin:0 0 4px;color:${C.forest};font-family:${SERIF};font-size:26px;line-height:1.25;">${esc(input.completedAtText)}</p>`;
 
   const stepsCard = stepList.length
     ? box(`
@@ -196,31 +188,29 @@ export function buildCompletionEmail(input: EmailCommon & {
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;">
           ${stepList.map((s, i) => stepRow(s, i < stepList.length - 1 || moreSteps > 0)).join('')}
           ${moreSteps ? `<tr><td colspan="3" class="pb-muted" style="padding:12px 0 2px;color:${C.muted};font-size:14px;line-height:1.4;">…and ${moreSteps} more ${moreSteps === 1 ? 'step' : 'steps'}</td></tr>` : ''}
-        </table>`, 'padding:18px 20px 10px;')
+        </table>`, 'padding:18px 20px 10px;', !descriptions.length)
     : stepsText
-    ? box(cardHead('Steps', stepsText).replace('margin:0 0 6px', 'margin:0'), 'padding:16px 20px;')
+    ? box(cardHead('Steps', stepsText).replace('margin:0 0 6px', 'margin:0'), 'padding:16px 20px;', !descriptions.length)
     : '';
 
   const html = shell({
     preheader: `${input.sender} completed ${what} at ${input.completedAtText}.`,
     body: `
       ${cairn(input.steps ? input.steps.total : 3, skipped)}
-      ${eyebrow('Routine completed', true)}
+      ${eyebrow(input.routineTitle ?? 'Routine completed', true)}
       ${hero}
-      ${para(sentence, { size: 17 })}
+      ${para(`Completed by ${esc(input.sender)}`, { size: 15, muted: true })}
       ${stepsCard}
       ${descriptions.length
         ? box(`
-        <p class="pb-muted" style="margin:0 0 6px;color:${C.muted};font-size:12px;line-height:1.4;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;">Photo descriptions</p>
-        <p class="pb-muted" style="margin:0 0 10px;color:${C.muted};font-size:14px;line-height:1.5;">${esc(aiNote)}</p>
-        ${descriptions.map((d, i) => `<p class="pb-ink" style="margin:0 0 6px;color:${C.body};font-size:15px;line-height:1.55;overflow-wrap:anywhere;word-break:break-word;"><span class="pb-muted" style="color:${C.muted};">Photo ${i + 1}:</span> ${esc(d)}</p>`).join('')}`)
-        : ''}
-      ${para(esc(sentNote), { size: 14, muted: true })}
-      ${linkRow(null, [
-        { label: 'Stop these emails', url: input.stopUrl },
-        { label: 'Block this sender', url: input.blockUrl },
-      ])}`,
-    footer: `You're getting this because you allowed completion emails from ${esc(input.sender)}. If you stop them, they'll see that the emails are off.`,
+        ${cardHead('AI descriptions', aiLabel, true)}
+        ${descriptions.map((d, i) => `<p class="pb-ink" style="margin:6px 0 0;color:${C.body};font-size:15px;line-height:1.55;overflow-wrap:anywhere;word-break:break-word;"><span class="pb-muted" style="color:${C.muted};">Photo ${i + 1}:</span> ${esc(d)}</p>`).join('')}`, undefined, true)
+        : ''}`,
+    actions: linkRow(null, [
+      { label: 'Stop these emails', url: input.stopUrl },
+      { label: 'Block this sender', url: input.blockUrl },
+    ]),
+    footer: esc(why),
     common: input,
   });
 
@@ -305,16 +295,20 @@ function para(html: string, opts: { size?: number; muted?: boolean } = {}): stri
   return `<p class="${cls}" style="margin:0 0 24px;color:${color};font-size:${size}px;line-height:1.6;overflow-wrap:anywhere;word-break:break-word;">${html}</p>`;
 }
 
-function box(inner: string, padding = 'padding:18px 20px;'): string {
-  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;margin:0 0 26px;">
+function box(inner: string, padding = 'padding:18px 20px;', last = false): string {
+  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;margin:0 0 ${last ? 0 : 26}px;">
     <tr><td class="pb-box" style="${padding}background:${C.tint};border:1px solid ${C.tintBorder};border-radius:16px;">${inner}</td></tr>
   </table>`;
 }
 
-function cardHead(label: string, right: string): string {
+/** A card's label row. `quiet` shows the right-hand text as a muted caption. */
+function cardHead(label: string, right: string, quiet = false): string {
+  const rightCell = quiet
+    ? `<td align="right" class="pb-muted" style="color:${C.muted};font-size:13px;line-height:1.4;font-style:italic;">${esc(right)}</td>`
+    : `<td align="right" class="pb-done" style="color:${C.sage};font-size:14px;line-height:1.4;font-weight:700;">${esc(right)}</td>`;
   return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;margin:0 0 6px;"><tr>
     <td class="pb-muted" style="color:${C.muted};font-size:12px;line-height:1.4;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;">${esc(label)}</td>
-    <td align="right" class="pb-done" style="color:${C.sage};font-size:14px;line-height:1.4;font-weight:700;">${esc(right)}</td>
+    ${rightCell}
   </tr></table>`;
 }
 
@@ -434,6 +428,8 @@ function shell(input: {
   preheader: string;
   body: string;
   footer: string;
+  /** Links shown just under the card, above the footer. */
+  actions?: string;
   common: EmailCommon;
 }): string {
   const address = input.common.footerAddress
@@ -498,6 +494,7 @@ function shell(input: {
     </table>
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:560px;">
       <tr><td class="pb-pad" align="center" style="padding:22px 28px 0;font-family:${SANS};">
+        ${input.actions ? `<div style="margin:0 0 10px;">${input.actions}</div>` : ''}
         <p class="pb-muted" style="margin:0 0 10px;color:${C.muted};font-size:13px;line-height:1.6;overflow-wrap:anywhere;word-break:break-word;">${input.footer}</p>
         <p class="pb-muted" style="margin:0;color:${C.muted};font-size:13px;line-height:1.6;">Pebble Routines &nbsp;·&nbsp; <a class="pb-link" href="${esc(input.common.privacyUrl)}" style="color:${C.forest};text-decoration:underline;">Privacy</a>${address}</p>
       </td></tr>
