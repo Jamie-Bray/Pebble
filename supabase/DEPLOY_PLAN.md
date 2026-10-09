@@ -321,6 +321,8 @@ Done so far (Jamie approved "the AI database changes" in the project thread,
 - Step 4: `build-routine` v2 deployed 9 Oct 2026 about 04:29Z through the
   Supabase connector from main a2a38af (`verify_jwt = false`), after Jamie's
   "deploy the AI function and turn it on". Files fetched back and checked.
+  The laptop session deployed the same code again a moment later (v3); GET
+  answers {"enabled":true}.
 - Step 6: unpaused 9 Oct 2026 04:30Z (`routine_ai_settings.paused = false`).
   Jamie chose to run the smoke test on a phone instead of a server test.
 - Still to do: step 5 (publish `web/privacy.html` with the website, update
