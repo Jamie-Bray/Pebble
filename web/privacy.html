@@ -37,13 +37,14 @@
         <h1>What Pebble collects, and why</h1>
         <p class="lede">
           Pebble Routines keeps your routines, photos and history on your
-          phone unless you sign in, have Premium and turn on cloud backup or AI
-          photo descriptions. Some
+          phone unless you turn on cloud backup or use an AI feature. Building
+          a routine with AI sends what you type to Anthropic, even without an
+          account. Some
           technical data, such as subscription checks and crash reports, is
           sent without an account. This page explains what and why.
         </p>
         <p class="meta">
-          Last updated: <strong>8 October 2026</strong><br />
+          Last updated: <strong>9 October 2026</strong><br />
           Contact: <a href="mailto:privacy@pebbleroutines.com">privacy@pebbleroutines.com</a>
         </p>
       </header>
@@ -62,6 +63,7 @@
           <a href="#account">Accounts and backup</a>
           <a href="#subscriptions">Subscriptions</a>
           <a href="#completion-emails">Completion emails</a>
+          <a href="#ai-routine-builder">AI routine builder</a>
           <a href="#ai-photo-descriptions">AI photo descriptions</a>
           <a href="#crash-reports">Crash reports</a>
           <a href="#content">Sensitive content</a>
@@ -213,6 +215,33 @@
             </p>
           </section>
 
+          <section id="ai-routine-builder">
+            <h2>AI routine builder</h2>
+            <p>
+              If you choose Build with AI, Pebble sends the sentence you type
+              and any answers you give to Anthropic through Pebble's server.
+              Anthropic returns questions or a draft routine. This works before
+              sign-in, and you can use templates or build from scratch instead.
+            </p>
+            <p>
+              Pebble does not store your sentence, answers or unsaved draft on
+              its server, or put them in its logs. If you choose to save the
+              draft, its steps become a normal routine on your phone and are
+              backed up only if you turn on cloud backup. Pebble keeps a random
+              installation ID, an account ID if you are signed in, and usage
+              counts to enforce the free build and spending limits. The account
+              link is removed if you delete your account; the installation
+              record remains to enforce the one-build allowance on that app
+              installation.
+            </p>
+            <p>
+              Anthropic deletes the text and response within 30 days, except
+              where it must keep them longer for misuse investigations or legal
+              duties. It does not use them to train its AI. AI drafts can be
+              wrong, so check and change the steps before saving.
+            </p>
+          </section>
+
           <section id="ai-photo-descriptions">
             <h2>AI photo descriptions</h2>
             <p>
@@ -340,7 +369,7 @@
               <li><strong>Apple</strong> for Sign in with Apple and App Store billing where available.</li>
               <li><strong>Sentry</strong> (USA) for crash reports, in builds where crash reporting is turned on.</li>
               <li><strong>Resend</strong> (USA) for delivering completion emails and their invitations.</li>
-              <li><strong>Anthropic</strong> (USA) for AI photo descriptions, only if you turn them on.</li>
+              <li><strong>Anthropic</strong> (USA) when you choose to build a routine with AI, and for AI photo descriptions only if you turn them on.</li>
               <li><strong>Email and support tools</strong> when you contact us, and the email service that sends sign-in codes.</li>
             </ul>
             <p>
@@ -354,7 +383,8 @@
             <h2>International transfers</h2>
             <p>
               Pebble is run from the United Kingdom. If you sign in, back up,
-              subscribe, send completion emails, use AI photo descriptions, or a
+              subscribe, send completion emails, use the AI routine builder or
+              AI photo descriptions, or a
               crash report is sent, your
               data is processed in the USA by the providers listed above.
             </p>
@@ -405,6 +435,14 @@
                 <tr>
                   <td>Sent completion email log</td>
                   <td>90 days. Invitation links expire after 14 days; links in completion emails after 90 days</td>
+                </tr>
+                <tr>
+                  <td>Text sent to build a routine with AI</td>
+                  <td>Not stored by Pebble. Deleted by Anthropic within 30 days, except for misuse investigations or legal duties. A routine you choose to save follows the routine rules above</td>
+                </tr>
+                <tr>
+                  <td>AI routine build allowance records</td>
+                  <td>Random installation ID and usage counts kept to enforce the one free build per install; the linked account ID is removed if you delete your account. No sentence, answers or draft is stored in these records</td>
                 </tr>
                 <tr>
                   <td>Photos sent for AI photo descriptions</td>

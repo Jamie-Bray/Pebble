@@ -65,7 +65,7 @@ void main() {
     });
   });
 
-  test('the practice reminder starts at the nearest quarter hour', () {
+  test('reminder times round to the nearest quarter hour', () {
     expect(
       roundedReminderTime(DateTime(2026, 10, 8, 8, 7)),
       const TimeOfDay(hour: 8, minute: 0),
@@ -80,8 +80,10 @@ void main() {
     );
   });
 
-  testWidgets('the practice run ends by offering a reminder', (tester) async {
-    var reminders = 0;
+  testWidgets('the practice run ends by moving on to the first routine', (
+    tester,
+  ) async {
+    var finished = 0;
     var home = 0;
     await tester.pumpWidget(
       MaterialApp(
@@ -96,7 +98,7 @@ void main() {
               totalStepsCompleted: 4,
               totalPhotosSaved: 0,
               onBackToHome: () => home++,
-              onSetReminder: () => reminders++,
+              onFinishPractice: () => finished++,
               onReviewRoutine: () {},
             ),
           ),
@@ -106,13 +108,14 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
 
     expect(
-      find.text('This check is in History now. Want a reminder for it?'),
+      find.text(
+        "That's how every check works. It's in History now, with the time.",
+      ),
       findsOneWidget,
     );
     expect(find.text('Done'), findsNothing);
-    await tester.tap(find.text('Set a reminder'));
-    await tester.tap(find.text('Not now'));
-    expect(reminders, 1);
-    expect(home, 1);
+    await tester.tap(find.text('Build your first routine'));
+    expect(finished, 1);
+    expect(home, 0);
   });
 }

@@ -36,6 +36,7 @@ import 'package:pebble_routines/features/routines/list/ui/routine_reminders_scre
 import 'package:pebble_routines/features/account_backup/ui/account_hub_screen.dart';
 import 'package:pebble_routines/features/account_backup/ui/cloud_backup_screen.dart';
 import 'package:pebble_routines/features/settings/ui/settings_screen.dart';
+import 'package:pebble_routines/features/onboarding/ui/first_routine_screen.dart';
 import 'package:pebble_routines/features/onboarding/ui/onboarding_screen.dart';
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 import 'package:pebble_routines/features/subscription/ui/premium_lapse_ui.dart';
@@ -117,7 +118,7 @@ bool _isOnboardingTemplateRequest(GoRouterState state) {
 }
 
 int _onboardingInitialPage(GoRouterState state) {
-  return state.uri.queryParameters['step'] == 'templates' ? 2 : 0;
+  return state.uri.queryParameters['step'] == 'templates' ? 1 : 0;
 }
 
 Future<void> _resyncEnabledReminderNotifications(LocalDb db) async {
@@ -203,6 +204,10 @@ final _routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/first-routine',
+        builder: (context, state) => const FirstRoutineScreen(),
+      ),
       GoRoute(
         path: '/onboarding',
         builder: (context, state) => OnboardingScreen(

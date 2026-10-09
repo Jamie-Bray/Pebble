@@ -58,3 +58,8 @@ verify_jwt = true
 verify_jwt = true
 [functions.describe-proof-photo]
 verify_jwt = true
+
+# Optional sign-in: onboarding runs before sign-in, so the function checks the
+# install ID and, when present, the user's token itself.
+[functions.build-routine]
+verify_jwt = false

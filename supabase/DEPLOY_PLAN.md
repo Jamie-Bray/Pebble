@@ -231,6 +231,98 @@ still applies; older workers show a generic budget message for that refusal.
 Keep the additive tables during rollback; do not delete history
 or roll back the backup-consent gate independently of the app.
 
+## AI routine builder (applied 8 Oct 2026; Jamie approved the live steps)
+
+Plan: `/mnt/project-files/ai-routine-builder/PLAN.md` (project files). The app
+hides "Build with AI" until the function says it is on.
+
+**Done on production (`yncgjqbjjzbinqkpukug`), 8 Oct 2026:**
+
+- `025_routine_ai_builds.sql` run as plain SQL through the Supabase connector
+  (not `supabase db push`, so the migration history table is untouched and has
+  no row for 025). Checked afterwards: the three `routine_ai_*` tables exist
+  with row level security on, both RPCs exist, `paused` is false, and `anon`
+  can neither read `routine_ai_builds` nor call `reserve_routine_ai_call`.
+- `build-routine` deployed (version 1, `verify_jwt = false`) from branch
+  `claude/project-thread-nnbrfg` at 44d6232.
+- `GET /functions/v1/build-routine` with the anon key returned
+  `{"enabled":true}`. The function only says that when `ANTHROPIC_API_KEY` is
+  set, so the key is present (the connector cannot list secret names).
+- `ROUTINE_AI_ENABLED` was not set; the function is on unless it is "false".
+
+**Not done yet:** the "off first" check in step 4, a real build from a fresh
+install (and the `freeUsed` and Personal Premium checks), and step 5.
+
+The steps as planned:
+
+1. Apply `025_routine_ai_builds.sql` (additive: `routine_ai_settings`,
+   `routine_ai_builds`, `routine_ai_budget` and two service-role RPCs). It needs
+   `has_active_personal_entitlement` from the earlier migrations.
+2. Function secrets: `ANTHROPIC_API_KEY` is already set for the photo feature.
+   Add `ROUTINE_AI_ENABLED=false` first. Optional: `ROUTINE_AI_PREMIUM_DAILY_LIMIT`
+   (default 20), `ROUTINE_AI_FREE_DAILY_CAP` (2,000 free builds a day across
+   everyone), `ROUTINE_AI_MONTHLY_CALLS` (30,000 calls a month, about 20,000
+   builds, roughly £6 with the model in `build-routine/provider.ts`).
+3. Deploy `build-routine` with `verify_jwt = false` (config.toml): onboarding
+   runs before sign-in, so the function checks the install ID and, when present,
+   the user's token itself.
+4. With it off, check `GET` says `{enabled:false}` and the app shows no AI
+   option. Set `ROUTINE_AI_ENABLED=true`, build one routine from a fresh install,
+   check a second build on that install is refused with `freeUsed`, and check a
+   Personal Premium account can build again.
+5. Privacy policy and Play Data safety: one line saying typed routine
+   descriptions go to Anthropic to draft steps and are not kept (Jamie to
+   confirm the wording).
+
+**Stop switch:** set `ROUTINE_AI_ENABLED=false`, or
+`update public.routine_ai_settings set paused = true;`. The app then hides
+"Build with AI" and offers templates and "Start from scratch".
+
+## 9 October AI builder and policy follow-up (approved in Jamie's full-authority PR request)
+
+The first live function counted a question reply as the one free build before
+it had produced a draft. It also allowed overlapping unused build keys. Apply
+the following changes before merging PR #45 or releasing its app code:
+
+1. Set `routine_ai_settings.paused = true` and confirm GET reports disabled.
+   Keep it paused while the function and privacy page are updated.
+2. Apply `026_routine_ai_pending_builds.sql` as plain SQL through
+   `supabase db query --linked --project-ref yncgjqbjjzbinqkpukug --file ...`.
+   It adds only `reserved_until`, replaces the reservation RPC, and adds a
+   service-role-only finish RPC. A free build is consumed only when a draft
+   exists. Pending requests reserve the install and signed-in account for 15
+   minutes; an unfinished build can resume with its saved key. The monthly
+   provider-call budget still counts every call.
+3. Apply `027_privacy_policy_2026_10_09.sql` the same way. It lets the backup
+   gate accept the 9 October privacy version while preserving the 5 and 8
+   October versions for older installed builds. There is no data deletion.
+4. Deploy `build-routine` from this PR with `verify_jwt = false`.
+5. Publish the 9 October `web/privacy.html` with the website. Update the Play
+   Data safety answers before releasing an AAB containing Build with AI. The
+   app's own Build with AI sheet names Anthropic before it sends a request.
+6. Unpause, confirm GET reports enabled, then test questions, a draft,
+   `freeBuildUsed`, a second build refusal and a signed-in Premium build from
+   a test install. Never use a real person's existing free install for this
+   smoke test.
+
+If the function misbehaves, set `routine_ai_settings.paused = true` to hide AI
+building immediately. Keep the additive tables and existing usage rows; do
+not roll back the backup consent gate independently of the new app version.
+Record the exact live commands and checks here after deployment.
+
+Done so far (Jamie approved "the AI database changes" in the project thread,
+9 Oct 2026 01:08Z):
+
+- Step 1: paused by Codex earlier on 9 Oct; confirmed `paused = true` and no
+  rows in `routine_ai_builds` before applying anything.
+- Steps 2 and 3: `026_routine_ai_pending_builds` and
+  `027_privacy_policy_2026_10_09` applied 9 Oct 2026 about 01:10Z through the
+  Supabase connector (`apply_migration`), with the SQL from this branch.
+- Still to do: step 4 (deploy `build-routine` v2 from this branch; production
+  still runs v1), step 5 (publish `web/privacy.html`, update Play Data
+  safety) and step 6 (unpause and smoke test). The builder stays paused until
+  then.
+
 ## Email redesign, 7 to 8 Oct 2026 (Jamie approved the live steps on 8 Oct)
 
 New look for the invitation, completion and sign-in code emails, and the

@@ -37,7 +37,13 @@ Policy.
   Functions (`api.resend.com`, `RESEND_API_KEY`). Receives the contact's email
   address, the sender's account email (shown in the email so the contact knows
   who it is from), the routine name unless the sender hides it, completion
-  time and step counts.
+  time, step counts, and step notes when the sender includes the steps.
+- Anthropic: when someone chooses Build with AI, `build-routine` sends the
+  sentence they type and any answers to `api.anthropic.com` to return questions
+  or a draft. This works before sign-in. The function stores no prompt, answer
+  or draft; `routine_ai_builds` keeps a random installation ID, an account ID
+  when signed in, and usage counts to enforce limits. The provider retention
+  described below also applies to this text and its response.
 - Anthropic: AI photo descriptions, called only from the
   `describe-proof-photo` Edge Function (`api.anthropic.com`,
   `ANTHROPIC_API_KEY`, model `claude-sonnet-5-5`). Off unless the

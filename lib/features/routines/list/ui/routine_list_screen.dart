@@ -16,7 +16,8 @@ import 'package:pebble_routines/core/home_widget/home_widget_setup.dart';
 import 'package:pebble_routines/features/ai_photo/ai_photo_service.dart';
 import 'package:pebble_routines/features/ai_photo/ai_photo_settings.dart';
 import 'package:pebble_routines/features/ai_photo/ai_photo_ui.dart';
-import 'package:pebble_routines/features/routines/creator/ui/routine_creation_choice_sheet.dart';
+import 'package:pebble_routines/features/routine_ai/routine_ai_service.dart';
+import 'package:pebble_routines/features/routine_ai/ui/routine_ai_sheet.dart';
 import 'package:pebble_routines/features/routines/creator/ui/routine_style_picker_sheet.dart';
 import 'package:pebble_routines/features/routines/creator/ui/reorder_steps_screen.dart';
 import 'package:pebble_routines/core/ui/zen_error_view.dart';
@@ -186,6 +187,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
 
   Widget _buildEmptyHome(ThemeId currentTheme, ThemeData themeData) {
     final foundation = context.darkFoundation;
+    final aiOn = ref.watch(routineAiStatusProvider).valueOrNull?.enabled ?? false;
 
     return Scaffold(
       backgroundColor: foundation.bgBase,
@@ -230,7 +232,9 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                             ),
                             const SizedBox(height: 10),
                             Text(
-                              'Make a checklist for something you check often, like leaving the house.',
+                              aiOn
+                                  ? 'Say what you check in a sentence and Pebble drafts the steps, or make the checklist yourself.'
+                                  : 'Make a checklist for something you check often, like leaving the house.',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w400,
@@ -239,17 +243,33 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                               ),
                             ),
                             const SizedBox(height: 28),
-                            PebbleButton.primary(
-                              onPressed: _openNewRoutine,
-                              icon: LucideIcons.plus,
-                              label: 'Create routine',
-                            ),
+                            if (aiOn) ...[
+                              PebbleButton.primary(
+                                onPressed: () =>
+                                    openRoutineAiBuilder(context, ref),
+                                icon: LucideIcons.sparkles,
+                                label: 'Build with AI',
+                              ),
+                              const SizedBox(height: PebbleSpacing.xs),
+                              PebbleButton.secondary(
+                                onPressed: () =>
+                                    context.push('/creator?fresh=1'),
+                                icon: LucideIcons.plus,
+                                label: 'Start from scratch',
+                              ),
+                            ] else
+                              PebbleButton.primary(
+                                onPressed: () =>
+                                    context.push('/creator?fresh=1'),
+                                icon: LucideIcons.plus,
+                                label: 'Start from scratch',
+                              ),
                             const SizedBox(height: PebbleSpacing.xs),
                             PebbleButton.tertiary(
                               expand: true,
                               onPressed: () => context.push('/templates'),
                               icon: LucideIcons.layoutTemplate,
-                              label: 'Use template',
+                              label: 'Use a template',
                             ),
                             const Spacer(flex: 2),
                           ],
@@ -989,10 +1009,6 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (ctx) => ReorderStepsScreen(routine: fresh)),
     );
-  }
-
-  void _openNewRoutine() {
-    openRoutineCreationChoice(context, ref);
   }
 
   void _onPlayRoutine(Routine routine) {

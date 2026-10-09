@@ -36,7 +36,7 @@ void main() {
   test('the database step for the consent gate matches the app', () {
     // Check the executable migration, not just the proposed deployment prose.
     final step = File(
-      'supabase/migrations/024_history_window_policy_dates.sql',
+      'supabase/migrations/027_privacy_policy_2026_10_09.sql',
     ).readAsStringSync();
 
     expect(step, contains("'$cloudBackupConsentTextHash'"));
@@ -44,7 +44,7 @@ void main() {
     expect(
       step,
       contains(
-        "c.privacy_version in ('2026-10-05', "
+        "c.privacy_version in ('2026-10-05', '2026-10-08', "
         "'$cloudBackupConsentPrivacyVersion')",
       ),
     );

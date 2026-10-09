@@ -56,6 +56,7 @@ analyze_output.txt
 
 # Build outputs and scratch copies never belong in the repo.
 /artifacts/
+test/**/failures/
 *.bak
 /graphify-out/
 
