@@ -13,7 +13,9 @@ import 'package:pebble_routines/features/routine_ai/routine_ai_service.dart';
 import 'package:pebble_routines/features/routines/composer/data/routine_composer_draft_repository.dart';
 import 'package:pebble_routines/features/routines/composer/models/routine_composer_seed_data.dart';
 import 'package:pebble_routines/features/routines/composer/models/routine_composer_step_draft.dart';
+import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 /// Opens "Build with AI". When the person takes the draft, it is put in the
@@ -76,6 +78,7 @@ RoutineComposerSeedData routineAiSeedData(RoutineAiDraft draft) {
 enum _Phase { describe, working, questions, draft, refused }
 
 const _examples = ['Leaving the house', 'Bedtime', 'Leaving the car'];
+const _pendingBuildKeyPreference = 'routine_ai_pending_build_key';
 
 class RoutineAiSheet extends ConsumerStatefulWidget {
   const RoutineAiSheet({super.key});
@@ -87,9 +90,10 @@ class RoutineAiSheet extends ConsumerStatefulWidget {
 class _RoutineAiSheetState extends ConsumerState<RoutineAiSheet> {
   final _description = TextEditingController();
 
-  /// One build: "Try again" and the follow-up to the questions reuse it, so
-  /// they count as the same build on the server.
-  final String _buildKey = const Uuid().v4();
+  /// Reuse the pending reservation after closing the sheet or restarting the
+  /// app; a free build is consumed only when a draft arrives.
+  late final String _buildKey;
+  SharedPreferences? _prefs;
 
   _Phase _phase = _Phase.describe;
   bool _askedQuestions = false;
@@ -97,6 +101,18 @@ class _RoutineAiSheetState extends ConsumerState<RoutineAiSheet> {
   final Map<int, String> _answers = {};
   RoutineAiDraft? _draft;
   String? _reason;
+
+  @override
+  void initState() {
+    super.initState();
+    try {
+      _prefs = ref.read(sharedPreferencesProvider);
+    } catch (_) {
+      // A missing preference store must not stop the builder.
+    }
+    _buildKey =
+        _prefs?.getString(_pendingBuildKeyPreference) ?? const Uuid().v4();
+  }
 
   @override
   void dispose() {
@@ -108,25 +124,39 @@ class _RoutineAiSheetState extends ConsumerState<RoutineAiSheet> {
 
   Future<void> _build({bool askQuestions = false}) async {
     if (!_hasDescription) return;
+    final client = ref.read(routineAiClientProvider);
     FocusScope.of(context).unfocus();
     setState(() => _phase = _Phase.working);
-    final reply = await ref
-        .read(routineAiClientProvider)
-        .build(
-          buildKey: _buildKey,
-          description: _description.text.trim(),
-          askQuestions: askQuestions,
-          answers: [
-            for (final entry in _answers.entries)
-              if (entry.key < _questions.length)
-                RoutineAiAnswer(
-                  question: _questions[entry.key].question,
-                  answer: entry.value,
-                ),
-          ],
-        );
+    try {
+      await _prefs?.setString(_pendingBuildKeyPreference, _buildKey);
+    } catch (_) {
+      // The server reservation expires if local preferences cannot be saved.
+    }
     if (!mounted) return;
+    final reply = await client.build(
+      buildKey: _buildKey,
+      description: _description.text.trim(),
+      askQuestions: askQuestions,
+      answers: [
+        for (final entry in _answers.entries)
+          if (entry.key < _questions.length)
+            RoutineAiAnswer(
+              question: _questions[entry.key].question,
+              answer: entry.value,
+            ),
+      ],
+    );
+    if (!mounted) {
+      if (reply.draft != null ||
+          reply.reason == 'tooManyTries' ||
+          reply.reason == 'freeUsed') {
+        await _clearPendingBuildKey();
+      }
+      return;
+    }
     if (reply.draft case final draft?) {
+      await _clearPendingBuildKey();
+      if (!mounted) return;
       setState(() {
         _draft = draft;
         _phase = _Phase.draft;
@@ -141,10 +171,22 @@ class _RoutineAiSheetState extends ConsumerState<RoutineAiSheet> {
       // No useful questions: just draft it.
       await _build();
     } else {
+      if (reply.reason == 'tooManyTries' || reply.reason == 'freeUsed') {
+        await _clearPendingBuildKey();
+        if (!mounted) return;
+      }
       setState(() {
         _reason = reply.reason;
         _phase = _Phase.refused;
       });
+    }
+  }
+
+  Future<void> _clearPendingBuildKey() async {
+    try {
+      await _prefs?.remove(_pendingBuildKeyPreference);
+    } catch (_) {
+      // A failed cleanup cannot take away the draft the person just built.
     }
   }
 
@@ -318,7 +360,7 @@ class _RoutineAiSheetState extends ConsumerState<RoutineAiSheet> {
         ),
         const SizedBox(height: 10),
         Text(
-          'What you type goes to $aiPhotoProviderName to draft the steps and is not kept.',
+          'Your description and answers go to $aiPhotoProviderName to draft steps. Pebble does not keep them.',
           textAlign: TextAlign.center,
           style: type.caption.copyWith(color: foundation.textMuted),
         ),

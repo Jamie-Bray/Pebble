@@ -33,6 +33,7 @@ export type Reservation =
   | 'ok'
   | 'too_many_tries'
   | 'free_used'
+  | 'pending'
   | 'daily_limit'
   | 'free_daily_cap'
   | 'budget_exhausted';
@@ -52,8 +53,8 @@ export interface RoutineAiStore {
     freeDailyCap: number;
     monthlyLimit: number;
   }): Promise<Reservation>;
-  /** Marks the build as used: the provider answered with something usable. */
-  markUsed(buildKey: string): Promise<void>;
+  /** Releases the pending call or consumes the free build after a draft. */
+  finish(buildKey: string, outcome: 'draft' | 'questions' | 'failed'): Promise<'ok' | 'free_used'>;
 }
 
 export type RoutineAiDeps = {
@@ -163,25 +164,28 @@ export function createRoutineAiHandler(deps: RoutineAiDeps) {
       const kind = action === 'draft' ? 'draft' : 'questions';
       const result = await deps.ask!({ kind, ...request.request });
       if (!result.ok) {
+        await deps.store.finish(body.buildKey, 'failed');
         log({ event: 'provider_failed', action, code: result.code });
         return refuse('couldNotBuild');
       }
       if (kind === 'questions') {
         const parsed = parseQuestionsReply(result.text);
         if (!parsed.ok) {
+          await deps.store.finish(body.buildKey, 'failed');
           log({ event: 'not_built', action, code: parsed.code });
           return refuse('couldNotBuild');
         }
-        await deps.store.markUsed(body.buildKey);
+        await deps.store.finish(body.buildKey, 'questions');
         log({ event: 'asked', count: parsed.questions.length, premium });
         return json({ ok: true, questions: parsed.questions });
       }
       const parsed = parseDraftReply(result.text);
       if (!parsed.ok) {
+        await deps.store.finish(body.buildKey, 'failed');
         log({ event: 'not_built', action, code: parsed.code });
         return refuse('couldNotBuild');
       }
-      await deps.store.markUsed(body.buildKey);
+      if (await deps.store.finish(body.buildKey, 'draft') === 'free_used') return refuse('freeUsed');
       log({ event: 'built', steps: parsed.draft.steps.length, premium });
       return json({ ok: true, draft: parsed.draft });
     } catch (error) {
@@ -230,9 +234,13 @@ export function supabaseRoutineAiStore(client: any): RoutineAiStore {
       }));
       return (typeof value === 'string' ? value : 'budget_exhausted') as Reservation;
     },
-    async markUsed(buildKey) {
-      check(await client.from('routine_ai_builds').update({ used: true, updated_at: new Date().toISOString() })
-        .eq('build_key', buildKey));
+    async finish(buildKey, outcome) {
+      const value = check(await client.rpc('finish_routine_ai_call', {
+        p_build_key: buildKey,
+        p_outcome: outcome,
+      }));
+      if (value === 'ok' || value === 'free_used') return value;
+      throw new Error('database');
     },
   };
 }

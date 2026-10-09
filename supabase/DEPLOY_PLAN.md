@@ -278,6 +278,38 @@ The steps as planned:
 `update public.routine_ai_settings set paused = true;`. The app then hides
 "Build with AI" and offers templates and "Start from scratch".
 
+## 9 October AI builder and policy follow-up (approved in Jamie's full-authority PR request)
+
+The first live function counted a question reply as the one free build before
+it had produced a draft. It also allowed overlapping unused build keys. Apply
+the following changes before merging PR #45 or releasing its app code:
+
+1. Set `routine_ai_settings.paused = true` and confirm GET reports disabled.
+   Keep it paused while the function and privacy page are updated.
+2. Apply `026_routine_ai_pending_builds.sql` as plain SQL through
+   `supabase db query --linked --project-ref yncgjqbjjzbinqkpukug --file ...`.
+   It adds only `reserved_until`, replaces the reservation RPC, and adds a
+   service-role-only finish RPC. A free build is consumed only when a draft
+   exists. Pending requests reserve the install and signed-in account for 15
+   minutes; an unfinished build can resume with its saved key. The monthly
+   provider-call budget still counts every call.
+3. Apply `027_privacy_policy_2026_10_09.sql` the same way. It lets the backup
+   gate accept the 9 October privacy version while preserving the 5 and 8
+   October versions for older installed builds. There is no data deletion.
+4. Deploy `build-routine` from this PR with `verify_jwt = false`.
+5. Publish the 9 October `web/privacy.html` with the website. Update the Play
+   Data safety answers before releasing an AAB containing Build with AI. The
+   app's own Build with AI sheet names Anthropic before it sends a request.
+6. Unpause, confirm GET reports enabled, then test questions, a draft,
+   `freeBuildUsed`, a second build refusal and a signed-in Premium build from
+   a test install. Never use a real person's existing free install for this
+   smoke test.
+
+If the function misbehaves, set `routine_ai_settings.paused = true` to hide AI
+building immediately. Keep the additive tables and existing usage rows; do
+not roll back the backup consent gate independently of the new app version.
+Record the exact live commands and checks here after deployment.
+
 ## Email redesign, 7 to 8 Oct 2026 (Jamie approved the live steps on 8 Oct)
 
 New look for the invitation, completion and sign-in code emails, and the

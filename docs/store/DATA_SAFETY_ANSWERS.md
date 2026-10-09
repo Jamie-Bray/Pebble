@@ -1,8 +1,7 @@
 # Google Play Data Safety Answers
 
-Last updated: 5 October 2026. Based on the code at this commit, build
-1.0.0+34, including the iOS sign-in changes merged from
-`claude/sharp-keller-f6iiu2`.
+Updated 9 October 2026 for the AI routine builder and step notes in completion
+emails. Re-check these answers against the release AAB before submitting.
 
 Play Console > Policy > App content > Data safety. Answers are listed in the
 order the form asks them. Each answer says where in the code it comes from, so
@@ -17,7 +16,7 @@ Ground rules used:
   backup is on.
 - **Shared** means given to a third party. Google does not count service
   providers acting for you (Supabase, RevenueCat, Sentry, Resend, and Anthropic
-  for AI photo descriptions) as sharing.
+  for AI routine building and photo descriptions) as sharing.
   It also does not count transfers the user starts and would expect, such as
   a completion email the user set up. So nothing here is shared.
 - If a released build can collect something for any user, it is declared,
@@ -39,7 +38,7 @@ Ground rules used:
 
 | Question | Answer | Source |
 | --- | --- | --- |
-| Does your app collect or share any of the required user data types? | **Yes** | Sign-in, subscriptions, backup, completion emails, AI photo descriptions, crash reports |
+| Does your app collect or share any of the required user data types? | **Yes** | Sign-in, subscriptions, backup, completion emails, AI routine building, AI photo descriptions, crash reports |
 | Is all of the user data collected by your app encrypted in transit? | **Yes** | All calls are HTTPS: Supabase (`supabase_flutter`), RevenueCat SDK, Sentry ingest, and, server side, Resend (`api.resend.com`) and Anthropic (`api.anthropic.com`) |
 | Which of the following methods of account creation does your app support? | **Username and other authentication** (email address plus a one-time code) and **OAuth** (Google; Sign in with Apple on iOS) | `auth_repository.dart`: `signInWithOtp`, Google `signInWithIdToken`, Apple `signInWithIdToken` |
 | Add a link that users can use to request that their account and associated data is deleted | `https://pebbleroutines.com/delete-account` | `web/delete-account.html` posts to the `request-account-deletion` Edge Function |
@@ -139,7 +138,7 @@ compliance, Personalisation, Account management.
 | App interactions | No | | | | | No analytics SDK. Sentry breadcrumbs are covered under Diagnostics. |
 | In-app search history | No | | | | | |
 | Installed apps | No | | | | | |
-| Other user-generated content | **Yes** | No | No | Optional | App functionality | With Premium cloud backup on: routine titles, steps (`steps_json`), icons and colours, reminder days and times, routine runs (title, finish time, step results), routine sessions, proof-photo records, voice prompt metadata, and the backup consent record. With completion emails on: the routine name, completion time and step counts in each email, and the sent-email log (`shared_alert_events`). With AI photo descriptions on: the step title and any optional step description sent to Anthropic as context, the short description of each photo (kept in history on the phone, backed up with the run when backup is on, and included in the completion email only if the user chose that), the AI consent record (`ai_photo_consents`) and a per-account request count (`ai_photo_requests`, no content). |
+| Other user-generated content | **Yes** | No | No | Optional | App functionality | With Premium cloud backup on: routine titles, steps (`steps_json`), icons and colours, reminder days and times, routine runs (title, finish time, step results), routine sessions, proof-photo records, voice prompt metadata, and the backup consent record. With completion emails on: the routine name, completion time, step counts and any notes on shown steps in each email, and the sent-email log (`shared_alert_events`). With AI routine building: the sentence typed and any answers go to Anthropic through `build-routine`; Pebble stores no prompt, answer or unsaved draft. With AI photo descriptions on: the step title and any optional step description sent to Anthropic as context, the short description of each photo (kept in history on the phone, backed up with the run when backup is on, and included in the completion email only if the user chose that), the AI consent record (`ai_photo_consents`) and a per-account request count (`ai_photo_requests`, no content). |
 | Other actions | No | | | | | |
 
 ### Web browsing
@@ -160,7 +159,7 @@ compliance, Personalisation, Account management.
 
 | Type | Collected | Shared | Ephemeral | Required? | Purposes | Source and notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| Device or other IDs | **Yes** | No | No | Required | App functionality, Analytics | (1) RevenueCat is configured at app start for every user (`main.dart` reads `purchaseRepositoryProvider`), so it creates a random anonymous app user ID for the install even before sign-in. (2) Sentry's native Android and iOS SDKs attach a random installation ID to native crash reports. Pebble's Dart `beforeSend` removes the user field from Dart crash reports, but it does not run for native crashes. No advertising ID is used: `collectDeviceIdentifiers()` is never called, and there is no ad SDK. |
+| Device or other IDs | **Yes** | No | No | Required | App functionality, Analytics | (1) RevenueCat is configured at app start for every user (`main.dart` reads `purchaseRepositoryProvider`), so it creates a random anonymous app user ID for the install even before sign-in. (2) Sentry's native Android and iOS SDKs attach a random installation ID to native crash reports. (3) Build with AI sends a random installation ID to Supabase to enforce the one free build and usage limits. Pebble's Dart `beforeSend` removes the user field from Dart crash reports, but it does not run for native crashes. No advertising ID is used: `collectDeviceIdentifiers()` is never called, and there is no ad SDK. |
 
 ## Section 3: Data usage and handling, summary
 

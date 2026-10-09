@@ -17,7 +17,7 @@ const USER = { id: 'user-a', email: 'jamie@example.com' };
 class FakeStore implements RoutineAiStore {
   paused = false;
   premium = new Set<string>();
-  builds = new Map<string, { install: string; user: string | null; premium: boolean; calls: number; used: boolean }>();
+  builds = new Map<string, { install: string; user: string | null; premium: boolean; calls: number; used: boolean; reserved: boolean }>();
   monthCalls = 0;
 
   isPaused() {
@@ -32,25 +32,48 @@ class FakeStore implements RoutineAiStore {
   reserve(input: Parameters<RoutineAiStore['reserve']>[0]): Promise<Reservation> {
     const existing = this.builds.get(input.buildKey);
     if (existing) {
-      if (existing.install !== input.installId || existing.calls >= input.callsPerBuild) return Promise.resolve('too_many_tries');
-    } else if (!input.premium) {
-      if ([...this.builds.values()].some((b) => b.used && (b.install === input.installId || (input.userId !== null && b.user === input.userId)))) {
+      if (existing.install !== input.installId) return Promise.resolve('too_many_tries');
+      if (existing.calls >= input.callsPerBuild) {
+        if (!existing.used) existing.reserved = false;
+        return Promise.resolve('too_many_tries');
+      }
+      if (!input.premium && existing.premium) return Promise.resolve('free_used');
+    }
+    if (!input.premium && (!existing || !existing.used)) {
+      const other = [...this.builds].filter(([key]) => key !== input.buildKey).map(([, build]) => build);
+      if (other.some((b) => b.used && (b.install === input.installId || (input.userId !== null && b.user === input.userId)))) {
         return Promise.resolve('free_used');
       }
+      if (other.some((b) => b.reserved && (b.install === input.installId || (input.userId !== null && b.user === input.userId)))) {
+        return Promise.resolve('pending');
+      }
+    }
+    if (!existing && !input.premium) {
       if ([...this.builds.values()].filter((b) => !b.premium && b.used).length >= input.freeDailyCap) return Promise.resolve('free_daily_cap');
-    } else if ([...this.builds.values()].filter((b) => b.premium && b.user === input.userId).length >= input.premiumDailyLimit) {
+    } else if (!existing && [...this.builds.values()].filter((b) => b.premium && b.user === input.userId).length >= input.premiumDailyLimit) {
       return Promise.resolve('daily_limit');
     }
     if (this.monthCalls >= input.monthlyLimit) return Promise.resolve('budget_exhausted');
     this.monthCalls++;
-    if (existing) existing.calls++;
-    else this.builds.set(input.buildKey, { install: input.installId, user: input.userId, premium: input.premium, calls: 1, used: false });
+    if (existing) {
+      existing.calls++;
+      existing.reserved = true;
+    } else this.builds.set(input.buildKey, { install: input.installId, user: input.userId, premium: input.premium, calls: 1, used: false, reserved: true });
     return Promise.resolve('ok');
   }
-  markUsed(buildKey: string) {
+  finish(buildKey: string, outcome: 'draft' | 'questions' | 'failed'): Promise<'ok' | 'free_used'> {
     const build = this.builds.get(buildKey);
-    if (build) build.used = true;
-    return Promise.resolve();
+    if (!build) throw new Error('missing build');
+    if (outcome === 'draft') {
+      if (!build.premium && [...this.builds].some(([key, other]) => key !== buildKey && other.used &&
+        (other.install === build.install || (build.user !== null && other.user === build.user)))) {
+        build.reserved = false;
+        return Promise.resolve('free_used');
+      }
+      build.used = true;
+      build.reserved = false;
+    }
+    return Promise.resolve('ok');
   }
 }
 
@@ -138,8 +161,8 @@ Deno.test('a failed build does not use up the free build', async () => {
   assert(failed.body.reason === 'couldNotBuild', 'failed');
   const status = await t.post({ action: 'status', installId: INSTALL });
   assert(status.body.freeBuildUsed === false, 'still free');
-  const retry = await t.draft({ buildKey: 'build-0002' });
-  assert(retry.body.ok === true, 'new build allowed');
+  const retry = await t.draft();
+  assert(retry.body.ok === true, 'same build can be retried');
 });
 
 Deno.test('Personal Premium builds more, up to the daily limit', async () => {
@@ -155,10 +178,14 @@ Deno.test('Personal Premium builds more, up to the daily limit', async () => {
   assert(status.body.premium === true && status.body.freeBuildUsed === false, 'status for premium');
 });
 
-Deno.test('questions come back with tap options and count as the build', async () => {
+Deno.test('questions do not consume the free build before a draft exists', async () => {
   const t = setup([anthropicReply({ questions: [{ question: 'Do you have a car?', options: ['Yes', 'No'] }] }), anthropicReply(DRAFT)]);
   const asked = await t.post({ action: 'questions', installId: INSTALL, buildKey: 'build-0001', description: 'leaving for work' });
   assert(asked.body.ok === true && asked.body.questions[0].options.length === 2, 'questions');
+  const status = await t.post({ action: 'status', installId: INSTALL });
+  assert(status.body.freeBuildUsed === false, 'questions are not a build');
+  const overlap = await t.draft({ buildKey: 'build-0002' });
+  assert(overlap.body.reason === 'busy', 'another build key cannot overlap');
   const built = await t.draft({ answers: [{ question: 'Do you have a car?', answer: 'Yes' }] });
   assert(built.body.ok === true, 'draft after questions');
   assert(String((t.calls[1].messages as { content: string }[])[0].content).includes('Do you have a car?'), 'answers sent');

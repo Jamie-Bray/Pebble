@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/features/routine_ai/routine_ai_service.dart';
 import 'package:pebble_routines/features/routine_ai/ui/routine_ai_sheet.dart';
+import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeAi implements RoutineAiClient {
   final calls = <({String key, String description, bool ask, int answers})>[];
@@ -45,13 +47,17 @@ const _draft = RoutineAiDraft(
 
 Future<Future<RoutineAiDraft?> Function()> _open(
   WidgetTester tester,
-  _FakeAi ai,
-) async {
+  _FakeAi ai, {
+  SharedPreferences? prefs,
+}) async {
   RoutineAiDraft? result;
   var done = false;
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [routineAiClientProvider.overrideWithValue(ai)],
+      overrides: [
+        routineAiClientProvider.overrideWithValue(ai),
+        if (prefs != null) sharedPreferencesProvider.overrideWithValue(prefs),
+      ],
       child: MaterialApp(
         theme: AppTheme.fromId(ThemeId.highNoon),
         home: Builder(
@@ -76,6 +82,8 @@ Future<Future<RoutineAiDraft?> Function()> _open(
 }
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
   testWidgets('a sentence becomes a draft the person can adjust and use', (
     tester,
   ) async {
@@ -153,6 +161,49 @@ void main() {
     expect(ai.calls.last.answers, 1);
     expect(ai.calls.first.key, ai.calls.last.key);
   });
+
+  testWidgets(
+    'closing after questions keeps the free build key for next time',
+    (tester) async {
+      final prefs = await SharedPreferences.getInstance();
+      final ai = _FakeAi()
+        ..replies = [
+          const RoutineAiReply.questions([
+            RoutineAiQuestion(
+              question: 'Do you drive?',
+              options: ['Yes', 'No'],
+            ),
+          ]),
+          const RoutineAiReply.draft(_draft),
+        ];
+      await _open(tester, ai, prefs: prefs);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Bedtime'));
+      await tester.pump();
+      await tester.tap(find.text('Next'));
+      await tester.pumpAndSettle();
+      expect(find.text('Do you drive?'), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(
+        prefs.getString('routine_ai_pending_build_key'),
+        ai.calls.first.key,
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Bedtime'));
+      await tester.pump();
+      await tester.tap(find.text('Skip the questions and build it'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Hob dials off'), findsOneWidget);
+      expect(ai.calls.last.key, ai.calls.first.key);
+      expect(prefs.getString('routine_ai_pending_build_key'), isNull);
+    },
+  );
 
   testWidgets('a used free build explains Personal Premium', (tester) async {
     final ai = _FakeAi()..replies = [const RoutineAiReply.refused('freeUsed')];
