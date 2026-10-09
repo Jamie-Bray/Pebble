@@ -171,6 +171,7 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
                       onPageChanged: (index) =>
                           setState(() => _previewId = _groups.all[index].id),
                       onCardTap: _showTheme,
+                      canUsePremium: canUsePremium,
                     ),
                   ),
                   SliverToBoxAdapter(
@@ -180,7 +181,6 @@ class _AppearanceScreenState extends ConsumerState<AppearanceScreen> {
                         meta: preview,
                         isDark:
                             _themes[preview.id]!.brightness == Brightness.dark,
-                        isLocked: previewLocked,
                       ),
                     ),
                   ),
@@ -282,6 +282,10 @@ class _ThemeGroups {
 /// the preview keeps the real proportions of the screen.
 const Size _homeCanvas = Size(330, 600);
 
+/// Room above each gallery card for the Premium padlock, kept on every card
+/// so free and Premium themes line up.
+const double _tagRow = 30;
+
 class _Gallery extends StatelessWidget {
   const _Gallery({
     required this.controller,
@@ -290,8 +294,10 @@ class _Gallery extends StatelessWidget {
     required this.previewId,
     required this.onPageChanged,
     required this.onCardTap,
+    required this.canUsePremium,
   });
 
+  final bool canUsePremium;
   final PageController controller;
   final List<ThemeMetadata> themes;
   final Map<ThemeId, ThemeData> themeData;
@@ -306,7 +312,7 @@ class _Gallery extends StatelessWidget {
         final cardWidth = math.min(constraints.maxWidth * 0.56, 230.0);
         final cardHeight = cardWidth * _homeCanvas.height / _homeCanvas.width;
         return SizedBox(
-          height: cardHeight + 36,
+          height: cardHeight + 36 + _tagRow,
           child: PageView.builder(
             key: const ValueKey('appearance_gallery'),
             controller: controller,
@@ -314,16 +320,29 @@ class _Gallery extends StatelessWidget {
             onPageChanged: onPageChanged,
             itemBuilder: (context, index) {
               final meta = themes[index];
-              return Center(
-                child: _GalleryCard(
-                  meta: meta,
-                  theme: themeData[meta.id]!,
-                  width: cardWidth - 16,
-                  height:
-                      cardHeight - 16 * _homeCanvas.height / _homeCanvas.width,
-                  isShown: meta.id == previewId,
-                  onTap: () => onCardTap(meta.id),
-                ),
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  SizedBox(
+                    height: _tagRow,
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: _isLocked(meta, canUsePremium)
+                          ? const _PremiumTag()
+                          : null,
+                    ),
+                  ),
+                  _GalleryCard(
+                    meta: meta,
+                    theme: themeData[meta.id]!,
+                    width: cardWidth - 16,
+                    height:
+                        cardHeight -
+                        16 * _homeCanvas.height / _homeCanvas.width,
+                    isShown: meta.id == previewId,
+                    onTap: () => onCardTap(meta.id),
+                  ),
+                ],
               );
             },
           ),
@@ -723,25 +742,18 @@ class _HomePreview extends StatelessWidget {
 /// Name, description and light or dark for the theme in the middle of the
 /// gallery.
 class _PreviewCaption extends StatelessWidget {
-  const _PreviewCaption({
-    required this.meta,
-    required this.isDark,
-    required this.isLocked,
-  });
+  const _PreviewCaption({required this.meta, required this.isDark});
 
   final ThemeMetadata meta;
   final bool isDark;
-  final bool isLocked;
 
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
     final type = PebbleType.of(context);
     final secondary = context.readableSecondaryText;
-    final note = <String>[
-      if (isLocked) 'Personal Premium',
-      if (meta.isAccessibilityTheme) 'Always free',
-    ].join(' · ');
+    // Premium is already marked by the padlock above the preview.
+    final note = meta.isAccessibilityTheme ? 'Always free' : '';
     return Semantics(
       liveRegion: true,
       child: AnimatedSwitcher(
@@ -921,6 +933,7 @@ class _PebbleChoice extends StatelessWidget {
     final type = PebbleType.of(context);
     final f = theme.extension<PebbleDarkFoundation>()!;
     final x = theme.extension<PebbleThemeX>()!;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
     return Semantics(
       button: true,
       selected: isShown,
@@ -940,22 +953,48 @@ class _PebbleChoice extends StatelessWidget {
           child: Column(
             children: <Widget>[
               SizedBox(
-                width: 62,
-                height: 56,
-                child: CustomPaint(
-                  painter: _PebblePainter(
-                    page: f.bgBase,
-                    accent: x.actionAccent,
-                    ink: f.textPrimary,
-                    lockBadge: foundation.textPrimary,
-                    lockGlyph: foundation.bgBase,
-                    ring: isShown ? foundation.textPrimary : null,
-                    lock: isLocked,
-                    hairline: foundation.borderSubtle,
-                  ),
+                width: 64,
+                height: 64,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: <Widget>[
+                    // A thin ring, set apart from the swatch, marks the one
+                    // being looked at.
+                    Positioned.fill(
+                      child: AnimatedContainer(
+                        duration: reduceMotion
+                            ? Duration.zero
+                            : PebbleMotion.quick,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isShown
+                                ? foundation.textPrimary
+                                : Colors.transparent,
+                            width: 1.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned.fill(
+                      child: Padding(
+                        padding: const EdgeInsets.all(5),
+                        child: CustomPaint(
+                          painter: _SwatchPainter(
+                            page: f.bgBase,
+                            accent: x.actionAccent,
+                            ink: f.textPrimary,
+                            hairline: foundation.borderSubtle,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (isLocked)
+                      const Positioned(top: -2, right: -2, child: _LockMark()),
+                  ],
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               Text(
                 meta.name,
                 textAlign: TextAlign.center,
@@ -986,144 +1025,120 @@ class _PebbleChoice extends StatelessWidget {
   }
 }
 
-/// A theme as a pebble: the page colour is the stone, with its accent and
-/// text colours as two small stones resting on it.
-class _PebblePainter extends CustomPainter {
-  _PebblePainter({
+/// A theme as a round swatch, in the style of Android's colour picker: the
+/// page colour across the top, the accent and text colours below it.
+class _SwatchPainter extends CustomPainter {
+  _SwatchPainter({
     required this.page,
     required this.accent,
     required this.ink,
-    required this.lockBadge,
-    required this.lockGlyph,
-    required this.ring,
-    required this.lock,
     required this.hairline,
   });
 
   final Color page;
   final Color accent;
   final Color ink;
-  final Color lockBadge;
-  final Color lockGlyph;
-  final Color? ring;
-  final bool lock;
   final Color hairline;
-
-  Path _pebble(Rect r) {
-    final w = r.width;
-    final h = r.height;
-    return Path()
-      ..moveTo(r.left + w * 0.5, r.top)
-      ..cubicTo(
-        r.left + w * 0.82,
-        r.top,
-        r.right,
-        r.top + h * 0.2,
-        r.right,
-        r.top + h * 0.5,
-      )
-      ..cubicTo(
-        r.right,
-        r.top + h * 0.85,
-        r.left + w * 0.78,
-        r.bottom,
-        r.left + w * 0.48,
-        r.bottom,
-      )
-      ..cubicTo(
-        r.left + w * 0.16,
-        r.bottom,
-        r.left,
-        r.top + h * 0.8,
-        r.left,
-        r.top + h * 0.48,
-      )
-      ..cubicTo(
-        r.left,
-        r.top + h * 0.18,
-        r.left + w * 0.22,
-        r.top,
-        r.left + w * 0.5,
-        r.top,
-      )
-      ..close();
-  }
 
   @override
   void paint(Canvas canvas, Size size) {
-    final outer = Offset.zero & size;
-    final body = outer.deflate(3.5);
-    if (ring != null) {
-      canvas.drawPath(
-        _pebble(outer.deflate(1)),
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.2
-          ..color = ring!,
-      );
-    }
-    final shape = _pebble(body);
-    canvas.drawPath(shape, Paint()..color = page);
-    canvas.drawPath(
-      shape,
+    final rect = Offset.zero & size;
+    final circle = Path()..addOval(rect);
+    canvas.drawShadow(circle, Colors.black.withValues(alpha: 0.5), 2, false);
+    canvas.save();
+    canvas.clipPath(circle);
+    canvas.drawRect(rect, Paint()..color = page);
+    final mid = Offset(size.width / 2, size.height / 2);
+    canvas.drawRect(
+      Rect.fromLTRB(0, mid.dy, mid.dx, size.height),
+      Paint()..color = accent,
+    );
+    canvas.drawRect(
+      Rect.fromLTRB(mid.dx, mid.dy, size.width, size.height),
+      Paint()..color = ink,
+    );
+    canvas.restore();
+    canvas.drawOval(
+      rect.deflate(0.5),
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1
         ..color = hairline,
     );
-
-    void stone(Offset centre, Size s, double turn, Color color) {
-      canvas.save();
-      canvas.translate(centre.dx, centre.dy);
-      canvas.rotate(turn);
-      canvas.drawOval(
-        Rect.fromCenter(center: Offset.zero, width: s.width, height: s.height),
-        Paint()..color = color,
-      );
-      canvas.restore();
-    }
-
-    final w = size.width;
-    final h = size.height;
-    stone(Offset(w * 0.40, h * 0.55), Size(w * 0.37, h * 0.34), -0.2, accent);
-    stone(Offset(w * 0.65, h * 0.44), Size(w * 0.23, h * 0.21), 0.24, ink);
-
-    if (lock) {
-      final c = Offset(w * 0.82, h * 0.82);
-      final badge = lockBadge;
-      final glyph = lockGlyph;
-      // A ring in the page colour keeps the badge apart from any pebble.
-      canvas.drawCircle(c, 10, Paint()..color = glyph);
-      canvas.drawCircle(c, 8.5, Paint()..color = badge);
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromCenter(center: c.translate(0, 1.2), width: 7, height: 5.4),
-          const Radius.circular(1.2),
-        ),
-        Paint()..color = glyph,
-      );
-      canvas.drawArc(
-        Rect.fromCenter(center: c.translate(0, -1.6), width: 4.4, height: 4.4),
-        math.pi,
-        math.pi,
-        false,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.3
-          ..color = glyph,
-      );
-    }
   }
 
   @override
-  bool shouldRepaint(_PebblePainter old) =>
+  bool shouldRepaint(_SwatchPainter old) =>
       old.page != page ||
       old.accent != accent ||
       old.ink != ink ||
-      old.ring != ring ||
-      old.lock != lock ||
-      old.lockBadge != lockBadge ||
       old.hairline != hairline;
+}
+
+/// The small padlock on a Premium theme, shown only to free accounts.
+class _LockMark extends StatelessWidget {
+  const _LockMark();
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+    return Container(
+      width: 22,
+      height: 22,
+      decoration: BoxDecoration(
+        color: foundation.surfaceHigh,
+        shape: BoxShape.circle,
+        border: Border.all(color: foundation.borderSubtle),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Icon(
+        LucideIcons.lockKeyhole,
+        size: 11,
+        color: context.readableSecondaryText,
+      ),
+    );
+  }
+}
+
+/// "Premium" with a padlock, sitting just above a locked theme's preview.
+class _PremiumTag extends StatelessWidget {
+  const _PremiumTag();
+
+  @override
+  Widget build(BuildContext context) {
+    final foundation = context.darkFoundation;
+    final secondary = context.readableSecondaryText;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+      decoration: BoxDecoration(
+        color: foundation.surfaceHigh,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: foundation.borderSubtle),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(LucideIcons.lockKeyhole, size: 11, color: secondary),
+          const SizedBox(width: 5),
+          Text(
+            'Premium',
+            style: PebbleFonts.sans(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0.3,
+              color: secondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------

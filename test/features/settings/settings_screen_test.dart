@@ -211,8 +211,8 @@ void main() {
         )
         .first;
     await tester.scrollUntilVisible(pebble, 240, scrollable: scrollable);
-    // Lift it clear of the choose bar pinned to the bottom of the screen.
-    await tester.drag(scrollable, const Offset(0, -160));
+    // Centre it, clear of the choose bar pinned to the bottom of the screen.
+    await Scrollable.ensureVisible(tester.element(pebble), alignment: 0.5);
     await tester.pumpAndSettle();
     await tester.tap(pebble);
     await tester.pumpAndSettle();
