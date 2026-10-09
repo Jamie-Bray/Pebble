@@ -60,6 +60,7 @@ class HomeAccountButton extends ConsumerWidget {
         clipBehavior: Clip.none,
         children: [
           PebbleGlassIconButton(
+            flat: true,
             tooltip: 'Your account',
             icon: LucideIcons.userRound,
             onPressed: () => context.push('/account-hub'),
@@ -179,6 +180,7 @@ class HomeCheckedCard extends ConsumerWidget {
     required this.photoPaths,
     this.compact = false,
     this.onOpen,
+    this.footer,
   });
 
   final int routineId;
@@ -191,6 +193,10 @@ class HomeCheckedCard extends ConsumerWidget {
   /// Opens this check. The whole card is the way in, so Home needs no
   /// separate "See this check" link.
   final VoidCallback? onOpen;
+
+  /// Shown inside the card under the check (Run again and the routine's
+  /// settings pill on Home), outside the part that opens the check.
+  final Widget? footer;
 
   static const int maxThumbs = 4;
 
@@ -208,7 +214,6 @@ class HomeCheckedCard extends ConsumerWidget {
   Widget _buildCard(BuildContext context, WidgetRef ref, int? colorHex) {
     final foundation = context.darkFoundation;
     final type = PebbleType.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final fill = Color.alphaBlend(context.doneContainer, foundation.bgBase);
     final onFill = [fill];
     final accent = ensureContrast(
@@ -235,123 +240,139 @@ class HomeCheckedCard extends ConsumerWidget {
     final shown = photoPaths.take(maxThumbs).toList();
     final extra = photoPaths.length - shown.length;
 
-    return Semantics(
+    final checkContent = Semantics(
       container: true,
       button: onOpen != null,
       label: '$routineTitle, checked at $time. $summary',
       hint: onOpen == null ? null : 'Opens this check',
-      child: Container(
-        key: const ValueKey('home_hero_checked_card'),
-        width: double.infinity,
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: fill,
-          borderRadius: PebbleRadius.lgAll,
-          // A floating surface (§3.4): the one card on Home that lifts.
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.32 : 0.08),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: onOpen,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              compact ? PebbleSpacing.md : PebbleSpacing.lg,
+              compact ? PebbleSpacing.md : PebbleSpacing.lg,
+              compact ? PebbleSpacing.md : PebbleSpacing.lg,
+              footer == null
+                  ? (compact ? PebbleSpacing.md : PebbleSpacing.lg)
+                  : PebbleSpacing.md,
             ),
-          ],
-        ),
-        child: Material(
-          type: MaterialType.transparency,
-          child: InkWell(
-            onTap: onOpen,
-            child: Padding(
-              padding: EdgeInsets.all(
-                compact ? PebbleSpacing.md : PebbleSpacing.lg,
-              ),
-              child: ExcludeSemantics(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
+            child: ExcludeSemantics(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Hero(
+                        tag: 'cairn-$routineId',
+                        // Scoped inside the Hero so the flight keeps the
+                        // routine's colour.
+                        child: RoutineAccentScope(
+                          colorHex: colorHex,
+                          child: PebbleCairn(
+                            total: total == 0 ? 1 : total,
+                            skipped: tally.skipped,
+                            size: 40,
+                            showCount: false,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: PebbleSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          overline.toUpperCase(),
+                          key: const ValueKey('home_hero_checked_overline'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: type.overline.copyWith(color: accent),
+                        ),
+                      ),
+                      if (onOpen != null)
+                        Icon(
+                          LucideIcons.chevronRight,
+                          size: 18,
+                          color: secondary,
+                        ),
+                    ],
+                  ),
+                  SizedBox(
+                    height: compact ? PebbleSpacing.xs : PebbleSpacing.sm,
+                  ),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: PebbleBigTime(
+                      at: finishedAt,
+                      style: type.displayXL.copyWith(
+                        fontSize: compact ? 48 : 56,
+                        color: foundation.textPrimary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: PebbleSpacing.xxs),
+                  Text(
+                    summary,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: type.body.copyWith(color: secondary),
+                  ),
+                  if (shown.isNotEmpty) ...[
+                    SizedBox(
+                      height: compact ? PebbleSpacing.sm : PebbleSpacing.md,
+                    ),
                     Row(
                       children: [
-                        Hero(
-                          tag: 'cairn-$routineId',
-                          // Scoped inside the Hero so the flight keeps the
-                          // routine's colour.
-                          child: RoutineAccentScope(
-                            colorHex: colorHex,
-                            child: PebbleCairn(
-                              total: total == 0 ? 1 : total,
-                              skipped: tally.skipped,
-                              size: 40,
-                              showCount: false,
-                            ),
+                        for (var i = 0; i < shown.length; i++) ...[
+                          if (i > 0) const SizedBox(width: PebbleSpacing.xs),
+                          PhotoThumb(
+                            key: ValueKey('home_checked_photo_$i'),
+                            size: 48,
+                            overlayLabel: i == shown.length - 1 && extra > 0
+                                ? '+$extra'
+                                : null,
+                            load: () => ref
+                                .read(routineSessionProofStorageProvider)
+                                .resolveStoredFile(shown[i]),
                           ),
-                        ),
-                        const SizedBox(width: PebbleSpacing.sm),
-                        Expanded(
-                          child: Text(
-                            overline.toUpperCase(),
-                            key: const ValueKey('home_hero_checked_overline'),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: type.overline.copyWith(color: accent),
-                          ),
-                        ),
-                        if (onOpen != null)
-                          Icon(
-                            LucideIcons.chevronRight,
-                            size: 18,
-                            color: secondary,
-                          ),
+                        ],
                       ],
                     ),
-                    SizedBox(
-                      height: compact ? PebbleSpacing.xs : PebbleSpacing.sm,
-                    ),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: PebbleBigTime(
-                        at: finishedAt,
-                        style: type.displayXL.copyWith(
-                          fontSize: compact ? 48 : 56,
-                          color: foundation.textPrimary,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: PebbleSpacing.xxs),
-                    Text(
-                      summary,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: type.body.copyWith(color: secondary),
-                    ),
-                    if (shown.isNotEmpty) ...[
-                      SizedBox(
-                        height: compact ? PebbleSpacing.sm : PebbleSpacing.md,
-                      ),
-                      Row(
-                        children: [
-                          for (var i = 0; i < shown.length; i++) ...[
-                            if (i > 0) const SizedBox(width: PebbleSpacing.xs),
-                            PhotoThumb(
-                              key: ValueKey('home_checked_photo_$i'),
-                              size: 48,
-                              overlayLabel: i == shown.length - 1 && extra > 0
-                                  ? '+$extra'
-                                  : null,
-                              load: () => ref
-                                  .read(routineSessionProofStorageProvider)
-                                  .resolveStoredFile(shown[i]),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ],
                   ],
-                ),
+                ],
               ),
             ),
           ),
         ),
+      ),
+    );
+
+    return Container(
+      key: const ValueKey('home_hero_checked_card'),
+      width: double.infinity,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: fill,
+        // Flat, like the Up next card: the done tint is what sets it apart.
+        borderRadius: const BorderRadius.all(Radius.circular(28)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          checkContent,
+          if (footer != null)
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                compact ? PebbleSpacing.md : PebbleSpacing.lg,
+                0,
+                compact ? PebbleSpacing.md : PebbleSpacing.lg,
+                compact ? PebbleSpacing.md : PebbleSpacing.lg,
+              ),
+              child: footer,
+            ),
+        ],
       ),
     );
   }

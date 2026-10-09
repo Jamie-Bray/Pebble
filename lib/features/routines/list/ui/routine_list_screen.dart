@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -71,16 +70,12 @@ class RoutineListScreen extends ConsumerStatefulWidget {
 }
 
 class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
-  static const double _routineSheetRowHeight = 76;
+  static const double _routineRowHeight = 64;
   static const double _bottomNavHeight = 70;
-  static const double _routineSheetHeaderHeight = 104;
-  static const double _collapsedRoutineSheetPeekHeight = 112;
 
-  final ValueNotifier<double> _routineSheetExtent = ValueNotifier<double>(0);
+  final ScrollController _homeScrollController = ScrollController();
 
   int? _focusedRoutineId;
-  double _minSheetExtent = 0;
-  double _maxSheetExtent = 0;
 
   Future<void> _openStyleSheet(Routine routine, ThemeData themeData) async {
     // Open to everyone: the free icons and stones are for making a routine
@@ -139,7 +134,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
 
   @override
   void dispose() {
-    _routineSheetExtent.dispose();
+    _homeScrollController.dispose();
     super.dispose();
   }
 
@@ -346,76 +341,6 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
         selectHomeSpotlightRoutine(routines: routines, runs: runs);
   }
 
-  double _collapsedSheetExtent({
-    required double hostHeight,
-    required double bottomSafe,
-  }) {
-    final collapsedHeight =
-        _bottomNavHeight + bottomSafe + _collapsedRoutineSheetPeekHeight;
-    return (collapsedHeight / hostHeight).clamp(0.12, 0.24);
-  }
-
-  double _expandedSheetExtent({
-    required double hostHeight,
-    required int visibleRoutineCount,
-    required double bottomSafe,
-  }) {
-    final visibleRows = visibleRoutineCount >= 4
-        ? 3.4
-        : visibleRoutineCount.toDouble().clamp(1.0, 4.0);
-    final expandedHeight =
-        _routineSheetHeaderHeight +
-        (visibleRows * _routineSheetRowHeight) +
-        _bottomNavHeight +
-        bottomSafe +
-        18;
-    return (expandedHeight / hostHeight).clamp(0.48, 0.68);
-  }
-
-  Future<void> _animateRoutineSheetTo(double extent) async {
-    _routineSheetExtent.value = extent.clamp(_minSheetExtent, _maxSheetExtent);
-  }
-
-  void _handleRoutineSheetDismissDragUpdate(
-    DragUpdateDetails details,
-    double hostHeight,
-  ) {
-    if (hostHeight <= 0 ||
-        _routineSheetExtent.value <= _minSheetExtent + 0.01) {
-      return;
-    }
-
-    final delta = details.primaryDelta ?? 0;
-    if (delta <= 0) {
-      return;
-    }
-
-    final currentExtent = _routineSheetExtent.value.clamp(
-      _minSheetExtent,
-      _maxSheetExtent,
-    );
-    _routineSheetExtent.value = (currentExtent - (delta / hostHeight)).clamp(
-      _minSheetExtent,
-      _maxSheetExtent,
-    );
-  }
-
-  void _handleRoutineSheetDismissDragEnd(DragEndDetails details) {
-    if (_routineSheetExtent.value <= _minSheetExtent + 0.01) {
-      return;
-    }
-
-    final velocity = details.primaryVelocity ?? 0;
-    final currentExtent = _routineSheetExtent.value.clamp(
-      _minSheetExtent,
-      _maxSheetExtent,
-    );
-    final shouldClose =
-        velocity > 140 || currentExtent < (_maxSheetExtent - 0.04);
-
-    _animateRoutineSheetTo(shouldClose ? _minSheetExtent : _maxSheetExtent);
-  }
-
   Widget _buildRoutineHomeFrame({
     required List<Routine> routines,
     required ThemeData themeData,
@@ -429,35 +354,9 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
         final bottomSafe = mediaQuery.padding.bottom >= _bottomNavHeight
             ? mediaQuery.padding.bottom - _bottomNavHeight
             : mediaQuery.padding.bottom;
-        final visibleRoutines = routines;
-        final visibleRoutineCount = visibleRoutines.isEmpty
-            ? 1
-            : visibleRoutines.length.clamp(1, 4);
-
-        final minExtent = _collapsedSheetExtent(
-          hostHeight: constraints.maxHeight,
-          bottomSafe: bottomSafe,
-        );
-        final maxExtent = _expandedSheetExtent(
-          hostHeight: constraints.maxHeight,
-          visibleRoutineCount: visibleRoutineCount,
-          bottomSafe: bottomSafe,
-        );
-
-        _minSheetExtent = minExtent;
-        _maxSheetExtent = maxExtent;
-        // Hero padding: bottom nav + the visible routine shelf teaser.
-        final heroBottomPadding =
-            _bottomNavHeight + bottomSafe + _collapsedRoutineSheetPeekHeight;
-
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          final currentSize = _routineSheetExtent.value;
-          final clampedSize = currentSize.clamp(minExtent, maxExtent);
-          if ((clampedSize - currentSize).abs() > 0.001) {
-            _routineSheetExtent.value = clampedSize;
-          }
-        });
+        final width = mediaQuery.size.width;
+        final gutter = PebbleSpacing.gutter(width);
+        final latestRuns = _latestRunByRoutine();
 
         return Stack(
           children: [
@@ -493,137 +392,198 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                   },
                 ),
               ),
-            // Content column caps at 640 on wide screens; the scrim and
-            // ambient background behind it stay full-bleed.
+            // One scrolling page: the routine up next, then every routine
+            // with when it was last checked. Nothing hides behind a drawer,
+            // so Home has no empty middle. Content caps at 640 on wide
+            // screens.
             AdaptiveContentWidth(
-              child: Column(
-                children: [
-                  _buildHomeHeader(themeData),
-                  // The hero routine's own saved run shows as Resume in the
-                  // hero; the card is for another routine's.
-                  if (resumeSession != null &&
-                      resumeSession.routineId != spotlightRoutine?.id)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 14),
-                      child: _buildResumeCard(
-                        themeData,
-                        resumeSession,
-                        compact: mediaQuery.size.height < 720,
-                      ),
-                    )
-                  else
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(24, 0, 24, 0),
-                      child: _HomeLapseNotice(),
-                    ),
-                  Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        24,
-                        0,
-                        24,
-                        heroBottomPadding,
-                      ),
-                      child: spotlightRoutine == null
-                          ? const SizedBox.shrink()
-                          : _HomeHeroStage(
-                              routine: spotlightRoutine,
-                              themeData: themeData,
-                              steps: _stepsForRoutine(spotlightRoutine),
-                              accentColor: _routineAccentColor(
+              child: CustomScrollView(
+                key: const ValueKey('home_scroll'),
+                controller: _homeScrollController,
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: ClampingScrollPhysics(),
+                ),
+                slivers: [
+                  SliverToBoxAdapter(child: _buildHomeHeader(themeData)),
+                  SliverPadding(
+                    padding: EdgeInsets.symmetric(horizontal: gutter),
+                    sliver: SliverList.list(
+                      children: [
+                        // The hero routine's own saved run shows as Resume
+                        // in the hero; the card is for another routine's.
+                        if (resumeSession != null &&
+                            resumeSession.routineId != spotlightRoutine?.id)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 14),
+                            child: _buildResumeCard(
+                              themeData,
+                              resumeSession,
+                              compact: mediaQuery.size.height < 720,
+                            ),
+                          )
+                        else
+                          const _HomeLapseNotice(),
+                        if (spotlightRoutine != null)
+                          _HomeHeroStage(
+                            routine: spotlightRoutine,
+                            themeData: themeData,
+                            steps: _stepsForRoutine(spotlightRoutine),
+                            accentColor: _routineAccentColor(
+                              spotlightRoutine,
+                              themeData,
+                              0,
+                            ),
+                            onSettings: () {
+                              _showContextMenu(
+                                context,
                                 spotlightRoutine,
                                 themeData,
-                                0,
-                              ),
-                              availableHeight:
-                                  constraints.maxHeight - heroBottomPadding,
-                              onSettings: () {
-                                _showContextMenu(
-                                  context,
-                                  spotlightRoutine,
-                                  themeData,
-                                );
-                              },
-                              onBegin: () {
-                                _onPlayRoutine(spotlightRoutine);
-                              },
-                              onStyle: () =>
-                                  _openStyleSheet(spotlightRoutine, themeData),
-                              onPreviewStepTap: (stepIndex) {
-                                _onEditRoutine(
-                                  spotlightRoutine,
-                                  initialStepIndex: stepIndex,
-                                );
-                              },
+                              );
+                            },
+                            onBegin: () {
+                              _onPlayRoutine(spotlightRoutine);
+                            },
+                            onStyle: () =>
+                                _openStyleSheet(spotlightRoutine, themeData),
+                            onPreviewStepTap: (stepIndex) {
+                              _onEditRoutine(
+                                spotlightRoutine,
+                                initialStepIndex: stepIndex,
+                              );
+                            },
+                          ),
+                        _buildRoutineListHeader(routines, latestRuns),
+                      ],
+                    ),
+                  ),
+                  SliverPadding(
+                    padding: EdgeInsets.symmetric(horizontal: gutter - 4),
+                    sliver: SliverReorderableList(
+                      itemCount: routines.length,
+                      // onReorderItem already adjusts newIndex for the
+                      // removed item.
+                      onReorderItem: (oldIndex, newIndex) {
+                        unawaited(
+                          _reorderRoutine(routines, oldIndex, newIndex),
+                        );
+                      },
+                      itemBuilder: (context, index) {
+                        final routine = routines[index];
+                        return KeyedSubtree(
+                          key: ValueKey('routine_library_${routine.id}'),
+                          child: ReorderableDelayedDragStartListener(
+                            index: index,
+                            child: _buildLibraryRow(
+                              routine,
+                              themeData,
+                              latestRun: latestRuns[routine.id],
+                              isSelected: spotlightRoutine?.id == routine.id,
+                              index: index,
+                              isFirst: index == 0,
                             ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  if (routines.length > 1)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: PebbleSpacing.sm),
+                        child: Text(
+                          'Hold a routine to reorder',
+                          textAlign: TextAlign.center,
+                          style: PebbleType.of(context).caption.copyWith(
+                            fontStyle: FontStyle.italic,
+                            color: context.readableSecondaryText,
+                          ),
+                        ),
+                      ),
+                    ),
+                  SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: _bottomNavHeight + bottomSafe + PebbleSpacing.xl,
                     ),
                   ),
                 ],
               ),
             ),
-            ValueListenableBuilder<double>(
-              valueListenable: _routineSheetExtent,
-              builder: (context, extent, _) {
-                final currentExtent = extent == 0 ? minExtent : extent;
-                if (currentExtent <= minExtent + 0.01) {
-                  return const SizedBox.shrink();
-                }
-
-                return Positioned.fill(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onTap: () {
-                      _animateRoutineSheetTo(minExtent);
-                    },
-                    child: ColoredBox(
-                      color: Colors.black.withValues(alpha: 0.55),
-                    ),
-                  ),
-                );
-              },
-            ),
-            ValueListenableBuilder<double>(
-              valueListenable: _routineSheetExtent,
-              builder: (context, extent, _) {
-                final currentExtent = extent == 0
-                    ? minExtent
-                    : extent.clamp(minExtent, maxExtent);
-                final expandProgress = maxExtent == minExtent
-                    ? 0.0
-                    : ((currentExtent - minExtent) / (maxExtent - minExtent))
-                          .clamp(0.0, 1.0);
-                final targetHeight = currentExtent * constraints.maxHeight;
-
-                return Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: ClipRect(
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 280),
-                      curve: Curves.easeOutCubic,
-                      height: targetHeight,
-                      // Same 640 cap as Material 3 gives every modal sheet,
-                      // so the routines sheet matches the app's other sheets
-                      // on wide screens.
-                      child: AdaptiveContentWidth(
-                        child: _buildRoutineLibrarySheet(
-                          visibleRoutines,
-                          themeData,
-                          hostHeight: constraints.maxHeight,
-                          bottomSafe: bottomSafe,
-                          expandProgress: expandProgress,
-                          activeRoutineId: spotlightRoutine?.id,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
           ],
         );
       },
+    );
+  }
+
+  /// The newest kept run of each routine, for the "last checked" column.
+  Map<int, RoutineRun> _latestRunByRoutine() {
+    final runs = ref.watch(routineHistoryVmProvider).valueOrNull ?? const [];
+    final latest = <int, RoutineRun>{};
+    for (final run in runs) {
+      final id = int.tryParse(run.routineId);
+      if (id == null) continue;
+      final current = latest[id];
+      if (current == null || run.finishedAt.isAfter(current.finishedAt)) {
+        latest[id] = run;
+      }
+    }
+    return latest;
+  }
+
+  bool _isToday(DateTime at) {
+    final local = at.toLocal();
+    final now = ref.read(homeClockProvider)().toLocal();
+    return local.year == now.year &&
+        local.month == now.month &&
+        local.day == now.day;
+  }
+
+  Widget _buildRoutineListHeader(
+    List<Routine> routines,
+    Map<int, RoutineRun> latestRuns,
+  ) {
+    final foundation = context.darkFoundation;
+    final restricted = ref.watch(restrictedRoutineIdsProvider);
+    final checkedToday = routines.where((routine) {
+      if (restricted.contains(routine.id)) return false;
+      final run = latestRuns[routine.id];
+      return run != null && _isToday(run.finishedAt);
+    }).length;
+    final count = routines.length;
+    final hint = checkedToday > 0
+        ? '$checkedToday checked today'
+        : '$count ${count == 1 ? 'routine' : 'routines'}';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(2, PebbleSpacing.xxl, 2, 6),
+      child: Wrap(
+        key: const ValueKey('home_routines_header'),
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.end,
+        spacing: PebbleSpacing.sm,
+        children: [
+          Semantics(
+            header: true,
+            child: Text(
+              'Your routines',
+              style: PebbleFonts.serif(
+                fontSize: 21,
+                fontWeight: FontWeight.w400,
+                letterSpacing: -0.2,
+                color: foundation.textPrimary,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 3),
+            child: Text(
+              hint,
+              key: const ValueKey('home_routines_count_hint'),
+              style: PebbleType.of(
+                context,
+              ).caption.copyWith(color: context.readableSecondaryText),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -692,6 +652,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                       ),
               ),
               PebbleGlassIconButton(
+                flat: true,
                 tooltip: 'App settings',
                 icon: LucideIcons.settings,
                 onPressed: () => context.push('/settings'),
@@ -705,252 +666,16 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
     );
   }
 
-  Widget _buildRoutineLibrarySheet(
-    List<Routine> visibleRoutines,
-    ThemeData themeData, {
-    required double hostHeight,
-    required double bottomSafe,
-    required double expandProgress,
-    required int? activeRoutineId,
-  }) {
-    final foundation = context.darkFoundation;
-    final hasMoreThanRestingRows = visibleRoutines.length > 3;
-    final collapsedProgress = 1 - expandProgress;
-    final bottomListPadding = _bottomNavHeight + bottomSafe + 20;
-    final listFadeAlpha = 0.82 + (collapsedProgress * 0.14);
-    final selectedIndex = visibleRoutines.indexWhere(
-      (routine) => routine.id == activeRoutineId,
-    );
-    final header = GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: expandProgress <= 0.05
-          ? () {
-              _animateRoutineSheetTo(_maxSheetExtent);
-            }
-          : null,
-      onVerticalDragUpdate: expandProgress > 0.05
-          ? (details) =>
-                _handleRoutineSheetDismissDragUpdate(details, hostHeight)
-          : (details) {
-              if ((details.primaryDelta ?? 0) < 0) {
-                _animateRoutineSheetTo(_maxSheetExtent);
-              }
-            },
-      onVerticalDragEnd: expandProgress > 0.05
-          ? _handleRoutineSheetDismissDragEnd
-          : null,
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          24,
-          expandProgress <= 0.45 ? 14 : 14,
-          24,
-          expandProgress <= 0.45 ? 18 : 8,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 38,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 10),
-              decoration: BoxDecoration(
-                color: foundation.borderSubtle,
-                borderRadius: BorderRadius.circular(999),
-              ),
-            ),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 160),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeOutCubic,
-              child: expandProgress <= 0.45
-                  ? SizedBox(
-                      key: const ValueKey('collapsed-routines-header'),
-                      height: 46,
-                      child: MediaQuery(
-                        data: MediaQuery.of(
-                          context,
-                        ).copyWith(textScaler: const TextScaler.linear(1.0)),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                'Your routines',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: PebbleFonts.serif(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w400,
-                                  letterSpacing: -0.2,
-                                  color: foundation.textPrimary,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Flexible(
-                              child: Align(
-                                alignment: Alignment.centerRight,
-                                child: _buildCollapsedRoutineCountHint(
-                                  count: visibleRoutines.length,
-                                  activeIndex: selectedIndex < 0
-                                      ? 0
-                                      : selectedIndex,
-                                  accent: themeData.colorScheme.primary,
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  mainAxisSize: MainAxisSize.min,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  : ConstrainedBox(
-                      key: const ValueKey('expanded-routines-header'),
-                      constraints: const BoxConstraints(minHeight: 70),
-                      // Side by side when they fit; at large text sizes the
-                      // hint drops under the title instead of colliding.
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: Wrap(
-                          alignment: WrapAlignment.spaceBetween,
-                          crossAxisAlignment: WrapCrossAlignment.start,
-                          spacing: 12,
-                          runSpacing: 2,
-                          children: [
-                            Text(
-                              'Your routines',
-                              style: PebbleFonts.serif(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w400,
-                                letterSpacing: -0.3,
-                                color: foundation.textPrimary,
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.only(top: 6),
-                              child: Text(
-                                'Hold to reorder',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w400,
-                                  fontStyle: FontStyle.italic,
-                                  color: context.readableSecondaryText,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    return Stack(
-      children: [
-        DecoratedBox(
-          decoration: BoxDecoration(
-            color: foundation.surfaceLow,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            border: Border(top: BorderSide(color: foundation.borderSubtle)),
-            boxShadow: <BoxShadow>[
-              BoxShadow(
-                color: foundation.shadowSoft,
-                blurRadius: 30,
-                offset: const Offset(0, -10),
-              ),
-            ],
-          ),
-          child: CustomScrollView(
-            physics: expandProgress <= 0.05
-                ? const NeverScrollableScrollPhysics()
-                : const BouncingScrollPhysics(
-                    parent: AlwaysScrollableScrollPhysics(),
-                  ),
-            slivers: [
-              SliverToBoxAdapter(child: header),
-              if (expandProgress <= 0.05)
-                const SliverToBoxAdapter(child: SizedBox.shrink())
-              else if (visibleRoutines.isEmpty)
-                SliverToBoxAdapter(
-                  child: AnimatedOpacity(
-                    opacity: expandProgress.clamp(0.0, 1.0),
-                    duration: const Duration(milliseconds: 180),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(22, 0, 22, 0),
-                      child: _buildEmptyLibraryHint(themeData),
-                    ),
-                  ),
-                )
-              else
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 22),
-                  sliver: SliverReorderableList(
-                    itemCount: visibleRoutines.length,
-                    // onReorderItem already adjusts newIndex for the
-                    // removed item.
-                    onReorderItem: (oldIndex, newIndex) {
-                      unawaited(
-                        _reorderRoutine(visibleRoutines, oldIndex, newIndex),
-                      );
-                    },
-                    itemBuilder: (context, index) {
-                      final routine = visibleRoutines[index];
-                      return KeyedSubtree(
-                        key: ValueKey('routine_library_${routine.id}'),
-                        child: ReorderableDelayedDragStartListener(
-                          index: index,
-                          child: _buildLibraryRow(
-                            routine,
-                            themeData,
-                            isSelected: activeRoutineId == routine.id,
-                            index: index,
-                            isLast: index == visibleRoutines.length - 1,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              SliverToBoxAdapter(child: SizedBox(height: bottomListPadding)),
-            ],
-          ),
-        ),
-        if (hasMoreThanRestingRows)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: IgnorePointer(
-              child: Container(
-                height: 52,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: <Color>[
-                      foundation.surfaceLow.withValues(alpha: 0),
-                      foundation.surfaceLow.withValues(alpha: listFadeAlpha),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
   Widget _buildLibraryRow(
     Routine routine,
     ThemeData themeData, {
+    required RoutineRun? latestRun,
     required bool isSelected,
     required int index,
-    required bool isLast,
+    required bool isFirst,
   }) {
     final foundation = context.darkFoundation;
+    final type = PebbleType.of(context);
     final isRestricted = ref
         .watch(restrictedRoutineIdsProvider)
         .contains(routine.id);
@@ -962,211 +687,170 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
       if (_isWidgetRoutine(routine)) 'Shown on widget',
       if (routine.reminderTime != null) 'Reminder set',
     ];
-    final rowBackground = isRestricted
-        ? foundation.surfaceHigh.withValues(alpha: 0.32)
-        : isSelected
-        ? routineColor.withValues(alpha: 0.06)
-        : foundation.surfaceLow;
-    final rowBorderColor = isRestricted
-        ? foundation.borderSubtle.withValues(alpha: 0.72)
-        : isSelected
-        ? routineColor.withValues(alpha: 0.35)
-        : foundation.borderSubtle;
-    final titleColor = isRestricted
-        ? foundation.textPrimary.withValues(alpha: 0.44)
-        : foundation.textPrimary;
     final subtitle = isRestricted
         ? 'Locked on Free, but still saved.'
-        : metadata.join(' / ');
+        : metadata.join(' · ');
+    final checkedToday = latestRun != null && _isToday(latestRun.finishedAt);
+    final secondary = context.readableSecondaryText;
 
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: () {
-          if (isRestricted) {
-            showLockedRoutineSheet(context, routine);
-            return;
-          }
-          ref.read(homeRoutineHighlightProvider.notifier).state = null;
-          if (_focusedRoutineId != routine.id) {
-            setState(() => _focusedRoutineId = routine.id);
-          }
-          _animateRoutineSheetTo(_minSheetExtent);
-        },
-        borderRadius: BorderRadius.circular(16),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
-          // A minimum, not a fixed height: at large text sizes the title and
-          // subtitle need more room, and the sheet already scrolls.
-          constraints: const BoxConstraints(minHeight: _routineSheetRowHeight),
-          margin: EdgeInsets.only(bottom: isLast ? 0 : 8),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-          decoration: BoxDecoration(
-            color: rowBackground,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: rowBorderColor),
+    // When it was last checked: the record is the point of Home, so each
+    // routine answers "did I do it?" without being opened.
+    final Widget status;
+    if (isRestricted) {
+      status = Icon(LucideIcons.lock, size: 16, color: secondary);
+    } else if (latestRun == null) {
+      status = Text(
+        'Not checked yet',
+        style: type.caption.copyWith(color: secondary),
+      );
+    } else if (checkedToday) {
+      final done = ensureContrast(
+        context.done,
+        backgrounds: [foundation.bgBase],
+        strongest: foundation.textPrimary,
+      );
+      status = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(LucideIcons.check, size: 15, color: done),
+          const SizedBox(width: 4),
+          Text(
+            formatCheckTime(context, latestRun.finishedAt),
+            style: type.caption.copyWith(
+              color: done,
+              fontWeight: FontWeight.w600,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
           ),
-          child: Opacity(
-            opacity: isRestricted ? 0.72 : 1,
-            child: Row(
-              children: [
-                Container(
-                  width: 3,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: isRestricted
-                        ? foundation.textMuted.withValues(alpha: 0.48)
-                        : routineColor,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+        ],
+      );
+    } else {
+      status = Text(
+        _lastCheckedDay(latestRun.finishedAt),
+        style: type.caption.copyWith(color: secondary),
+      );
+    }
+
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: [
+        routine.title,
+        subtitle,
+        if (!isRestricted)
+          latestRun == null
+              ? 'Not checked yet'
+              : 'Last checked ${_lastCheckedDay(latestRun.finishedAt)}, '
+                    '${formatCheckTime(context, latestRun.finishedAt)}',
+      ].join('. '),
+      excludeSemantics: true,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!isFirst)
+            Divider(
+              height: 1,
+              thickness: 1,
+              indent: 52,
+              color: foundation.borderSubtle,
+            ),
+          Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              borderRadius: PebbleRadius.smAll,
+              onTap: () {
+                if (isRestricted) {
+                  showLockedRoutineSheet(context, routine);
+                  return;
+                }
+                ref.read(homeRoutineHighlightProvider.notifier).state = null;
+                if (_focusedRoutineId != routine.id) {
+                  setState(() => _focusedRoutineId = routine.id);
+                }
+                if (_homeScrollController.hasClients) {
+                  unawaited(
+                    _homeScrollController.animateTo(
+                      0,
+                      duration: MediaQuery.disableAnimationsOf(context)
+                          ? const Duration(milliseconds: 1)
+                          : PebbleMotion.emphasized,
+                      curve: PebbleMotion.emphasizedCurve,
+                    ),
+                  );
+                }
+              },
+              child: AnimatedContainer(
+                duration: PebbleMotion.quick,
+                constraints: const BoxConstraints(minHeight: _routineRowHeight),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 4,
+                  vertical: 12,
                 ),
-                const SizedBox(width: 14),
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: foundation.textPrimary.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    isRestricted ? LucideIcons.lock : icon,
-                    size: 18,
-                    color: isRestricted ? foundation.textMuted : routineColor,
-                  ),
+                decoration: BoxDecoration(
+                  color: isSelected && !isRestricted
+                      ? routineColor.withValues(alpha: 0.06)
+                      : Colors.transparent,
+                  borderRadius: PebbleRadius.smAll,
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                child: Opacity(
+                  opacity: isRestricted ? 0.6 : 1,
+                  child: Row(
                     children: [
-                      Text(
-                        routine.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: -0.1,
-                          color: titleColor,
+                      _RoutineStone(
+                        color: isRestricted
+                            ? foundation.textMuted
+                            : routineColor,
+                        icon: icon,
+                      ),
+                      const SizedBox(width: PebbleSpacing.sm),
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              routine.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                                letterSpacing: -0.1,
+                                color: foundation.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              subtitle,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: type.caption.copyWith(color: secondary),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        subtitle,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: isRestricted
-                              ? FontWeight.w500
-                              : FontWeight.w400,
-                          color: isRestricted
-                              ? context.readableAccentText(
-                                  themeData.colorScheme.primary,
-                                )
-                              : context.readableSecondaryText,
-                        ),
-                      ),
+                      const SizedBox(width: PebbleSpacing.sm),
+                      status,
                     ],
                   ),
                 ),
-                const SizedBox(width: 12),
-                AnimatedOpacity(
-                  opacity: isSelected ? 1 : 0,
-                  duration: const Duration(milliseconds: 160),
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: routineColor,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRoutineCountDot(Color color, double alpha) {
-    return Container(
-      width: 6,
-      height: 6,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: color.withValues(alpha: alpha),
-      ),
-    );
-  }
-
-  Widget _buildCollapsedRoutineCountHint({
-    required int count,
-    required int activeIndex,
-    required Color accent,
-    MainAxisAlignment mainAxisAlignment = MainAxisAlignment.center,
-    MainAxisSize mainAxisSize = MainAxisSize.max,
-  }) {
-    final foundation = context.darkFoundation;
-    final label = '$count ${count == 1 ? 'routine' : 'routines'}';
-    final dotCount = count.clamp(1, 4);
-    return Row(
-      key: const ValueKey('home_routines_count_hint'),
-      mainAxisAlignment: mainAxisAlignment,
-      mainAxisSize: mainAxisSize,
-      children: [
-        for (var i = 0; i < dotCount; i++) ...[
-          _buildRoutineCountDot(
-            i == activeIndex.clamp(0, dotCount - 1)
-                ? accent
-                : foundation.textPrimary,
-            i == activeIndex.clamp(0, dotCount - 1) ? 1 : 0.12,
-          ),
-          if (i != dotCount - 1) const SizedBox(width: 4),
-        ],
-        const SizedBox(width: 7),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w400,
-            color: context.readableSecondaryText,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildEmptyLibraryHint(ThemeData themeData) {
-    final foundation = context.darkFoundation;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 18, 4, 12),
-      child: Row(
-        children: [
-          Icon(
-            LucideIcons.sparkles,
-            size: 17,
-            color: themeData.colorScheme.primary,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Routines you add will show here.',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: foundation.textSecondary,
               ),
             ),
           ),
         ],
       ),
     );
+  }
+
+  /// "Yesterday" or "3 Oct" for the routine list (today shows the time).
+  String _lastCheckedDay(DateTime finishedAt) {
+    final at = finishedAt.toLocal();
+    final now = ref.read(homeClockProvider)().toLocal();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(at.year, at.month, at.day);
+    if (day == today) return 'Today';
+    if (day == today.subtract(const Duration(days: 1))) return 'Yesterday';
+    return DateFormat.MMMd().format(at);
   }
 
   Color _routineAccentColor(Routine routine, ThemeData themeData, int index) {
@@ -2038,13 +1722,15 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
 
 const _homeStepsPreviewExpandedKey = 'homeStepsPreviewExpanded';
 
+/// How many steps the Up next card lists before "Show all".
+const _homePreviewStepCount = 3;
+
 class _HomeHeroStage extends ConsumerStatefulWidget {
   const _HomeHeroStage({
     required this.routine,
     required this.themeData,
     required this.steps,
     required this.accentColor,
-    required this.availableHeight,
     required this.onSettings,
     required this.onBegin,
     required this.onStyle,
@@ -2055,7 +1741,6 @@ class _HomeHeroStage extends ConsumerStatefulWidget {
   final ThemeData themeData;
   final List<RoutineStep> steps;
   final Color accentColor;
-  final double availableHeight;
 
   /// Opens the routine's actions sheet (edit, reminders, emails...).
   final VoidCallback onSettings;
@@ -2123,79 +1808,40 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
     final nextReminder = ref
         .watch(routineNextReminderProvider(widget.routine.id))
         .valueOrNull;
-    final textScale = MediaQuery.textScalerOf(context).scale(1);
-    final metaLine = HomeRoutineMetaLine(
-      key: const ValueKey('home_hero_meta_line'),
-      stepCount: widget.steps.length,
-      photoStepCount: widget.steps
-          .where((step) => step.hasPhotoRequirement)
-          .length,
-      nextReminder: nextReminder,
-      onTap: widget.onSettings,
-    );
+    final photoStepCount = widget.steps
+        .where((step) => step.hasPhotoRequirement)
+        .length;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final maxStageHeight = widget.availableHeight < 260
-            ? 260.0
-            : widget.availableHeight;
-        final stageHeight = constraints.maxHeight.isFinite
-            ? constraints.maxHeight.clamp(260.0, maxStageHeight).toDouble()
-            : maxStageHeight;
-        final metrics = _HomeHeroMetrics.resolve(
-          height: stageHeight,
-          textScale: textScale,
-        );
-        final checked = heroState.kind == HomeHeroKind.checked;
-        final run = heroState.latestRun;
-        final Widget hero = checked && run != null
-            ? _buildChecked(metrics, heroState, run, metaLine)
-            : _buildReady(metrics, heroState, metaLine);
+    final checked = heroState.kind == HomeHeroKind.checked;
+    final run = heroState.latestRun;
+    final Widget hero = checked && run != null
+        ? _buildChecked(heroState, run, nextReminder, photoStepCount)
+        : _buildReady(heroState, nextReminder, photoStepCount);
 
-        // The metrics above size the hero to fit; scrolling is only the
-        // fallback for very short screens (or a resume card above it), so
-        // the main button is never clipped or hidden behind the shelf.
-        return MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: TextScaler.linear(metrics.effectiveTextScale)),
-          child: SingleChildScrollView(
-            key: const ValueKey('home_hero_scroll'),
-            physics: const ClampingScrollPhysics(),
-            child: Align(
-              alignment: Alignment.topLeft,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                // Returning from a run, the Checked card cross-fades in.
-                child: AnimatedSwitcher(
-                  duration: !animateHero
-                      ? Duration.zero
-                      : MediaQuery.disableAnimationsOf(context)
-                      ? PebbleMotion.reduced
-                      : PebbleMotion.standard,
-                  switchInCurve: PebbleMotion.enter,
-                  layoutBuilder: (current, previous) => Stack(
-                    alignment: Alignment.topLeft,
-                    children: [...previous, ?current],
-                  ),
-                  child: KeyedSubtree(
-                    key: ValueKey(checked ? 'checked' : 'ready'),
-                    child: hero,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
+    // Returning from a run, the Checked card cross-fades in.
+    return AnimatedSwitcher(
+      duration: !animateHero
+          ? Duration.zero
+          : MediaQuery.disableAnimationsOf(context)
+          ? PebbleMotion.reduced
+          : PebbleMotion.standard,
+      switchInCurve: PebbleMotion.enter,
+      layoutBuilder: (current, previous) => Stack(
+        alignment: Alignment.topCenter,
+        children: [...previous, ?current],
+      ),
+      child: KeyedSubtree(
+        key: ValueKey(checked ? 'checked' : 'ready'),
+        child: hero,
+      ),
     );
   }
 
   Widget _buildChecked(
-    _HomeHeroMetrics metrics,
     HomeHeroState heroState,
     RoutineRun run,
-    Widget metaLine,
+    DateTime? nextReminder,
+    int photoStepCount,
   ) {
     final tally = heroState.tally ?? RunStepTally.fromRun(run);
     return Column(
@@ -2203,7 +1849,6 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(height: metrics.topInset),
         HomeCheckedCard(
           routineId: widget.routine.id,
           routineTitle: widget.routine.title.trim().isEmpty
@@ -2212,29 +1857,41 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
           finishedAt: run.finishedAt,
           tally: tally,
           photoPaths: heroState.photoPaths,
-          compact: metrics.compact,
           onOpen: () => Navigator.of(context).push(
             MaterialPageRoute<void>(
               builder: (_) => RoutineRunDetailScreen(run: run),
             ),
           ),
-        ),
-        SizedBox(height: metrics.previewCtaGap),
-        // The answer is the card (tap it to open the check). Run again is
-        // one clear tonal button, never the filled Start, so it doesn't
-        // invite re-checking.
-        SizedBox(
-          key: const ValueKey('home_hero_cta_box'),
-          width: double.infinity,
-          child: PebbleButton.secondary(
-            key: const ValueKey('home_hero_cta'),
-            onPressed: widget.onBegin,
-            icon: LucideIcons.rotateCcw,
-            label: 'Run again',
+          footer: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // The answer is the card (tap it to open the check). Run
+              // again is one clear tonal button, never the filled Start, so
+              // it doesn't invite re-checking.
+              SizedBox(
+                key: const ValueKey('home_hero_cta_box'),
+                width: double.infinity,
+                child: PebbleButton.secondary(
+                  key: const ValueKey('home_hero_cta'),
+                  onPressed: widget.onBegin,
+                  icon: LucideIcons.rotateCcw,
+                  label: 'Run again',
+                ),
+              ),
+              const SizedBox(height: PebbleSpacing.sm),
+              Center(
+                child: HomeRoutineMetaLine(
+                  key: const ValueKey('home_hero_meta_line'),
+                  stepCount: widget.steps.length,
+                  photoStepCount: photoStepCount,
+                  nextReminder: nextReminder,
+                  onTap: widget.onSettings,
+                ),
+              ),
+            ],
           ),
         ),
-        SizedBox(height: metrics.ctaMetaGap),
-        Center(child: metaLine),
         if (_showStyleCard)
           Padding(
             padding: const EdgeInsets.only(top: PebbleSpacing.lg),
@@ -2255,7 +1912,7 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
                 const <RoutineRun>[];
             if (earlier.isEmpty) return const SizedBox.shrink();
             return Padding(
-              padding: const EdgeInsets.only(top: PebbleSpacing.lg),
+              padding: const EdgeInsets.fromLTRB(4, PebbleSpacing.md, 4, 0),
               child: HomeEarlierChecks(
                 runs: earlier,
                 onOpen: (run) => Navigator.of(context).push(
@@ -2267,88 +1924,158 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
             );
           },
         ),
-        SizedBox(height: metrics.bottomInset),
       ],
     );
   }
 
   Widget _buildReady(
-    _HomeHeroMetrics metrics,
     HomeHeroState heroState,
-    Widget metaLine,
+    DateTime? nextReminder,
+    int photoStepCount,
   ) {
     final foundation = context.darkFoundation;
+    final type = PebbleType.of(context);
     final inProgress = heroState.kind == HomeHeroKind.inProgress;
-    return Column(
+    final steps = widget.steps;
+    final canExpand = steps.length > _homePreviewStepCount;
+    final shownCount = _isPreviewExpanded || !canExpand
+        ? steps.length
+        : _homePreviewStepCount;
+    final metaParts = <String>[
+      '${steps.length} ${steps.length == 1 ? 'step' : 'steps'}',
+      if (photoStepCount > 0)
+        '$photoStepCount ${photoStepCount == 1 ? 'photo' : 'photos'}',
+      if (nextReminder != null)
+        'Reminder ${formatCheckTime(context, nextReminder)}',
+    ];
+    final icon = RoutineIconCatalog.resolve(widget.routine.emoji).icon;
+
+    return Container(
       key: const ValueKey('home_hero_stage'),
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(height: metrics.topInset),
-        Text(
-          inProgress ? 'IN PROGRESS' : 'UP NEXT',
-          key: const ValueKey('home_hero_overline'),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 1.5,
-            color: context.readableAccentText(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+      decoration: BoxDecoration(
+        color: _homeCardFill(context),
+        borderRadius: _homeCardRadius,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              _RoutineStone(color: widget.accentColor, icon: icon),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  inProgress ? 'IN PROGRESS' : 'UP NEXT',
+                  key: const ValueKey('home_hero_overline'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: type.overline.copyWith(
+                    color: context.readableAccentText(
+                      widget.themeData.colorScheme.primary,
+                    ),
+                  ),
+                ),
+              ),
+              _HomeRoutineSettingsButton(onTap: widget.onSettings),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text.rich(
+            key: const ValueKey('home_hero_title'),
+            _titleSpan(
+              widget.routine.title,
               widget.themeData.colorScheme.primary,
             ),
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: PebbleFonts.serif(
+              fontSize: 32,
+              fontWeight: FontWeight.w400,
+              height: 1.06,
+              letterSpacing: -0.6,
+              color: foundation.textPrimary,
+            ),
           ),
-        ),
-        SizedBox(height: metrics.overlineTitleGap),
-        Text.rich(
-          key: const ValueKey('home_hero_title'),
-          _titleSpan(
-            widget.routine.title,
-            widget.themeData.colorScheme.primary,
+          const SizedBox(height: 6),
+          Text(
+            metaParts.join(' · '),
+            key: const ValueKey('home_hero_routine_meta'),
+            style: type.caption.copyWith(
+              color: context.readableSecondaryText,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
           ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: PebbleFonts.serif(
-            fontSize: metrics.titleFontSize,
-            fontWeight: FontWeight.w400,
-            height: 1.02,
-            letterSpacing: -1,
-            color: foundation.textPrimary,
+          const SizedBox(height: PebbleSpacing.md),
+          if (steps.isEmpty)
+            Text(
+              'No steps yet.',
+              style: type.body.copyWith(color: context.readableSecondaryText),
+            )
+          else
+            Column(
+              key: const ValueKey('home_hero_preview_list'),
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (var i = 0; i < shownCount; i++)
+                  _HomeHeroStepRow(
+                    step: steps[i],
+                    index: i + 1,
+                    isFirst: i == 0,
+                    onTap: () => widget.onPreviewStepTap(i),
+                  ),
+              ],
+            ),
+          if (canExpand)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                key: const ValueKey('home_hero_preview_toggle'),
+                onPressed: () => _setPreviewExpanded(!_isPreviewExpanded),
+                iconAlignment: IconAlignment.end,
+                icon: AnimatedRotation(
+                  turns: _isPreviewExpanded ? 0.5 : 0,
+                  duration: PebbleMotion.standard,
+                  child: const Icon(LucideIcons.chevronDown, size: 16),
+                ),
+                label: Text(
+                  _isPreviewExpanded
+                      ? 'Show fewer'
+                      : 'Show all ${steps.length} steps',
+                ),
+                style: TextButton.styleFrom(
+                  foregroundColor: context.readableAccentText(
+                    widget.themeData.colorScheme.primary,
+                  ),
+                  padding: const EdgeInsets.fromLTRB(28, 4, 8, 4),
+                  minimumSize: const Size(48, 40),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+            ),
+          const SizedBox(height: PebbleSpacing.md),
+          SizedBox(
+            key: const ValueKey('home_hero_cta_box'),
+            width: double.infinity,
+            height: 54,
+            child: PebbleButton.primary(
+              key: const ValueKey('home_hero_cta'),
+              onPressed: widget.onBegin,
+              icon: LucideIcons.play,
+              label: inProgress ? 'Resume' : 'Start',
+            ),
           ),
-        ),
-        SizedBox(height: metrics.titleMetaGap),
-        Center(child: metaLine),
-        SizedBox(height: metrics.titlePreviewGap - metrics.titleMetaGap - 40),
-        _HomeHeroPreviewCard(
-          steps: widget.steps,
-          height: metrics.previewHeight,
-          isExpanded: _isPreviewExpanded,
-          accentColor: widget.accentColor,
-          themeData: widget.themeData,
-          onToggleExpanded: () => _setPreviewExpanded(!_isPreviewExpanded),
-          onStepTap: widget.onPreviewStepTap,
-        ),
-        SizedBox(height: metrics.previewCtaGap),
-        SizedBox(
-          key: const ValueKey('home_hero_cta_box'),
-          width: double.infinity,
-          height: 58,
-          child: PebbleButton.primary(
-            key: const ValueKey('home_hero_cta'),
-            onPressed: widget.onBegin,
-            icon: LucideIcons.play,
-            label: inProgress ? 'Resume' : 'Start',
+          const SizedBox(height: PebbleSpacing.xs),
+          _HomeHeroMetaRow(
+            latestRun: heroState.latestRun,
+            session: heroState.session,
+            lastRunTextFor: _lastRunText,
           ),
-        ),
-        SizedBox(height: metrics.ctaMetaGap),
-        _HomeHeroMetaRow(
-          latestRun: heroState.latestRun,
-          session: heroState.session,
-          lastRunTextFor: _lastRunText,
-          steps: widget.steps.length,
-        ),
-        SizedBox(height: metrics.bottomInset),
-      ],
+        ],
+      ),
     );
   }
 
@@ -2389,124 +2116,99 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
   }
 }
 
-class _HomeHeroPreviewCard extends StatelessWidget {
-  const _HomeHeroPreviewCard({
-    required this.steps,
-    required this.height,
-    required this.isExpanded,
-    required this.accentColor,
-    required this.themeData,
-    required this.onToggleExpanded,
-    required this.onStepTap,
-  });
+const BorderRadius _homeCardRadius = BorderRadius.all(Radius.circular(28));
 
-  final List<RoutineStep> steps;
-  final double height;
-  final bool isExpanded;
-  final Color accentColor;
-  final ThemeData themeData;
-  final VoidCallback onToggleExpanded;
-  final ValueChanged<int> onStepTap;
+/// The Up next card's soft fill: a whisper of the text colour over the page.
+Color _homeCardFill(BuildContext context) {
+  final foundation = context.darkFoundation;
+  return Theme.of(context).brightness == Brightness.dark
+      ? foundation.surfaceLow
+      : Color.alphaBlend(
+          foundation.textPrimary.withValues(alpha: 0.045),
+          foundation.bgBase,
+        );
+}
+
+/// A routine's icon on a small stone in its colour, as in the routine list.
+class _RoutineStone extends StatelessWidget {
+  const _RoutineStone({required this.color, required this.icon});
+
+  final Color color;
+  final IconData icon;
+
+  static const double size = 36;
 
   @override
   Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
-    final compact = height < 170;
-    final effectiveHeight = isExpanded ? height : (compact ? 46.0 : 50.0);
-    final topPadding = isExpanded ? (compact ? 6.0 : 8.0) : 5.0;
-    final bottomPadding = isExpanded ? (compact ? 6.0 : 10.0) : 5.0;
     return Container(
-      key: const ValueKey('home_hero_preview_card'),
-      height: effectiveHeight,
-      padding: EdgeInsets.fromLTRB(14, topPadding, 8, bottomPadding),
-      decoration: BoxDecoration(
-        color: foundation.textPrimary.withValues(alpha: 0.05),
-        borderRadius: PebbleRadius.mdAll,
-      ),
-      child: Column(
-        children: [
-          _HomeHeroPreviewHeader(
-            compact: compact,
-            isExpanded: isExpanded,
-            accentColor: accentColor,
-            onToggleExpanded: onToggleExpanded,
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: ShapeDecoration(
+        color: color,
+        // Slightly uneven corners, so it reads as a pebble, not a button.
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.elliptical(16, 18),
+            topRight: Radius.elliptical(20, 16),
+            bottomRight: Radius.elliptical(17, 19),
+            bottomLeft: Radius.elliptical(19, 17),
           ),
-          if (isExpanded) ...[
-            SizedBox(height: compact ? 4 : 6),
-            Expanded(
-              child: _HomeHeroStepList(
-                steps: steps,
-                accentColor: accentColor,
-                themeData: themeData,
-                onStepTap: onStepTap,
-              ),
-            ),
-          ],
-        ],
+        ),
       ),
+      child: Icon(icon, size: 17, color: context.darkFoundation.bgBase),
     );
   }
 }
 
-class _HomeHeroPreviewHeader extends StatelessWidget {
-  const _HomeHeroPreviewHeader({
-    required this.compact,
-    required this.isExpanded,
-    required this.accentColor,
-    required this.onToggleExpanded,
-  });
+/// The routine settings control in the Up next card: an outlined pill with
+/// the sliders icon, as elsewhere on Home.
+class _HomeRoutineSettingsButton extends StatelessWidget {
+  const _HomeRoutineSettingsButton({required this.onTap});
 
-  final bool compact;
-  final bool isExpanded;
-  final Color accentColor;
-  final VoidCallback onToggleExpanded;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
-    return SizedBox(
-      key: const ValueKey('home_hero_preview_header'),
-      height: compact ? 34 : 38,
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              'Steps',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: PebbleType.of(
-                context,
-              ).caption.copyWith(color: context.readableSecondaryText),
-            ),
+    final color = context.readableSecondaryText;
+    return Semantics(
+      button: true,
+      label: 'Routine settings',
+      excludeSemantics: true,
+      child: Tooltip(
+        message: 'Routine settings',
+        excludeFromSemantics: true,
+        child: Material(
+          color: foundation.bgBase,
+          shape: StadiumBorder(
+            side: BorderSide(color: Theme.of(context).colorScheme.outline),
           ),
-          Semantics(
-            label: isExpanded ? 'Hide steps' : 'Show steps',
-            button: true,
-            child: SizedBox(
-              key: const ValueKey('home_hero_preview_toggle'),
-              width: compact ? 32 : 36,
-              height: compact ? 32 : 36,
-              child: IconButton(
-                onPressed: onToggleExpanded,
-                tooltip: isExpanded ? 'Hide steps' : 'Show steps',
-                icon: AnimatedRotation(
-                  turns: isExpanded ? 0.5 : 0,
-                  duration: PebbleMotion.standard,
-                  child: Icon(
-                    LucideIcons.chevronDown,
-                    size: 16,
-                    color: isExpanded ? accentColor : foundation.textSecondary,
-                  ),
-                ),
-                style: IconButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  minimumSize: Size(compact ? 32 : 36, compact ? 32 : 36),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          child: InkWell(
+            key: const ValueKey('home_hero_settings'),
+            customBorder: const StadiumBorder(),
+            onTap: onTap,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 40, minWidth: 48),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(LucideIcons.slidersHorizontal, size: 15, color: color),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Settings',
+                      style: PebbleType.of(
+                        context,
+                      ).caption.copyWith(color: color),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -2516,180 +2218,50 @@ class _HomeHeroMetaRow extends StatelessWidget {
   const _HomeHeroMetaRow({
     required this.latestRun,
     required this.lastRunTextFor,
-    required this.steps,
     this.session,
   });
 
   final RoutineRun? latestRun;
   final RoutineSessionResumeSummary? session;
   final String Function(DateTime finishedAt) lastRunTextFor;
-  final int steps;
 
   @override
   Widget build(BuildContext context) {
-    final style = TextStyle(
-      fontSize: 11,
-      fontWeight: FontWeight.w400,
-      letterSpacing: 0.1,
-      color: context.readableSecondaryText,
-    );
+    final run = latestRun;
+    final saved = session;
+    final String text;
+    if (saved != null) {
+      text =
+          'Saved at step ${saved.displayStepNumber} of '
+          '${saved.totalStepCount}';
+    } else if (run == null) {
+      text = 'Not checked yet';
+    } else {
+      // What the last run actually recorded, not the routine's current
+      // step count: a skipped step is never shown as done.
+      final tally = RunStepTally.fromRun(run);
+      text = [
+        lastRunTextFor(run.finishedAt),
+        if (tally.total > 0) tally.summary,
+      ].join(' · ');
+    }
 
     return ConstrainedBox(
       key: const ValueKey('home_hero_meta_row'),
-      constraints: const BoxConstraints(minHeight: 26),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Builder(
-            builder: (context) {
-              final run = latestRun;
-              final saved = session;
-              if (saved != null) {
-                return Flexible(
-                  child: Text(
-                    'Saved at step ${saved.displayStepNumber} of '
-                    '${saved.totalStepCount}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: style,
-                  ),
-                );
-              }
-              if (run == null) {
-                return Flexible(
-                  child: Text(
-                    '$steps ${steps == 1 ? 'step' : 'steps'} ready',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: style,
-                  ),
-                );
-              }
-              // What the last run actually recorded, not the routine's
-              // current step count: a skipped step is never shown as done.
-              final tally = RunStepTally.fromRun(run);
-              return Flexible(
-                child: Row(
-                  key: const ValueKey('home_hero_last_run_meta'),
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        lastRunTextFor(run.finishedAt),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: style,
-                      ),
-                    ),
-                    if (tally.total > 0) ...[
-                      Container(
-                        width: 3,
-                        height: 3,
-                        margin: const EdgeInsets.symmetric(horizontal: 8),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: style.color!.withValues(alpha: 0.6),
-                        ),
-                      ),
-                      Flexible(
-                        child: Text(
-                          tally.summary,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: style,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HomeHeroStepList extends StatefulWidget {
-  const _HomeHeroStepList({
-    required this.steps,
-    required this.accentColor,
-    required this.themeData,
-    required this.onStepTap,
-  });
-
-  final List<RoutineStep> steps;
-  final Color accentColor;
-  final ThemeData themeData;
-  final ValueChanged<int> onStepTap;
-
-  @override
-  State<_HomeHeroStepList> createState() => _HomeHeroStepListState();
-}
-
-class _HomeHeroStepListState extends State<_HomeHeroStepList> {
-  late final ScrollController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = ScrollController();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (widget.steps.isEmpty) {
-      final foundation = context.darkFoundation;
-      return Align(
-        alignment: Alignment.topLeft,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
-          child: Text(
-            'No steps yet.',
-            style: widget.themeData.textTheme.bodyMedium?.copyWith(
-              color: foundation.textSecondary,
-              height: 1.35,
-            ),
-          ),
+      constraints: const BoxConstraints(minHeight: 24),
+      child: Center(
+        child: Text(
+          text,
+          key: run != null && saved == null
+              ? const ValueKey('home_hero_last_run_meta')
+              : null,
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: PebbleType.of(
+            context,
+          ).caption.copyWith(color: context.readableSecondaryText),
         ),
-      );
-    }
-
-    return ShaderMask(
-      shaderCallback: (bounds) {
-        return LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Colors.white, Colors.white.withValues(alpha: 0.0)],
-          stops: const [0.6, 1.0],
-        ).createShader(bounds);
-      },
-      blendMode: BlendMode.dstIn,
-      child: ListView.separated(
-        key: const ValueKey('home_hero_preview_list'),
-        controller: _controller,
-        primary: false,
-        shrinkWrap: false,
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.only(bottom: 8),
-        itemCount: widget.steps.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 8),
-        itemBuilder: (context, index) {
-          return _HomeHeroStepRow(
-            step: widget.steps[index],
-            index: index + 1,
-            accentColor: widget.accentColor,
-            themeData: widget.themeData,
-            onTap: () => widget.onStepTap(index),
-          );
-        },
       ),
     );
   }
@@ -2699,233 +2271,88 @@ class _HomeHeroStepRow extends StatelessWidget {
   const _HomeHeroStepRow({
     required this.step,
     required this.index,
-    required this.accentColor,
-    required this.themeData,
+    required this.isFirst,
     required this.onTap,
   });
 
   final RoutineStep step;
   final int index;
-  final Color accentColor;
-  final ThemeData themeData;
+  final bool isFirst;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
+    final secondary = context.readableSecondaryText;
     final label = step.when(
       check: (label, _, __, ___, ____, _____, ______) => label,
       info: (message) => message,
       timer: (duration) => 'Timer (${duration}s)',
     );
 
-    // Multi-accent themes (Sandstone) colour each step badge from a small
-    // rotating palette; single-accent themes keep the quiet grey badge.
+    // Multi-accent themes (Sandstone) colour each step number from a small
+    // rotating palette; single-accent themes keep it grey.
     final themeX = Theme.of(context).extension<PebbleThemeX>();
-    final usesCategoryBadges =
-        themeX != null && themeX.categoryAccents.length > 1;
-    final categoryColor = usesCategoryBadges
+    final categoryColor = themeX != null && themeX.categoryAccents.length > 1
         ? themeX.categoryAccentAt(index - 1)
         : null;
 
-    final semanticsLabel = 'Edit step: $label';
-
     return Semantics(
       button: true,
-      label: semanticsLabel,
-      child: Tooltip(
-        message: semanticsLabel,
-        child: Material(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(14, 11, 14, 11),
-              decoration: BoxDecoration(
-                color: foundation.surfaceLow,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 20,
-                    height: 20,
-                    margin: const EdgeInsets.only(top: 1),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color:
-                          categoryColor ??
-                          foundation.textPrimary.withValues(alpha: 0.10),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text(
-                      '$index',
-                      style: TextStyle(
-                        color: categoryColor != null
-                            ? context.onActionAccent
-                            : context.readableSecondaryText,
-                        fontSize: 10,
-                        fontWeight: categoryColor != null
-                            ? FontWeight.w700
-                            : FontWeight.w600,
-                      ),
-                    ),
+      label: 'Edit step: $label',
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: PebbleRadius.xsAll,
+        child: Container(
+          padding: EdgeInsets.only(top: isFirst ? 2 : 10, bottom: 10),
+          decoration: BoxDecoration(
+            border: isFirst
+                ? null
+                : Border(top: BorderSide(color: foundation.borderSubtle)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 28,
+                child: Text(
+                  '$index',
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.6,
+                    fontWeight: categoryColor != null
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                    color: categoryColor ?? secondary,
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      label,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                        height: 1.45,
-                        color: context.readableSecondaryText,
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w400,
+                    height: 1.4,
+                    color: secondary,
+                  ),
+                ),
+              ),
+              if (step.hasPhotoRequirement) ...[
+                const SizedBox(width: PebbleSpacing.xs),
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Icon(LucideIcons.camera, size: 14, color: secondary),
+                ),
+              ],
+            ],
           ),
         ),
       ),
-    );
-  }
-}
-
-class _HomeHeroMetrics {
-  const _HomeHeroMetrics({
-    required this.compact,
-    required this.titleMetaGap,
-    required this.topInset,
-    required this.overlineTitleGap,
-    required this.titlePreviewGap,
-    required this.previewCtaGap,
-    required this.ctaMetaGap,
-    required this.bottomInset,
-    required this.titleFontSize,
-    required this.previewHeight,
-    required this.effectiveTextScale,
-  });
-
-  final bool compact;
-
-  /// Title to the "5 steps · …" meta line.
-  final double titleMetaGap;
-  final double topInset;
-  final double overlineTitleGap;
-  final double titlePreviewGap;
-  final double previewCtaGap;
-  final double ctaMetaGap;
-  final double bottomInset;
-  final double titleFontSize;
-  final double previewHeight;
-  final double effectiveTextScale;
-
-  static _HomeHeroMetrics resolve({
-    required double height,
-    required double textScale,
-  }) {
-    final tightForText = textScale >= 1.7;
-    final tight = height < 440 || tightForText;
-    final compact = tight || height < 540 || textScale >= 1.3;
-    final effectiveScale = textScale.clamp(1.0, tight ? 1.04 : 1.28);
-    final baseTopInset = tight
-        ? 10.0
-        : compact
-        ? 20.0
-        : 30.0;
-    const heroLift = 0.0;
-    final overlineTitleGap = tightForText ? 8.0 : 10.0;
-    final previewExtension = tightForText ? 0.0 : 15.0;
-    final titleMetaGap = tight ? 2.0 : 4.0;
-    // Title → meta line (40 high, with its own air) → preview card.
-    final titlePreviewGap =
-        titleMetaGap +
-        40 +
-        (tight
-            ? 2.0
-            : compact
-            ? 4.0
-            : 6.0);
-    final previewCtaGap = tight
-        ? 10.0
-        : compact
-        ? 18.0
-        : 20.0;
-    final ctaMetaGap = tight
-        ? 8.0
-        : compact
-        ? 12.0
-        : 14.0;
-    final bottomInset = tight
-        ? 0.0
-        : compact
-        ? 12.0
-        : 16.0;
-    final titleFontSize = tight
-        ? 34.0
-        : compact
-        ? 44.0
-        : 46.0;
-    final targetPreviewHeight =
-        (tight
-            ? 90.0
-            : compact
-            ? 150.0
-            : 196.0) +
-        previewExtension;
-    final baseFixedHeight =
-        baseTopInset +
-        (13 * effectiveScale) +
-        overlineTitleGap +
-        (titleFontSize * 1.02 * 2 * effectiveScale) +
-        titlePreviewGap +
-        targetPreviewHeight +
-        previewCtaGap +
-        58 +
-        ctaMetaGap +
-        26 +
-        bottomInset;
-    final slack = height - baseFixedHeight;
-    final dropCap = tightForText
-        ? 0.0
-        : tight
-        ? 12.0
-        : compact
-        ? 34.0
-        : 58.0;
-    final verticalDrop = slack <= 0
-        ? 0.0
-        : (slack * 0.68).clamp(0.0, dropCap).toDouble();
-    final topInset = math.max(0.0, baseTopInset + verticalDrop - heroLift);
-    final fixedHeight =
-        baseFixedHeight - baseTopInset - targetPreviewHeight + topInset;
-    final previewMinHeight = tight ? 52.0 : 52.0;
-    final remainingHeight = height - fixedHeight;
-    final previewHeight = remainingHeight <= previewMinHeight
-        ? remainingHeight.clamp(0.0, targetPreviewHeight).toDouble()
-        : remainingHeight
-              .clamp(previewMinHeight, targetPreviewHeight)
-              .toDouble();
-
-    return _HomeHeroMetrics(
-      compact: compact,
-      titleMetaGap: titleMetaGap,
-      topInset: topInset,
-      overlineTitleGap: overlineTitleGap,
-      titlePreviewGap: titlePreviewGap,
-      previewCtaGap: previewCtaGap,
-      ctaMetaGap: ctaMetaGap,
-      bottomInset: bottomInset,
-      titleFontSize: titleFontSize,
-      previewHeight: previewHeight,
-      effectiveTextScale: effectiveScale,
     );
   }
 }
