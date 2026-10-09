@@ -306,14 +306,14 @@ Deno.test('AI photo descriptions: emailed only with consent, labelled as AI, fil
 
   // No AI consent on the server: descriptions are dropped, the email still goes.
   assert((await t.finish('run-1', { descriptions })).body.sent === true, 'sent without descriptions');
-  assert(!t.sent[1].text.includes('Written by AI') && !t.sent[1].text.includes('white door'), 'not included without consent');
+  assert(!t.sent[1].text.includes('AI descriptions') && !t.sent[1].text.includes('white door'), 'not included without consent');
 
   t.store.aiConsent.add(SENDER.id);
   assert((await t.finish('run-2', { descriptions })).body.sent === true, 'sent');
   const mail = t.sent[2];
-  assert(mail.text.includes("Written by AI from jamie@example.com's photos. The descriptions can be wrong."), 'AI line in text');
-  assert(mail.html.includes('Written by AI from jamie@example.com&#39;s photos.'), 'AI line in html');
-  assert(mail.text.indexOf('Written by AI') < mail.text.indexOf('Photo 1: A white door'), 'descriptions sit under the AI line');
+  assert(mail.text.includes('AI descriptions (can be wrong)'), 'AI line in text');
+  assert(mail.html.includes('AI descriptions') && mail.html.includes('Can be wrong'), 'AI line in html');
+  assert(mail.text.indexOf('AI descriptions') < mail.text.indexOf('Photo 1: A white door'), 'descriptions sit under the AI line');
   assert(!mail.text.includes('switched off') && !mail.html.includes('switched off'), 'verdict dropped');
   assert(mail.html.includes('&lt;b&gt;Four&lt;/b&gt;') && !mail.html.includes('<b>Four</b>'), 'escaped in html');
   assert(mail.text.includes('Photo 4: four') && !mail.text.includes('five') && !mail.text.includes('six'), 'first five only');
@@ -321,5 +321,5 @@ Deno.test('AI photo descriptions: emailed only with consent, labelled as AI, fil
 
   // Without the field nothing changes.
   await t.finish('run-3');
-  assert(!t.sent[3].text.includes('Photo descriptions'), 'no section without descriptions');
+  assert(!t.sent[3].text.includes('AI descriptions'), 'no section without descriptions');
 });
