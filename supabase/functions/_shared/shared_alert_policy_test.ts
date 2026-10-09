@@ -147,7 +147,7 @@ Deno.test('completion email hides the routine name and steps when asked', () => 
     stopUrl: 'https://p.example/s', blockUrl: 'https://p.example/b', oneClickUrl: 'https://f.example/o',
   });
   assert(!email.text.includes('Routine:') && !email.text.includes('Steps:'), 'rows hidden');
-  assert(email.text.includes('jamie@example.com completed a routine'), 'generic sentence');
+  assert(email.text.includes('Routine completed') && email.text.includes('Completed by jamie@example.com'), 'generic heading');
 });
 
 Deno.test('step list: optional, cleaned, never fails the request', () => {
@@ -211,7 +211,7 @@ Deno.test('completion email lists steps with times, and hides them when asked', 
   assert(shown.text.includes('✓ Front <door>  08:01') && shown.text.includes('– Hob off  Skipped'), 'plain text rows');
   assert(shown.text.includes('Steps: 3 of 4, 1 skipped'), 'summary');
   assert(shown.html.includes('Keys in the &lt;bowl&gt;') && !shown.html.includes('<bowl>'), 'step note escaped');
-  assert(shown.text.includes('   Note: Keys in the <bowl>'), 'plain text note');
+  assert(shown.text.includes('   Keys in the <bowl>'), 'plain text note');
   assert(shown.html.includes('Friday 3 October 2026'), 'hero day');
   const hidden = buildCompletionEmail({ ...common, steps: null });
   assert(!hidden.html.includes('Front') && !hidden.text.includes('Front') && !hidden.text.includes('Steps:'), 'steps hidden');
