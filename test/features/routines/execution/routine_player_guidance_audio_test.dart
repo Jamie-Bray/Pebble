@@ -13,6 +13,7 @@ import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/core/ui/pebble_photo_gallery_viewer.dart';
+import 'package:pebble_routines/core/ui/pebble_buttons.dart';
 import 'package:pebble_routines/features/routines/composer/data/guidance_audio_storage.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/repositories/routine_session_repository.dart';
@@ -308,6 +309,48 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
 
+    expect(
+      repository.completedSession?.stepStates.single.note,
+      'On the kitchen table',
+    );
+  });
+
+  testWidgets('checking a step waits until its note has finished saving', (
+    tester,
+  ) async {
+    final repository = _FakeRoutineSessionRepository();
+    await pumpPlayer(
+      tester,
+      const RoutineStep.check(label: 'Straighteners off'),
+      repository,
+    );
+    final saveGate = Completer<void>();
+    repository.saveGate = saveGate;
+
+    await tester.tap(find.byKey(const ValueKey('player-note-tool')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('player-note-field')),
+      'On the kitchen table',
+    );
+    await tester.tap(find.byKey(const ValueKey('player-note-save')));
+    await tester.pump();
+
+    expect(find.text('Saving note'), findsOneWidget);
+    final primary = tester.widget<PebbleButton>(
+      find.ancestor(
+        of: find.text('Saving note'),
+        matching: find.byType(PebbleButton),
+      ),
+    );
+    expect(primary.onPressed, isNull);
+    expect(repository.completedSession, isNull);
+
+    saveGate.complete();
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Finish routine'));
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
     expect(
       repository.completedSession?.stepStates.single.note,
       'On the kitchen table',
@@ -1735,6 +1778,7 @@ class _FakePhotoPicker implements RoutinePlayerPhotoPicker {
 class _FakeRoutineSessionRepository implements RoutineSessionRepository {
   RoutineSession? session;
   RoutineSession? completedSession;
+  Completer<void>? saveGate;
 
   @override
   Future<void> saveProofDescription({
@@ -1783,6 +1827,7 @@ class _FakeRoutineSessionRepository implements RoutineSessionRepository {
 
   @override
   Future<RoutineSession> saveSessionSnapshot(RoutineSession session) async {
+    await saveGate?.future;
     this.session = session;
     return session;
   }

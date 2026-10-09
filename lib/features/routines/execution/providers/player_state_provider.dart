@@ -42,6 +42,7 @@ enum RoutinePlayerProofAttachResult { attached, limitReached, notAttached }
 enum RoutinePlayerOperation {
   none,
   savingStep,
+  savingNote,
   savingPhoto,
   completing,
   discarding,
@@ -317,6 +318,8 @@ class RoutinePlayerUiState {
         return 'Saving photo';
       case RoutinePlayerOperation.savingStep:
         return 'Saving';
+      case RoutinePlayerOperation.savingNote:
+        return 'Saving note';
       case RoutinePlayerOperation.completing:
         return 'Finishing';
       case RoutinePlayerOperation.discarding:
@@ -906,18 +909,23 @@ class RoutinePlayerController extends StateNotifier<RoutinePlayerUiState> {
     if (session == null || stepState == null || !session.isActive) return;
     final note = cleanStepNote(text);
     if (note == stepState.note) return;
-    _mutationVersion += 1;
-    final updatedStates = List<RoutineSessionStepState>.from(
-      session.stepStates,
+    await _runForeground<void>(
+      RoutinePlayerOperation.savingNote,
+      fallback: null,
+      task: () async {
+        final updatedStates = List<RoutineSessionStepState>.from(
+          session.stepStates,
+        );
+        updatedStates[session.currentStepIndex] = note == null
+            ? stepState.copyWith(clearNote: true)
+            : stepState.copyWith(note: note);
+        try {
+          await _persistSession(session.copyWith(stepStates: updatedStates));
+        } catch (_) {
+          // _persistSession has already shown "Couldn't save your progress".
+        }
+      },
     );
-    updatedStates[session.currentStepIndex] = note == null
-        ? stepState.copyWith(clearNote: true)
-        : stepState.copyWith(note: note);
-    try {
-      await _persistSession(session.copyWith(stepStates: updatedStates));
-    } catch (_) {
-      // _persistSession has already shown "Couldn't save your progress".
-    }
   }
 
   Future<void> removeProof(String proofId) {
