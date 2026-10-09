@@ -27,6 +27,7 @@ import 'package:pebble_routines/features/routines/list/providers/routine_list_pr
 import 'package:pebble_routines/features/routines/list/ui/home_hero_widgets.dart';
 import 'package:pebble_routines/features/routines/list/ui/routine_list_screen.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
+import 'package:pebble_routines/features/subscription/providers/subscription_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../composer/fake_routine_composer_draft_repository.dart';
@@ -185,6 +186,20 @@ void main() {
     expect(find.text('Yesterday'), findsOneWidget);
     expect(find.text('Not checked yet'), findsWidgets);
     expect(find.text('Hold a routine to reorder'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Free does not show a check hidden from History', (tester) async {
+    final oldRun = DateTime.now().subtract(const Duration(days: 4));
+    await _pumpHome(
+      tester,
+      surfaceSize: const Size(390, 1400),
+      routines: [_routine(id: 1, title: 'Front door')],
+      runs: [_run(routineId: 1, finishedAt: oldRun)],
+      historyWindow: const Duration(hours: 48),
+    );
+
+    expect(find.text('Not checked yet'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 
@@ -1155,6 +1170,7 @@ List<Override> _homeOverrides({
   RoutineRun? latestRun,
   DateTime Function()? clock,
   DateTime? nextReminder,
+  Duration? historyWindow,
 }) {
   final repository = routineRepository ?? _FakeRoutineRepository(routines);
   return [
@@ -1169,6 +1185,8 @@ List<Override> _homeOverrides({
     routineListProvider.overrideWith((ref) => Stream.value(routines)),
     routineRepositoryProvider.overrideWithValue(repository),
     storedRoutineRunsProvider.overrideWith((ref) => Stream.value(runs)),
+    if (historyWindow != null)
+      accountHistoryRetentionProvider.overrideWithValue(historyWindow),
     activeRoutineSessionsProvider.overrideWith(
       (ref) => Stream.value(resumeSessions),
     ),
@@ -1211,6 +1229,7 @@ Future<void> _pumpHome(
   EdgeInsets viewPadding = EdgeInsets.zero,
   DateTime Function()? clock,
   DateTime? nextReminder,
+  Duration? historyWindow,
 }) async {
   if (surfaceSize != null) {
     tester.view.physicalSize = surfaceSize;
@@ -1244,6 +1263,7 @@ Future<void> _pumpHome(
         latestRun: latestRun,
         clock: clock,
         nextReminder: nextReminder,
+        historyWindow: historyWindow,
       ),
       child: MaterialApp(theme: AppTheme.fromId(ThemeId.highNoon), home: home),
     ),

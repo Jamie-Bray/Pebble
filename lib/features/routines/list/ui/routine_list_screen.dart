@@ -516,7 +516,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
 
   /// The newest kept run of each routine, for the "last checked" column.
   Map<int, RoutineRun> _latestRunByRoutine() {
-    final runs = ref.watch(storedRoutineRunsProvider).valueOrNull ?? const [];
+    final runs = ref.watch(routineHistoryVmProvider).valueOrNull ?? const [];
     final latest = <int, RoutineRun>{};
     for (final run in runs) {
       final id = int.tryParse(run.routineId);
