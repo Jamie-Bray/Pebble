@@ -383,7 +383,7 @@ The Anthropic key was printed into a local agent session log by a CLI parse
 error on `.env.local`; rotate it and update the secret. Stop switch if needed:
 `supabase secrets set AI_PHOTO_ENABLED=false`.
 
-## Proposed (step notes in completion emails, 8 Oct 2026; not yet agreed or done)
+## Step notes in completion emails (Jamie approved on 9 Oct 2026; done)
 
 The app now sends an optional `note` on each step in the completion-email
 request (the note a person writes on a step in the player, at most 140
@@ -395,6 +395,13 @@ so nothing breaks before this deploy: emails simply leave notes out.
   format and bidi characters removed, cut to 140) and show it in small italic
   under its step. Notes go only where the step list goes (the contact's step
   setting), and are never stored.
-- **Deploy?** Yes, once Jamie approves: redeploy `send-routine-completion-alert`
-  only. No migration, no secret, no `verify_jwt` change.
+- **Deploy?** Redeploy `send-routine-completion-alert` only. No migration, no
+  secret, no `verify_jwt` change.
+- **Done, 9 Oct 2026 ~01:15 UTC (Claude, Jamie approved in the project thread):**
+  `send-routine-completion-alert` version 21 deployed from main `fa0f01f` through
+  the Supabase MCP, `verify_jwt = true`. Before the deploy, version 20 differed
+  from main only by the note changes. After it, all seven files were fetched
+  back and match main exactly (checked for the `\u` double-decoding problem).
+  Not yet observed: a real completion email that carries a note.
+  Rollback: redeploy the version-20 files (main before PR #46).
 - **Tests:** `deno test _shared/shared_alert_policy_test.ts _shared/shared_alert_flow_test.ts` (30 passed).
