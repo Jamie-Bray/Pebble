@@ -1249,7 +1249,7 @@ void main() {
       await env.settle(30);
       await env.realWait(2);
       await env.settle(20);
-      await env.shot('first_routine_5_editor');
+      await env.shot('first_routine_5_home');
     },
   );
   _capture('home empty with AI', seed: _Seed.empty, routineAi: true, (
