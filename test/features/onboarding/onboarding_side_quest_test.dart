@@ -30,7 +30,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets(
-    'welcome side quest continues to the practice run without completing setup',
+    'welcome side quest continues to how a check works without completing setup',
     (WidgetTester tester) async {
       SharedPreferences.setMockInitialValues({
         'has_completed_onboarding': false,
@@ -66,20 +66,18 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
       await tester.pumpAndSettle();
 
-      // No theme step: straight to the practice run.
-      expect(find.text('Try a quick check'), findsOneWidget);
-      expect(find.text('Start the practice run'), findsOneWidget);
-      expect(find.text('Hair tools unplugged'), findsOneWidget);
+      // No theme step and no practice run: one example step with circles.
+      expect(find.text('One step at a time'), findsOneWidget);
+      expect(find.text('1 of 3'), findsOneWidget);
+      expect(find.text('Stove and oven dials off'), findsOneWidget);
       expect(prefs.getBool('has_completed_onboarding'), isFalse);
     },
   );
 
-  testWidgets('skipping the practice run goes to "Time to build your own"', (
+  testWidgets('three taps through the circles go to "Time to build your own"', (
     WidgetTester tester,
   ) async {
-    SharedPreferences.setMockInitialValues({
-      'has_completed_onboarding': false,
-    });
+    SharedPreferences.setMockInitialValues({'has_completed_onboarding': false});
     final prefs = await SharedPreferences.getInstance();
     final router = GoRouter(
       initialLocation: '/onboarding',
@@ -111,7 +109,57 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Skip the practice'));
+    expect(find.text('One step at a time'), findsOneWidget);
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+    expect(find.text('Photo steps'), findsOneWidget);
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+    expect(find.text('Tick it off'), findsOneWidget);
+    expect(prefs.getBool('has_completed_onboarding'), isFalse);
+    await tester.tap(find.text('Build your first routine'));
+    await tester.pumpAndSettle();
+
+    expect(prefs.getBool('has_completed_onboarding'), isTrue);
+    expect(find.text('Time to build\nyour own.'), findsOneWidget);
+  });
+
+  testWidgets('skipping the circles goes to "Time to build your own"', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({'has_completed_onboarding': false});
+    final prefs = await SharedPreferences.getInstance();
+    final router = GoRouter(
+      initialLocation: '/onboarding',
+      routes: [
+        GoRoute(
+          path: '/onboarding',
+          builder: (context, state) => const OnboardingScreen(initialPage: 1),
+        ),
+        GoRoute(
+          path: '/first-routine',
+          builder: (context, state) => const FirstRoutineScreen(),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          routineAiClientProvider.overrideWithValue(
+            _FakeAi(const RoutineAiStatus(enabled: true)),
+          ),
+        ],
+        child: MaterialApp.router(
+          theme: AppTheme.fromId(ThemeId.highNoon),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Skip'));
     await tester.pumpAndSettle();
 
     expect(prefs.getBool('has_completed_onboarding'), isTrue);

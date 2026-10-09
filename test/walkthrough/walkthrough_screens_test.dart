@@ -1206,9 +1206,13 @@ void _onboardingSet(
       await env.scrollDown(400);
       await env.shot('${prefix}onboarding_1_welcome_scrolled');
       await _onboardingPage(env, 1);
-      await env.shot('${prefix}onboarding_2_practice_preview');
-      await env.scrollDown(500);
-      await env.shot('${prefix}onboarding_2_practice_preview_scrolled');
+      await env.shot('${prefix}onboarding_2_how_it_works_1');
+      await env.tapText('Next');
+      await env.settle(20);
+      await env.shot('${prefix}onboarding_2_how_it_works_2');
+      await env.tapText('Next');
+      await env.settle(20);
+      await env.shot('${prefix}onboarding_2_how_it_works_3');
     },
   );
 }
@@ -1218,38 +1222,6 @@ void main() {
   _onboardingSet('');
   _onboardingSet('', device: _small);
   _onboardingSet('a11y2x_', textScale: 2.0);
-  _capture(
-    'onboarding practice run',
-    account: _Account.signedInPremium,
-    extraPrefs: const {
-      'pebble.tour.hints_enabled': true,
-      'pebble.tour.practice_routine_id': 1,
-      'has_seen_camera_rationale': true,
-    },
-    (env) async {
-      await _openPlayer(env, 1);
-      await env.shot('practice_1_first_step');
-      for (var i = 0; i < 3; i++) {
-        await _tapPrimary(env);
-        await env.realWait(2);
-      }
-      await env.shot('practice_2_photo_step');
-      await _tapPrimary(env);
-      await env.realWait(12);
-      await _tapPrimary(env);
-      await env.realWait(2);
-      await _tapPrimary(env);
-      await env.realWait(10);
-      await env.settle(20);
-      await env.realWait(4);
-      await env.shot('practice_3_complete');
-      await env.tapText('Build your first routine');
-      await env.settle(20);
-      await env.realWait(2);
-      await env.shot('practice_4_first_routine');
-    },
-    routineAi: true,
-  );
   _capture(
     'first routine with AI',
     seed: _Seed.empty,

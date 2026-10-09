@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,57 +9,15 @@ import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:pebble_routines/core/ui/pebble_buttons.dart';
 import 'package:pebble_routines/core/ui/pebble_cairn.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
-import 'package:pebble_routines/core/database/local_db.dart';
-import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/navigation/app_shell.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/core/ui/readable_colors.dart';
-import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/features/onboarding/data/onboarding_tour.dart';
+import 'package:pebble_routines/features/onboarding/ui/how_it_works_page.dart';
 import 'package:pebble_routines/features/routine_ai/routine_ai_service.dart';
-import 'package:pebble_routines/features/routines/data/models/routine_icon_catalog.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_controller.dart';
-
-class _StarterStep {
-  const _StarterStep(this.label, {this.requiresPhoto = false});
-
-  final String label;
-  final bool requiresPhoto;
-}
-
-class _StarterRoutine {
-  const _StarterRoutine({
-    required this.cardTitle,
-    required this.subtitle,
-    required this.previewTitle,
-    required this.icon,
-    required this.steps,
-  });
-
-  final String cardTitle;
-  final String subtitle;
-  final String previewTitle;
-  final IconData icon;
-  final List<_StarterStep> steps;
-}
-
-/// The practice run: a short departure check, tried in the real player.
-/// It is removed afterwards (the check stays in History), so it never takes
-/// one of the free plan's routines.
-const _practiceRoutine = _StarterRoutine(
-  cardTitle: 'Quick departure check',
-  subtitle: 'Hair tools, the stove, the windows and the front door.',
-  previewTitle: 'Quick departure check',
-  icon: LucideIcons.house,
-  steps: [
-    _StarterStep('Hair tools unplugged', requiresPhoto: true),
-    _StarterStep('Stove and oven dials off', requiresPhoto: true),
-    _StarterStep('Windows latched'),
-    _StarterStep('Front door locked', requiresPhoto: true),
-  ],
-);
 
 const _defaultOnboardingThemeId = ThemeId.highNoon;
 
@@ -83,7 +40,6 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   late final PageController _pageController;
   late int _currentPage;
-  bool _isCreatingStarter = false;
   late ThemeId _selectedThemeId;
 
   @override
@@ -91,7 +47,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     super.initState();
     _currentPage = widget.initialPage.clamp(0, 1).toInt();
     _pageController = PageController(initialPage: _currentPage);
-    // Ask early, so "Build it with AI" is ready after the practice run.
+    // Ask early, so "Build it with AI" is ready after the explainer.
     Future.microtask(() => ref.read(routineAiStatusProvider));
     if (_currentPage == 0 && !widget.replay) {
       _selectedThemeId = _defaultOnboardingThemeId;
@@ -145,70 +101,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     GoRouter.of(context).go('/');
   }
 
-  /// Skipping the practice run: straight to "Time to build your first
+  /// After the explainer, or skipping it: "Time to build your first
   /// routine".
   Future<void> _completeToFirstRoutine() async {
     await _markOnboardingComplete();
     if (!mounted) return;
     GoRouter.of(context).go('/first-routine');
-  }
-
-  Future<void> _useStarterRoutine() async {
-    if (_isCreatingStarter) return;
-
-    setState(() => _isCreatingStarter = true);
-
-    try {
-      final routine = await _createStarterRoutine(_practiceRoutine);
-      await _markOnboardingComplete();
-      final prefs = await SharedPreferences.getInstance();
-      await OnboardingTour(prefs).startPracticeRun(routine.id);
-
-      if (!mounted) return;
-      ref.read(navIndexProvider.notifier).state = 0;
-      // The practice run: the real player on the routine just picked.
-      GoRouter.of(context).go('/play/${routine.id}');
-    } finally {
-      if (mounted) {
-        setState(() => _isCreatingStarter = false);
-      }
-    }
-  }
-
-  Future<Routine> _createStarterRoutine(_StarterRoutine starter) async {
-    final now = DateTime.now();
-    final routineSteps = starter.steps
-        .map((step) {
-          return RoutineStep.check(
-            label: step.label,
-            requiresPhoto: step.requiresPhoto,
-            photoCount: step.requiresPhoto ? 1 : 0,
-            photoPrompt: step.requiresPhoto ? 'Take photo' : null,
-          );
-        })
-        .toList(growable: false);
-
-    final routine = Routine(
-      id: now.millisecondsSinceEpoch,
-      title: starter.previewTitle,
-      stepsJson: jsonEncode(routineSteps.map((step) => step.toJson()).toList()),
-      createdAt: now,
-      emoji: RoutineIconCatalog.defaultKey,
-      colorHex: null,
-      isPinned: false,
-      pinnedAt: null,
-      reminderDay: null,
-      reminderTime: null,
-      version: 1,
-      updatedAt: now,
-      cloudId: null,
-      ownerUserId: null,
-      syncStatus: 'localOnly',
-      lastSyncedAt: null,
-    );
-
-    await ref.read(routineRepositoryProvider).saveRoutine(routine);
-    return routine;
   }
 
   @override
@@ -287,11 +185,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           onExplore: _openPebblePossibilities,
                           onSkip: _completeToHome,
                         ),
-                        _StarterPreviewPage(
-                          starter: _practiceRoutine,
-                          isCreating: _isCreatingStarter,
-                          onUseStarter: _useStarterRoutine,
-                          onSkipPractice: _completeToFirstRoutine,
+                        HowItWorksPage(
+                          onDone: _completeToFirstRoutine,
+                          onSkip: _completeToFirstRoutine,
                         ),
                       ],
                     ),
@@ -1449,288 +1345,4 @@ class _CheckPainter extends CustomPainter {
   @override
   bool shouldRepaint(_CheckPainter oldDelegate) =>
       oldDelegate.progress != progress || oldDelegate.color != color;
-}
-
-class _StarterPreviewPage extends StatelessWidget {
-  const _StarterPreviewPage({
-    required this.starter,
-    required this.isCreating,
-    required this.onUseStarter,
-    required this.onSkipPractice,
-  });
-
-  final _StarterRoutine starter;
-  final bool isCreating;
-  final VoidCallback onUseStarter;
-  final VoidCallback onSkipPractice;
-
-  @override
-  Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
-
-    return _OnboardingPageFrame(
-      bottom: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          PebbleButton.primary(
-            onPressed: onUseStarter,
-            busy: isCreating,
-            label: 'Start the practice run',
-          ),
-          const SizedBox(height: 12),
-          Text(
-            "It's only practice. Next, you'll build a routine of your own.",
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: foundation.textSecondary,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 8),
-          PebbleButton.tertiary(
-            expand: true,
-            onPressed: isCreating ? null : onSkipPractice,
-            label: 'Skip the practice',
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _OverTitle('PRACTICE RUN'),
-          const SizedBox(height: 12),
-          Text(
-            'Try a quick check',
-            style: PebbleFonts.serif(
-              color: foundation.textPrimary,
-              fontSize: 29,
-              fontWeight: FontWeight.w400,
-              height: 1.08,
-              letterSpacing: -0.2,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            "This is how every routine works: one step at a time. Photo steps ask for a picture first, so you can look back and see it was done.",
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: foundation.textSecondary,
-              height: 1.45,
-            ),
-          ),
-          const SizedBox(height: 24),
-          _RoutinePreviewCard(starter: starter),
-        ],
-      ),
-    );
-  }
-}
-
-class _OnboardingPageFrame extends StatelessWidget {
-  const _OnboardingPageFrame({required this.child, required this.bottom});
-
-  final Widget child;
-  final Widget bottom;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 10, 24, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: child,
-            ),
-          ),
-          const SizedBox(height: 18),
-          bottom,
-        ],
-      ),
-    );
-  }
-}
-
-class _OverTitle extends StatelessWidget {
-  const _OverTitle(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-        color: context.darkFoundation.textSecondary,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 1.1,
-      ),
-    );
-  }
-}
-
-class _RoutinePreviewCard extends StatelessWidget {
-  const _RoutinePreviewCard({required this.starter});
-
-  final _StarterRoutine starter;
-
-  @override
-  Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: foundation.surfaceLow,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: foundation.borderSubtle, width: 1.2),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  starter.icon,
-                  size: 20,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  starter.previewTitle,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: foundation.textPrimary,
-                    fontWeight: FontWeight.w700,
-                    height: 1.2,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          ...starter.steps.asMap().entries.map((entry) {
-            return _PreviewStepRow(
-              index: entry.key + 1,
-              step: entry.value,
-              isLast: entry.key == starter.steps.length - 1,
-            );
-          }),
-        ],
-      ),
-    );
-  }
-}
-
-class _PreviewStepRow extends StatelessWidget {
-  const _PreviewStepRow({
-    required this.index,
-    required this.step,
-    required this.isLast,
-  });
-
-  final int index;
-  final _StarterStep step;
-  final bool isLast;
-
-  @override
-  Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
-
-    return Padding(
-      padding: EdgeInsets.only(bottom: isLast ? 0 : 14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 26,
-            height: 26,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: foundation.borderSubtle),
-            ),
-            child: Text(
-              '$index',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: foundation.textSecondary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    step.label,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: foundation.textPrimary,
-                      height: 1.3,
-                    ),
-                  ),
-                  if (step.requiresPhoto) ...[
-                    const SizedBox(height: 7),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.primary.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.primary.withValues(alpha: 0.24),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            LucideIcons.camera,
-                            size: 12,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                          const SizedBox(width: 5),
-                          Text(
-                            'Photo',
-                            style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(
-                                  color: Theme.of(context).colorScheme.primary,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
