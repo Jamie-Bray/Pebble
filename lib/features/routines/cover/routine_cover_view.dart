@@ -101,21 +101,21 @@ class _ScenePainter extends CustomPainter {
     canvas.drawRect(Offset.zero & size, Paint()..color = _tone(0.10));
     switch (scene) {
       case RoutineCoverScene.ripples:
-        final c = Offset(w * 0.72, h * 0.58);
-        for (var i = 6; i >= 1; i--) {
+        final c = Offset(w * 0.48, h * 0.13);
+        for (var i = 5; i >= 1; i--) {
           canvas.drawOval(
             Rect.fromCenter(
               center: c,
-              width: w * 0.22 * i,
-              height: h * 0.16 * i,
+              width: w * 0.08 * i,
+              height: w * 0.045 * i,
             ),
             Paint()
               ..style = PaintingStyle.stroke
-              ..strokeWidth = math.max(1.5, w / 220)
-              ..color = _tone(0.55 - i * 0.06),
+              ..strokeWidth = math.max(1.2, w / 320)
+              ..color = _tone(0.67 - i * 0.07),
           );
         }
-        final sw = w * 0.11;
+        final sw = w * 0.065;
         canvas.drawPath(
           pebblePath(
             Rect.fromCenter(
@@ -127,47 +127,47 @@ class _ScenePainter extends CustomPainter {
           Paint()..color = _tone(0.75),
         );
       case RoutineCoverScene.hills:
-        for (final (i, t) in [(0, 0.22), (1, 0.38), (2, 0.58)]) {
-          final base = h * (0.48 + i * 0.17);
-          final amp = h * (0.10 - i * 0.02);
-          final path = Path()..moveTo(0, base);
-          for (var x = 0.0; x <= w; x += w / 40) {
+        for (final (base, amp, phase, tone) in [
+          (0.34, 0.065, 0.2, 0.24),
+          (0.49, 0.08, 1.5, 0.38),
+          (0.66, 0.065, 2.7, 0.53),
+        ]) {
+          final path = Path()..moveTo(0, h * base);
+          for (var x = 0.0; x <= w; x += w / 60) {
             path.lineTo(
               x,
-              base - amp * math.sin((x / w) * math.pi * (1.3 + i * 0.5) + i),
+              h * (base - amp * math.sin(x / w * math.pi * 4 + phase)),
             );
           }
           path
             ..lineTo(w, h)
             ..lineTo(0, h)
             ..close();
-          canvas.drawPath(path, Paint()..color = _tone(t));
+          canvas.drawPath(path, Paint()..color = _tone(tone));
         }
       case RoutineCoverScene.shore:
-        final waterline = h * 0.56;
-        canvas.drawRect(
-          Rect.fromLTWH(0, 0, w, waterline),
-          Paint()..color = _tone(0.15),
+        final shore = Path()
+          ..moveTo(0, h * 0.34)
+          ..cubicTo(w * 0.28, h * 0.27, w * 0.47, h * 0.46, w, h * 0.31)
+          ..lineTo(w, h)
+          ..lineTo(0, h)
+          ..close();
+        canvas.drawPath(shore, Paint()..color = _tone(0.35));
+        final foam = Path()
+          ..moveTo(0, h * 0.36)
+          ..cubicTo(w * 0.28, h * 0.29, w * 0.47, h * 0.48, w, h * 0.33);
+        canvas.drawPath(
+          foam,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = math.max(2, w / 125)
+            ..color = bg.withValues(alpha: 0.62),
         );
-        for (var i = 0; i < 4; i++) {
-          final y = waterline * (0.35 + i * 0.17);
-          final path = Path()..moveTo(0, y);
-          for (var x = 0.0; x <= w; x += w / 30) {
-            path.lineTo(x, y + math.sin(x / w * math.pi * 6 + i) * h * 0.012);
-          }
-          canvas.drawPath(
-            path,
-            Paint()
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = math.max(1.2, w / 260)
-              ..color = _tone(0.34),
-          );
-        }
         final rnd = math.Random(7);
         for (var i = 0; i < 9; i++) {
           final sw = w * (0.04 + rnd.nextDouble() * 0.05);
           final cx = w * (0.06 + i * 0.11 + rnd.nextDouble() * 0.03);
-          final cy = waterline + h * (0.08 + rnd.nextDouble() * 0.28);
+          final cy = h * (0.52 + rnd.nextDouble() * 0.35);
           canvas.drawPath(
             pebblePath(
               Rect.fromCenter(
@@ -181,27 +181,19 @@ class _ScenePainter extends CustomPainter {
           );
         }
       case RoutineCoverScene.dawn:
-        final horizon = h * 0.52;
+        final horizon = h * 0.58;
         canvas.drawCircle(
-          Offset(w * 0.68, horizon),
-          w * 0.18,
-          Paint()..color = _tone(0.42),
+          Offset(w * 0.48, h * 0.14),
+          w * 0.11,
+          Paint()..color = _tone(0.48),
         );
-        canvas.drawRect(
-          Rect.fromLTWH(0, horizon, w, h - horizon),
-          Paint()..color = _tone(0.16),
-        );
-        for (var i = 0; i < 4; i++) {
-          final y = horizon + (h - horizon) * (0.2 + i * 0.2);
-          canvas.drawLine(
-            Offset(w * (0.5 - i * 0.04), y),
-            Offset(w * (0.86 + i * 0.03), y),
-            Paint()
-              ..strokeWidth = math.max(1.2, w / 260)
-              ..strokeCap = StrokeCap.round
-              ..color = _tone(0.40 - i * 0.07),
-          );
-        }
+        final land = Path()
+          ..moveTo(0, horizon)
+          ..cubicTo(w * 0.3, h * 0.51, w * 0.58, h * 0.64, w, h * 0.55)
+          ..lineTo(w, h)
+          ..lineTo(0, h)
+          ..close();
+        canvas.drawPath(land, Paint()..color = _tone(0.22));
       case RoutineCoverScene.night:
         canvas.drawRect(
           Offset.zero & size,
@@ -216,7 +208,7 @@ class _ScenePainter extends CustomPainter {
               ..color = bg.withValues(alpha: 0.35 + rnd.nextDouble() * 0.4),
           );
         }
-        final moon = Offset(w * 0.5, h * 0.355);
+        final moon = Offset(w * 0.48, h * 0.14);
         final r = w * 0.05;
         canvas.saveLayer(Offset.zero & size, Paint());
         canvas.drawCircle(moon, r, Paint()..color = bg.withValues(alpha: 0.85));
@@ -226,6 +218,21 @@ class _ScenePainter extends CustomPainter {
           Paint()..blendMode = BlendMode.clear,
         );
         canvas.restore();
+      case RoutineCoverScene.softGlow:
+        for (final (center, radius, strength) in [
+          (const Alignment(0.65, -0.65), 0.75, 0.42),
+          (const Alignment(-0.85, 0.35), 0.64, 0.26),
+        ]) {
+          canvas.drawRect(
+            Offset.zero & size,
+            Paint()
+              ..shader = RadialGradient(
+                center: center,
+                radius: radius,
+                colors: [_tone(strength), _tone(0.10).withValues(alpha: 0)],
+              ).createShader(Offset.zero & size),
+          );
+        }
     }
   }
 

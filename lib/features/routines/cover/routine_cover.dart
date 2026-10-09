@@ -14,7 +14,8 @@ enum RoutineCoverScene {
   hills('Hills'),
   shore('Shore'),
   dawn('Dawn'),
-  night('Night');
+  night('Night'),
+  softGlow('Soft glow');
 
   const RoutineCoverScene(this.label);
 
