@@ -13,6 +13,7 @@ import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/core/ui/pebble_photo_gallery_viewer.dart';
+import 'package:pebble_routines/core/ui/pebble_buttons.dart';
 import 'package:pebble_routines/features/routines/composer/data/guidance_audio_storage.dart';
 import 'package:pebble_routines/features/routines/execution/data/models/routine_session.dart';
 import 'package:pebble_routines/features/routines/execution/data/repositories/routine_session_repository.dart';
@@ -203,9 +204,199 @@ void main() {
       repository,
     );
 
-    expect(find.text('Voice tip'), findsOneWidget);
-    expect(find.text('A short reminder for this step'), findsOneWidget);
-    expect(find.text('Play voice tip'), findsOneWidget);
+    // A small Listen icon in the step's tool row, beside Note. No card.
+    expect(find.byKey(const ValueKey('player-listen')), findsOneWidget);
+    expect(find.text('Listen'), findsOneWidget);
+    expect(find.text('Note'), findsOneWidget);
+    expect(find.text('Voice tip'), findsNothing);
+  });
+
+  testWidgets('voice tips are Premium: a free account never sees Listen', (
+    tester,
+  ) async {
+    final repository = _FakeRoutineSessionRepository();
+    await pumpPlayer(
+      tester,
+      const RoutineStep.check(
+        label: 'Check the latch',
+        guidanceAudio: StepGuidanceAudio(
+          localPath: 'routine_guidance_audio/latch.m4a',
+          durationMs: 3000,
+        ),
+      ),
+      repository,
+      tier: UserTier.personalFree,
+    );
+
+    expect(find.text('Listen'), findsNothing);
+    expect(find.byKey(const ValueKey('player-listen')), findsNothing);
+    // Nothing locked or greyed out either: just the Note icon.
+    expect(find.text('Note'), findsOneWidget);
+    expect(find.textContaining('Premium'), findsNothing);
+  });
+
+  testWidgets('a note is written in the bar, saved with the step, and edited', (
+    tester,
+  ) async {
+    final repository = _FakeRoutineSessionRepository();
+    await pumpPlayer(
+      tester,
+      const RoutineStep.check(label: 'Straighteners off'),
+      repository,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('player-note-tool')));
+    await tester.pumpAndSettle();
+
+    // The bar takes the footer's place; the step stays on screen.
+    expect(find.byKey(const ValueKey('player-note-composer')), findsOneWidget);
+    expect(find.text('Straighteners off'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Finish routine'), findsNothing);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('player-note-field')),
+      '  Moved them onto the kitchen table  ',
+    );
+    await tester.tap(find.byKey(const ValueKey('player-note-save')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('player-note-composer')), findsNothing);
+    expect(
+      repository.session?.stepStates.single.note,
+      'Moved them onto the kitchen table',
+    );
+    expect(find.text('Moved them onto the kitchen table'), findsOneWidget);
+    expect(find.text('Note added'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Finish routine'), findsOneWidget);
+
+    // Tapping the note line edits it; clearing it removes the note.
+    await tester.tap(find.byKey(const ValueKey('player-note-line')));
+    await tester.pumpAndSettle();
+    final field = tester.widget<TextField>(
+      find.byKey(const ValueKey('player-note-field')),
+    );
+    expect(field.controller?.text, 'Moved them onto the kitchen table');
+    await tester.enterText(
+      find.byKey(const ValueKey('player-note-field')),
+      '   ',
+    );
+    await tester.tap(find.byKey(const ValueKey('player-note-save')));
+    await tester.pumpAndSettle();
+    expect(repository.session?.stepStates.single.note, isNull);
+    expect(find.text('Note'), findsOneWidget);
+    expect(find.byKey(const ValueKey('player-note-line')), findsNothing);
+  });
+
+  testWidgets('the note goes into the finished run with its step', (
+    tester,
+  ) async {
+    final repository = _FakeRoutineSessionRepository();
+    await pumpPlayer(
+      tester,
+      const RoutineStep.check(label: 'Straighteners off'),
+      repository,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('player-note-tool')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('player-note-field')),
+      'On the kitchen table',
+    );
+    await tester.tap(find.byKey(const ValueKey('player-note-save')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Finish routine'));
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+
+    expect(
+      repository.completedSession?.stepStates.single.note,
+      'On the kitchen table',
+    );
+  });
+
+  testWidgets('checking a step waits until its note has finished saving', (
+    tester,
+  ) async {
+    final repository = _FakeRoutineSessionRepository();
+    await pumpPlayer(
+      tester,
+      const RoutineStep.check(label: 'Straighteners off'),
+      repository,
+    );
+    final saveGate = Completer<void>();
+    repository.saveGate = saveGate;
+
+    await tester.tap(find.byKey(const ValueKey('player-note-tool')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('player-note-field')),
+      'On the kitchen table',
+    );
+    await tester.tap(find.byKey(const ValueKey('player-note-save')));
+    await tester.pump();
+
+    expect(find.text('Saving note'), findsOneWidget);
+    final primary = tester.widget<PebbleButton>(
+      find.ancestor(
+        of: find.text('Saving note'),
+        matching: find.byType(PebbleButton),
+      ),
+    );
+    expect(primary.onPressed, isNull);
+    expect(repository.completedSession, isNull);
+
+    saveGate.complete();
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Finish routine'));
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(
+      repository.completedSession?.stepStates.single.note,
+      'On the kitchen table',
+    );
+  });
+
+  testWidgets('Read more opens in place and puts Listen and Note aside', (
+    tester,
+  ) async {
+    final repository = _FakeRoutineSessionRepository();
+    await pumpPlayer(
+      tester,
+      const RoutineStep.check(
+        label: 'Straighteners off',
+        photoPrompt:
+            'Unplug them at the wall and leave them on the kitchen table to '
+            'cool. Check the light on the side has gone out before you walk '
+            'away, and that the cable is not touching anything that could '
+            'melt or catch.',
+        guidanceAudio: StepGuidanceAudio(
+          localPath: 'routine_guidance_audio/latch.m4a',
+          durationMs: 3000,
+        ),
+      ),
+      repository,
+    );
+
+    expect(find.text('Read more'), findsOneWidget);
+    expect(find.text('Listen'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('routine-step-read-more')));
+    await tester.pumpAndSettle();
+
+    // No sheet or dialog: the text unfolds on the step itself.
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.byType(Dialog), findsNothing);
+    expect(find.text('Show less'), findsOneWidget);
+    expect(find.text('Listen'), findsNothing);
+    expect(find.text('Note'), findsNothing);
+    expect(find.widgetWithText(FilledButton, 'Finish routine'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('routine-step-read-more')));
+    await tester.pumpAndSettle();
+    expect(find.text('Read more'), findsOneWidget);
+    expect(find.text('Listen'), findsOneWidget);
+    expect(find.text('Note'), findsOneWidget);
   });
 
   testWidgets('guidance audio does not block completion', (tester) async {
@@ -772,9 +963,10 @@ void main() {
       session: _sessionForStepWithProofs(step, [_proofAsset('free-proof')]),
     );
 
-    // The single photo stands alone. Only now does a compact, locked route to
-    // more photos appear; no empty Premium cells imply unfinished work.
-    expect(find.text('Add more'), findsOneWidget);
+    // The single photo stands alone. Only now does a quiet line offer more
+    // photos; no tile or empty Premium cells imply unfinished work.
+    expect(find.text('Add more with Premium'), findsOneWidget);
+    expect(find.text('Add more'), findsNothing);
     expect(find.text('Add photo'), findsNothing);
     expect(find.byType(OutlinedButton), findsNothing);
   });
@@ -881,7 +1073,8 @@ void main() {
       textScale: 1.3,
     );
 
-    expect(find.text('Voice tip'), findsOneWidget);
+    expect(find.text('Listen'), findsOneWidget);
+    expect(find.text('Note'), findsOneWidget);
     expect(find.byKey(const ValueKey('proof-strip-2')), findsOneWidget);
     expect(find.byKey(const ValueKey('proof-add-tile')), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Complete step'), findsOneWidget);
@@ -1585,6 +1778,7 @@ class _FakePhotoPicker implements RoutinePlayerPhotoPicker {
 class _FakeRoutineSessionRepository implements RoutineSessionRepository {
   RoutineSession? session;
   RoutineSession? completedSession;
+  Completer<void>? saveGate;
 
   @override
   Future<void> saveProofDescription({
@@ -1633,6 +1827,7 @@ class _FakeRoutineSessionRepository implements RoutineSessionRepository {
 
   @override
   Future<RoutineSession> saveSessionSnapshot(RoutineSession session) async {
+    await saveGate?.future;
     this.session = session;
     return session;
   }

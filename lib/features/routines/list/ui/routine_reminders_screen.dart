@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:pebble_routines/features/ai_photo/ai_photo_constants.dart';
 import 'package:pebble_routines/features/ai_photo/ai_photo_service.dart';
 import 'package:pebble_routines/features/ai_photo/ai_photo_settings.dart';
 import 'package:pebble_routines/core/ui/pebble_time.dart';
@@ -659,8 +660,8 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
           // The AI sentence shows only where the feature is offered, so
           // nobody reads about something they can't find.
           body:
-              'The routine name and each step with the time you checked it (you can hide either), plus the completion time. Photos are never emailed.'
-              '${(ref.watch(aiPhotoServerEnabledProvider).valueOrNull ?? false) || ref.watch(aiPhotoControllerProvider).isOn ? ' If you use AI photo descriptions, you can choose to add them. Photos are never emailed.' : ''}',
+              'The routine name and each step with the time you checked it (you can hide either), plus the completion time. Notes on shown steps are included. Photos are never emailed.'
+              '${aiPhotoFeatureVisible && ((ref.watch(aiPhotoServerEnabledProvider).valueOrNull ?? false) || ref.watch(aiPhotoControllerProvider).isOn) ? ' If you use AI photo descriptions, you can choose to add them.' : ''}',
         ),
       ],
     );
@@ -830,7 +831,8 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
             _buildRoutineNameToggle(cs, contact),
             const SizedBox(height: 10),
             _buildStepsToggle(cs, contact),
-            if (widget.routine != null &&
+            if (aiPhotoFeatureVisible &&
+                widget.routine != null &&
                 ref
                     .watch(aiPhotoControllerProvider)
                     .isOnFor(widget.routine!.id)) ...[
@@ -1293,7 +1295,7 @@ class _GlobalRemindersScreenState extends ConsumerState<GlobalRemindersScreen>
       cs,
       title: 'Show each step',
       subtitle: isOn
-          ? 'The email lists each step and the time you checked it.'
+          ? 'The email lists each step, its time and any note you added.'
           : 'The email leaves the steps out.',
       value: isOn,
       onChanged: (shown) =>

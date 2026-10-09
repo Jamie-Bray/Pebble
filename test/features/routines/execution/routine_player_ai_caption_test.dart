@@ -99,6 +99,9 @@ class _Call {
 }
 
 void main() {
+  // Hidden for launch; these tests cover the feature for when it returns.
+  aiPhotoFeatureVisible = true;
+
   late LocalDb database;
   late ProviderContainer container;
   late RoutineSessionRepository repository;

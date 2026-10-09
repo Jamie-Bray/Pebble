@@ -15,6 +15,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:permission_handler/permission_handler.dart' as permissions;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:pebble_routines/features/ai_photo/ai_photo_constants.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/ui/pebble_buttons.dart';
@@ -43,12 +44,12 @@ import 'package:pebble_routines/features/routines/execution/data/services/routin
 import 'package:pebble_routines/features/routines/execution/data/services/routine_session_proof_storage.dart';
 import 'package:pebble_routines/features/routines/execution/providers/player_state_provider.dart';
 import 'package:pebble_routines/features/routines/execution/ui/player_proof_zone.dart';
+import 'package:pebble_routines/features/routines/execution/ui/player_step_tools.dart';
 import 'package:pebble_routines/features/routines/execution/ui/routine_complete_screen.dart';
 import 'package:pebble_routines/features/routines/execution/ui/step_check_off.dart';
 
 export 'package:pebble_routines/features/routines/execution/ui/routine_complete_screen.dart';
 import 'package:pebble_routines/features/routines/composer/data/guidance_audio_storage.dart';
-import 'package:pebble_routines/features/routines/shared/ui/guidance_audio_play_button.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
@@ -102,6 +103,23 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
   /// The step each practice hint first showed on, so it stays for that step.
   final Map<PebbleHint, int> _hintSteps = <PebbleHint, int>{};
   final Set<PebbleHint> _dismissedHints = <PebbleHint>{};
+
+  /// The step that Read more and the note bar belong to: both reset when the
+  /// step changes.
+  int? _toolsStepIndex;
+
+  /// Read more is open: the full description shows in place and the step's
+  /// tools (Listen, Note) step aside until Show less.
+  bool _descriptionExpanded = false;
+
+  /// The note bar is open on top of the keyboard, in place of the footer.
+  bool _composingNote = false;
+
+  /// The keyboard has come up for the note bar, so its going down again
+  /// (Android back, the system dismiss key) closes the bar and keeps the text.
+  bool _noteKeyboardSeen = false;
+  final TextEditingController _noteController = TextEditingController();
+  final FocusNode _noteFocus = FocusNode();
 
   bool _isPractice(RoutineSession? session) {
     if (session == null) return _practice ?? false;
@@ -222,6 +240,8 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
     _checkOff.dispose();
     unawaited(_chimePlayer?.dispose());
     unawaited(_completionPlayer?.dispose());
+    _noteController.dispose();
+    _noteFocus.dispose();
     super.dispose();
   }
 
@@ -370,6 +390,10 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) {
+          return;
+        }
+        if (_composingNote) {
+          _closeNoteComposer();
           return;
         }
         if (playerState.isCompletionVisible) {
@@ -596,6 +620,22 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
       );
     }
 
+    if (_toolsStepIndex != playerState.currentStepIndex) {
+      _toolsStepIndex = playerState.currentStepIndex;
+      _descriptionExpanded = false;
+      _composingNote = false;
+      _noteKeyboardSeen = false;
+    }
+    if (_composingNote) {
+      if (MediaQuery.viewInsetsOf(context).bottom > 0) {
+        _noteKeyboardSeen = true;
+      } else if (_noteKeyboardSeen) {
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => _closeNoteComposer(),
+        );
+      }
+    }
+
     final proofStorage = ref.read(routineSessionProofStorageProvider);
     final guidanceAudioStorage = ref.read(guidanceAudioStorageProvider);
     final premiumPolicy = ref.watch(premiumFeaturePolicyProvider);
@@ -651,10 +691,35 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
                 : null,
           )
         : null;
-    final guidanceAudioCard = currentStep.guidanceAudio != null && !isStepLocked
-        ? _PlayerGuidanceAudioCard(
-            audio: currentStep.guidanceAudio!,
-            storage: guidanceAudioStorage,
+    // Voice tips are Personal Premium: a free account never sees Listen, even
+    // on a step that has a tip from an earlier Premium spell.
+    final voiceTip = premiumPolicy.canUseGuidanceAudio && !isStepLocked
+        ? currentStep.guidanceAudio
+        : null;
+    final note = playerState.currentStepState?.note;
+    // Reading the whole description, or writing a note, puts the tools aside.
+    final showTools = !isStepLocked && !_descriptionExpanded && !_composingNote;
+    final tools = showTools
+        ? PlayerStepTools(
+            children: [
+              if (voiceTip != null)
+                PlayerListenTool(
+                  key: ValueKey(
+                    'player-listen-${playerState.currentStepIndex}-'
+                    '${voiceTip.localPath}',
+                  ),
+                  audio: voiceTip,
+                  storage: guidanceAudioStorage,
+                ),
+              PlayerToolButton(
+                key: const ValueKey('player-note-tool'),
+                icon: LucideIcons.pencilLine,
+                label: note == null ? 'Note' : 'Note added',
+                semanticLabel: note == null ? 'Add a note' : 'Edit your note',
+                filled: note != null,
+                onTap: readyPhase ? _openNoteComposer : null,
+              ),
+            ],
           )
         : null;
 
@@ -682,24 +747,28 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
         ),
         if (currentStep.stepDescription != null && !isStepLocked) ...[
           const SizedBox(height: PebbleSpacing.sm),
-          _StepDescription(text: currentStep.stepDescription!),
+          _StepDescription(
+            text: currentStep.stepDescription!,
+            expanded: _descriptionExpanded,
+            onToggle: () =>
+                setState(() => _descriptionExpanded = !_descriptionExpanded),
+          ),
         ],
-        // Guidance audio sits above the proof card: it tells you how to do
-        // the step, the photos record what you did. Keeping it here also
-        // means a growing photo mosaic never pushes the recording out of
-        // sight.
-        if (guidanceAudioCard != null) ...[
-          const SizedBox(height: PebbleSpacing.xl),
-          guidanceAudioCard,
+        if (note != null &&
+            !isStepLocked &&
+            !_descriptionExpanded &&
+            !_composingNote) ...[
+          const SizedBox(height: PebbleSpacing.xs),
+          PlayerNoteLine(
+            note: note,
+            onTap: readyPhase ? _openNoteComposer : () {},
+          ),
         ],
         if (photoSummary != null) ...[
-          SizedBox(
-            height: guidanceAudioCard != null
-                ? PebbleSpacing.md
-                : PebbleSpacing.xl,
-          ),
+          const SizedBox(height: PebbleSpacing.xl),
           photoSummary,
         ],
+        if (tools != null) ...[const SizedBox(height: PebbleSpacing.xl), tools],
       ],
     );
 
@@ -793,6 +862,13 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
       onBack: _attemptExit,
       onComplete: isStepLocked ? _openStepLimitPaywall : _handlePrimaryAction,
       alignTop: playerState.hasPhotoRequirement,
+      noteComposer: _composingNote
+          ? PlayerNoteComposer(
+              controller: _noteController,
+              focusNode: _noteFocus,
+              onSave: _closeNoteComposer,
+            )
+          : null,
       secondaryActions: _PlayerSecondaryActionRow(
         // Visibility is stable through the few-ms step save so the row never
         // flickers; the handlers re-check canGoBack / canSkip on tap.
@@ -842,6 +918,41 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
   }
 
   Future<void> _handleSkip() => _checkOffCurrentStep(skipped: true);
+
+  void _openNoteComposer() {
+    if (_composingNote) return;
+    final note = ref
+        .read(routinePlayerProvider(widget.sessionId))
+        .currentStepState
+        ?.note;
+    _noteController.value = TextEditingValue(
+      text: note ?? '',
+      selection: TextSelection.collapsed(offset: (note ?? '').length),
+    );
+    setState(() {
+      _composingNote = true;
+      _noteKeyboardSeen = false;
+      _descriptionExpanded = false;
+    });
+  }
+
+  /// Saves what is in the note bar (a blank bar removes the note) and closes
+  /// it. Every way out keeps the text: the tick, tapping the step, back, or
+  /// putting the keyboard away.
+  void _closeNoteComposer() {
+    if (!_composingNote || !mounted) return;
+    final text = _noteController.text;
+    _noteFocus.unfocus();
+    setState(() {
+      _composingNote = false;
+      _noteKeyboardSeen = false;
+    });
+    unawaited(
+      ref
+          .read(routinePlayerProvider(widget.sessionId).notifier)
+          .setCurrentStepNote(text),
+    );
+  }
 
   Future<void> _handlePrevious() async {
     final state = ref.read(routinePlayerProvider(widget.sessionId));
@@ -1257,7 +1368,8 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
       // Only when the person chose to add them for this routine. The
       // server filters them again and never emails a photo.
       final ai = ref.read(aiPhotoControllerProvider);
-      final descriptions = ai.emailDescriptionsFor(session.routineId)
+      final descriptions =
+          aiPhotoFeatureVisible && ai.emailDescriptionsFor(session.routineId)
           ? await _playerController.aiDescriptionsForEmail()
           : const <String>[];
       final result = await sharedReminders.sendCompletionReminder(
@@ -1531,9 +1643,14 @@ class _RoutineStepSurface extends StatelessWidget {
     this.alignTop = false,
     this.onSkipPractice,
     this.hint,
+    this.noteComposer,
   });
 
   final String routineName;
+
+  /// While a note is being written, the note bar takes the footer's place
+  /// on top of the keyboard, and the trail steps aside for the room.
+  final Widget? noteComposer;
 
   /// The practice run swaps "2 of 4" for a Skip link.
   final Future<void> Function()? onSkipPractice;
@@ -1630,13 +1747,14 @@ class _RoutineStepSurface extends StatelessWidget {
             ],
           ),
         ),
-        Padding(
-          padding: EdgeInsets.fromLTRB(gutter, PebbleSpacing.sm, gutter, 0),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: trail,
+        if (noteComposer == null)
+          Padding(
+            padding: EdgeInsets.fromLTRB(gutter, PebbleSpacing.sm, gutter, 0),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: trail,
+            ),
           ),
-        ),
         Expanded(
           child: LayoutBuilder(
             builder: (context, constraints) => SingleChildScrollView(
@@ -1673,15 +1791,18 @@ class _RoutineStepSurface extends StatelessWidget {
             ),
           ),
         ),
-        _RoutineStepFooter(
-          hint: hint,
-          isBusy: isBusy,
-          primaryLabel: primaryLabel,
-          primaryIcon: primaryIcon,
-          isPrimaryEnabled: isPrimaryEnabled,
-          onComplete: onComplete,
-          secondaryActions: secondaryActions,
-        ),
+        if (noteComposer case final composer?)
+          composer
+        else
+          _RoutineStepFooter(
+            hint: hint,
+            isBusy: isBusy,
+            primaryLabel: primaryLabel,
+            primaryIcon: primaryIcon,
+            isPrimaryEnabled: isPrimaryEnabled,
+            onComplete: onComplete,
+            secondaryActions: secondaryActions,
+          ),
       ],
     );
   }
@@ -1819,98 +1940,6 @@ class _TopBackButton extends StatelessWidget {
   }
 }
 
-class _PlayerGuidanceAudioCard extends StatelessWidget {
-  const _PlayerGuidanceAudioCard({required this.audio, required this.storage});
-
-  final StepGuidanceAudio audio;
-  final GuidanceAudioStorage storage;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final onSurface = theme.colorScheme.onSurface;
-    final leading = Container(
-      width: 38,
-      height: 38,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: theme.colorScheme.primary.withValues(alpha: 0.10),
-      ),
-      child: Icon(
-        LucideIcons.volume2,
-        size: 19,
-        color: theme.colorScheme.primary,
-      ),
-    );
-    final copy = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Voice tip',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            color: onSurface,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          'A short reminder for this step',
-          style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w500,
-            color: context.readableSecondaryText,
-          ),
-        ),
-      ],
-    );
-    final playButton = GuidanceAudioPlayButton(
-      audio: audio,
-      storage: storage,
-      compact: true,
-    );
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.78),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: onSurface.withValues(alpha: 0.06)),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          if (constraints.maxWidth < 300) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    leading,
-                    const SizedBox(width: 12),
-                    Expanded(child: copy),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Align(alignment: Alignment.centerRight, child: playButton),
-              ],
-            );
-          }
-          return Row(
-            children: [
-              leading,
-              const SizedBox(width: 12),
-              Expanded(child: copy),
-              const SizedBox(width: 10),
-              playButton,
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
 /// Under the primary button: Previous on the left, Skip step on the right.
 /// Photo library access lives in the photo tile, not down here.
 class _PlayerSecondaryActionRow extends StatelessWidget {
@@ -1954,60 +1983,79 @@ class _PlayerSecondaryActionRow extends StatelessWidget {
 }
 
 /// Step text under the title, two lines at most until "More" is tapped.
-class _StepDescription extends StatefulWidget {
-  const _StepDescription({required this.text});
+/// The step's description, two lines at most. A longer one gets Read more,
+/// which unfolds the rest in place like an accordion (no pop-up); the
+/// player puts the step's tools aside while it is open.
+class _StepDescription extends StatelessWidget {
+  const _StepDescription({
+    required this.text,
+    required this.expanded,
+    required this.onToggle,
+  });
 
   final String text;
-
-  @override
-  State<_StepDescription> createState() => _StepDescriptionState();
-}
-
-class _StepDescriptionState extends State<_StepDescription> {
-  bool _expanded = false;
+  final bool expanded;
+  final VoidCallback onToggle;
 
   @override
   Widget build(BuildContext context) {
     final style = TextStyle(
       fontSize: 16,
       height: 1.45,
-      color: context.readableSecondaryText,
+      color: expanded
+          ? Theme.of(context).colorScheme.onSurface
+          : context.readableSecondaryText,
     );
     return LayoutBuilder(
       builder: (context, constraints) {
         final painter = TextPainter(
-          text: TextSpan(text: widget.text, style: style),
+          text: TextSpan(text: text, style: style),
           textDirection: Directionality.of(context),
           textScaler: MediaQuery.textScalerOf(context),
           maxLines: 2,
         )..layout(maxWidth: constraints.maxWidth);
         final overflows = painter.didExceedMaxLines;
         painter.dispose();
-        final text = Text(
-          widget.text,
+        final body = Text(
+          text,
           key: const ValueKey('routine-step-description'),
           textAlign: TextAlign.center,
-          maxLines: _expanded ? null : 2,
-          overflow: _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
+          maxLines: expanded ? null : 2,
+          overflow: expanded ? TextOverflow.visible : TextOverflow.ellipsis,
           style: style,
         );
-        if (!overflows) return text;
+        if (!overflows) return body;
+        final accent = context.readableAccentText(
+          Theme.of(context).colorScheme.primary,
+        );
         return Column(
           children: [
-            text,
+            body,
             TextButton(
-              onPressed: () => setState(() => _expanded = !_expanded),
+              key: const ValueKey('routine-step-read-more'),
+              onPressed: onToggle,
               style: TextButton.styleFrom(
                 minimumSize: const Size(0, 40),
-                foregroundColor: context.readableAccentText(
-                  Theme.of(context).colorScheme.primary,
-                ),
+                foregroundColor: accent,
                 textStyle: PebbleFonts.sans(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              child: Text(_expanded ? 'Less' : 'More'),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(expanded ? 'Show less' : 'Read more'),
+                  const SizedBox(width: 4),
+                  AnimatedRotation(
+                    turns: expanded ? 0.5 : 0,
+                    duration: MediaQuery.disableAnimationsOf(context)
+                        ? Duration.zero
+                        : PebbleMotion.standard,
+                    child: const Icon(LucideIcons.chevronDown, size: 16),
+                  ),
+                ],
+              ),
             ),
           ],
         );

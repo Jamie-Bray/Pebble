@@ -290,6 +290,7 @@ class PremiumLapseNoticeCard extends ConsumerWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final message = premiumLapseHeadline(summary);
+    final limit = summary.freeRoutineLimit;
 
     return Material(
       color: cs.primary.withValues(alpha: 0.08),
@@ -326,6 +327,17 @@ class PremiumLapseNoticeCard extends ConsumerWidget {
                         color: cs.onSurface.withValues(alpha: 0.76),
                       ),
                     ),
+                    if (summary.hasMoreRoutinesThanFree) ...[
+                      const SizedBox(height: 10),
+                      FilledButton(
+                        onPressed: () => showKeepRoutinesSheet(context),
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size(0, 40),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                        ),
+                        child: Text('Choose your $limit routines'),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -343,19 +355,21 @@ class PremiumLapseNoticeCard extends ConsumerWidget {
   }
 }
 
-/// The one-line summary used on Home and in the account screen.
+/// The one-line summary used on Home. Routines come first: which ones stay
+/// is the choice the user has to make. History only hides, so it comes
+/// second and only when routines aren't affected.
 String premiumLapseHeadline(PremiumLapseSummary summary) {
+  final limit = summary.freeRoutineLimit;
+  final total = summary.routineCount;
   if (summary.inGrace) {
     final date = summary.graceEndDateLabel;
-    if (summary.hasHistoryAtRisk) {
-      final count = summary.olderHistoryRunCount;
-      return '$count completed ${count == 1 ? 'routine' : 'routines'} older '
-          'than 48 hours will be hidden on $date. Renew to keep seeing them.';
+    if (summary.hasMoreRoutinesThanFree) {
+      return 'From $date, Free keeps $limit of your $total routines. '
+          'Choose which $limit. Nothing is deleted.';
     }
-    return 'From $date, Free limits apply: ${summary.freeRoutineLimit} '
-        'routines stay unlocked. Nothing is deleted.';
+    return 'From $date, History shows the last 48 hours. Nothing is deleted.';
   }
   final locked = summary.lockedRoutineCount;
-  return '$locked ${locked == 1 ? 'routine is' : 'routines are'} locked but '
-      'still saved. Choose which ${summary.freeRoutineLimit} to keep, or renew.';
+  return 'Free keeps $limit of your $total routines. The other $locked '
+      '${locked == 1 ? 'is' : 'are'} locked, not deleted.';
 }

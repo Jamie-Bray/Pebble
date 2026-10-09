@@ -1325,17 +1325,21 @@ void main() {
   // ---- Home --------------------------------------------------------------
   _capture('home populated', (env) async {
     await env.shot('home_populated');
-    await env.tapText('Your routines');
-    await env.settle(10);
-    await env.shot('home_routines_sheet_open');
+    await env.scrollDown(
+      600,
+      within: find.byKey(const ValueKey('home_scroll')),
+    );
+    await env.shot('home_routines_list');
     await env.tapFinder(find.byIcon(LucideIcons.plus).last);
     await env.shot('home_create_choice_sheet');
   });
   _capture('home premium', account: _Account.signedInPremium, (env) async {
     await env.shot('home_premium');
-    await env.tapText('Your routines');
-    await env.settle(10);
-    await env.shot('home_premium_routines_sheet_open');
+    await env.scrollDown(
+      600,
+      within: find.byKey(const ValueKey('home_scroll')),
+    );
+    await env.shot('home_premium_routines_list');
   });
   // Moment 3: Home after a run.
   for (final cfg in [
@@ -1369,9 +1373,11 @@ void main() {
   });
   _capture('home small', device: _small, (env) async {
     await env.shot('home_populated');
-    await env.tapText('Your routines');
-    await env.settle(10);
-    await env.shot('home_routines_sheet_open');
+    await env.scrollDown(
+      600,
+      within: find.byKey(const ValueKey('home_scroll')),
+    );
+    await env.shot('home_routines_list');
   });
   _capture('home small empty', device: _small, seed: _Seed.empty, (env) async {
     await env.shot('home_empty');
@@ -1379,9 +1385,11 @@ void main() {
   for (final scale in [1.6, 2.0]) {
     _capture('home a11y $scale', textScale: scale, (env) async {
       await env.shot('a11y${scale}x_home_populated');
-      await env.tapText('Your routines');
-      await env.settle(10);
-      await env.shot('a11y${scale}x_home_routines_sheet_open');
+      await env.scrollDown(
+        900,
+        within: find.byKey(const ValueKey('home_scroll')),
+      );
+      await env.shot('a11y${scale}x_home_routines_list');
     });
   }
   _capture('home a11y empty', textScale: 2.0, seed: _Seed.empty, (env) async {
@@ -1675,6 +1683,25 @@ void main() {
         await env.go('/');
         await _openPlayer(env, 1);
         await env.shot('${prefix}step_description_player');
+        // Read more unfolds in place; Listen and Note step aside.
+        await env.tapFinder(
+          find.byKey(const ValueKey('routine-step-read-more')),
+        );
+        await env.shot('${prefix}step_description_player_read_more');
+        await env.tapFinder(
+          find.byKey(const ValueKey('routine-step-read-more')),
+        );
+        // The note bar sits where the footer was (on a phone, on top of the
+        // keyboard), then the saved note shows as one soft line.
+        await env.tapFinder(find.byKey(const ValueKey('player-note-tool')));
+        await env.tester.enterText(
+          find.byKey(const ValueKey('player-note-field')),
+          'Left the plates on the rack to dry',
+        );
+        await env.shot('${prefix}step_note_composer');
+        await env.tapFinder(find.byKey(const ValueKey('player-note-save')));
+        await env.realWait();
+        await env.shot('${prefix}step_note_saved');
         if (prefix == 'small_') {
           await env.scrollDown(250);
           await env.shot('${prefix}step_description_player_scrolled');
@@ -2364,9 +2391,19 @@ void main() {
     (env) async {
       await env.realWait(5);
       await env.shot('sub_lapsed_home');
-      await env.tapText('Your routines');
+      await env.scrollDown(
+        600,
+        within: find.byKey(const ValueKey('home_scroll')),
+      );
+      await env.shot('sub_lapsed_routines_list');
+      // A routine not checked today: the Up next card.
+      await env.tapText('Plant watering', last: true);
       await env.settle(10);
-      await env.shot('sub_lapsed_routines_sheet');
+      await env.shot('home_up_next');
+      await env.scrollDown(
+        900,
+        within: find.byKey(const ValueKey('home_scroll')),
+      );
       await env.tapText('Morning reset', last: true);
       await env.settle(10);
       await env.shot('sub_locked_routine_sheet');

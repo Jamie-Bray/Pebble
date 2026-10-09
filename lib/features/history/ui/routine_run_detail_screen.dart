@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import 'package:pebble_routines/features/ai_photo/ai_photo_constants.dart';
 import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/share/pebble_share.dart';
@@ -413,6 +414,7 @@ class _RunTimeline extends StatelessWidget {
             completedAt: completedAt,
             isLast: index == steps.length - 1,
             stepPhotos: stepCompletion?['photos'] as List<dynamic>? ?? [],
+            note: cleanStepNote(stepCompletion?['note']),
             proofStorage: proofStorage,
           );
         },
@@ -430,6 +432,7 @@ class _RunTimeline extends StatelessWidget {
     DateTime? completedAt,
     required bool isLast,
     List<dynamic> stepPhotos = const [],
+    String? note,
     required RoutineSessionProofStorage proofStorage,
   }) {
     final foundation = context.darkFoundation;
@@ -492,7 +495,8 @@ class _RunTimeline extends StatelessWidget {
               if (!isLast)
                 Container(
                   width: 1,
-                  height: hasPhotos ? 128 : 58,
+                  // A note adds a line or two to the card.
+                  height: (hasPhotos ? 128 : 58) + (note == null ? 0 : 30),
                   color: foundation.borderSubtle,
                 ),
             ],
@@ -566,6 +570,35 @@ class _RunTimeline extends StatelessWidget {
                         ],
                       ),
 
+                      if (note != null) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          key: const ValueKey('run-step-note'),
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Icon(
+                                LucideIcons.pencilLine,
+                                size: 13,
+                                color: context.readableSecondaryText,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                note,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  height: 1.4,
+                                  fontStyle: FontStyle.italic,
+                                  color: context.readableSecondaryText,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       if (stepPhotos.isNotEmpty)
                         _buildPhotosSection(
                           stepPhotos,
@@ -805,9 +838,10 @@ class _RunTimeline extends StatelessWidget {
     }
     final assets = _proofAssetsByPath();
     final descriptions = [
-      for (var i = 0; i < photos.length; i++)
-        if (assets[photos[i]]?.aiDescription case final description?)
-          (index: i, text: description),
+      if (aiPhotoFeatureVisible)
+        for (var i = 0; i < photos.length; i++)
+          if (assets[photos[i]]?.aiDescription case final description?)
+            (index: i, text: description),
     ];
 
     return Container(
@@ -912,7 +946,9 @@ class _RunTimeline extends StatelessWidget {
           resolvePhotoFile: (path) => _resolveRunPhoto(proofStorage, path),
           captionBuilder: (context, index) {
             final text = _proofAssetsByPath()[stepPhotos[index]]?.aiDescription;
-            return text == null ? null : AiDescriptionText(text);
+            return text == null || !aiPhotoFeatureVisible
+                ? null
+                : AiDescriptionText(text);
           },
         ),
         child: Container(

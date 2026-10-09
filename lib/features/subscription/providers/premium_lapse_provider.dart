@@ -24,6 +24,7 @@ class PremiumLapseSummary {
     required this.lockedRoutineCount,
     required this.freeRoutineLimit,
     required this.isSignedIn,
+    this.keptRoutineTitles = const [],
   });
 
   static const none = PremiumLapseSummary(
@@ -54,6 +55,10 @@ class PremiumLapseSummary {
   final int lockedRoutineCount;
   final int freeRoutineLimit;
   final bool isSignedIn;
+
+  /// The routines that stay unlocked on Free (the user's choice, or the
+  /// first ones in the list until they choose), in list order.
+  final List<String> keptRoutineTitles;
 
   bool get hasMoreRoutinesThanFree => routineCount > freeRoutineLimit;
 
@@ -92,14 +97,14 @@ PremiumLapseSummary buildPremiumLapseSummary({
     ProofMediaFairUsePolicy.localRetentionDuration,
   );
   final olderRuns = runs.where((run) => !run.finishedAt.isAfter(cutoff)).length;
+  final unlocked = unlockedRoutineIds(
+    routines: routines,
+    limit: policy.freeRoutineLimit,
+    keptRoutineIds: keptRoutineIds,
+  );
   final lockedCount = routines.length <= policy.freeRoutineLimit
       ? 0
-      : routines.length -
-            unlockedRoutineIds(
-              routines: routines,
-              limit: policy.freeRoutineLimit,
-              keptRoutineIds: keptRoutineIds,
-            ).length;
+      : routines.length - unlocked.length;
   return PremiumLapseSummary(
     isLapsed: true,
     inGrace: inGrace,
@@ -109,6 +114,10 @@ PremiumLapseSummary buildPremiumLapseSummary({
     lockedRoutineCount: lockedCount,
     freeRoutineLimit: policy.freeRoutineLimit,
     isSignedIn: isSignedIn,
+    keptRoutineTitles: [
+      for (final routine in routines)
+        if (unlocked.contains(routine.id)) routine.title,
+    ],
   );
 }
 
