@@ -12,7 +12,6 @@ import 'package:pebble_routines/core/database/local_db.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
-import 'package:pebble_routines/core/ui/pebble_time.dart';
 import 'package:pebble_routines/data/repositories/routine_repository.dart';
 import 'package:pebble_routines/features/account_backup/providers/account_backup_ui_provider.dart';
 import 'package:pebble_routines/features/history/providers/routine_history_vm.dart';
@@ -998,24 +997,21 @@ void _checkedTests() {
       find.byKey(const ValueKey('home_hero_checked_card')),
       findsOneWidget,
     );
-    expect(find.text('CHECKED'), findsOneWidget);
-    // The time is the hero, in the big serif.
+    // One status line replaces UP NEXT: the time and what was done.
     expect(
-      find.byWidgetPredicate(
-        (widget) => widget is PebbleBigTime && widget.at == finishedAt,
-      ),
-      findsOneWidget,
+      _checkedLine(tester),
+      matches(RegExp(r'^Checked (08:04|8:04\s?AM) · all 5 steps$')),
     );
-    expect(find.text('Leaving the house · all 5 steps'), findsOneWidget);
-    // Quiet actions only: no filled Start competing with the answer.
-    expect(find.text('See this check'), findsNothing);
+    expect(find.text('UP NEXT'), findsNothing);
+    // The card keeps its shape: the title and the steps stay in view.
+    expect(find.text('Leaving the house'), findsWidgets);
+    expect(find.text('Step 0'), findsOneWidget);
     expect(find.text('Run again'), findsOneWidget);
-    // The card itself opens the check.
+    expect(find.text('Start'), findsNothing);
+    // The status line opens the check.
     await tester.tap(find.byKey(const ValueKey('home_hero_checked_card')));
     await tester.pumpAndSettle();
     expect(find.byType(RoutineRunDetailScreen), findsOneWidget);
-    expect(find.text('Start'), findsNothing);
-    expect(find.text('UP NEXT'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -1039,8 +1035,41 @@ void _checkedTests() {
       ),
     );
 
-    expect(find.text('CHECKED · 1 SKIPPED'), findsOneWidget);
-    expect(find.text('Morning reset · 3 of 4 steps'), findsOneWidget);
+    expect(_checkedLine(tester), endsWith(' · 3 of 4 steps · 1 skipped'));
+  });
+
+  testWidgets('History sits next to Settings once a routine has a check', (
+    tester,
+  ) async {
+    await _pumpHome(
+      tester,
+      surfaceSize: const Size(390, 844),
+      clock: () => DateTime(2026, 10, 3, 9),
+      routines: [
+        _routine(id: 1, title: 'Leaving the house', steps: [_step('Door')]),
+      ],
+      latestRun: _runWithSteps(
+        routineId: 1,
+        finishedAt: DateTime(2026, 10, 3, 8, 4),
+        total: 1,
+      ),
+    );
+
+    expect(find.byKey(const ValueKey('home_hero_settings')), findsOneWidget);
+    expect(find.byKey(const ValueKey('home_hero_history')), findsOneWidget);
+  });
+
+  testWidgets('a routine never checked has no History button', (tester) async {
+    await _pumpHome(
+      tester,
+      surfaceSize: const Size(390, 844),
+      routines: [
+        _routine(id: 1, title: 'Leaving the house', steps: [_step('Door')]),
+      ],
+    );
+
+    expect(find.byKey(const ValueKey('home_hero_settings')), findsOneWidget);
+    expect(find.byKey(const ValueKey('home_hero_history')), findsNothing);
   });
 
   testWidgets('Checked goes back to Start at the cut-off while Home is open', (
@@ -1445,3 +1474,8 @@ class _AiOn implements RoutineAiClient {
     bool askQuestions = false,
   }) async => const RoutineAiReply.refused('featureOff');
 }
+
+String _checkedLine(WidgetTester tester) => tester
+    .widget<Text>(find.byKey(const ValueKey('home_hero_checked_overline')))
+    .textSpan!
+    .toPlainText();

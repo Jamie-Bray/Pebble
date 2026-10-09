@@ -36,6 +36,7 @@ import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
 import 'package:pebble_routines/core/theme/routine_palette.dart';
 import 'package:pebble_routines/core/ui/pebble_stones.dart';
+import 'package:pebble_routines/core/ui/pebble_cairn.dart';
 import 'package:pebble_routines/features/routines/cover/routine_cover.dart';
 import 'package:pebble_routines/features/routines/cover/routine_cover_view.dart';
 import 'package:pebble_routines/features/routines/execution/data/services/routine_player_photo_picker.dart';
@@ -187,7 +188,8 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
 
   Widget _buildEmptyHome(ThemeId currentTheme, ThemeData themeData) {
     final foundation = context.darkFoundation;
-    final aiOn = ref.watch(routineAiStatusProvider).valueOrNull?.enabled ?? false;
+    final aiOn =
+        ref.watch(routineAiStatusProvider).valueOrNull?.enabled ?? false;
 
     return Scaffold(
       backgroundColor: foundation.bgBase,
@@ -460,6 +462,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                                 themeData,
                               );
                             },
+                            onHistory: () => _onViewHistory(spotlightRoutine),
                             onBegin: () {
                               _onPlayRoutine(spotlightRoutine);
                             },
@@ -1748,6 +1751,7 @@ class _HomeHeroStage extends ConsumerStatefulWidget {
     required this.steps,
     required this.accentColor,
     required this.onSettings,
+    required this.onHistory,
     required this.onBegin,
     required this.onStyle,
     required this.onPreviewStepTap,
@@ -1760,6 +1764,9 @@ class _HomeHeroStage extends ConsumerStatefulWidget {
 
   /// Opens the routine's actions sheet (edit, reminders, emails...).
   final VoidCallback onSettings;
+
+  /// Opens History filtered to this routine.
+  final VoidCallback onHistory;
   final VoidCallback onBegin;
 
   /// Opens Style Studio for this routine (the one-time "Make it yours" card).
@@ -1828,87 +1835,22 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
         .where((step) => step.hasPhotoRequirement)
         .length;
 
-    final checked = heroState.kind == HomeHeroKind.checked;
-    final run = heroState.latestRun;
-    final Widget hero = checked && run != null
-        ? _buildChecked(heroState, run, nextReminder, photoStepCount)
-        : _buildReady(heroState, nextReminder, photoStepCount);
+    final checked =
+        heroState.kind == HomeHeroKind.checked && heroState.latestRun != null;
+    final motion = !animateHero
+        ? Duration.zero
+        : MediaQuery.disableAnimationsOf(context)
+        ? PebbleMotion.reduced
+        : PebbleMotion.standard;
 
-    // Returning from a run, the Checked card cross-fades in.
-    return AnimatedSwitcher(
-      duration: !animateHero
-          ? Duration.zero
-          : MediaQuery.disableAnimationsOf(context)
-          ? PebbleMotion.reduced
-          : PebbleMotion.standard,
-      switchInCurve: PebbleMotion.enter,
-      layoutBuilder: (current, previous) => Stack(
-        alignment: Alignment.topCenter,
-        children: [...previous, ?current],
-      ),
-      child: KeyedSubtree(
-        key: ValueKey(checked ? 'checked' : 'ready'),
-        child: hero,
-      ),
-    );
-  }
-
-  Widget _buildChecked(
-    HomeHeroState heroState,
-    RoutineRun run,
-    DateTime? nextReminder,
-    int photoStepCount,
-  ) {
-    final tally = heroState.tally ?? RunStepTally.fromRun(run);
+    // One card before and after a check: the steps never move, only the
+    // status line and the main button change.
     return Column(
-      key: const ValueKey('home_hero_stage'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        HomeCheckedCard(
-          routineId: widget.routine.id,
-          routineTitle: widget.routine.title.trim().isEmpty
-              ? 'Untitled routine'
-              : widget.routine.title.trim(),
-          finishedAt: run.finishedAt,
-          tally: tally,
-          photoPaths: heroState.photoPaths,
-          onOpen: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => RoutineRunDetailScreen(run: run),
-            ),
-          ),
-          footer: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // The answer is the card (tap it to open the check). Run
-              // again is one clear tonal button, never the filled Start, so
-              // it doesn't invite re-checking.
-              SizedBox(
-                key: const ValueKey('home_hero_cta_box'),
-                width: double.infinity,
-                child: PebbleButton.secondary(
-                  key: const ValueKey('home_hero_cta'),
-                  onPressed: widget.onBegin,
-                  icon: LucideIcons.rotateCcw,
-                  label: 'Run again',
-                ),
-              ),
-              const SizedBox(height: PebbleSpacing.sm),
-              Center(
-                child: HomeRoutineMetaLine(
-                  key: const ValueKey('home_hero_meta_line'),
-                  stepCount: widget.steps.length,
-                  photoStepCount: photoStepCount,
-                  nextReminder: nextReminder,
-                  onTap: widget.onSettings,
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (_showStyleCard)
+        _buildCard(heroState, nextReminder, photoStepCount, checked, motion),
+        if (checked && _showStyleCard)
           Padding(
             padding: const EdgeInsets.only(top: PebbleSpacing.lg),
             child: HomeMakeItYoursCard(
@@ -1919,35 +1861,37 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
               onDismiss: _dismissStyleCard,
             ),
           ),
-        Consumer(
-          builder: (context, ref, _) {
-            final earlier =
-                ref
-                    .watch(earlierRoutineRunsProvider(widget.routine.id))
-                    .valueOrNull ??
-                const <RoutineRun>[];
-            if (earlier.isEmpty) return const SizedBox.shrink();
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(4, PebbleSpacing.md, 4, 0),
-              child: HomeEarlierChecks(
-                runs: earlier,
-                onOpen: (run) => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => RoutineRunDetailScreen(run: run),
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
+        if (checked)
+          Consumer(
+            builder: (context, ref, _) {
+              final earlier =
+                  ref
+                      .watch(earlierRoutineRunsProvider(widget.routine.id))
+                      .valueOrNull ??
+                  const <RoutineRun>[];
+              if (earlier.isEmpty) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(4, PebbleSpacing.md, 4, 0),
+                child: HomeEarlierChecks(runs: earlier, onOpen: _openRun),
+              );
+            },
+          ),
       ],
     );
   }
 
-  Widget _buildReady(
+  void _openRun(RoutineRun run) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => RoutineRunDetailScreen(run: run)),
+    );
+  }
+
+  Widget _buildCard(
     HomeHeroState heroState,
     DateTime? nextReminder,
     int photoStepCount,
+    bool checked,
+    Duration motion,
   ) {
     final foundation = context.darkFoundation;
     final type = PebbleType.of(context);
@@ -1983,22 +1927,70 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
               _RoutineStone(color: widget.accentColor, icon: icon),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  inProgress ? 'IN PROGRESS' : 'UP NEXT',
-                  key: const ValueKey('home_hero_overline'),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: type.overline.copyWith(
-                    color: context.readableAccentText(
-                      widget.themeData.colorScheme.primary,
+                child: Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: PebbleSpacing.xs,
+                  runSpacing: PebbleSpacing.xs,
+                  children: [
+                    if (heroState.latestRun != null)
+                      _HomePillButton(
+                        key: const ValueKey('home_hero_history'),
+                        icon: LucideIcons.history,
+                        label: 'History',
+                        tooltip: 'History of this routine',
+                        onTap: widget.onHistory,
+                      ),
+                    _HomePillButton(
+                      key: const ValueKey('home_hero_settings'),
+                      icon: LucideIcons.slidersHorizontal,
+                      label: 'Settings',
+                      tooltip: 'Routine settings',
+                      onTap: widget.onSettings,
                     ),
-                  ),
+                  ],
                 ),
               ),
-              _HomeRoutineSettingsButton(onTap: widget.onSettings),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: PebbleSpacing.sm),
+          // Up next, or when it was checked: the one line that changes.
+          AnimatedSwitcher(
+            duration: motion,
+            switchInCurve: PebbleMotion.enter,
+            layoutBuilder: (current, previous) => Stack(
+              alignment: Alignment.centerLeft,
+              children: [...previous, ?current],
+            ),
+            child: checked
+                ? Align(
+                    key: const ValueKey('checked'),
+                    alignment: Alignment.centerLeft,
+                    child: _HomeCheckedStatus(
+                      routineId: widget.routine.id,
+                      run: heroState.latestRun!,
+                      tally:
+                          heroState.tally ??
+                          RunStepTally.fromRun(heroState.latestRun!),
+                      onOpen: () => _openRun(heroState.latestRun!),
+                    ),
+                  )
+                : Align(
+                    key: const ValueKey('ready'),
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      inProgress ? 'IN PROGRESS' : 'UP NEXT',
+                      key: const ValueKey('home_hero_overline'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: type.overline.copyWith(
+                        color: context.readableAccentText(
+                          widget.themeData.colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  ),
+          ),
+          const SizedBox(height: 10),
           Text.rich(
             key: const ValueKey('home_hero_title'),
             _titleSpan(
@@ -2077,19 +2069,30 @@ class _HomeHeroStageState extends ConsumerState<_HomeHeroStage> {
             key: const ValueKey('home_hero_cta_box'),
             width: double.infinity,
             height: 54,
-            child: PebbleButton.primary(
-              key: const ValueKey('home_hero_cta'),
-              onPressed: widget.onBegin,
-              icon: LucideIcons.play,
-              label: inProgress ? 'Resume' : 'Start',
+            // After a check, Run again is the soft tonal button, never the
+            // filled Start, so it doesn't invite re-checking.
+            child: checked
+                ? PebbleButton.secondary(
+                    key: const ValueKey('home_hero_cta'),
+                    onPressed: widget.onBegin,
+                    icon: LucideIcons.rotateCcw,
+                    label: 'Run again',
+                  )
+                : PebbleButton.primary(
+                    key: const ValueKey('home_hero_cta'),
+                    onPressed: widget.onBegin,
+                    icon: LucideIcons.play,
+                    label: inProgress ? 'Resume' : 'Start',
+                  ),
+          ),
+          if (!checked) ...[
+            const SizedBox(height: PebbleSpacing.xs),
+            _HomeHeroMetaRow(
+              latestRun: heroState.latestRun,
+              session: heroState.session,
+              lastRunTextFor: _lastRunText,
             ),
-          ),
-          const SizedBox(height: PebbleSpacing.xs),
-          _HomeHeroMetaRow(
-            latestRun: heroState.latestRun,
-            session: heroState.session,
-            lastRunTextFor: _lastRunText,
-          ),
+          ],
         ],
       ),
     );
@@ -2177,11 +2180,20 @@ class _RoutineStone extends StatelessWidget {
   }
 }
 
-/// The routine settings control in the Up next card: an outlined pill with
-/// the sliders icon, as elsewhere on Home.
-class _HomeRoutineSettingsButton extends StatelessWidget {
-  const _HomeRoutineSettingsButton({required this.onTap});
+/// A small outlined pill in the Up next card (History, Settings), in the
+/// style of the routine settings pill used elsewhere on Home.
+class _HomePillButton extends StatelessWidget {
+  const _HomePillButton({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.tooltip,
+    required this.onTap,
+  });
 
+  final IconData icon;
+  final String label;
+  final String tooltip;
   final VoidCallback onTap;
 
   @override
@@ -2190,10 +2202,10 @@ class _HomeRoutineSettingsButton extends StatelessWidget {
     final color = context.readableSecondaryText;
     return Semantics(
       button: true,
-      label: 'Routine settings',
+      label: tooltip,
       excludeSemantics: true,
       child: Tooltip(
-        message: 'Routine settings',
+        message: tooltip,
         excludeFromSemantics: true,
         child: Material(
           color: foundation.bgBase,
@@ -2201,7 +2213,6 @@ class _HomeRoutineSettingsButton extends StatelessWidget {
             side: BorderSide(color: Theme.of(context).colorScheme.outline),
           ),
           child: InkWell(
-            key: const ValueKey('home_hero_settings'),
             customBorder: const StadiumBorder(),
             onTap: onTap,
             child: ConstrainedBox(
@@ -2211,10 +2222,10 @@ class _HomeRoutineSettingsButton extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(LucideIcons.slidersHorizontal, size: 15, color: color),
+                    Icon(icon, size: 15, color: color),
                     const SizedBox(width: 6),
                     Text(
-                      'Settings',
+                      label,
                       style: PebbleType.of(
                         context,
                       ).caption.copyWith(color: color),
@@ -2225,6 +2236,135 @@ class _HomeRoutineSettingsButton extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// "Checked 08:02 · all 5 steps" with a small cairn, in the routine's
+/// colour. Sits where "UP NEXT" was, so the card keeps its shape after a
+/// check; tapping it opens the check.
+class _HomeCheckedStatus extends ConsumerWidget {
+  const _HomeCheckedStatus({
+    required this.routineId,
+    required this.run,
+    required this.tally,
+    required this.onOpen,
+  });
+
+  final int routineId;
+  final RoutineRun run;
+  final RunStepTally tally;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorHex = ref.watch(routineColorHexProvider(routineId));
+    return RoutineAccentScope(
+      colorHex: colorHex,
+      child: Builder(
+        builder: (context) {
+          final foundation = context.darkFoundation;
+          final type = PebbleType.of(context);
+          final fill = Color.alphaBlend(
+            context.doneContainer,
+            _homeCardFill(context),
+          );
+          final done = ensureContrast(
+            context.done,
+            backgrounds: [fill],
+            strongest: foundation.textPrimary,
+          );
+          final secondary = ensureContrast(
+            foundation.textSecondary,
+            backgrounds: [fill],
+            strongest: foundation.textPrimary,
+          );
+          final time = formatCheckTime(context, run.finishedAt);
+          final total = tally.total;
+          final steps = total == 1 ? 'step' : 'steps';
+          final detail = total == 0
+              ? null
+              : tally.skipped == 0 && tally.done >= total
+              ? 'all $total $steps'
+              : '${tally.done} of $total $steps'
+                    '${tally.skipped > 0 ? ' · ${tally.skipped} skipped' : ''}';
+          return Semantics(
+            button: true,
+            label: 'Checked at $time${detail == null ? '' : ', $detail'}',
+            hint: 'Opens this check',
+            excludeSemantics: true,
+            child: Material(
+              key: const ValueKey('home_hero_checked_card'),
+              color: fill,
+              shape: const StadiumBorder(),
+              child: InkWell(
+                customBorder: const StadiumBorder(),
+                onTap: onOpen,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 36),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 4, 10, 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Hero(
+                          tag: 'cairn-$routineId',
+                          // Scoped inside the Hero so the flight keeps the
+                          // routine's colour.
+                          child: RoutineAccentScope(
+                            colorHex: colorHex,
+                            child: PebbleCairn(
+                              total: total == 0 ? 1 : total,
+                              skipped: tally.skipped,
+                              size: 22,
+                              showCount: false,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: 'Checked $time',
+                                  style: TextStyle(
+                                    color: done,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                if (detail != null)
+                                  TextSpan(
+                                    text: ' · $detail',
+                                    style: TextStyle(color: secondary),
+                                  ),
+                              ],
+                            ),
+                            key: const ValueKey('home_hero_checked_overline'),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: type.caption.copyWith(
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        Icon(
+                          LucideIcons.chevronRight,
+                          size: 16,
+                          color: secondary,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
