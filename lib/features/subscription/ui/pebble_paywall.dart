@@ -1352,8 +1352,15 @@ class _PaywallOverviewState extends State<_PaywallOverview> {
             children: [label, switcher],
           ),
         const SizedBox(height: 6),
-        for (final row in _comparisonRows)
-          _ComparisonRowView(row: row, showFree: _showFree),
+        for (var i = 0; i < _comparisonRows.length; i++)
+          _ComparisonRowView(
+            row: _comparisonRows[i],
+            showFree: _showFree,
+            // The tinted row replaces its own hairline and the next one.
+            showTopLine:
+                _comparisonRows[i].hint == null &&
+                (i == 0 || _comparisonRows[i - 1].hint == null),
+          ),
         const SizedBox(height: 14),
         Text(
           _showFree
@@ -1493,10 +1500,10 @@ final _comparisonRows = [
   ),
   const _ComparisonRow(
     'Routine builder',
-    'AI-assisted',
+    'AI writes it',
     // Free gets one AI build (RoutineAiStatus.freeBuildUsed).
     '1 free build',
-    hint: 'Describe it. The latest AI drafts your steps.',
+    hint: "Say what it's for. Pebble writes the steps.",
     sparkle: true,
   ),
   const _ComparisonRow(
@@ -1510,26 +1517,34 @@ final _comparisonRows = [
 ];
 
 class _ComparisonRowView extends StatelessWidget {
-  const _ComparisonRowView({required this.row, required this.showFree});
+  const _ComparisonRowView({
+    required this.row,
+    required this.showFree,
+    required this.showTopLine,
+  });
 
   final _ComparisonRow row;
   final bool showFree;
+  final bool showTopLine;
 
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
     final accent = _premiumAccentText(context);
     final hint = row.hint;
-    return DecoratedBox(
+    final featured = hint != null;
+    final line = DecoratedBox(
       decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(
-            color: foundation.borderSubtle.withValues(alpha: 0.64),
-          ),
-        ),
+        border: showTopLine
+            ? Border(
+                top: BorderSide(
+                  color: foundation.borderSubtle.withValues(alpha: 0.64),
+                ),
+              )
+            : null,
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 14),
+        padding: EdgeInsets.symmetric(vertical: featured ? 10 : 14),
         child: LayoutBuilder(
           builder: (context, constraints) => Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1550,12 +1565,11 @@ class _ComparisonRowView extends StatelessWidget {
                       const SizedBox(height: 3),
                       Text(
                         hint,
-                        style: TextStyle(
-                          color: foundation.textMuted,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w300,
-                          height: 1.4,
-                        ),
+                        style: _serifStyle(context, fontSize: 14.5, height: 1.3)
+                            .copyWith(
+                              color: foundation.textSecondary,
+                              fontStyle: FontStyle.italic,
+                            ),
                       ),
                     ],
                   ],
@@ -1599,6 +1613,28 @@ class _ComparisonRowView extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+    if (!featured) return line;
+    // A soft accent tint that bleeds 12px past the text column, so the text
+    // still lines up with the other rows.
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            left: -12,
+            right: -12,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: _premiumGlow(context).withValues(alpha: 0.07),
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+          ),
+          line,
+        ],
       ),
     );
   }

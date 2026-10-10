@@ -83,7 +83,7 @@ void main() {
       expect(find.text(label), findsOneWidget, reason: label);
     }
     expect(
-      find.text('Describe it. The latest AI drafts your steps.'),
+      find.text("Say what it's for. Pebble writes the steps."),
       findsOneWidget,
     );
 
@@ -162,7 +162,7 @@ void main() {
         'Pebble still works free. You can upgrade when you need more.';
 
     expect(find.text('Unlimited'), findsOneWidget);
-    expect(find.text('AI-assisted'), findsOneWidget);
+    expect(find.text('AI writes it'), findsOneWidget);
     expect(find.text('21 days'), findsOneWidget);
     expect(find.text('Up to 4'), findsOneWidget);
     expect(find.text(premiumNote), findsOneWidget);
