@@ -1331,7 +1331,7 @@ class _PaywallOverviewState extends State<_PaywallOverview> {
         const SizedBox(height: 10),
         Text.rich(
           TextSpan(
-            style: _serifStyle(context, fontSize: 42, height: 1.05),
+            style: _serifStyle(context, fontSize: 34, height: 1.08),
             children: [
               const TextSpan(text: 'More Pebble.\n'),
               TextSpan(
@@ -1341,7 +1341,7 @@ class _PaywallOverviewState extends State<_PaywallOverview> {
             ],
           ),
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 20),
         if (_isLargeText(context)) ...[
           label,
           const SizedBox(height: 8),
