@@ -11,7 +11,7 @@ import 'package:pebble_routines/features/subscription/providers/cloud_backup_con
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 
 void main() {
-  testWidgets('small labels are readable and footer links are 48 high', (
+  testWidgets('small labels are readable and footer links are 44 high', (
     tester,
   ) async {
     await _pumpPaywall(
@@ -38,12 +38,12 @@ void main() {
       }
     }
 
-    for (final link in ['Restore purchase', 'Terms of Use', 'Privacy Policy']) {
+    for (final link in ['Restore purchase', 'Terms', 'Privacy']) {
       final finder = find.widgetWithText(TextButton, link);
       await _scrollUntilVisible(tester, finder);
       expect(
         tester.getSize(finder).height,
-        greaterThanOrEqualTo(48),
+        greaterThanOrEqualTo(44),
         reason: link,
       );
     }
@@ -96,7 +96,16 @@ void main() {
     expect(find.textContaining('7-day free trial'), findsNothing);
 
     expect(find.text('Restore purchase'), findsOneWidget);
-    expect(find.text('Subscription details'), findsOneWidget);
+    expect(find.text('Details'), findsOneWidget);
+    final semantics = tester.ensureSemantics();
+    for (final label in [
+      'Subscription details',
+      'Terms of Use',
+      'Privacy Policy',
+    ]) {
+      expect(find.bySemanticsLabel(label), findsOneWidget, reason: label);
+    }
+    semantics.dispose();
     expect(find.text('\u00c2\u00b7'), findsNothing);
     expect(
       find.text(
@@ -118,7 +127,7 @@ void main() {
       ],
     );
 
-    final link = find.text('Subscription details');
+    final link = find.text('Details');
     await _scrollUntilVisible(tester, link);
     await tester.tap(link);
     await tester.pumpAndSettle();
@@ -259,8 +268,8 @@ void main() {
     expect(find.text('Loading'), findsNothing);
     // Restore, Terms and Privacy stay reachable even without prices.
     expect(find.text('Restore purchase'), findsOneWidget);
-    expect(find.text('Terms of Use'), findsOneWidget);
-    expect(find.text('Privacy Policy'), findsOneWidget);
+    expect(find.text('Terms'), findsOneWidget);
+    expect(find.text('Privacy'), findsOneWidget);
   });
 
   testWidgets('Try again re-requests store products and shows the plans', (
@@ -349,8 +358,8 @@ void main() {
           expect(find.textContaining('Renews automatically'), findsOneWidget);
           final restore = find.text('Restore purchase');
           await _scrollUntilVisible(tester, restore);
-          expect(find.text('Terms of Use'), findsOneWidget);
-          expect(find.text('Privacy Policy'), findsOneWidget);
+          expect(find.text('Terms'), findsOneWidget);
+          expect(find.text('Privacy'), findsOneWidget);
           expect(tester.takeException(), isNull);
         } finally {
           debugDefaultTargetPlatformOverride = null;

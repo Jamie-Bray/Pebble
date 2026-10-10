@@ -1690,7 +1690,7 @@ class _PricingFooter extends ConsumerWidget {
           ),
         const SizedBox(height: 11),
         _FinePrint(summary: summary),
-        const SizedBox(height: 6),
+        const SizedBox(height: 4),
         _FooterLinks(
           onRestorePurchase: onRestorePurchase,
           onShowDetails: () => showPebbleSimpleSheet<void>(
@@ -1720,7 +1720,7 @@ class _PricingFooter extends ConsumerWidget {
           ),
         ),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 18),
+          padding: const EdgeInsets.fromLTRB(24, 14, 24, 4),
           child: content,
         ),
       ),
@@ -1986,8 +1986,8 @@ class _FooterLinks extends StatelessWidget {
     final foundation = context.darkFoundation;
     final style = TextButton.styleFrom(
       foregroundColor: foundation.textPrimary.withValues(alpha: 0.82),
-      // 48 high so each link is a full-size tap target.
-      minimumSize: const Size(48, 48),
+      // 44 high so each link is still a full-size tap target.
+      minimumSize: const Size(44, 44),
       padding: const EdgeInsets.symmetric(horizontal: 4),
       textStyle: PebbleFonts.sans(
         fontSize: 12.5,
@@ -2004,22 +2004,38 @@ class _FooterLinks extends StatelessWidget {
         TextButton(
           onPressed: onRestorePurchase,
           style: style,
-          child: const Text('Restore purchase'),
+          child: Semantics(
+            label: 'Restore purchase',
+            excludeSemantics: true,
+            child: const Text('Restore purchase'),
+          ),
         ),
         TextButton(
           onPressed: onShowDetails,
           style: style,
-          child: const Text('Subscription details'),
+          child: Semantics(
+            label: 'Subscription details',
+            excludeSemantics: true,
+            child: const Text('Details'),
+          ),
         ),
         TextButton(
           onPressed: () => onOpenLegalUrl(pebbleTermsUrl),
           style: style,
-          child: const Text('Terms of Use'),
+          child: Semantics(
+            label: 'Terms of Use',
+            excludeSemantics: true,
+            child: const Text('Terms'),
+          ),
         ),
         TextButton(
           onPressed: () => onOpenLegalUrl(pebblePrivacyPolicyUrl),
           style: style,
-          child: const Text('Privacy Policy'),
+          child: Semantics(
+            label: 'Privacy Policy',
+            excludeSemantics: true,
+            child: const Text('Privacy'),
+          ),
         ),
       ],
     );
