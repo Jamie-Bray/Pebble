@@ -26,6 +26,7 @@ import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/features/routines/list/providers/home_hero_state_provider.dart';
 import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
 import 'package:pebble_routines/features/routines/list/ui/home_hero_widgets.dart';
+import 'package:pebble_routines/features/routines/list/ui/home_theme_button.dart';
 import 'package:pebble_routines/features/onboarding/data/onboarding_tour.dart';
 import 'package:pebble_routines/core/ui/pebble_hint.dart';
 import 'package:pebble_routines/features/routines/list/providers/routine_management_provider.dart';
@@ -638,27 +639,29 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Text.rich(
-              TextSpan(
-                children: [
-                  const TextSpan(text: 'pebble'),
-                  TextSpan(
-                    text: '.',
-                    style: TextStyle(color: colorScheme.primary),
-                  ),
-                ],
-              ),
-              maxLines: 1,
-              softWrap: false,
-              style: PebbleFonts.serif(
-                fontSize: 24,
-                fontStyle: FontStyle.italic,
-                height: 1,
-                letterSpacing: -0.3,
-                color: foundation.textPrimary,
+            Expanded(
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    const TextSpan(text: 'pebble'),
+                    TextSpan(
+                      text: '.',
+                      style: TextStyle(color: colorScheme.primary),
+                    ),
+                  ],
+                ),
+                maxLines: 1,
+                softWrap: false,
+                style: PebbleFonts.serif(
+                  fontSize: 24,
+                  fontStyle: FontStyle.italic,
+                  height: 1,
+                  letterSpacing: -0.3,
+                  color: foundation.textPrimary,
+                ),
               ),
             ),
-            const Spacer(),
+            const HomeThemeButton(),
             PebbleGlassIconButton(
               flat: true,
               tooltip: 'App settings',

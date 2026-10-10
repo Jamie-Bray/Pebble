@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pebble_routines/core/theme/pebble_fonts.dart';
 import 'package:pebble_routines/core/database/routine_step.dart';
@@ -147,7 +148,7 @@ class RoutineComposerStepRow extends StatelessWidget {
                       hintStyle: TextStyle(
                         fontSize: 14.5,
                         fontWeight: FontWeight.w500,
-                        color: cs.onSurface.withValues(alpha: 0.32),
+                        color: context.readableSecondaryText,
                         height: 1.35,
                       ),
                       border: InputBorder.none,
@@ -197,7 +198,7 @@ class RoutineComposerStepRow extends StatelessWidget {
                       '$currentLength/$maxLength',
                       style: TextStyle(
                         fontSize: 11.5,
-                        color: cs.onSurface.withValues(alpha: 0.58),
+                        color: context.readableSecondaryText,
                       ),
                     )
                   : null,
@@ -215,7 +216,7 @@ class RoutineComposerStepRow extends StatelessWidget {
                 hintStyle: TextStyle(
                   fontSize: 13.5,
                   height: 1.4,
-                  color: cs.onSurface.withValues(alpha: 0.42),
+                  color: context.readableSecondaryText,
                 ),
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
@@ -294,7 +295,7 @@ class RoutineComposerStepRow extends StatelessWidget {
                         fontSize: 12,
                         height: 1.35,
                         fontWeight: FontWeight.w500,
-                        color: cs.onSurface.withValues(alpha: 0.58),
+                        color: context.readableSecondaryText,
                       ),
                     ),
                   ),
@@ -481,7 +482,7 @@ class _StepToneColors {
     final cs = Theme.of(context).colorScheme;
     if (!active || tone == _StepOptionTone.neutral) {
       return _StepToneColors(
-        foreground: cs.onSurface.withValues(alpha: 0.38),
+        foreground: context.readableSecondaryText,
         background: Colors.transparent,
         border: cs.outline.withValues(alpha: 0.72),
       );
