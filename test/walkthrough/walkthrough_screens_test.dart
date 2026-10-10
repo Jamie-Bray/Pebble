@@ -1746,7 +1746,7 @@ void main() {
       theme: theme,
       store: store,
       (env) async {
-        await env.push('/premium?source=routine_limit');
+        await env.push('/premium');
         await env.shot('${prefix}paywall');
         await env.scrollDown(600);
         await env.shot('${prefix}paywall_scrolled');
@@ -2320,7 +2320,7 @@ void main() {
 
   // ---- Subscription lifecycle (SUBSCRIPTION_REVIEW.md) --------------------
   _capture('sub pending purchase', store: _Store.pending, (env) async {
-    await env.push('/premium?source=routine_limit');
+    await env.push('/premium');
     await env.tapFinder(find.textContaining('Continue with').first);
     await env.settle(10);
     await env.shot('sub_pending_purchase');
@@ -2328,7 +2328,7 @@ void main() {
   _capture('sub purchase signed out', store: _Store.purchaseSucceeds, (
     env,
   ) async {
-    await env.push('/premium?source=routine_limit');
+    await env.push('/premium');
     await env.tapFinder(find.textContaining('Continue with').first);
     await env.settle(20);
     await env.shot('sub_purchase_success_signed_out');
