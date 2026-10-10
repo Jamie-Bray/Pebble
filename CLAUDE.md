@@ -1,11 +1,22 @@
 # Pebble Routines: Working Rules
 
-> **Returning after the Codex AI-photo work on 5 October 2026?** Read
-> `docs/HANDOVER_CODEX_TO_CLAUDE_2026-10-05.md` before resuming the AI task.
-
 Pebble is a Flutter app (Android and iOS) with a Supabase backend and RevenueCat
 subscriptions. The owner is not a developer, so explain outcomes in plain English
 and handle git, tests and pushing yourself.
+
+## Keep token use low
+
+The owner is on a weekly usage limit, and everything read stays in context and is re-sent every turn.
+
+- Search before reading. Use Grep with a specific path, then read only the line range you need.
+- Never read a whole doc over about 10KB (`DESIGN_DIRECTION.md`, `SUPABASE_LIVE_AUDIT.md`,
+  `VISUAL_WALKTHROUGH.md`, `SUBSCRIPTION_REVIEW.md`, `COMPLETION_EMAIL_REVIEW.md`).
+  Grep for the heading and read that section only.
+- Pipe long command output through `tail -n 40` (for example `flutter test 2>&1 | tail -n 40`).
+- Only open walkthrough PNGs for the screens being changed, never the full set.
+- Don't re-read a file you just edited. Don't explore the repo when the owner has named the file.
+- Use subagents only when the owner asks.
+- When a task is done, say so and suggest starting a fresh thread for the next one.
 
 ## Source of truth: GitHub, always
 
