@@ -34,7 +34,11 @@ enum ThemeId {
   heather,
   ember,
   seasonal,
+  ivoryAndGold,
+  inkAndGold,
 }
+
+const defaultThemeId = ThemeId.ivoryAndGold;
 
 enum ThemePickerCategory { included, premium, accessibility }
 
@@ -243,7 +247,48 @@ abstract class _BaseThemeFactory {
   }
 }
 
-/// 1. High Noon (Free Light)
+/// Default light palette: bright fills and darker gold for readable links.
+class IvoryAndGoldThemeFactory {
+  static ThemeData build() {
+    const ink = Color(0xFF192B3B);
+    const gold = Color(0xFFEDBF59);
+    final theme = _BaseThemeFactory.build(
+      id: ThemeId.ivoryAndGold,
+      bg: const Color(0xFFF6F1E7),
+      fg: ink,
+      // Bright gold is a fill, not small text on ivory.
+      accent: const Color(0xFF795817),
+      actionAccent: gold,
+      onActionAccent: ink,
+    );
+    return theme.copyWith(
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: gold,
+          foregroundColor: ink,
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: theme.elevatedButtonTheme.style!.copyWith(
+          backgroundColor: const WidgetStatePropertyAll(gold),
+          foregroundColor: const WidgetStatePropertyAll(ink),
+        ),
+      ),
+    );
+  }
+}
+
+class InkAndGoldThemeFactory {
+  static ThemeData build() => _BaseThemeFactory.build(
+    id: ThemeId.inkAndGold,
+    bg: const Color(0xFF192B3B),
+    fg: const Color(0xFFF6F1E7),
+    accent: const Color(0xFFEDBF59),
+    isDark: true,
+  );
+}
+
+/// High Noon (Free Light)
 class HighNoonThemeFactory {
   static ThemeData build() => _BaseThemeFactory.build(
     id: ThemeId.highNoon,
@@ -690,6 +735,10 @@ class ColourBlindSafeThemeFactory {
 class AppTheme {
   static ThemeData fromId(ThemeId id) {
     switch (id) {
+      case ThemeId.ivoryAndGold:
+        return IvoryAndGoldThemeFactory.build();
+      case ThemeId.inkAndGold:
+        return InkAndGoldThemeFactory.build();
       case ThemeId.highNoon:
         return HighNoonThemeFactory.build();
       case ThemeId.nordicNight:
@@ -1104,11 +1153,29 @@ class ThemeMetadata {
       category == ThemePickerCategory.accessibility;
 
   // Picker layout (DESIGN_DIRECTION.md, theme pass Oct 2026):
-  // - Free: two warm lights, one cool light, a pastel and two darks.
+  // - Free: the gold pair plus the existing light and dark palettes.
   // - Premium: ten on the main picker, the older ones under "More".
   // - Accessibility: all five shown, always free.
   static const Map<ThemeId, ThemeMetadata> metadata = {
     // ---- Free ----
+    ThemeId.ivoryAndGold: ThemeMetadata(
+      id: ThemeId.ivoryAndGold,
+      name: 'Ivory & Gold',
+      icon: LucideIcons.sun,
+      subtitle: 'Warm light',
+      description: 'Warm ivory, ink text and gold buttons.',
+      category: ThemePickerCategory.included,
+      sortOrder: 0,
+    ),
+    ThemeId.inkAndGold: ThemeMetadata(
+      id: ThemeId.inkAndGold,
+      name: 'Ink & Gold',
+      icon: LucideIcons.moon,
+      subtitle: 'Deep dark',
+      description: 'Deep blue ink with ivory text and gold accents.',
+      category: ThemePickerCategory.included,
+      sortOrder: 1,
+    ),
     ThemeId.sandstone: ThemeMetadata(
       id: ThemeId.sandstone,
       name: 'Sandstone',

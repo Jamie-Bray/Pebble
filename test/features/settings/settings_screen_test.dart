@@ -260,7 +260,7 @@ void main() {
     await pumpPicker(tester);
 
     // The theme in use is shown first, and its button is quiet.
-    expect(find.text('High Noon is on'), findsOneWidget);
+    expect(find.text('Ivory & Gold is on'), findsOneWidget);
 
     await tapPebble(tester, ThemeId.roseQuartz);
     expect(find.text('See Personal Premium'), findsOneWidget);

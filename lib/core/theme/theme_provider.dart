@@ -42,21 +42,22 @@ class ThemeNotifier extends StateNotifier<ThemeState> {
   static const String _colorThemeKey = 'color_theme';
 
   ThemeNotifier()
-    : super(
-        const ThemeState(selectedColorTheme: ThemeId.highNoon, version: 0),
-      ) {
+    : super(const ThemeState(selectedColorTheme: defaultThemeId, version: 0)) {
     _loadTheme();
   }
 
   Future<void> _loadTheme() async {
     final prefs = await SharedPreferences.getInstance();
+    // A choice made while preferences load must win over the stored value.
+    if (!mounted || state.version != 0) return;
     final colorThemeIndex =
-        prefs.getInt(_colorThemeKey) ?? ThemeId.highNoon.index;
+        prefs.getInt(_colorThemeKey) ?? defaultThemeId.index;
 
     // Protect against out-of-bounds if previously selected a theme that no longer exists
-    final validIndex = colorThemeIndex < ThemeId.values.length
+    final validIndex =
+        colorThemeIndex >= 0 && colorThemeIndex < ThemeId.values.length
         ? colorThemeIndex
-        : ThemeId.highNoon.index;
+        : defaultThemeId.index;
 
     state = ThemeState(
       selectedColorTheme: ThemeId.values[validIndex],
@@ -65,9 +66,9 @@ class ThemeNotifier extends StateNotifier<ThemeState> {
   }
 
   Future<void> setColorTheme(ThemeId colorTheme) async {
+    state = state.copyWith(selectedColorTheme: colorTheme);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_colorThemeKey, colorTheme.index);
-    state = state.copyWith(selectedColorTheme: colorTheme);
   }
 
   /// Get current ThemeData based on selected color theme

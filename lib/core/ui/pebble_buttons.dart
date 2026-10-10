@@ -146,8 +146,11 @@ class _PebbleButtonState extends State<PebbleButton> {
 
     switch (widget.kind) {
       case PebbleButtonKind.primary:
-        background = context.readableActionFill;
-        foreground = cs.onPrimary;
+        // Themes may separate bright button fills from readable link colours.
+        final style = theme.filledButtonTheme.style;
+        background =
+            style?.backgroundColor?.resolve({}) ?? context.readableActionFill;
+        foreground = style?.foregroundColor?.resolve({}) ?? cs.onPrimary;
         minHeight = PebbleButton.primaryHeight;
         textStyle = type.button;
       case PebbleButtonKind.secondary:

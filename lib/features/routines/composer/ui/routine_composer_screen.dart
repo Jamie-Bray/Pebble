@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -337,7 +338,6 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
   }
 
   Widget _buildStepsLabel(BuildContext context, RoutineComposerState state) {
-    final cs = Theme.of(context).colorScheme;
     final count = state.steps
         .where((step) => step.text.trim().isNotEmpty)
         .length;
@@ -347,7 +347,7 @@ class _RoutineComposerScreenState extends ConsumerState<RoutineComposerScreen>
         fontSize: 11,
         fontWeight: FontWeight.w700,
         letterSpacing: 1,
-        color: cs.onSurface.withValues(alpha: 0.32),
+        color: context.readableSecondaryText,
       ),
     );
   }
