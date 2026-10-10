@@ -107,6 +107,7 @@ Leaving the house, bedtime, the school run, locking up the office: the same step
 
 ROUTINES YOU REUSE
 • Build a routine in a minute, or start from a ready-made one and edit it.
+• Or describe a routine in your own words, and Pebble's AI drafts the steps for you to check and edit.
 • Run it step by step. One clear screen per step, so the next check is always obvious.
 • Tick each step as you go. Skip one if it does not apply today.
 
@@ -155,7 +156,7 @@ PERSONAL PREMIUM (MONTHLY OR YEARLY)
 • Voice prompts on any step
 • Extra themes
 • Optional cloud backup and account recovery (needs sign-in and your consent)
-• Completion emails: Pebble can email one contact when a routine is done. They accept first, and can stop the emails at any time. Each email shows the steps and when they were checked. Photos are never emailed.
+• Completion emails: Pebble can email one contact when a routine is done. They accept first, and can stop the emails at any time. Each email shows the steps, when they were checked, and any notes you added to them. Photos are never emailed.
 
 Premium renews automatically until you cancel in Google Play. Pebble keeps working on the free plan without it.
 
@@ -250,61 +251,58 @@ policy states Pebble is not directed at children under 13.
 | Photo and video permissions | No declaration needed | The app does not request `READ_MEDIA_IMAGES` or `READ_MEDIA_VIDEO`. Choosing a photo uses the system picker. |
 | Foreground service, exact alarm, full-screen intent | Not used | `SCHEDULE_EXACT_ALARM` was removed; reminders are inexact |
 
-## Screenshot captions (6)
+## Screenshot captions (7)
 
-Phone screenshots, portrait, 1080 x 1920. Each one has a large serif headline
-with one word in italic clay, a one-line subline, a growing cairn at the top
-(one pebble per screenshot) and the real app screen in a phone frame below.
-The cream background carries soft ripples that run across all six, so the row
-reads as one picture in the store. Draft set:
-`/mnt/project-files/marketing/screenshots-v2/` in the project (re-render from
-the screenshot harness with sample data once the theme work settles).
+Phone screenshots, portrait, 1080 x 1920, v3 set (approved 8 October 2026):
+forest green background (#2C4434, the icon colour) with sage ripples, a
+two-line cream serif headline with no highlighted word, a one-line subline and
+the real app screen in a phone frame. Files and `make.py`:
+`/mnt/project-files/marketing/screenshots-v3/` in the project.
 
-Keep captions to one short line. Avoid "safe", "proof you", "never forget".
-Do not show AI photo descriptions.
+Keep captions to one short line. Avoid "safe", "proof you", "never forget",
+"free" or prices. Do not show AI photo descriptions.
 
 <!-- limit:40 id:play-shot-1 -->
 ```text
 Routines you reuse
 ```
-Subline: "Set it up once. Run it every day." Screen: Home with the last check
-("Checked 7:13 PM, Leaving the house, all 5 steps") and the Earlier rows.
+Subline: "Set it up once. Run it every day." Screen: Home with the last check and the Earlier rows.
 
 <!-- limit:40 id:play-shot-2 -->
 ```text
 One check at a time
 ```
-Subline: "Each step is saved as you go." Screen: routine player mid-run, with
-the ticked steps and their times enlarged.
+Subline: "Each step is saved as you go." Screen: routine player mid-run, ticked steps and their times enlarged.
 
 <!-- limit:40 id:play-shot-3 -->
 ```text
 See when you checked
 ```
-Subline: "Every routine, with the time it was done." Screen: History timeline
-with several runs across the day.
+Subline: "Every routine, with the time it was done." Screen: History with several runs across the day.
 
 <!-- limit:40 id:play-shot-4 -->
 ```text
 A photo when it helps
 ```
-Subline: "Add one to any step you like." Screen: Everyday departure check
-details, with the "Hair tools" photo step enlarged. Use a sample photo of
-straighteners on a heat mat.
+Subline: "Add one to any step you like." Screen: a photo step (sample photo of straighteners on a heat mat).
 
 <!-- limit:40 id:play-shot-5 -->
 ```text
-All checked
+All done. All saved.
 ```
-Subline: "Small steps, big ripples." Screen: the completion screen with the
-cairn and the time.
+Subline: "Small steps, big ripples." Screen: the completion screen with the cairn and the time.
 
 <!-- limit:40 id:play-shot-6 -->
 ```text
 Make it yours
 ```
-Subline: "Themes, colours and a calm dark mode." Screen: three Home screens in
-different themes, fanned.
+Subline: "Themes, colours and a calm dark mode." Screen: Home in different themes.
+
+<!-- limit:40 id:play-shot-7 -->
+```text
+No sign-up. No ads.
+```
+Subline: "Open Pebble and start your first routine." Screen: Home ready for a first routine.
 
 Later, if there is enough store traffic for a store listing experiment, test a
 reminder or widget screenshot in place of number 5.
