@@ -1,1 +1,25 @@
-{ "permissions": { "allow": ["mcp__Supabase__deploy_edge_function"] } }
+{
+  "permissions": {
+    "allow": [
+      "mcp__Supabase__deploy_edge_function"
+    ],
+    "deny": [
+      "Read(./build/**)",
+      "Read(./**/build/**)",
+      "Read(./.dart_tool/**)",
+      "Read(./.claude/worktrees/**)",
+      "Read(./.wrangler/**)",
+      "Read(./ios/Pods/**)",
+      "Read(./android/.gradle/**)",
+      "Read(./ai_test_photos/**)",
+      "Read(./artifacts/**)",
+      "Read(./**/*.g.dart)",
+      "Read(./**/*.freezed.dart)",
+      "Read(./**/*.mocks.dart)",
+      "Read(./pubspec.lock)",
+      "Read(./.flutter-plugins-dependencies)",
+      "Read(./.env.local)",
+      "Read(./MARKET_RESEARCH.md)"
+    ]
+  }
+}
