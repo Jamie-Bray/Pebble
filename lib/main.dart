@@ -271,19 +271,11 @@ final _routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/premium',
         name: 'premium',
-        builder: (context, state) => PebblePaywall(
-          entrySource: PremiumEntrySourceParsing.fromQuery(
-            state.uri.queryParameters['source'],
-          ),
-        ),
+        builder: (context, state) => const PebblePaywall(),
       ),
       GoRoute(
         path: '/paywall',
-        builder: (context, state) => PebblePaywall(
-          entrySource: PremiumEntrySourceParsing.fromQuery(
-            state.uri.queryParameters['source'],
-          ),
-        ),
+        builder: (context, state) => const PebblePaywall(),
       ),
       GoRoute(
         path: '/account-hub',
