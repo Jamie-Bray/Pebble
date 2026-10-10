@@ -190,7 +190,12 @@ void main() {
   testWidgets('the routine list shows when each routine was last checked', (
     tester,
   ) async {
-    final now = DateTime(2026, 10, 8, 18);
+    // Relative to the real date: the Free history window reads the real
+    // clock, so fixed dates age out of it.
+    final today = DateUtils.dateOnly(DateTime.now());
+    final now = today.add(const Duration(hours: 18));
+    final thisMorning = today.add(const Duration(hours: 8, minutes: 2));
+    final lastNight = today.subtract(const Duration(hours: 3));
     await _pumpHome(
       tester,
       surfaceSize: const Size(390, 1400),
@@ -201,18 +206,17 @@ void main() {
         _routine(id: 3, title: 'Car'),
       ],
       runs: [
-        _run(routineId: 1, finishedAt: DateTime(2026, 10, 8, 8, 2)),
-        _run(routineId: 2, finishedAt: DateTime(2026, 10, 7, 21)),
+        _run(routineId: 1, finishedAt: thisMorning),
+        _run(routineId: 2, finishedAt: lastNight),
       ],
-      latestRun: _run(
-        routineId: 1,
-        finishedAt: DateTime(2026, 10, 8, 8, 2),
-      ),
+      latestRun: _run(routineId: 1, finishedAt: thisMorning),
     );
 
     expect(find.text('2 routines'), findsOneWidget);
     expect(
-      tester.widget<Text>(find.byKey(const ValueKey('home_hero_status_text'))).data,
+      tester
+          .widget<Text>(find.byKey(const ValueKey('home_hero_status_text')))
+          .data,
       contains('8:02'),
     );
     expect(find.text('Yesterday'), findsOneWidget);
