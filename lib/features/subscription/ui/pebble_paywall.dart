@@ -1642,6 +1642,15 @@ class _PricingFooter extends ConsumerWidget {
     final foundation = context.darkFoundation;
     final selectedProduct = _selectedProduct(products, selectedPlan);
     final storeUnavailable = storeState == PaywallStoreState.unavailable;
+    // The plan the button buys, once its price is known. Its name, length and
+    // price lead the disclosure (App Store guideline 3.1.2).
+    final summary =
+        storeState == PaywallStoreState.ready && _hasPrice(selectedProduct)
+        ? 'Personal Premium '
+              '${selectedProduct.plan == BillingPlan.yearly ? 'Annual' : 'Monthly'}: '
+              '${selectedProduct.priceLabel} per '
+              '${_planTypeForBillingPlan(selectedProduct.plan).ctaCadence}. '
+        : '';
     final content = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1680,15 +1689,20 @@ class _PricingFooter extends ConsumerWidget {
             onPressed: onStartPremium,
           ),
         const SizedBox(height: 11),
-        _FinePrint(
-          platformCopy: platformCopy,
-          product: storeState == PaywallStoreState.ready
-              ? selectedProduct
-              : null,
-        ),
+        _FinePrint(summary: summary),
         const SizedBox(height: 6),
         _FooterLinks(
           onRestorePurchase: onRestorePurchase,
+          onShowDetails: () => showPebbleSimpleSheet<void>(
+            context: context,
+            builder: (sheetContext) => PebbleSimpleSheet(
+              title: 'Subscription details',
+              body: '$summary${platformCopy.renewalLine}',
+              primaryLabel: 'Done',
+              onPrimary: () => Navigator.of(sheetContext).pop(),
+              secondaryLabel: null,
+            ),
+          ),
           onOpenLegalUrl: onOpenLegalUrl,
         ),
       ],
@@ -1931,24 +1945,17 @@ class _PremiumActionButton extends StatelessWidget {
 }
 
 class _FinePrint extends StatelessWidget {
-  const _FinePrint({required this.platformCopy, required this.product});
+  const _FinePrint({required this.summary});
 
-  final PremiumPaywallCopy platformCopy;
-
-  /// The plan the button buys, when its price is known. Its name, length and
-  /// price lead the disclosure (App Store guideline 3.1.2).
-  final PremiumProduct? product;
+  /// Plan, length and price, or empty while the price is unknown. The full
+  /// store terms are behind "Subscription details".
+  final String summary;
 
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
-    final selected = product;
-    final summary = selected == null || !_hasPrice(selected)
-        ? ''
-        : 'Personal Premium ${selected.plan == BillingPlan.yearly ? 'Annual' : 'Monthly'}: '
-              '${selected.priceLabel} per ${_planTypeForBillingPlan(selected.plan).ctaCadence}. ';
     return Text(
-      '$summary${platformCopy.renewalLine}',
+      '${summary}Renews automatically until cancelled.',
       textAlign: TextAlign.center,
       style: TextStyle(
         // textSecondary, not textMuted: the renewal terms must stay clearly
@@ -1966,10 +1973,12 @@ class _FinePrint extends StatelessWidget {
 class _FooterLinks extends StatelessWidget {
   const _FooterLinks({
     required this.onRestorePurchase,
+    required this.onShowDetails,
     required this.onOpenLegalUrl,
   });
 
   final VoidCallback? onRestorePurchase;
+  final VoidCallback onShowDetails;
   final ValueChanged<String> onOpenLegalUrl;
 
   @override
@@ -1986,27 +1995,27 @@ class _FooterLinks extends StatelessWidget {
         decoration: TextDecoration.underline,
       ),
     );
-    final divider = Text(
-      '|',
-      style: TextStyle(color: foundation.textMuted, fontSize: 12),
-    );
     return Wrap(
       alignment: WrapAlignment.center,
       crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 4,
+      // No pipes: wrapped onto several lines they strand at line ends.
+      spacing: 14,
       children: [
         TextButton(
           onPressed: onRestorePurchase,
           style: style,
           child: const Text('Restore purchase'),
         ),
-        divider,
+        TextButton(
+          onPressed: onShowDetails,
+          style: style,
+          child: const Text('Subscription details'),
+        ),
         TextButton(
           onPressed: () => onOpenLegalUrl(pebbleTermsUrl),
           style: style,
           child: const Text('Terms of Use'),
         ),
-        divider,
         TextButton(
           onPressed: () => onOpenLegalUrl(pebblePrivacyPolicyUrl),
           style: style,

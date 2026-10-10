@@ -96,12 +96,45 @@ void main() {
     expect(find.textContaining('7-day free trial'), findsNothing);
 
     expect(find.text('Restore purchase'), findsOneWidget);
-    expect(find.text('|'), findsNWidgets(2));
+    expect(find.text('Subscription details'), findsOneWidget);
     expect(find.text('\u00c2\u00b7'), findsNothing);
+    expect(
+      find.text(
+        'Personal Premium Annual: \$6.99 per year. '
+        'Renews automatically until cancelled.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Cancel anytime in Google Play'), findsNothing);
+  });
+
+  testWidgets('Subscription details opens the full disclosure', (tester) async {
+    await _pumpPaywall(
+      tester,
+      overrides: [
+        purchaseRepositoryProvider.overrideWith(
+          (ref) => _PlanPurchaseRepository.both(),
+        ),
+      ],
+    );
+
+    final link = find.text('Subscription details');
+    await _scrollUntilVisible(tester, link);
+    await tester.tap(link);
+    await tester.pumpAndSettle();
+
     expect(
       find.textContaining('Cancel anytime in Google Play'),
       findsOneWidget,
     );
+    expect(
+      find.textContaining('Pebble also works free without Premium.'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Cancel anytime in Google Play'), findsNothing);
   });
 
   testWidgets('Free and Premium switch the values and the note', (
@@ -457,7 +490,7 @@ void main() {
       expect(notice, findsOneWidget);
       expect(find.textContaining('App Store Connect'), findsNothing);
       expect(
-        find.textContaining('Cancel anytime in the App Store'),
+        find.text('Renews automatically until cancelled.'),
         findsOneWidget,
       );
     } finally {
