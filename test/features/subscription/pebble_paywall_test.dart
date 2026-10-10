@@ -11,7 +11,7 @@ import 'package:pebble_routines/features/subscription/providers/cloud_backup_con
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 
 void main() {
-  testWidgets('small labels are readable and footer links are 48 high', (
+  testWidgets('small labels are readable and footer links are 44 high', (
     tester,
   ) async {
     await _pumpPaywall(
@@ -26,7 +26,7 @@ void main() {
       ThemeId.nordicNight,
     ).extension<PebbleDarkFoundation>()!;
 
-    for (final label in ['WHAT PREMIUM GIVES YOU', 'FREE']) {
+    for (final label in ['WHAT YOU GET', 'PERSONAL PREMIUM']) {
       await _scrollUntilVisible(tester, find.text(label).first);
       final color = tester.widget<Text>(find.text(label).first).style!.color!;
       for (final bg in [foundation.bgBase, foundation.surfaceLow]) {
@@ -38,12 +38,12 @@ void main() {
       }
     }
 
-    for (final link in ['Restore purchase', 'Terms of Use', 'Privacy Policy']) {
+    for (final link in ['Restore purchase', 'Terms', 'Privacy']) {
       final finder = find.widgetWithText(TextButton, link);
       await _scrollUntilVisible(tester, finder);
       expect(
         tester.getSize(finder).height,
-        greaterThanOrEqualTo(48),
+        greaterThanOrEqualTo(44),
         reason: link,
       );
     }
@@ -54,7 +54,6 @@ void main() {
   ) async {
     await _pumpPaywall(
       tester,
-      entrySource: PremiumEntrySource.premiumTheme,
       overrides: [
         purchaseRepositoryProvider.overrideWith(
           (ref) => _PlanPurchaseRepository.both(),
@@ -63,45 +62,30 @@ void main() {
     );
 
     expect(find.byType(PageView), findsNothing);
-    expect(find.text('Personal Premium'), findsOneWidget);
-    expect(find.text('Keep three weeks\nof checks.'), findsOneWidget);
-
-    await _scrollUntilVisible(tester, find.text('WHAT PREMIUM GIVES YOU'));
-    expect(find.text('WHAT PREMIUM GIVES YOU'), findsOneWidget);
-
-    await _scrollUntilVisible(
-      tester,
-      find.text('Unlimited routines and steps'),
-    );
-    expect(find.text('Unlimited routines and steps'), findsOneWidget);
+    expect(find.text('PERSONAL PREMIUM'), findsOneWidget);
     expect(
-      find.textContaining('2 routines, 10 steps', findRichText: true),
+      find.textContaining('More Pebble.', findRichText: true),
       findsOneWidget,
     );
-    expect(find.textContaining('Unlimited', findRichText: true), findsWidgets);
-
-    await _scrollUntilVisible(tester, find.text('Longer history and backup'));
-    expect(find.text('Longer history and backup'), findsOneWidget);
-    expect(find.textContaining('48 hours', findRichText: true), findsOneWidget);
     expect(
-      find.textContaining('21 days + backup', findRichText: true),
+      find.textContaining('Same simple app.', findRichText: true),
       findsOneWidget,
     );
-
-    await _scrollUntilVisible(tester, find.text('More photos per step'));
-    expect(find.text('More photos per step'), findsOneWidget);
-    expect(find.textContaining('1 photo', findRichText: true), findsOneWidget);
-    expect(find.textContaining('Up to 4', findRichText: true), findsOneWidget);
-
-    await _scrollUntilVisible(tester, find.text('Voice tips'));
-    expect(find.text('Voice tips'), findsOneWidget);
+    expect(find.text('WHAT YOU GET'), findsOneWidget);
+    for (final label in [
+      'Routines and steps',
+      'Routine builder',
+      'History',
+      'Voice tips',
+      'Photos per step',
+      'Cloud backup',
+    ]) {
+      expect(find.text(label), findsOneWidget, reason: label);
+    }
     expect(
-      find.textContaining('Not available', findRichText: true),
+      find.text("Say what it's for. Pebble writes the steps."),
       findsOneWidget,
     );
-    expect(find.textContaining('Included', findRichText: true), findsOneWidget);
-
-    expect(find.text('Private by default'), findsOneWidget);
 
     expect(find.text('Monthly'), findsOneWidget);
     expect(find.text('Annual'), findsOneWidget);
@@ -112,12 +96,92 @@ void main() {
     expect(find.textContaining('7-day free trial'), findsNothing);
 
     expect(find.text('Restore purchase'), findsOneWidget);
-    expect(find.text('|'), findsNWidgets(2));
+    expect(find.text('Details'), findsOneWidget);
+    final semantics = tester.ensureSemantics();
+    for (final label in [
+      'Subscription details',
+      'Terms of Use',
+      'Privacy Policy',
+    ]) {
+      expect(find.bySemanticsLabel(label), findsOneWidget, reason: label);
+    }
+    semantics.dispose();
     expect(find.text('\u00c2\u00b7'), findsNothing);
+    expect(
+      find.text(
+        'Personal Premium Annual: \$6.99 per year. '
+        'Renews automatically until cancelled.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Cancel anytime in Google Play'), findsNothing);
+  });
+
+  testWidgets('Subscription details opens the full disclosure', (tester) async {
+    await _pumpPaywall(
+      tester,
+      overrides: [
+        purchaseRepositoryProvider.overrideWith(
+          (ref) => _PlanPurchaseRepository.both(),
+        ),
+      ],
+    );
+
+    final link = find.text('Details');
+    await _scrollUntilVisible(tester, link);
+    await tester.tap(link);
+    await tester.pumpAndSettle();
+
     expect(
       find.textContaining('Cancel anytime in Google Play'),
       findsOneWidget,
     );
+    expect(
+      find.textContaining('Pebble also works free without Premium.'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Cancel anytime in Google Play'), findsNothing);
+  });
+
+  testWidgets('Free and Premium switch the values and the note', (
+    tester,
+  ) async {
+    await _pumpPaywall(
+      tester,
+      overrides: [
+        purchaseRepositoryProvider.overrideWith(
+          (ref) => _PlanPurchaseRepository.both(),
+        ),
+      ],
+    );
+    const premiumNote = 'Backup starts after you sign in and turn it on.';
+    const freeNote =
+        'Pebble still works free. You can upgrade when you need more.';
+
+    expect(find.text('Unlimited'), findsOneWidget);
+    expect(find.text('AI writes it'), findsOneWidget);
+    expect(find.text('21 days'), findsOneWidget);
+    expect(find.text('Up to 4'), findsOneWidget);
+    expect(find.text(premiumNote), findsOneWidget);
+    expect(find.text('2 routines · 10 steps each'), findsNothing);
+
+    await tester.tap(find.text('Free'));
+    await tester.pumpAndSettle();
+    expect(find.text('Unlimited'), findsNothing);
+    expect(find.text('2 routines · 10 steps each'), findsOneWidget);
+    expect(find.text('1 free build'), findsOneWidget);
+    expect(find.text('48 hours'), findsOneWidget);
+    expect(find.text(freeNote), findsOneWidget);
+    expect(find.text(premiumNote), findsNothing);
+
+    await tester.tap(find.text('Premium'));
+    await tester.pumpAndSettle();
+    expect(find.text('Unlimited'), findsOneWidget);
+    expect(find.text(premiumNote), findsOneWidget);
+    expect(find.text(freeNote), findsNothing);
   });
 
   testWidgets('premium CTA shows the monthly Google Play plan', (tester) async {
@@ -204,8 +268,8 @@ void main() {
     expect(find.text('Loading'), findsNothing);
     // Restore, Terms and Privacy stay reachable even without prices.
     expect(find.text('Restore purchase'), findsOneWidget);
-    expect(find.text('Terms of Use'), findsOneWidget);
-    expect(find.text('Privacy Policy'), findsOneWidget);
+    expect(find.text('Terms'), findsOneWidget);
+    expect(find.text('Privacy'), findsOneWidget);
   });
 
   testWidgets('Try again re-requests store products and shows the plans', (
@@ -261,7 +325,6 @@ void main() {
         try {
           await _pumpPaywall(
             tester,
-            entrySource: PremiumEntrySource.routineLimit,
             overrides: [
               purchaseRepositoryProvider.overrideWith(
                 (ref) => _PlanPurchaseRepository.both(),
@@ -295,8 +358,8 @@ void main() {
           expect(find.textContaining('Renews automatically'), findsOneWidget);
           final restore = find.text('Restore purchase');
           await _scrollUntilVisible(tester, restore);
-          expect(find.text('Terms of Use'), findsOneWidget);
-          expect(find.text('Privacy Policy'), findsOneWidget);
+          expect(find.text('Terms'), findsOneWidget);
+          expect(find.text('Privacy'), findsOneWidget);
           expect(tester.takeException(), isNull);
         } finally {
           debugDefaultTargetPlatformOverride = null;
@@ -332,7 +395,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.byType(SnackBar), findsNothing);
-    expect(find.text('Personal Premium'), findsOneWidget);
+    expect(find.text('PERSONAL PREMIUM'), findsOneWidget);
   });
 
   testWidgets('purchase success while signed out explains local Premium', (
@@ -436,7 +499,7 @@ void main() {
       expect(notice, findsOneWidget);
       expect(find.textContaining('App Store Connect'), findsNothing);
       expect(
-        find.textContaining('Cancel anytime in the App Store'),
+        find.text('Renews automatically until cancelled.'),
         findsOneWidget,
       );
     } finally {
@@ -447,7 +510,6 @@ void main() {
 
 Future<void> _pumpPaywall(
   WidgetTester tester, {
-  PremiumEntrySource entrySource = PremiumEntrySource.general,
   List<Override> overrides = const [],
   bool settle = true,
 }) async {
@@ -456,7 +518,7 @@ Future<void> _pumpPaywall(
       overrides: overrides,
       child: MaterialApp(
         theme: AppTheme.fromId(ThemeId.nordicNight),
-        home: PebblePaywall(entrySource: entrySource),
+        home: const PebblePaywall(),
       ),
     ),
   );

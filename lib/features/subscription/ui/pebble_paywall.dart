@@ -17,7 +17,9 @@ import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/core/ui/zen_notifications.dart';
 import 'package:pebble_routines/features/auth/providers/auth_state_provider.dart';
 import 'package:pebble_routines/features/subscription/data/models/cloud_access_state.dart';
+import 'package:pebble_routines/features/subscription/data/fair_use_policy.dart';
 import 'package:pebble_routines/features/subscription/data/purchase_repository.dart';
+import 'package:pebble_routines/features/subscription/domain/routine_limit_policy.dart';
 import 'package:pebble_routines/features/subscription/domain/subscription_lifecycle.dart';
 import 'package:pebble_routines/features/subscription/providers/cloud_access_provider.dart';
 import 'package:pebble_routines/features/subscription/providers/cloud_backup_consent_provider.dart';
@@ -35,19 +37,6 @@ enum PremiumEntrySource {
 }
 
 extension PremiumEntrySourceParsing on PremiumEntrySource {
-  static PremiumEntrySource fromQuery(String? value) {
-    return switch (value) {
-      'premium_theme' => PremiumEntrySource.premiumTheme,
-      'backup' => PremiumEntrySource.backup,
-      'routine_limit' => PremiumEntrySource.routineLimit,
-      'step_limit' => PremiumEntrySource.stepLimit,
-      'guidance_audio' => PremiumEntrySource.guidanceAudio,
-      'proof_photo_limit' => PremiumEntrySource.proofPhotoLimit,
-      'ai_builder' => PremiumEntrySource.aiBuilder,
-      _ => PremiumEntrySource.general,
-    };
-  }
-
   String get queryValue {
     return switch (this) {
       PremiumEntrySource.general => 'general',
@@ -170,12 +159,7 @@ enum PaywallStoreState {
 }
 
 class PebblePaywall extends ConsumerStatefulWidget {
-  const PebblePaywall({
-    super.key,
-    this.entrySource = PremiumEntrySource.general,
-  });
-
-  final PremiumEntrySource entrySource;
+  const PebblePaywall({super.key});
 
   @override
   ConsumerState<PebblePaywall> createState() => _PebblePaywallState();
@@ -578,17 +562,11 @@ class _PebblePaywallState extends ConsumerState<PebblePaywall> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _PaywallHeader(entrySource: widget.entrySource),
+                      const _PaywallOverview(),
                       if (inlinePricing) ...[
                         const SizedBox(height: 28),
                         pricing,
                       ],
-                      const SizedBox(height: 28),
-                      const _SectionLabel('What Premium gives you'),
-                      const SizedBox(height: 2),
-                      _FeaturesList(entrySource: widget.entrySource),
-                      const SizedBox(height: 20),
-                      const _TrustCard(),
                     ],
                   ),
                 ),
@@ -1299,116 +1277,6 @@ class _PremiumActivatedPill extends StatelessWidget {
   }
 }
 
-class _PaywallHeader extends StatelessWidget {
-  const _PaywallHeader({required this.entrySource});
-
-  final PremiumEntrySource entrySource;
-
-  @override
-  Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
-    // The paywall knows what wall the user just hit, so the headline names
-    // that moment instead of a generic slogan.
-    final (headlineLead, headlineAccent) = switch (entrySource) {
-      PremiumEntrySource.proofPhotoLimit => (
-        "When one photo\nisn't ",
-        'enough.',
-      ),
-      PremiumEntrySource.backup => ('History that\n', 'lasts 21 days.'),
-      PremiumEntrySource.routineLimit ||
-      PremiumEntrySource.stepLimit => ('Room for every\n', 'routine.'),
-      PremiumEntrySource.guidanceAudio => (
-        'Say it once,\nhear it ',
-        'every time.',
-      ),
-      PremiumEntrySource.aiBuilder => ('Build routines\n', 'in a sentence.'),
-      _ => ('Keep three weeks\n', 'of checks.'),
-    };
-    final body = switch (entrySource) {
-      PremiumEntrySource.backup =>
-        'Free shows the last 48 hours of history. Premium shows the full 21 days, and backs it up if you turn backup on.',
-      PremiumEntrySource.proofPhotoLimit =>
-        'Free includes one photo per step. Premium lets you add up to four, for checks that need more than one angle.',
-      PremiumEntrySource.guidanceAudio =>
-        'Record a few seconds on any step saying what to check, and play it back when you get there.',
-      PremiumEntrySource.aiBuilder =>
-        'Build more routines with AI with Personal Premium. Describe one in a sentence and Pebble drafts the steps for you to change.',
-      _ =>
-        'Free includes 2 routines with up to 10 steps each. Premium gives you unlimited routines, 21 days of history, and backup if you turn it on.',
-    };
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _PremiumBadge(),
-        const SizedBox(height: 18),
-        Text.rich(
-          TextSpan(
-            style: _serifStyle(context, fontSize: 42, height: 1.05),
-            children: [
-              TextSpan(text: headlineLead),
-              TextSpan(
-                text: headlineAccent,
-                style: TextStyle(
-                  color: _premiumAccentText(context),
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
-        Text(
-          body,
-          style: TextStyle(
-            color: foundation.textSecondary,
-            fontSize: 14,
-            fontWeight: FontWeight.w300,
-            height: 1.65,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _PremiumBadge extends StatelessWidget {
-  const _PremiumBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = _premiumGlow(context);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.13),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: accent.withValues(alpha: 0.26)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(9, 5, 12, 5),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(LucideIcons.sparkles, color: accent, size: 12),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                'Personal Premium',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: _premiumAccentText(context),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.3,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _SectionLabel extends StatelessWidget {
   const _SectionLabel(this.text);
 
@@ -1428,376 +1296,345 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
-class _PremiumFeature {
-  const _PremiumFeature({
-    required this.icon,
-    required this.title,
-    required this.description,
-    required this.freeLabel,
-    required this.premiumLabel,
-  });
-
-  final IconData icon;
-  final String title;
-  final String description;
-  final String freeLabel;
-  final String premiumLabel;
-}
-
-const _premiumFeatures = [
-  _PremiumFeature(
-    icon: LucideIcons.infinity,
-    title: 'Unlimited routines and steps',
-    description: 'As many routines as you need, with as many steps.',
-    freeLabel: '2 routines, 10 steps',
-    premiumLabel: 'Unlimited',
-  ),
-  _PremiumFeature(
-    icon: LucideIcons.cloud,
-    title: 'Longer history and backup',
-    description:
-        'Three weeks of history, backed up in case you reinstall or change phone.',
-    freeLabel: '48 hours',
-    premiumLabel: '21 days + backup',
-  ),
-  _PremiumFeature(
-    icon: LucideIcons.camera,
-    title: 'More photos per step',
-    description: 'For checks that need more than one angle.',
-    freeLabel: '1 photo',
-    premiumLabel: 'Up to 4',
-  ),
-  _PremiumFeature(
-    icon: LucideIcons.mic,
-    title: 'Voice tips',
-    description:
-        'Record a short note on any step and play it back when you '
-        'get there.',
-    freeLabel: 'Not available',
-    premiumLabel: 'Included',
-  ),
-];
-
-class _FeaturesList extends StatelessWidget {
-  const _FeaturesList({required this.entrySource});
-
-  final PremiumEntrySource entrySource;
-
-  /// The feature that matches the wall the user just hit, or null when they
-  /// arrived without a specific reason.
-  static int? _leadIndexFor(PremiumEntrySource source) {
-    final title = switch (source) {
-      PremiumEntrySource.routineLimit ||
-      PremiumEntrySource.stepLimit => 'Unlimited routines and steps',
-      PremiumEntrySource.backup => 'Longer history and backup',
-      PremiumEntrySource.proofPhotoLimit => 'More photos per step',
-      PremiumEntrySource.guidanceAudio => 'Voice tips',
-      PremiumEntrySource.general ||
-      PremiumEntrySource.premiumTheme ||
-      PremiumEntrySource.aiBuilder => null,
-    };
-    if (title == null) {
-      return null;
-    }
-    final index = _premiumFeatures.indexWhere(
-      (feature) => feature.title == title,
-    );
-    return index < 0 ? null : index;
-  }
+/// The fixed headline, the Premium/Free switch and the rows it flips.
+class _PaywallOverview extends StatefulWidget {
+  const _PaywallOverview();
 
   @override
-  Widget build(BuildContext context) {
-    final leadIndex = _leadIndexFor(entrySource);
-    final ordered = [
-      if (leadIndex != null) _premiumFeatures[leadIndex],
-      for (var i = 0; i < _premiumFeatures.length; i += 1)
-        if (i != leadIndex) _premiumFeatures[i],
-    ];
-    return Column(
-      children: [
-        for (var i = 0; i < ordered.length; i += 1)
-          _FeatureListItem(
-            ordered[i],
-            highlighted: leadIndex != null && i == 0,
-          ),
-      ],
-    );
-  }
+  State<_PaywallOverview> createState() => _PaywallOverviewState();
 }
 
-class _FeatureListItem extends StatelessWidget {
-  const _FeatureListItem(this.feature, {this.highlighted = false});
-
-  final _PremiumFeature feature;
-
-  /// True for the feature whose limit sent the user here: it leads the list
-  /// inside a softly accented card so the page answers their exact moment.
-  final bool highlighted;
+class _PaywallOverviewState extends State<_PaywallOverview> {
+  bool _showFree = false;
 
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
-    final accent = _premiumGlow(context);
-    if (highlighted) {
-      return Container(
-        margin: const EdgeInsets.only(top: 12, bottom: 6),
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-        decoration: BoxDecoration(
-          color: accent.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: accent.withValues(alpha: 0.24)),
-        ),
-        child: _content(context, foundation, accent),
-      );
-    }
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: foundation.borderSubtle.withValues(alpha: 0.64),
-          ),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 18),
-        child: _content(context, foundation, accent),
-      ),
+    final accent = _premiumAccentText(context);
+    const label = _SectionLabel('What you get');
+    final switcher = _TierSwitch(
+      showFree: _showFree,
+      onChanged: (value) => setState(() => _showFree = value),
     );
-  }
-
-  Widget _content(
-    BuildContext context,
-    PebbleDarkFoundation foundation,
-    Color accent,
-  ) {
-    return Row(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 44,
-          height: 44,
-          margin: const EdgeInsets.only(top: 1),
-          decoration: BoxDecoration(
-            color: accent.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(13),
+        Text(
+          'PERSONAL PREMIUM',
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: accent,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1.4,
           ),
-          alignment: Alignment.center,
-          child: Icon(feature.icon, color: accent, size: 20),
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        const SizedBox(height: 10),
+        Text.rich(
+          TextSpan(
+            style: _serifStyle(context, fontSize: 34, height: 1.08),
             children: [
-              Text(
-                feature.title,
-                style: TextStyle(
-                  color: foundation.textPrimary,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                  height: 1.3,
-                ),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                feature.description,
-                style: TextStyle(
-                  color: foundation.textSecondary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w300,
-                  height: 1.6,
-                ),
-              ),
-              const SizedBox(height: 11),
-              _TierComparisonRow(
-                freeLabel: feature.freeLabel,
-                premiumLabel: feature.premiumLabel,
+              const TextSpan(text: 'More Pebble.\n'),
+              TextSpan(
+                text: 'Same simple app.',
+                style: TextStyle(color: accent, fontStyle: FontStyle.italic),
               ),
             ],
           ),
         ),
+        const SizedBox(height: 20),
+        if (_isLargeText(context)) ...[
+          label,
+          const SizedBox(height: 8),
+          switcher,
+        ] else
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [label, switcher],
+          ),
+        const SizedBox(height: 6),
+        for (var i = 0; i < _comparisonRows.length; i++)
+          _ComparisonRowView(
+            row: _comparisonRows[i],
+            showFree: _showFree,
+            // The tinted row replaces its own hairline and the next one.
+            showTopLine:
+                _comparisonRows[i].hint == null &&
+                (i == 0 || _comparisonRows[i - 1].hint == null),
+          ),
+        const SizedBox(height: 14),
+        Text(
+          _showFree
+              ? 'Pebble still works free. You can upgrade when you need more.'
+              : 'Backup starts after you sign in and turn it on.',
+          style: TextStyle(
+            color: foundation.textSecondary,
+            fontSize: 12,
+            fontWeight: FontWeight.w300,
+            height: 1.5,
+          ),
+        ),
       ],
     );
   }
 }
 
-/// Two labelled tier pills side by side, so what-you-get-for-your-money is
-/// readable at a glance without decoding an unlabelled comparison.
-class _TierComparisonRow extends StatelessWidget {
-  const _TierComparisonRow({
-    required this.freeLabel,
-    required this.premiumLabel,
-  });
+/// Small two-option pill: Premium | Free. Each option keeps a 44px target.
+class _TierSwitch extends StatelessWidget {
+  const _TierSwitch({required this.showFree, required this.onChanged});
 
-  final String freeLabel;
-  final String premiumLabel;
+  final bool showFree;
+  final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
-    if (_isLargeText(context)) {
-      // Side by side, large text breaks words mid-way ("Unlimite/d").
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _TierPill(tier: 'Free', value: freeLabel, accented: false),
-          const SizedBox(height: 6),
-          _TierPill(tier: 'Premium', value: premiumLabel, accented: true),
-        ],
-      );
-    }
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: _TierPill(tier: 'Free', value: freeLabel, accented: false),
+    return Semantics(
+      container: true,
+      label: 'Compare plans',
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: foundation.textPrimary.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: foundation.borderSubtle.withValues(alpha: 0.7),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            child: Align(
-              child: Icon(
-                LucideIcons.arrowRight,
-                size: 13,
-                color: foundation.textMuted,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(3),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _TierOption(
+                'Premium',
+                selected: !showFree,
+                onTap: () => onChanged(false),
               ),
-            ),
+              _TierOption(
+                'Free',
+                selected: showFree,
+                onTap: () => onChanged(true),
+              ),
+            ],
           ),
-          Expanded(
-            child: _TierPill(
-              tier: 'Premium',
-              value: premiumLabel,
-              accented: true,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _TierPill extends StatelessWidget {
-  const _TierPill({
-    required this.tier,
-    required this.value,
-    required this.accented,
-  });
+class _TierOption extends StatelessWidget {
+  const _TierOption(this.label, {required this.selected, required this.onTap});
 
-  final String tier;
-  final String value;
-  final bool accented;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final foundation = context.darkFoundation;
     final accent = _premiumGlow(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: accented
-            ? accent.withValues(alpha: 0.12)
-            : foundation.textPrimary.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: accented
-              ? accent.withValues(alpha: 0.32)
-              : foundation.borderSubtle.withValues(alpha: 0.7),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            tier.toUpperCase(),
+    return Semantics(
+      button: true,
+      selected: selected,
+      excludeSemantics: true,
+      label: label,
+      onTap: onTap,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          constraints: const BoxConstraints(minWidth: 67, minHeight: 44),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? accent.withValues(alpha: 0.16) : null,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            label,
             style: TextStyle(
-              color: accented
+              color: selected
                   ? _premiumAccentText(context)
                   : context.readableSecondaryText,
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1,
-              height: 1,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: TextStyle(
-              color: accented
-                  ? _premiumAccentText(context)
-                  : foundation.textSecondary,
-              fontSize: 12.5,
-              fontWeight: accented ? FontWeight.w600 : FontWeight.w400,
-              height: 1.2,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _TrustCard extends StatelessWidget {
-  const _TrustCard();
+class _ComparisonRow {
+  const _ComparisonRow(
+    this.label,
+    this.premium,
+    this.free, {
+    this.hint,
+    this.sparkle = false,
+  });
+
+  final String label;
+  final String premium;
+  final String free;
+
+  /// Quiet second line under the label.
+  final String? hint;
+
+  /// Shows a sparkle beside the Premium value.
+  final bool sparkle;
+}
+
+/// Free limits come from the same constants the rest of the app enforces.
+const _freeLimits = RoutineLimitPolicy(
+  hasPremiumRoutineAccess: false,
+  isInGrace: false,
+);
+
+final _comparisonRows = [
+  _ComparisonRow(
+    'Routines and steps',
+    'Unlimited',
+    '${_freeLimits.freeRoutineLimit} routines · '
+        '${_freeLimits.freeStepLimit} steps each',
+  ),
+  const _ComparisonRow(
+    'Routine builder',
+    'AI writes it',
+    // Free gets one AI build (RoutineAiStatus.freeBuildUsed).
+    '1 free build',
+    hint: "Say what it's for. Pebble writes the steps.",
+    sparkle: true,
+  ),
+  const _ComparisonRow(
+    'History',
+    '${ProofMediaFairUsePolicy.cloudRetentionDays} days',
+    '${ProofMediaFairUsePolicy.localRetentionHours} hours',
+  ),
+  const _ComparisonRow('Voice tips', 'Included', 'Not included'),
+  const _ComparisonRow('Photos per step', 'Up to 4', '1'),
+  const _ComparisonRow('Cloud backup', 'Optional', 'Not included'),
+];
+
+class _ComparisonRowView extends StatelessWidget {
+  const _ComparisonRowView({
+    required this.row,
+    required this.showFree,
+    required this.showTopLine,
+  });
+
+  final _ComparisonRow row;
+  final bool showFree;
+  final bool showTopLine;
 
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
-    final accent = _premiumGlow(context);
-    return DecoratedBox(
+    final accent = _premiumAccentText(context);
+    final hint = row.hint;
+    final featured = hint != null;
+    final line = DecoratedBox(
       decoration: BoxDecoration(
-        color: foundation.textPrimary.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: foundation.borderSubtle.withValues(alpha: 0.64),
-        ),
+        border: showTopLine
+            ? Border(
+                top: BorderSide(
+                  color: foundation.borderSubtle.withValues(alpha: 0.64),
+                ),
+              )
+            : null,
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              margin: const EdgeInsets.only(top: 1),
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.13),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: accent.withValues(alpha: 0.26)),
-              ),
-              alignment: Alignment.center,
-              child: Icon(LucideIcons.lock, size: 15, color: accent),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Private by default',
-                    style: TextStyle(
-                      color: foundation.textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+        padding: EdgeInsets.symmetric(vertical: featured ? 10 : 14),
+        child: LayoutBuilder(
+          builder: (context, constraints) => Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      row.label,
+                      style: TextStyle(
+                        color: foundation.textPrimary,
+                        fontSize: 14,
+                        height: 1.3,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    "Pebble has no ads and doesn't sell your data. Backup only starts if you turn it on.",
-                    style: TextStyle(
-                      color: foundation.textSecondary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w300,
-                      height: 1.6,
-                    ),
-                  ),
-                ],
+                    if (hint != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        hint,
+                        style: _serifStyle(context, fontSize: 14.5, height: 1.3)
+                            .copyWith(
+                              color: foundation.textSecondary,
+                              fontStyle: FontStyle.italic,
+                            ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
-            ),
-          ],
+              const SizedBox(width: 16),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: constraints.maxWidth * 0.48,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (row.sparkle && !showFree) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Icon(
+                          LucideIcons.sparkles,
+                          size: 14,
+                          color: accent,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                    Flexible(
+                      child: Text(
+                        showFree ? row.free : row.premium,
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          color: accent,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
+      ),
+    );
+    if (!featured) return line;
+    // A soft accent tint that bleeds 12px past the text column, so the text
+    // still lines up with the other rows.
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            left: -12,
+            right: -12,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: _premiumGlow(context).withValues(alpha: 0.07),
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+          ),
+          line,
+        ],
       ),
     );
   }
@@ -1841,6 +1678,15 @@ class _PricingFooter extends ConsumerWidget {
     final foundation = context.darkFoundation;
     final selectedProduct = _selectedProduct(products, selectedPlan);
     final storeUnavailable = storeState == PaywallStoreState.unavailable;
+    // The plan the button buys, once its price is known. Its name, length and
+    // price lead the disclosure (App Store guideline 3.1.2).
+    final summary =
+        storeState == PaywallStoreState.ready && _hasPrice(selectedProduct)
+        ? 'Personal Premium '
+              '${selectedProduct.plan == BillingPlan.yearly ? 'Annual' : 'Monthly'}: '
+              '${selectedProduct.priceLabel} per '
+              '${_planTypeForBillingPlan(selectedProduct.plan).ctaCadence}. '
+        : '';
     final content = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1879,15 +1725,20 @@ class _PricingFooter extends ConsumerWidget {
             onPressed: onStartPremium,
           ),
         const SizedBox(height: 11),
-        _FinePrint(
-          platformCopy: platformCopy,
-          product: storeState == PaywallStoreState.ready
-              ? selectedProduct
-              : null,
-        ),
-        const SizedBox(height: 6),
+        _FinePrint(summary: summary),
+        const SizedBox(height: 4),
         _FooterLinks(
           onRestorePurchase: onRestorePurchase,
+          onShowDetails: () => showPebbleSimpleSheet<void>(
+            context: context,
+            builder: (sheetContext) => PebbleSimpleSheet(
+              title: 'Subscription details',
+              body: '$summary${platformCopy.renewalLine}',
+              primaryLabel: 'Done',
+              onPrimary: () => Navigator.of(sheetContext).pop(),
+              secondaryLabel: null,
+            ),
+          ),
           onOpenLegalUrl: onOpenLegalUrl,
         ),
       ],
@@ -1905,7 +1756,7 @@ class _PricingFooter extends ConsumerWidget {
           ),
         ),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 18),
+          padding: const EdgeInsets.fromLTRB(24, 14, 24, 4),
           child: content,
         ),
       ),
@@ -2130,24 +1981,17 @@ class _PremiumActionButton extends StatelessWidget {
 }
 
 class _FinePrint extends StatelessWidget {
-  const _FinePrint({required this.platformCopy, required this.product});
+  const _FinePrint({required this.summary});
 
-  final PremiumPaywallCopy platformCopy;
-
-  /// The plan the button buys, when its price is known. Its name, length and
-  /// price lead the disclosure (App Store guideline 3.1.2).
-  final PremiumProduct? product;
+  /// Plan, length and price, or empty while the price is unknown. The full
+  /// store terms are behind "Subscription details".
+  final String summary;
 
   @override
   Widget build(BuildContext context) {
     final foundation = context.darkFoundation;
-    final selected = product;
-    final summary = selected == null || !_hasPrice(selected)
-        ? ''
-        : 'Personal Premium ${selected.plan == BillingPlan.yearly ? 'Annual' : 'Monthly'}: '
-              '${selected.priceLabel} per ${_planTypeForBillingPlan(selected.plan).ctaCadence}. ';
     return Text(
-      '$summary${platformCopy.renewalLine}',
+      '${summary}Renews automatically until cancelled.',
       textAlign: TextAlign.center,
       style: TextStyle(
         // textSecondary, not textMuted: the renewal terms must stay clearly
@@ -2165,10 +2009,12 @@ class _FinePrint extends StatelessWidget {
 class _FooterLinks extends StatelessWidget {
   const _FooterLinks({
     required this.onRestorePurchase,
+    required this.onShowDetails,
     required this.onOpenLegalUrl,
   });
 
   final VoidCallback? onRestorePurchase;
+  final VoidCallback onShowDetails;
   final ValueChanged<String> onOpenLegalUrl;
 
   @override
@@ -2176,8 +2022,8 @@ class _FooterLinks extends StatelessWidget {
     final foundation = context.darkFoundation;
     final style = TextButton.styleFrom(
       foregroundColor: foundation.textPrimary.withValues(alpha: 0.82),
-      // 48 high so each link is a full-size tap target.
-      minimumSize: const Size(48, 48),
+      // 44 high so each link is still a full-size tap target.
+      minimumSize: const Size(44, 44),
       padding: const EdgeInsets.symmetric(horizontal: 4),
       textStyle: PebbleFonts.sans(
         fontSize: 12.5,
@@ -2185,31 +2031,47 @@ class _FooterLinks extends StatelessWidget {
         decoration: TextDecoration.underline,
       ),
     );
-    final divider = Text(
-      '|',
-      style: TextStyle(color: foundation.textMuted, fontSize: 12),
-    );
     return Wrap(
       alignment: WrapAlignment.center,
       crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 4,
+      // No pipes: wrapped onto several lines they strand at line ends.
+      spacing: 14,
       children: [
         TextButton(
           onPressed: onRestorePurchase,
           style: style,
-          child: const Text('Restore purchase'),
+          child: Semantics(
+            label: 'Restore purchase',
+            excludeSemantics: true,
+            child: const Text('Restore purchase'),
+          ),
         ),
-        divider,
+        TextButton(
+          onPressed: onShowDetails,
+          style: style,
+          child: Semantics(
+            label: 'Subscription details',
+            excludeSemantics: true,
+            child: const Text('Details'),
+          ),
+        ),
         TextButton(
           onPressed: () => onOpenLegalUrl(pebbleTermsUrl),
           style: style,
-          child: const Text('Terms of Use'),
+          child: Semantics(
+            label: 'Terms of Use',
+            excludeSemantics: true,
+            child: const Text('Terms'),
+          ),
         ),
-        divider,
         TextButton(
           onPressed: () => onOpenLegalUrl(pebblePrivacyPolicyUrl),
           style: style,
-          child: const Text('Privacy Policy'),
+          child: Semantics(
+            label: 'Privacy Policy',
+            excludeSemantics: true,
+            child: const Text('Privacy'),
+          ),
         ),
       ],
     );
