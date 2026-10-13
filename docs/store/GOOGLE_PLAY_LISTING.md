@@ -101,73 +101,75 @@ Step-by-step routines for leaving home, bedtime and more. Add a photo to a step.
 
 <!-- limit:4000 id:play-full -->
 ```text
-Set up a routine once and run it whenever you need it. Pebble saves every check with the time you did it, and you can add a photo to any step.
+Pebble is a routine checklist app. Set up a routine once, tick each step as you go and see exactly when each check was done. Add a photo to any step if it helps.
 
-Leaving the house, bedtime, the school run, locking up the office: the same steps, in the same order, every time. Did I lock the door? Are the hair straighteners unplugged? Is the stove off? Open the routine, go through it, and the answer is saved.
+Did I lock the door? Is the hair straightener unplugged? Is the oven off? Open your routine and go through it one step at a time. Pebble saves the time of every check, so the answer is there later.
+
+Use it for leaving the house, your morning routine, a bedtime routine, the school run, a trip away or locking up at work.
 
 ROUTINES YOU REUSE
-• Build a routine in a minute, or start from a ready-made one and edit it.
-• Run it step by step. One clear screen per step, so the next check is always obvious.
-• Tick each step as you go. Skip one if it does not apply today.
+• Make a checklist in a minute or start from a ready-made routine.
+• Or describe a routine in your own words and Pebble's AI drafts the steps. You check and edit them.
+• Each step gets its own screen, so you always know what's next.
+• Skip a step when it doesn't apply today.
 
 A PHOTO WHEN IT HELPS
-• Add a photo to any step you like: the straighteners on their heat mat, the oven dials, the back door.
-• Take it in the moment, or choose one you already have.
+• Add a photo to any step. The straighteners on their mat. The oven dials. The back door.
+• Take one there and then or pick one from your gallery.
 • Photos are optional. Plenty of routines work fine without them.
 
-HISTORY TO LOOK BACK ON
-• Every run is saved with the date and time each step was checked.
-• Look back through your recent runs, with any photos alongside.
+SEE WHEN YOU CHECKED
+• Every run is saved with the date and time of each step.
+• Look back through recent runs with their photos.
 • Run a routine again with one tap from Home.
 
-READY-MADE ROUTINES YOU CAN EDIT
-• Everyday departure check: hair tools, stove and oven, toaster, sink, heaters, windows and doors
+READY-MADE ROUTINES TO EDIT
+• Leaving the house: hair tools, oven, toaster, taps, heaters, windows and doors
 • Bedtime house check
-• Car lock and parking check
+• Car lock check
 • Hotel checkout sweep
 • Big trip home shutdown
-• School morning run, gym bag, morning pet routine, office switch-off and more
+• School morning, gym bag, pet care, office lock-up and more
 
 MAKE IT YOURS
-• Themes and colours, including a calm dark mode and accessibility themes
-• Reminders: a notification at the time you usually start
-• Home-screen widget: start a routine with one tap
-• Voice prompts: record a short note in your own voice for any step (Premium)
-• Save a copy to Photos: keep a photo from Pebble in your own gallery
+• Themes and colours with a calm dark mode and accessibility themes
+• Reminders at the time you usually start
+• A home screen widget that starts a routine in one tap
+• Voice prompts recorded in your own voice (Premium)
+• Save any Pebble photo to your gallery
 
 PRIVATE BY DEFAULT
-• Works without an account. No sign-up needed to start.
-• Your routines, history and photos are stored on this device.
-• No ads. Pebble does not sell your data.
-• Pebble keeps 21 days of photos and history on this device, then deletes its own copies. The free plan shows the last 48 hours. Pebble never deletes anything from your camera roll.
-• Cloud backup only starts if you have Premium, sign in, and choose to turn it on.
+• No account needed to start.
+• Your routines, history and photos stay on your phone.
+• No ads. Pebble never sells your data.
+• Pebble keeps 21 days of photos and history, then deletes its own copies. It never deletes anything from your camera roll.
+• Cloud backup stays off unless you have Premium, sign in and choose to turn it on.
 
-FREE
-• 2 routines, up to 10 steps each
+EVERYONE GETS
+• 2 routines with up to 10 steps each
 • 1 photo per step
-• 48 hours of recent history
-• Reminders, ready-made routines and the home-screen widget
+• The last 48 hours of history
+• Reminders, ready-made routines and the widget
 
 PERSONAL PREMIUM (MONTHLY OR YEARLY)
 • Unlimited routines and steps
 • Up to 4 photos per step
 • The full 21 days of history
-• Voice prompts on any step
-• Extra themes
+• Voice prompts and extra themes
 • Optional cloud backup and account recovery (needs sign-in and your consent)
-• Completion emails: Pebble can email one contact when a routine is done. They accept first, and can stop the emails at any time. Each email shows the steps and when they were checked. Photos are never emailed.
+• Completion emails. Pebble can email one person when a routine is done. They accept first and can stop the emails at any time. Each email lists the steps, when they were checked and any notes you added. Photos are never emailed.
 
-Premium renews automatically until you cancel in Google Play. Pebble keeps working on the free plan without it.
+Premium renews until you cancel in Google Play. Pebble keeps working without it.
 
-WHAT PEBBLE IS, AND IS NOT
-Pebble is a routine and checklist app. It is not a medical app or treatment, a home security system, or an emergency service, and photos in Pebble are not legal evidence. If checking is taking up a lot of your day, a doctor or other qualified professional can help.
+WHAT PEBBLE IS AND ISN'T
+Pebble is a routine and checklist app. It is not a medical treatment, a home security system or an emergency service. Photos in Pebble are not legal evidence. If checking is taking over your day, a doctor or other qualified professional can help.
 
 Privacy policy: https://pebbleroutines.com/privacy
 Support: support@pebbleroutines.com
 ```
 
 Optional neutral line, only if you decide you want "peace of mind" indexed. Put
-it after the paragraph that starts "Leaving the house, bedtime...":
+it after the paragraph that starts "Did I lock the door?":
 
 ```text
 Some people call it peace of mind. Pebble calls it a checklist with the time on it.
@@ -250,61 +252,58 @@ policy states Pebble is not directed at children under 13.
 | Photo and video permissions | No declaration needed | The app does not request `READ_MEDIA_IMAGES` or `READ_MEDIA_VIDEO`. Choosing a photo uses the system picker. |
 | Foreground service, exact alarm, full-screen intent | Not used | `SCHEDULE_EXACT_ALARM` was removed; reminders are inexact |
 
-## Screenshot captions (6)
+## Screenshot captions (7)
 
-Phone screenshots, portrait, 1080 x 1920. Each one has a large serif headline
-with one word in italic clay, a one-line subline, a growing cairn at the top
-(one pebble per screenshot) and the real app screen in a phone frame below.
-The cream background carries soft ripples that run across all six, so the row
-reads as one picture in the store. Draft set:
-`/mnt/project-files/marketing/screenshots-v2/` in the project (re-render from
-the screenshot harness with sample data once the theme work settles).
+Phone screenshots, portrait, 1080 x 1920, v3 set (approved 8 October 2026):
+forest green background (#2C4434, the icon colour) with sage ripples, a
+two-line cream serif headline with no highlighted word, a one-line subline and
+the real app screen in a phone frame. Files and `make.py`:
+`/mnt/project-files/marketing/screenshots-v3/` in the project.
 
-Keep captions to one short line. Avoid "safe", "proof you", "never forget".
-Do not show AI photo descriptions.
+Keep captions to one short line. Avoid "safe", "proof you", "never forget",
+"free" or prices. Do not show AI photo descriptions.
 
 <!-- limit:40 id:play-shot-1 -->
 ```text
 Routines you reuse
 ```
-Subline: "Set it up once. Run it every day." Screen: Home with the last check
-("Checked 7:13 PM, Leaving the house, all 5 steps") and the Earlier rows.
+Subline: "Set it up once. Run it every day." Screen: Home with the last check and the Earlier rows.
 
 <!-- limit:40 id:play-shot-2 -->
 ```text
 One check at a time
 ```
-Subline: "Each step is saved as you go." Screen: routine player mid-run, with
-the ticked steps and their times enlarged.
+Subline: "Each step is saved as you go." Screen: routine player mid-run, ticked steps and their times enlarged.
 
 <!-- limit:40 id:play-shot-3 -->
 ```text
 See when you checked
 ```
-Subline: "Every routine, with the time it was done." Screen: History timeline
-with several runs across the day.
+Subline: "Every routine, with the time it was done." Screen: History with several runs across the day.
 
 <!-- limit:40 id:play-shot-4 -->
 ```text
 A photo when it helps
 ```
-Subline: "Add one to any step you like." Screen: Everyday departure check
-details, with the "Hair tools" photo step enlarged. Use a sample photo of
-straighteners on a heat mat.
+Subline: "Add one to any step you like." Screen: a photo step (sample photo of straighteners on a heat mat).
 
 <!-- limit:40 id:play-shot-5 -->
 ```text
-All checked
+All done. All saved.
 ```
-Subline: "Small steps, big ripples." Screen: the completion screen with the
-cairn and the time.
+Subline: "Small steps, big ripples." Screen: the completion screen with the cairn and the time.
 
 <!-- limit:40 id:play-shot-6 -->
 ```text
 Make it yours
 ```
-Subline: "Themes, colours and a calm dark mode." Screen: three Home screens in
-different themes, fanned.
+Subline: "Themes, colours and a calm dark mode." Screen: Home in different themes.
+
+<!-- limit:40 id:play-shot-7 -->
+```text
+No sign-up. No ads.
+```
+Subline: "Open Pebble and start your first routine." Screen: Home ready for a first routine.
 
 Later, if there is enough store traffic for a store listing experiment, test a
 reminder or widget screenshot in place of number 5.
