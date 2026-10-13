@@ -3,7 +3,6 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:pebble_routines/features/settings/ui/appearance_screen.dart';
-import 'package:pebble_routines/features/routines/creator/ui/routine_creation_choice_sheet.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pebble_routines/features/ai_photo/ai_photo_constants.dart';
 import 'package:pebble_routines/core/theme/pebble_fonts.dart';
@@ -74,7 +73,7 @@ class RoutineListScreen extends ConsumerStatefulWidget {
 
 class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
   static const double _routineRowHeight = 64;
-  static const double _bottomNavHeight = 60;
+  static const double _bottomNavHeight = 64;
 
   final ScrollController _homeScrollController = ScrollController();
 
@@ -435,19 +434,6 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                     padding: EdgeInsets.symmetric(horizontal: gutter),
                     sliver: SliverList.list(
                       children: [
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Padding(
-                            padding: const EdgeInsets.only(bottom: 14),
-                            child: PebbleButton.compact(
-                              key: const ValueKey('home_new_routine'),
-                              icon: LucideIcons.plus,
-                              label: 'New routine',
-                              onPressed: () =>
-                                  openRoutineCreationChoice(context, ref),
-                            ),
-                          ),
-                        ),
                         // The hero routine's own saved run shows as Resume
                         // in the hero; the card is for another routine's.
                         if (resumeSession != null &&
