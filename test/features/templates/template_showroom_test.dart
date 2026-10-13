@@ -176,8 +176,8 @@ void main() {
       expect(find.text('WORK AND AWAY'), findsOneWidget);
       expect(find.text('Everyday departure check'), findsOneWidget);
       expect(find.text('5 checks'), findsNothing);
-      expect(find.text('5 steps'), findsNWidgets(3));
-      expect(find.text('1 photo check'), findsOneWidget);
+      expect(find.text('5 steps'), findsNWidgets(2));
+      expect(find.text('5 steps · 1 photo check'), findsOneWidget);
       expect(find.text('Featured'), findsNothing);
       expect(find.textContaining('Search'), findsNothing);
       expect(find.textContaining('Preview first'), findsNothing);
