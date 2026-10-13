@@ -183,7 +183,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                   color: context.onActionAccent,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 1),
               Text(
                 'New',
                 style: TextStyle(
