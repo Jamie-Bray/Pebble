@@ -147,7 +147,15 @@ class _TemplateGroup extends StatelessWidget {
             accent: accent,
             fromOnboarding: fromOnboarding,
           ),
-          if (index != templates.length - 1) const SizedBox(height: 8),
+          if (index != templates.length - 1)
+            Divider(
+              height: 2,
+              thickness: 2,
+              color: Color.alphaBlend(
+                accent.withValues(alpha: 0.30),
+                _templateTokensFor(context).templatesBorder,
+              ),
+            ),
         ],
       ],
     );
@@ -212,16 +220,14 @@ class _TemplateCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final tokens = _templateTokensFor(context);
-    final foundation = context.darkFoundation;
 
     return Semantics(
       button: true,
       label: 'Open ${template.title}',
       child: Material(
-        color: tokens.templatesSurfaceRaised,
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           splashColor: accent.withValues(alpha: 0.08),
           highlightColor: accent.withValues(alpha: 0.05),
           onTap: () => context.push(
@@ -229,30 +235,10 @@ class _TemplateCard extends StatelessWidget {
           ),
           child: Container(
             constraints: const BoxConstraints(minHeight: 96),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: tokens.templatesBorder),
-              boxShadow: <BoxShadow>[
-                BoxShadow(
-                  color: foundation.shadowSoft,
-                  blurRadius: 18,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
+            padding: const EdgeInsets.symmetric(vertical: 10),
             child: Row(
               children: <Widget>[
-                Container(
-                  width: 3,
-                  height: 96,
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.82),
-                    borderRadius: const BorderRadius.horizontal(
-                      left: Radius.circular(16),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 13),
+                const SizedBox(width: 4),
                 _TemplateIconAnchor(
                   icon: _iconForTemplate(template),
                   accent: accent,
@@ -285,9 +271,16 @@ class _TemplateCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        _TemplateCardChipRow(
-                          stepCount: template.stepCount,
-                          photoRequiredCount: template.photoRequiredCount,
+                        Text(
+                          template.photoRequiredCount > 0
+                              ? '${template.stepCount} steps · '
+                                    '${template.photoRequiredCount} photo '
+                                    'check${template.photoRequiredCount == 1 ? '' : 's'}'
+                              : '${template.stepCount} steps',
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: tokens.templatesTextSecondary,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ],
                     ),
@@ -302,83 +295,6 @@ class _TemplateCard extends StatelessWidget {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TemplateCardChipRow extends StatelessWidget {
-  const _TemplateCardChipRow({
-    required this.stepCount,
-    required this.photoRequiredCount,
-  });
-
-  final int stepCount;
-  final int photoRequiredCount;
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 6,
-      runSpacing: 6,
-      children: <Widget>[
-        _TemplateCardChip(
-          icon: LucideIcons.listChecks,
-          label: '$stepCount steps',
-        ),
-        if (photoRequiredCount > 0)
-          _TemplateCardChip(
-            icon: LucideIcons.camera,
-            label:
-                '$photoRequiredCount photo check${photoRequiredCount == 1 ? '' : 's'}',
-            emphasized: true,
-          ),
-      ],
-    );
-  }
-}
-
-class _TemplateCardChip extends StatelessWidget {
-  const _TemplateCardChip({
-    required this.icon,
-    required this.label,
-    this.emphasized = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool emphasized;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final tokens = _templateTokensFor(context);
-    final color = emphasized
-        ? Theme.of(context).colorScheme.primary
-        : tokens.templatesTextSecondary;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: emphasized ? 0.12 : 0.08),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.14)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Icon(icon, size: 12, color: color.withValues(alpha: 0.88)),
-            const SizedBox(width: 5),
-            Text(
-              label,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: color.withValues(alpha: 0.88),
-                fontWeight: FontWeight.w800,
-                height: 1,
-              ),
-            ),
-          ],
         ),
       ),
     );

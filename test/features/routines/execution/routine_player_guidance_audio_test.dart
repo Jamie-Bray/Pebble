@@ -207,7 +207,7 @@ void main() {
     // A small Listen icon in the step's tool row, beside Note. No card.
     expect(find.byKey(const ValueKey('player-listen')), findsOneWidget);
     expect(find.text('Listen'), findsOneWidget);
-    expect(find.text('Note'), findsOneWidget);
+    expect(find.text('Add note'), findsOneWidget);
     expect(find.text('Voice tip'), findsNothing);
   });
 
@@ -231,7 +231,7 @@ void main() {
     expect(find.text('Listen'), findsNothing);
     expect(find.byKey(const ValueKey('player-listen')), findsNothing);
     // Nothing locked or greyed out either: just the Note icon.
-    expect(find.text('Note'), findsOneWidget);
+    expect(find.text('Add note'), findsOneWidget);
     expect(find.textContaining('Premium'), findsNothing);
   });
 
@@ -266,7 +266,7 @@ void main() {
       'Moved them onto the kitchen table',
     );
     expect(find.text('Moved them onto the kitchen table'), findsOneWidget);
-    expect(find.text('Note added'), findsOneWidget);
+    expect(find.text('Edit note'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Finish routine'), findsOneWidget);
 
     // Tapping the note line edits it; clearing it removes the note.
@@ -283,7 +283,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('player-note-save')));
     await tester.pumpAndSettle();
     expect(repository.session?.stepStates.single.note, isNull);
-    expect(find.text('Note'), findsOneWidget);
+    expect(find.text('Add note'), findsOneWidget);
     expect(find.byKey(const ValueKey('player-note-line')), findsNothing);
   });
 
@@ -389,14 +389,14 @@ void main() {
     expect(find.byType(Dialog), findsNothing);
     expect(find.text('Show less'), findsOneWidget);
     expect(find.text('Listen'), findsNothing);
-    expect(find.text('Note'), findsNothing);
+    expect(find.text('Add note'), findsNothing);
     expect(find.widgetWithText(FilledButton, 'Finish routine'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('routine-step-read-more')));
     await tester.pumpAndSettle();
     expect(find.text('Read more'), findsOneWidget);
     expect(find.text('Listen'), findsOneWidget);
-    expect(find.text('Note'), findsOneWidget);
+    expect(find.text('Add note'), findsOneWidget);
   });
 
   testWidgets('guidance audio does not block completion', (tester) async {
@@ -1074,7 +1074,7 @@ void main() {
     );
 
     expect(find.text('Listen'), findsOneWidget);
-    expect(find.text('Note'), findsOneWidget);
+    expect(find.text('Add note'), findsOneWidget);
     expect(find.byKey(const ValueKey('proof-strip-2')), findsOneWidget);
     expect(find.byKey(const ValueKey('proof-add-tile')), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Complete step'), findsOneWidget);
