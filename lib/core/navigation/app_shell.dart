@@ -13,6 +13,7 @@ import 'package:pebble_routines/core/ui/background_pattern.dart';
 import 'package:pebble_routines/core/ui/readable_colors.dart';
 import 'package:pebble_routines/features/settings/data/wallpaper_provider.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:pebble_routines/features/routines/creator/ui/routine_creation_choice_sheet.dart';
 
 final navIndexProvider = StateProvider<int>((ref) => 0);
 
@@ -96,7 +97,7 @@ class _AppShellState extends ConsumerState<AppShell> {
 
     // The bar's background runs under the iPhone home indicator; only its
     // contents sit inside the safe area. Labels grow with text size up to
-    // 1.3x, which is as much as a 60pt bar can hold.
+    // 1.3x, which is as much as a 64pt bar can hold.
     return ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
@@ -118,8 +119,8 @@ class _AppShellState extends ConsumerState<AppShell> {
               maxScaleFactor: 1.3,
               child: Container(
                 key: const ValueKey('app_shell_bottom_bar'),
-                height: 60,
-                padding: const EdgeInsets.fromLTRB(34, 5, 34, 5),
+                height: 64,
+                padding: const EdgeInsets.fromLTRB(24, 5, 24, 5),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
@@ -133,6 +134,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                         ref.read(navIndexProvider.notifier).state = 0;
                       },
                     ),
+                    _buildNewItem(),
                     _buildNavItem(
                       icon: selectedIndex == 1
                           ? LucideIcons.history
@@ -147,6 +149,50 @@ class _AppShellState extends ConsumerState<AppShell> {
                 ),
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// "New" sits in line with Home and History, a full member of the bar.
+  Widget _buildNewItem() {
+    final action = context.actionAccent;
+    return Semantics(
+      button: true,
+      label: 'New routine',
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: () => openRoutineCreationChoice(context, ref),
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          width: 68,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 38,
+                height: 25,
+                decoration: BoxDecoration(
+                  color: action,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  LucideIcons.plus,
+                  size: 18,
+                  color: context.onActionAccent,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'New',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w400,
+                  color: context.readableSecondaryText,
+                ),
+              ),
+            ],
           ),
         ),
       ),

@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:pebble_routines/features/routines/creator/ui/routine_creation_choice_sheet.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -167,7 +166,6 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
         _HistoryHeader(
           subtitle: _historySubtitle(count: count),
           storedOnPhone: storedOnPhone,
-          onNewRoutine: () => openRoutineCreationChoice(context, ref),
           isSearchVisible: isSearchVisible,
           onSearchTap: () {
             ref.read(isSearchVisibleProvider.notifier).state = !isSearchVisible;
@@ -876,14 +874,12 @@ class _HistoryHeader extends StatelessWidget {
   const _HistoryHeader({
     required this.subtitle,
     required this.storedOnPhone,
-    required this.onNewRoutine,
     required this.isSearchVisible,
     required this.onSearchTap,
   });
 
   final String subtitle;
   final bool storedOnPhone;
-  final VoidCallback onNewRoutine;
   final bool isSearchVisible;
   final VoidCallback onSearchTap;
 
@@ -912,16 +908,6 @@ class _HistoryHeader extends StatelessWidget {
                       fontWeight: FontWeight.w400,
                       color: foundation.textPrimary,
                     ),
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'New routine',
-                  visualDensity: VisualDensity.compact,
-                  onPressed: onNewRoutine,
-                  icon: Icon(
-                    LucideIcons.plus,
-                    color: foundation.textSecondary,
-                    size: 20,
                   ),
                 ),
                 IconButton(
