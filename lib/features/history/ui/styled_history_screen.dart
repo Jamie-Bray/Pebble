@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:pebble_routines/features/routines/creator/ui/routine_creation_choice_sheet.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -25,7 +26,6 @@ import 'package:pebble_routines/features/routines/execution/data/services/routin
 import 'package:pebble_routines/features/subscription/providers/premium_feature_policy_provider.dart';
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
-import 'package:pebble_routines/core/theme/routine_palette.dart';
 import 'package:pebble_routines/core/ui/zen_error_view.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/ui/pebble_time.dart';
@@ -127,6 +127,10 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
                     ref,
                     isSearchVisible,
                     filtered.length,
+                    storedOnPhone: filtered.any(
+                      (run) =>
+                          _syncStateForRun(run) == _HistorySyncState.localOnly,
+                    ),
                   ),
 
                   Expanded(
@@ -154,13 +158,16 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
     BuildContext context,
     WidgetRef ref,
     bool isSearchVisible,
-    int count,
-  ) {
+    int count, {
+    required bool storedOnPhone,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _HistoryHeader(
           subtitle: _historySubtitle(count: count),
+          storedOnPhone: storedOnPhone,
+          onNewRoutine: () => openRoutineCreationChoice(context, ref),
           isSearchVisible: isSearchVisible,
           onSearchTap: () {
             ref.read(isSearchVisibleProvider.notifier).state = !isSearchVisible;
@@ -265,7 +272,7 @@ class _StyledHistoryScreenState extends ConsumerState<StyledHistoryScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _HistoryDateLabel(title: _sectionLabel(section)),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 4),
                   ...runsInSection.map(
                     (run) => _HistoryCard(
                       run: run,
@@ -868,11 +875,15 @@ class _SlimSearchField extends StatelessWidget {
 class _HistoryHeader extends StatelessWidget {
   const _HistoryHeader({
     required this.subtitle,
+    required this.storedOnPhone,
+    required this.onNewRoutine,
     required this.isSearchVisible,
     required this.onSearchTap,
   });
 
   final String subtitle;
+  final bool storedOnPhone;
+  final VoidCallback onNewRoutine;
   final bool isSearchVisible;
   final VoidCallback onSearchTap;
 
@@ -904,6 +915,16 @@ class _HistoryHeader extends StatelessWidget {
                   ),
                 ),
                 IconButton(
+                  tooltip: 'New routine',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: onNewRoutine,
+                  icon: Icon(
+                    LucideIcons.plus,
+                    color: foundation.textSecondary,
+                    size: 20,
+                  ),
+                ),
+                IconButton(
                   tooltip: isSearchVisible ? 'Close search' : 'Search',
                   visualDensity: VisualDensity.compact,
                   onPressed: onSearchTap,
@@ -917,7 +938,7 @@ class _HistoryHeader extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(
-              subtitle,
+              storedOnPhone ? '$subtitle · Stored on this phone' : subtitle,
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w300,
@@ -1024,129 +1045,79 @@ class _HistoryCard extends StatelessWidget {
     final r = routine;
     final foundation = context.darkFoundation;
 
-    final syncState = showSyncState ? _syncStateForRun(run) : null;
+    final rowSync = showSyncState ? _syncStateForRun(run) : null;
+    // "Stored on this phone" is said once in the header, not on every row.
+    final syncState = rowSync == _HistorySyncState.localOnly ? null : rowSync;
     final title = run.routineTitle.trim().isEmpty
         ? 'Deleted routine'
         : run.routineTitle.trim();
     final tally = RunStepTally.fromRun(run);
     final stepCount = tally.total;
     final completedStepCount = tally.done;
-    final isComplete = tally.isComplete;
-    // The routine's own colour, so runs of different routines are told apart
-    // at a glance.
-    final accent =
-        context.routineAccent(r?.colorHex) ??
-        Theme.of(context).colorScheme.primary;
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Dismissible(
-        key: ValueKey('history-run-${run.id}'),
-        direction: DismissDirection.endToStart,
-        confirmDismiss: (_) => onDismiss(),
-        background: const _HistoryDismissBackground(),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => RoutineRunDetailScreen(run: run),
-              ),
-            );
-          },
-          onLongPress: onManage,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                color: foundation.surfaceLow,
-                border: Border.all(color: foundation.borderSubtle),
-              ),
-              child: Stack(
-                children: [
-                  Positioned(
-                    left: 0,
-                    top: 16,
-                    bottom: 16,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      width: 3,
-                      decoration: BoxDecoration(
-                        color: accent.withValues(
-                          alpha: isComplete ? 0.62 : 0.26,
-                        ),
-                        borderRadius: const BorderRadius.horizontal(
-                          right: Radius.circular(2),
+    return Dismissible(
+      key: ValueKey('history-run-${run.id}'),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (_) => onDismiss(),
+      background: const _HistoryDismissBackground(),
+      child: InkWell(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => RoutineRunDetailScreen(run: run)),
+          );
+        },
+        onLongPress: onManage,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: foundation.borderSubtle)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _HistoryRunTimeBlock(time: run.finishedAt, showDate: showDate),
+                const SizedBox(width: 18),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: -0.1,
+                          height: 1.18,
+                          color: foundation.textPrimary,
                         ),
                       ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 18, 14, 18),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        _HistoryRunTimeBlock(
-                          time: run.finishedAt,
-                          showDate: showDate,
-                        ),
-                        Container(
-                          width: 1,
-                          height: 36,
-                          margin: const EdgeInsets.symmetric(horizontal: 18),
-                          color: foundation.borderSubtle,
-                        ),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                  letterSpacing: -0.1,
-                                  height: 1.18,
-                                  color: foundation.textPrimary,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              _HistoryRunBadges(
-                                run: run,
-                                proofStorage: proofStorage,
-                                syncState: syncState,
-                                completedSteps: completedStepCount,
-                                totalSteps: stepCount,
-                                skippedSteps: tally.skipped,
-                              ),
-                              if (r == null) ...[
-                                const SizedBox(height: 5),
-                                Text(
-                                  'Routine deleted',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                    color: context.readableSecondaryText,
-                                  ),
-                                ),
-                              ],
-                            ],
+                      const SizedBox(height: 6),
+                      _HistoryRunBadges(
+                        run: run,
+                        proofStorage: proofStorage,
+                        syncState: syncState,
+                        completedSteps: completedStepCount,
+                        totalSteps: stepCount,
+                        skippedSteps: tally.skipped,
+                      ),
+                      if (r == null) ...[
+                        const SizedBox(height: 5),
+                        Text(
+                          'Routine deleted',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: context.readableSecondaryText,
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        Icon(
-                          LucideIcons.chevronRight,
-                          size: 16,
-                          color: foundation.textPrimary.withValues(alpha: 0.18),
-                        ),
                       ],
-                    ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),

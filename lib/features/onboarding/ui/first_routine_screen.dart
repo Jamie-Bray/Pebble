@@ -84,20 +84,20 @@ class FirstRoutineScreen extends ConsumerWidget {
                         const SizedBox(height: 10),
                       ],
                       _FirstRoutineChoice(
-                        icon: LucideIcons.layoutTemplate,
-                        title: 'Pick a template',
-                        subtitle: 'Ready-made checklists you can change.',
-                        accent: cs.secondary,
-                        onTap: () => GoRouter.of(context).push('/templates'),
-                      ),
-                      const SizedBox(height: 10),
-                      _FirstRoutineChoice(
                         icon: LucideIcons.plus,
                         title: 'Start from scratch',
                         subtitle: 'Name it and add your own steps.',
                         accent: cs.secondary,
                         onTap: () =>
                             GoRouter.of(context).push('/creator?fresh=1'),
+                      ),
+                      const SizedBox(height: 10),
+                      _FirstRoutineChoice(
+                        icon: LucideIcons.layoutTemplate,
+                        title: 'Pick a template',
+                        subtitle: 'Ready-made checklists you can change.',
+                        accent: cs.secondary,
+                        onTap: () => GoRouter.of(context).push('/templates'),
                       ),
                     ],
                   ),
