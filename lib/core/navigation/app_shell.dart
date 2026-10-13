@@ -96,7 +96,7 @@ class _AppShellState extends ConsumerState<AppShell> {
 
     // The bar's background runs under the iPhone home indicator; only its
     // contents sit inside the safe area. Labels grow with text size up to
-    // 1.3x, which is as much as a 70pt bar can hold.
+    // 1.3x, which is as much as a 60pt bar can hold.
     return ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
@@ -118,8 +118,8 @@ class _AppShellState extends ConsumerState<AppShell> {
               maxScaleFactor: 1.3,
               child: Container(
                 key: const ValueKey('app_shell_bottom_bar'),
-                height: 70,
-                padding: const EdgeInsets.fromLTRB(34, 7, 34, 7),
+                height: 60,
+                padding: const EdgeInsets.fromLTRB(34, 5, 34, 5),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
