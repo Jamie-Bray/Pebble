@@ -1219,6 +1219,14 @@ List<Override> _homeOverrides({
     routineListProvider.overrideWith((ref) => Stream.value(routines)),
     routineRepositoryProvider.overrideWithValue(repository),
     storedRoutineRunsProvider.overrideWith((ref) => Stream.value(runs)),
+    // History filtering must use the same fixed date as the Home screen.
+    if (clock != null)
+      routineHistoryVmProvider.overrideWith((ref) {
+        final window = ref.watch(accountHistoryRetentionProvider);
+        return ref
+            .watch(storedRoutineRunsProvider)
+            .whenData((runs) => visibleHistoryRuns(runs, window, now: clock()));
+      }),
     if (historyWindow != null)
       accountHistoryRetentionProvider.overrideWithValue(historyWindow),
     activeRoutineSessionsProvider.overrideWith(

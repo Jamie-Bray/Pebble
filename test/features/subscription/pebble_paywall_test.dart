@@ -11,6 +11,39 @@ import 'package:pebble_routines/features/subscription/providers/cloud_backup_con
 import 'package:pebble_routines/features/subscription/ui/pebble_paywall.dart';
 
 void main() {
+  testWidgets('UK launch prices match cards, CTA and renewal disclosure', (
+    tester,
+  ) async {
+    await _pumpPaywall(
+      tester,
+      overrides: [
+        purchaseRepositoryProvider.overrideWith(
+          (ref) => _PlanPurchaseRepository([
+            _premiumProduct(
+              plan: BillingPlan.monthly,
+              price: '£1.79',
+              offerToken: 'monthly-token',
+            ),
+            _premiumProduct(
+              plan: BillingPlan.yearly,
+              price: '£14.99',
+              offerToken: 'yearly-token',
+            ),
+          ]),
+        ),
+      ],
+    );
+
+    expect(find.text('£1.79'), findsOneWidget);
+    expect(find.text('£14.99'), findsOneWidget);
+    expect(find.text('per year, £1.25/month'), findsOneWidget);
+    expect(find.text('Continue with £14.99/year'), findsOneWidget);
+    expect(
+      find.textContaining('Personal Premium Annual: £14.99 per year.'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('small labels are readable and footer links are 44 high', (
     tester,
   ) async {

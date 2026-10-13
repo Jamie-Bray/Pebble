@@ -1,5 +1,10 @@
 # Pebble Routines: Market, Competitor and Pricing Report
 
+> **Current owner decision, 10 October 2026:** Personal Premium will launch at
+> **£1.79 monthly / £14.99 yearly** in the UK. This supersedes the pricing
+> recommendations and earlier decisions below, which remain as dated research.
+> Store changes and verification are tracked in `REVENUECAT_BILLING_SETUP.md`.
+
 Last updated: 4 October 2026 (version 2: competitor data now taken directly
 from the App Store and Google Play)
 For: the owner. Written in plain English. No code changes come with this report.
