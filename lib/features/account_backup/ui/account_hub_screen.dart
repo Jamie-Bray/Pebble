@@ -839,11 +839,16 @@ class _AccountLimitGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
       children: [
         for (var index = 0; index < limits.length; index++) ...[
-          Expanded(child: _AccountLimitTile(limit: limits[index])),
-          if (index != limits.length - 1) const SizedBox(width: 8),
+          if (index != 0)
+            Divider(
+              height: 1,
+              color: colorScheme.outline.withValues(alpha: 0.16),
+            ),
+          _AccountLimitTile(limit: limits[index]),
         ],
       ],
     );
@@ -858,46 +863,32 @@ class _AccountLimitTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.10)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-        child: Column(
-          children: [
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                limit.value,
-                maxLines: 1,
-                style: PebbleFonts.serif(
-                  color: colorScheme.onSurface,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w400,
-                  letterSpacing: 0,
-                  height: 1,
-                ),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
               limit.label,
-              maxLines: 2,
-              textAlign: TextAlign.center,
-              overflow: TextOverflow.ellipsis,
               style: PebbleFonts.sans(
-                color: colorScheme.onSurface.withValues(alpha: 0.56),
-                fontSize: 11,
+                color: colorScheme.onSurface.withValues(alpha: 0.72),
+                fontSize: 14,
                 fontWeight: FontWeight.w500,
                 letterSpacing: 0,
-                height: 1.15,
               ),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            limit.value,
+            style: PebbleFonts.sans(
+              color: colorScheme.onSurface,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0,
+            ),
+          ),
+        ],
       ),
     );
   }
