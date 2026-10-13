@@ -714,7 +714,7 @@ class _RoutinePlayerScreenState extends ConsumerState<RoutinePlayerScreen>
               PlayerToolButton(
                 key: const ValueKey('player-note-tool'),
                 icon: LucideIcons.pencilLine,
-                label: note == null ? 'Note' : 'Note added',
+                label: note == null ? 'Add note' : 'Edit note',
                 semanticLabel: note == null ? 'Add a note' : 'Edit your note',
                 filled: note != null,
                 onTap: readyPhase ? _openNoteComposer : null,
