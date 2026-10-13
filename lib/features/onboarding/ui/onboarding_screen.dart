@@ -19,7 +19,7 @@ import 'package:pebble_routines/features/routine_ai/routine_ai_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pebble_routines/features/settings/data/player_settings_controller.dart';
 
-const _defaultOnboardingThemeId = ThemeId.highNoon;
+const _defaultOnboardingThemeId = defaultThemeId;
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({
@@ -502,7 +502,7 @@ class _WelcomeActions extends StatelessWidget {
 }
 
 /// The optional "See what Pebble can do" explainer, reached from the welcome
-/// step. It is pinned to the High Noon onboarding theme on purpose: the theme
+/// step. It is pinned to the default onboarding theme on purpose: the theme
 /// picker comes immediately after, so this screen always shows the same warm
 /// light palette as the first onboarding page.
 class _PebblePossibilitiesScreen extends StatefulWidget {
@@ -565,7 +565,7 @@ class _PebblePossibilitiesScreenState extends State<_PebblePossibilitiesScreen>
   @override
   Widget build(BuildContext context) {
     return Theme(
-      data: AppTheme.fromId(ThemeId.highNoon),
+      data: AppTheme.fromId(defaultThemeId),
       child: Builder(
         builder: (context) {
           final foundation = context.darkFoundation;

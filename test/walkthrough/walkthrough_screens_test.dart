@@ -1218,6 +1218,56 @@ void _onboardingSet(
 }
 
 void main() {
+  for (final theme in [ThemeId.ivoryAndGold, ThemeId.inkAndGold]) {
+    for (final device in [_iphone, _small]) {
+      _capture(
+        'gold screens ${theme.name} ${device.id}',
+        theme: theme,
+        device: device,
+        account: _Account.signedInPremium,
+        (env) async {
+          final prefix = 'gold_${theme.name}';
+          await env.shot('${prefix}_home');
+          await env.tapFinder(find.byKey(const ValueKey('home_theme_toggle')));
+          await env.settle();
+          await env.shot('${prefix}_home_toggled');
+          await env.container.read(themeProvider.notifier).setColorTheme(theme);
+          await env.settle();
+          await _runLeavingHouseToHome(env);
+          await env.shot('${prefix}_complete');
+          await env.go('/');
+          await _openPlayer(env, 1);
+          await env.shot('${prefix}_player');
+          await env.go('/');
+          env.container.read(navIndexProvider.notifier).state = 1;
+          await env.settle();
+          await env.shot('${prefix}_history');
+          await env.push('/edit/2');
+          await env.shot('${prefix}_composer');
+          await env.go('/');
+          await env.push('/settings');
+          await env.scrollDown(600);
+          await env.tapText('Theme & colours');
+          await env.shot('${prefix}_appearance');
+          await env.go('/');
+          await env.push('/premium');
+          await env.shot('${prefix}_premium');
+        },
+      );
+    }
+    _capture(
+      'gold large text ${theme.name}',
+      theme: theme,
+      device: _small,
+      textScale: 2.0,
+      (env) async {
+        await env.shot('gold_${theme.name}_home_large_text');
+        await _openPlayer(env, 1);
+        await env.shot('gold_${theme.name}_player_large_text');
+      },
+    );
+  }
+
   // ---- Onboarding --------------------------------------------------------
   _onboardingSet('');
   _onboardingSet('', device: _small);
