@@ -212,6 +212,27 @@ Supporting copy:
 > include the routine name, completion time, and step count. Photos and checklist
 > details are not included.
 
+Where AI photo descriptions are offered, add: "If you use AI photo
+descriptions, you can choose to add them. Photos are never emailed."
+
+## AI Photo Descriptions
+
+Say what it does: it writes a sentence or two about what is in a photo. Never
+say it checks, confirms, verifies or makes sure of anything, and never use
+medication as the example. Every description is labelled "AI description".
+
+Use:
+
+- AI photo descriptions.
+- AI description.
+- "Couldn't describe this photo."
+- "AI descriptions are unavailable right now."
+
+The consent wording, the provider's name and the sentence about what the
+provider keeps live in lib/features/ai_photo/ai_photo_constants.dart and
+nowhere else. Changing any of them means a new consent version there and in
+supabase/functions/_shared/ai_photo.ts.
+
 ## Medical, Safety, And Compliance Guardrails
 
 Pebble must not sound like medical safety software, legal evidence storage,

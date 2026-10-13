@@ -6,6 +6,7 @@ import 'package:pebble_routines/core/config/legal_links.dart';
 import 'package:pebble_routines/core/theme/tokens.dart';
 import 'package:pebble_routines/core/ui/pebble_navigation.dart';
 import 'package:pebble_routines/core/ui/zen_notifications.dart';
+import 'package:pebble_routines/features/ai_photo/ai_photo_constants.dart';
 
 class LegalAboutScreen extends StatelessWidget {
   const LegalAboutScreen({super.key});
@@ -87,6 +88,12 @@ class LegalAboutScreen extends StatelessWidget {
                         title: 'Asking before backup',
                         body:
                             'Before backup uploads your routines, photos or voice tips, Pebble asks you to confirm that they may include sensitive details, such as information about your health or home.',
+                      ),
+                      _LegalSection(
+                        icon: LucideIcons.scanText,
+                        title: 'AI photo descriptions are optional',
+                        body:
+                            'They are off unless you turn them on for a routine. Then Pebble sends the photos from that routine\'s photo steps to $aiPhotoProviderName, $aiPhotoProviderDescription, to be described. $aiPhotoRetentionSentence',
                       ),
                       _LegalSection(
                         icon: LucideIcons.megaphoneOff,
