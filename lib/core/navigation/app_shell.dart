@@ -1,12 +1,11 @@
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pebble_routines/features/routines/list/ui/routine_list_screen.dart';
 import 'package:pebble_routines/features/history/providers/routine_history_vm.dart';
 import 'package:pebble_routines/features/history/ui/styled_history_screen.dart';
-import 'package:pebble_routines/core/ui/zen_components.dart';
-import 'package:pebble_routines/features/routines/creator/ui/routine_creation_choice_sheet.dart';
 import 'package:pebble_routines/features/routines/list/providers/routine_list_provider.dart';
 import 'package:pebble_routines/core/theme/theme_provider.dart';
 import 'package:pebble_routines/core/theme/colors.dart';
@@ -122,7 +121,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                 height: 70,
                 padding: const EdgeInsets.fromLTRB(34, 7, 34, 7),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     _buildNavItem(
                       icon: selectedIndex == 0
@@ -134,7 +133,6 @@ class _AppShellState extends ConsumerState<AppShell> {
                         ref.read(navIndexProvider.notifier).state = 0;
                       },
                     ),
-                    _buildCreateAnchor(),
                     _buildNavItem(
                       icon: selectedIndex == 1
                           ? LucideIcons.history
@@ -193,53 +191,6 @@ class _AppShellState extends ConsumerState<AppShell> {
                 ),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCreateAnchor() {
-    // The warm action accent: terracotta on Sandstone, and identical to the
-    // structural primary on every other theme.
-    final action = context.actionAccent;
-    return Semantics(
-      button: true,
-      label: 'Create routine',
-      child: ZenBounceButton(
-        onTap: () {
-          openRoutineCreationChoice(context, ref);
-        },
-        child: SizedBox(
-          width: 68,
-          child: Center(
-            child: Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    action,
-                    Color.lerp(action, Colors.black, 0.12) ?? action,
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: [
-                  BoxShadow(
-                    color: action.withValues(alpha: 0.28),
-                    blurRadius: 18,
-                    offset: const Offset(0, 7),
-                  ),
-                ],
-              ),
-              child: Icon(
-                LucideIcons.plus,
-                color: context.onActionAccent,
-                size: 26,
-              ),
-            ),
           ),
         ),
       ),

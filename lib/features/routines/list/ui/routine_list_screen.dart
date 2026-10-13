@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:pebble_routines/features/routines/creator/ui/routine_creation_choice_sheet.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pebble_routines/features/ai_photo/ai_photo_constants.dart';
 import 'package:pebble_routines/core/theme/pebble_fonts.dart';
@@ -444,9 +445,7 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                               resumeSession,
                               compact: mediaQuery.size.height < 720,
                             ),
-                          )
-                        else
-                          const _HomeLapseNotice(),
+                          ),
                         if (spotlightRoutine != null)
                           _HomeHeroStage(
                             routine: spotlightRoutine,
@@ -469,6 +468,8 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                             onStyle: () =>
                                 _openStyleSheet(spotlightRoutine, themeData),
                           ),
+                        // Below the main card, so the routine comes first.
+                        const _HomeLapseNotice(),
                         if (otherRoutines.isNotEmpty)
                           _buildRoutineListHeader(otherRoutines, latestRuns),
                       ],
@@ -660,6 +661,12 @@ class _RoutineListScreenState extends ConsumerState<RoutineListScreen> {
                   color: foundation.textPrimary,
                 ),
               ),
+            ),
+            PebbleGlassIconButton(
+              flat: true,
+              tooltip: 'New routine',
+              icon: LucideIcons.plus,
+              onPressed: () => openRoutineCreationChoice(context, ref),
             ),
             const HomeThemeButton(),
             PebbleGlassIconButton(
@@ -2166,7 +2173,7 @@ class _HomeLapseNotice extends ConsumerWidget {
       return const SizedBox.shrink();
     }
     return const Padding(
-      padding: EdgeInsets.only(bottom: 14),
+      padding: EdgeInsets.only(top: 14),
       child: PremiumLapseNoticeCard(),
     );
   }
