@@ -498,8 +498,9 @@ class _StepToneColors {
 
     return _StepToneColors(
       foreground: color,
-      background: color.withValues(alpha: 0.12),
-      border: color.withValues(alpha: 0.30),
+      // Same outlined shape as the off state; only the colour changes.
+      background: Colors.transparent,
+      border: color.withValues(alpha: 0.75),
     );
   }
 }
