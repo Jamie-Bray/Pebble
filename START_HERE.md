@@ -78,7 +78,7 @@ Jamie's answers, recorded so they are not lost between sessions.
 | Paywall headline | Keep the new **"Keep three weeks of checks."** The old "Never wonder twice." read as marketing spin. |
 | Tagline | Back to **"Small steps, big ripples"**. It is the reason the app is called Pebble and is not to be rewritten. |
 | Art direction | Apply all three mock-ups: completion screen with the large serif time, player step in the serif, onboarding with the cairn and "pebble." wordmark. |
-| Price | **£1.99 a month, £14.99 a year.** Store prices are still £0.89 / £6.49 and are changed in Play Console and App Store Connect (Jamie). |
+| Price | **£1.79 a month, £14.99 a year**, agreed 10 October 2026. The app displays prices supplied by the stores. Live prices have not been verified or updated; see `REVENUECAT_BILLING_SETUP.md` for the remaining store setup. |
 | Large text | Keep the 1.6x cap for launch. Idea for after launch: an in-app text size control with three sizes (normal, 1.6x, 2.0x), like the "A" sizes on a Kindle, accepting that long names get cut off at the largest size. |
 | Account-switch wording | Approved as written. It is a rare case but must be covered. |
 | AI photo steps | **Build before launch.** Personal Premium only, one routine, up to five AI photo steps. Switching it on shows a tick box confirming the user is happy for those photos to be processed by the named provider. The description is included in completion emails by default, with the choice offered when AI is switched on. Provider to be chosen from real-world evidence, then a test on Jamie's own photos. |

@@ -1,5 +1,10 @@
 # AI allowance pricing proposal — 5 October 2026
 
+> **Historical photo-feature proposal.** The current UK pricing decision is
+> **£1.79 monthly / £14.99 yearly** (10 October 2026), recorded in
+> `START_HERE.md`. The photo-feature allowances and proposed prices below are
+> not the current routine-generation offer.
+
 **Update, later on 5 October 2026:** Jamie chose **200 attempts per account per UTC
 month** on the single Personal Premium plan, with no Plus tier for now. Migration
 023, the server and the app copy use 200. Prices are still undecided; the app

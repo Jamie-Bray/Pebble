@@ -1,6 +1,38 @@
 # RevenueCat Billing Setup
 
-Last updated: May 22, 2026
+Last updated: 10 October 2026
+
+## Agreed UK launch prices
+
+Personal Premium is **£1.79 per month or £14.99 per year**, agreed on
+10 October 2026. The annual plan is about £1.25 per month, paid yearly,
+and saves 30% compared with twelve monthly payments (£21.48).
+
+The app reads the store's localised price through RevenueCat for the plan
+cards, purchase button and renewal disclosure. It calculates the annual
+monthly equivalent from that price. There is no fixed discount percentage
+in the app and no hard-coded GBP fallback when the store is unavailable.
+Changing a screenshot example or this document does not change billing.
+
+**Store setup remains pending.** Live prices were not verified in this sweep.
+Earlier launch notes recorded £0.89 / £6.49; those are historical observations,
+not confirmation of today's store configuration.
+
+Before release:
+
+1. In Google Play Console, set the UK prices for `personal_premium` base plans
+   `monthly` and `yearly` to £1.79 and £14.99 respectively.
+2. In App Store Connect, set the matching UK monthly and annual subscriptions
+   to the same prices. Review existing subscriber treatment separately rather
+   than automatically moving existing subscribers to a higher price.
+3. Confirm RevenueCat's current offering maps to those products. Keep other
+   regions' localised prices supplied by their stores; GBP is the UK price.
+4. On Android and iOS, check both plan cards, the £1.25/month annual equivalent,
+   the purchase button and renewal disclosure. Open each native purchase sheet
+   and verify its price and billing period match, then cancel the test checkout.
+
+The screenshot harness uses the agreed UK prices. Paywall tests cover both
+these prices and other store-provided currencies.
 
 Pebble now uses RevenueCat for store purchases on Android and iOS. Supabase
 remains the backend source of truth for cloud-backup permissions, retention, and
